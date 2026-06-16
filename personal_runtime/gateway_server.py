@@ -2,6 +2,7 @@
 
 import json
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import websockets
 
@@ -9,12 +10,24 @@ from personal_runtime.action_layer import build_notification_action
 from personal_runtime.agent_executor import generate_reply
 from personal_runtime.presence_router import choose_response_device
 from personal_runtime.runtime_state import RuntimeState
+from personal_runtime.state_store import JsonStateStore
 
 
 class RuntimeGateway:
-    def __init__(self, shared_token: str) -> None:
+    def __init__(
+        self,
+        shared_token: str,
+        state_path: Path | None = None,
+        state: RuntimeState | None = None,
+    ) -> None:
         self.shared_token = shared_token
-        self.state = RuntimeState()
+        self.state_store = JsonStateStore(
+            state_path or Path(".runtime/state.json")
+        )
+        self.state = state or self.state_store.load()
+
+    def _persist_state(self) -> None:
+        self.state_store.save(self.state)
 
     def _handle_frames_sync(self, frames: list[dict]) -> list[dict]:
         replies = []
@@ -27,17 +40,22 @@ class RuntimeGateway:
                     frame["device"]["device_id"],
                     frame["device"]["device_type"],
                 )
+                self._persist_state()
                 replies.append({"type": "connect_ok"})
             elif frame["type"] == "capability_announce":
                 for name in frame["capabilities"]:
                     self.state.register_capability(frame["device_id"], name)
+                self._persist_state()
             elif frame["type"] == "event_push":
                 text = frame["payload"]["text"]
+                self.state.events.append(frame)
+                self._persist_state()
                 target = choose_response_device(frame["device_id"])
                 replies.append({"type": "event_ack"})
                 replies.append(build_notification_action(target, generate_reply(text)))
             elif frame["type"] == "action_result":
                 self.state.record_action_result(frame["result"])
+                self._persist_state()
         return replies
 
     async def handle_test_frames(self, frames: list[dict]) -> list[dict]:

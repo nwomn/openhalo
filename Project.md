@@ -6,7 +6,7 @@ This project aims to build a new personal agent system oriented around `device -
 
 The intended product is not "another chat agent entry point". It is a personal runtime that can exist across multiple devices, maintain continuity across contexts, and decide how to surface itself through the most appropriate device or interaction surface.
 
-At the current stage, the project has moved from pure architecture-definition into an implemented and testable v0 single-edge runtime with a real WebSocket transport path. The architecture baseline and early milestone framing are in place, and the first end-to-end desktop/CLI closed loop can now be executed and verified both in-process and across two real local processes.
+At the current stage, the project has moved from pure architecture-definition into an implemented and testable v0 single-edge runtime with a real WebSocket transport path and minimal continuity. The architecture baseline and early milestone framing are in place, and the first end-to-end desktop/CLI closed loop can now be executed and verified both in-process and across two real local processes while preserving core runtime state across restarts.
 
 ## Background
 
@@ -143,7 +143,7 @@ Status:
 
 Implementation note:
 
-- Milestone M1 is now partially implemented with a working real WebSocket single-edge closed loop, though the runtime is still intentionally minimal and remains in-memory only
+- Milestone M1 is now partially implemented with a working real WebSocket single-edge closed loop and minimal file-backed continuity, though the runtime is still intentionally minimal
 
 ### Goal 3: Define the initial implementation path
 
@@ -332,6 +332,27 @@ Status:
 
 - Completed
 
+### Completed: Minimal runtime continuity persistence
+
+Result:
+
+- Runtime state can now be serialized to and restored from a file-backed JSON snapshot
+- The gateway now persists device registration, capability registration, recent events, and action results automatically after state changes
+- The runtime server entrypoint now supports a configurable `--state-path` and restores state on startup
+- The project ignores generated runtime snapshot directories so persistence artifacts do not pollute git state
+- Automated tests now verify state serialization, state store load/save, gateway-triggered persistence, and runtime restart recovery
+
+Acceptance criteria:
+
+- Core runtime state survives process restarts through disk-backed snapshots
+- State writes happen automatically on the main v0 state transition paths
+- Runtime startup restores previously persisted state from disk
+- The persistence path is covered by automated tests
+
+Status:
+
+- Completed
+
 ## Open Questions
 
 - Can OpenClaw gateway be isolated as a reusable control-plane component?
@@ -362,7 +383,7 @@ Immediate post-v0 direction:
 
 Current phase:
 
-- V0 real WebSocket single-edge loop implemented and testable
+- V0 real WebSocket single-edge loop with minimal continuity implemented and testable
 
 Current progress summary:
 
@@ -392,6 +413,8 @@ Current progress summary:
 - We now have a project-local `.venv` for dependency isolation instead of relying on global Python packages
 - We now have a real WebSocket transport path for the single-edge loop, including gateway server binding, edge client connection, action dispatch, and action-result return
 - We have manually verified a true two-process local flow using `python3 -m personal_runtime.main` and `python3 -m device_edge.cli_edge --url ...`
+- We now have minimal file-backed continuity through runtime state snapshots and restart recovery via a configurable state path
+- The gateway now persists device, capability, event, and action-result state automatically on the main v0 flow
 - We have not yet validated whether OpenClaw gateway code can actually be reused cleanly
 - We have not yet performed deeper extraction tests on the most promising OpenClaw reuse candidates
 

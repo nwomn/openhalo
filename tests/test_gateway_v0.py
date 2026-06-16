@@ -1,5 +1,6 @@
 import json
 import unittest
+from pathlib import Path
 
 import websockets
 
@@ -63,6 +64,50 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(replies[-1]["type"], "action_request")
+
+    async def test_persists_state_after_connect_event_and_action_result(self) -> None:
+        state_path = Path(
+            "/root/personal-runtime-agent/.worktrees/v0-single-edge-loop/.runtime-test/gateway-state.json"
+        )
+        gateway = RuntimeGateway(shared_token="dev-token", state_path=state_path)
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "desktop-dev-1",
+                        "device_type": "desktop-cli",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "capability_announce",
+                    "device_id": "desktop-dev-1",
+                    "capabilities": ["text.input", "notification.show"],
+                },
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {"text": "hello"},
+                },
+                {
+                    "type": "action_result",
+                    "device_id": "desktop-dev-1",
+                    "result": {"status": "ok"},
+                },
+            ]
+        )
+
+        persisted = json.loads(state_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(replies[-1]["type"], "action_request")
+        self.assertEqual(
+            persisted["devices"]["desktop-dev-1"]["capabilities"],
+            ["notification.show", "text.input"],
+        )
+        self.assertEqual(persisted["events"][-1]["payload"]["text"], "hello")
+        self.assertEqual(persisted["action_results"][-1]["status"], "ok")
 
     async def test_websocket_server_emits_connect_ack_and_action_request(self) -> None:
         gateway = RuntimeGateway(shared_token="dev-token")
