@@ -6,7 +6,7 @@ This project aims to build a new personal agent system oriented around `device -
 
 The intended product is not "another chat agent entry point". It is a personal runtime that can exist across multiple devices, maintain continuity across contexts, and decide how to surface itself through the most appropriate device or interaction surface.
 
-At the current stage, the project is still in architecture-definition and product-definition mode. We are intentionally delaying implementation details until the system boundary, core abstractions, and early milestones are clear enough.
+At the current stage, the project has moved from pure architecture-definition into an implemented and testable v0 single-edge loop. The architecture baseline and early milestone framing are in place, and the first end-to-end desktop/CLI closed loop can now be executed and verified locally.
 
 ## Background
 
@@ -117,6 +117,10 @@ Status:
 
 - In progress
 
+Implementation note:
+
+- The implementation path is no longer only conceptual; the first v0 batch has been started and the scaffold/protocol/state foundations are now in place
+
 ### Goal 2: Define the project's primary abstractions
 
 We need to prevent the project from falling back into `channel/session/agent` as the top-level worldview.
@@ -136,6 +140,10 @@ Acceptance criteria:
 Status:
 
 - In progress
+
+Implementation note:
+
+- Milestone M1 is now partially implemented with a working single-edge closed loop, though the runtime is still intentionally minimal and remains in-memory only
 
 ### Goal 3: Define the initial implementation path
 
@@ -258,6 +266,50 @@ Status:
 
 - Completed
 
+### Completed: First v0 implementation foundation batch
+
+Result:
+
+- The repository has been initialized as a git project with a safe `.worktrees/` workflow
+- The Python project scaffold has been added with `pyproject.toml`
+- The `personal_runtime` and `device_edge` package roots have been created
+- Shared protocol helpers now validate supported v0 frame types and build `connect` frames
+- In-memory runtime state and the same-device presence routing stub have been implemented
+- Automated tests now cover scaffold imports, protocol helpers, and runtime state basics
+
+Acceptance criteria:
+
+- The repository can support branch and worktree based iteration safely
+- The v0 scaffold can be imported as Python packages
+- The shared protocol has a tested minimal contract for `connect` and frame validation
+- The runtime has a tested minimal in-memory device/capability registry and same-device response rule
+
+Status:
+
+- Completed
+
+### Completed: First v0 single-edge closed loop implementation
+
+Result:
+
+- A minimal `RuntimeGateway` now handles `connect`, `capability_announce`, and `event_push` frames
+- A minimal `Agent Executor` now generates text replies and the `Action Layer` converts them into `notification.show` requests
+- A minimal `SessionClient` now builds connect, capability, and text-event frames and returns `action_result` payloads after local execution
+- A minimal CLI edge runner can execute the whole loop locally from typed text input to printed notification output
+- End-to-end tests now verify the single-edge roundtrip through gateway, edge session client, and local action execution
+- Manual command-line verification now demonstrates the closed loop with `python3 -m device_edge.cli_edge`
+
+Acceptance criteria:
+
+- The backend can accept the minimal v0 frame sequence and emit an action request
+- The edge can execute the returned `notification.show` action and produce an `action_result`
+- The single-edge roundtrip is covered by automated tests
+- The loop can be exercised manually from the command line in the worktree
+
+Status:
+
+- Completed
+
 ## Open Questions
 
 - Can OpenClaw gateway be isolated as a reusable control-plane component?
@@ -288,7 +340,7 @@ Immediate post-v0 direction:
 
 Current phase:
 
-- Architecture definition and v0 milestone shaping
+- V0 single-edge loop implemented and testable
 
 Current progress summary:
 
@@ -309,6 +361,12 @@ Current progress summary:
 - We have also defined the immediate follow-up slice after v0: minimal persistence, a second surface or device, and one non-text capability
 - We now have project-level Codex hooks enforcing `Project.md` session-start and per-turn audit behavior
 - We have now defined the minimum backend module set for the first usable v0 slice
+- We have initialized the repository as a git project and established an isolated worktree-based implementation flow
+- We have completed the first implementation batch for the v0 plan: Python project scaffold, `personal_runtime` and `device_edge` package roots, shared protocol helpers, in-memory runtime state, and the same-device presence routing stub
+- We now have automated tests covering the v0 scaffold import contract, protocol frame helpers, and runtime state/presence basics alongside the existing project hook tests
+- We have now implemented the first minimal backend gateway loop, response generator, action builder, edge session client, and CLI edge runner
+- We now have an executable and testable end-to-end single-edge closed loop from `text.input` to `notification.show`
+- We can manually verify the local loop with `python3 -m device_edge.cli_edge`, and automated discovery now covers the full v0 and hook test suite
 - We have not yet validated whether OpenClaw gateway code can actually be reused cleanly
 - We have not yet performed deeper extraction tests on the most promising OpenClaw reuse candidates
 
