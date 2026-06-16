@@ -56,6 +56,7 @@ Responsibilities:
 The current architecture baseline is documented in:
 
 - `docs/plans/2026-06-16-runtime-architecture-design.md`
+- `docs/dev-env.md` for repository-level development environment workflow
 
 Current boundary rules:
 
@@ -67,6 +68,7 @@ Current boundary rules:
 - The runtime should support both a normal deliberative path and an explicit edge-requested fast path for direct actions
 - A direct action fast path may bypass `Presence Router` and `Agent Executor`, but it must still pass through `Gateway`, update runtime state/context, and record action results
 - For the first same-template multi-edge slice, ordinary routed actions should prefer a different online edge instance with the required capability before falling back to the source device
+- Ordinary development work in worktrees should reuse the repository root `.venv` by default, while dependency or packaging experiments should use an explicitly created worktree-local `.venv`
 
 ## Edge Representation Model
 
@@ -381,6 +383,26 @@ Status:
 
 - Completed
 
+### Completed: Repository development environment workflow baseline
+
+Result:
+
+- The repository now documents a default shared-venv workflow in `docs/dev-env.md`
+- `bin/test` now provides a small helper that always uses the repository root `.venv`
+- `bin/bootstrap-worktree-venv` now provides an explicit opt-in path for isolated worktree environments during dependency or packaging experiments
+- Automated tests now verify the helper scripts and the documented shared-versus-isolated environment rules
+
+Acceptance criteria:
+
+- The default development workflow for ordinary worktrees is explicitly documented
+- The isolated worktree environment exception path is explicitly documented
+- The repository includes helper commands for both modes
+- The environment workflow is covered by automated tests
+
+Status:
+
+- Completed
+
 ## Open Questions
 
 - Can OpenClaw gateway be isolated as a reusable control-plane component?
@@ -459,6 +481,8 @@ Current progress summary:
 - We now have the first same-template multi-edge routing slice working: two edge instances can stay connected and a normal routed notification action can be delivered from one device to another
 - The gateway now tracks live edge connections for WebSocket delivery, allowing cross-edge `action_request` frames instead of only same-socket replies
 - Ordinary routed actions now prefer another online peer with the required capability and safely fall back to the source edge when only offline residual device state is present
+- We now have a repository-level development environment workflow: ordinary worktrees reuse the root `.venv`, while dependency and packaging experiments use an explicitly created worktree-local `.venv`
+- The repository now includes helper scripts and automated tests for that shared-versus-isolated environment workflow
 - We have not yet validated whether OpenClaw gateway code can actually be reused cleanly
 - We have not yet performed deeper extraction tests on the most promising OpenClaw reuse candidates
 

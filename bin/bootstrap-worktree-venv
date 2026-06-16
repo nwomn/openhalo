@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ -e ".venv" ]]; then
+  echo "A worktree-local .venv already exists at $(pwd)/.venv"
+  exit 0
+fi
+
+python3 -m venv .venv
+echo "Created worktree-local .venv at $(pwd)/.venv"
