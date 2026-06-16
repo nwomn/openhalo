@@ -6,7 +6,7 @@ This project aims to build a new personal agent system oriented around `device -
 
 The intended product is not "another chat agent entry point". It is a personal runtime that can exist across multiple devices, maintain continuity across contexts, and decide how to surface itself through the most appropriate device or interaction surface.
 
-At the current stage, the project has moved from pure architecture-definition into an implemented and testable v0 single-edge loop. The architecture baseline and early milestone framing are in place, and the first end-to-end desktop/CLI closed loop can now be executed and verified locally.
+At the current stage, the project has moved from pure architecture-definition into an implemented and testable v0 single-edge runtime with a real WebSocket transport path. The architecture baseline and early milestone framing are in place, and the first end-to-end desktop/CLI closed loop can now be executed and verified both in-process and across two real local processes.
 
 ## Background
 
@@ -143,7 +143,7 @@ Status:
 
 Implementation note:
 
-- Milestone M1 is now partially implemented with a working single-edge closed loop, though the runtime is still intentionally minimal and remains in-memory only
+- Milestone M1 is now partially implemented with a working real WebSocket single-edge closed loop, though the runtime is still intentionally minimal and remains in-memory only
 
 ### Goal 3: Define the initial implementation path
 
@@ -310,6 +310,28 @@ Status:
 
 - Completed
 
+### Completed: First real WebSocket single-edge closed loop
+
+Result:
+
+- The backend now exposes a real WebSocket gateway server path in addition to the in-process simulation helpers
+- The edge session client now supports real WebSocket client roundtrips against an explicit runtime URL
+- The runtime records returned `action_result` payloads in memory after local edge execution
+- The project now uses a worktree-local `.venv` for Python dependency isolation, including `websockets`
+- Manual verification now proves a true two-process flow: runtime server process plus CLI edge process over `ws://127.0.0.1`
+- Automated tests now cover real WebSocket handshake, event delivery, action request delivery, and action-result return flow
+
+Acceptance criteria:
+
+- A local runtime server can bind a WebSocket endpoint and accept the minimal v0 frame sequence
+- A local edge client can connect over WebSocket, send text input, receive an action request, execute it, and return an action result
+- The real WebSocket path is covered by automated tests
+- The real two-process loop can be exercised manually from the command line
+
+Status:
+
+- Completed
+
 ## Open Questions
 
 - Can OpenClaw gateway be isolated as a reusable control-plane component?
@@ -340,7 +362,7 @@ Immediate post-v0 direction:
 
 Current phase:
 
-- V0 single-edge loop implemented and testable
+- V0 real WebSocket single-edge loop implemented and testable
 
 Current progress summary:
 
@@ -367,6 +389,9 @@ Current progress summary:
 - We have now implemented the first minimal backend gateway loop, response generator, action builder, edge session client, and CLI edge runner
 - We now have an executable and testable end-to-end single-edge closed loop from `text.input` to `notification.show`
 - We can manually verify the local loop with `python3 -m device_edge.cli_edge`, and automated discovery now covers the full v0 and hook test suite
+- We now have a project-local `.venv` for dependency isolation instead of relying on global Python packages
+- We now have a real WebSocket transport path for the single-edge loop, including gateway server binding, edge client connection, action dispatch, and action-result return
+- We have manually verified a true two-process local flow using `python3 -m personal_runtime.main` and `python3 -m device_edge.cli_edge --url ...`
 - We have not yet validated whether OpenClaw gateway code can actually be reused cleanly
 - We have not yet performed deeper extraction tests on the most promising OpenClaw reuse candidates
 

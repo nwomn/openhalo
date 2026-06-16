@@ -1,4 +1,7 @@
+import json
 import unittest
+
+import websockets
 
 from personal_runtime.gateway_server import RuntimeGateway
 
@@ -60,6 +63,50 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(replies[-1]["type"], "action_request")
+
+    async def test_websocket_server_emits_connect_ack_and_action_request(self) -> None:
+        gateway = RuntimeGateway(shared_token="dev-token")
+        async with gateway.run_test_server() as server_info:
+            async with websockets.connect(server_info["url"]) as websocket:
+                await websocket.send(
+                    json.dumps(
+                        {
+                            "type": "connect",
+                            "device": {
+                                "device_id": "desktop-dev-1",
+                                "device_type": "desktop-cli",
+                            },
+                            "auth": {"token": "dev-token"},
+                        }
+                    )
+                )
+                await websocket.send(
+                    json.dumps(
+                        {
+                            "type": "capability_announce",
+                            "device_id": "desktop-dev-1",
+                            "capabilities": ["text.input", "notification.show"],
+                        }
+                    )
+                )
+                await websocket.send(
+                    json.dumps(
+                        {
+                            "type": "event_push",
+                            "device_id": "desktop-dev-1",
+                            "capability": "text.input",
+                            "payload": {"text": "hello"},
+                        }
+                    )
+                )
+
+                connect_ok = json.loads(await websocket.recv())
+                event_ack = json.loads(await websocket.recv())
+                action_request = json.loads(await websocket.recv())
+
+        self.assertEqual(connect_ok["type"], "connect_ok")
+        self.assertEqual(event_ack["type"], "event_ack")
+        self.assertEqual(action_request["type"], "action_request")
 
 
 if __name__ == "__main__":

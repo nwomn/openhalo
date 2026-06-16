@@ -1,5 +1,9 @@
 """Minimal session client for the v0 device edge."""
 
+import json
+
+import websockets
+
 from device_edge.capability_runtime import CapabilityRuntime
 from device_edge.local_actions import execute_action
 from personal_runtime.protocol import build_connect_frame
@@ -37,3 +41,20 @@ class SessionClient:
             "device_id": self.device_id,
             "result": result,
         }
+
+    async def run_websocket_roundtrip(self, server_factory, text: str) -> dict:
+        async with server_factory() as server_info:
+            return await self.run_websocket_client(url=server_info["url"], text=text)
+
+    async def run_websocket_client(self, url: str, text: str) -> dict:
+        async with websockets.connect(url) as websocket:
+            await websocket.send(json.dumps(self.build_connect_frame()))
+            await websocket.send(json.dumps(self.build_capability_announce_frame()))
+            await websocket.send(json.dumps(self.build_text_event(text)))
+
+            await websocket.recv()
+            await websocket.recv()
+            action_request = json.loads(await websocket.recv())
+            action_result = self.handle_action_request(action_request)
+            await websocket.send(json.dumps(action_result))
+            return action_result

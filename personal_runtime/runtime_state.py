@@ -6,6 +6,7 @@ class RuntimeState:
         self.devices = {}
         self.events = []
         self.tasks = []
+        self.action_results = []
 
     def register_device(self, device_id: str, device_type: str) -> None:
         self.devices.setdefault(
@@ -15,3 +16,6 @@ class RuntimeState:
 
     def register_capability(self, device_id: str, capability_name: str) -> None:
         self.devices[device_id]["capabilities"].add(capability_name)
+
+    def record_action_result(self, result: dict) -> None:
+        self.action_results.append(result)
