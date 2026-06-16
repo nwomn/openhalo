@@ -6,6 +6,7 @@ from pathlib import Path
 
 import websockets
 
+from personal_runtime.action_layer import build_action_request
 from personal_runtime.action_layer import build_notification_action
 from personal_runtime.agent_executor import generate_reply
 from personal_runtime.presence_router import choose_response_device
@@ -47,12 +48,24 @@ class RuntimeGateway:
                     self.state.register_capability(frame["device_id"], name)
                 self._persist_state()
             elif frame["type"] == "event_push":
-                text = frame["payload"]["text"]
                 self.state.events.append(frame)
                 self._persist_state()
-                target = choose_response_device(frame["device_id"])
                 replies.append({"type": "event_ack"})
-                replies.append(build_notification_action(target, generate_reply(text)))
+                direct_action = frame["payload"].get("direct_action")
+                if direct_action is not None:
+                    replies.append(
+                        build_action_request(
+                            direct_action.get("target_device_id", frame["device_id"]),
+                            {
+                                "capability": direct_action["capability"],
+                                "payload": direct_action["payload"],
+                            },
+                        )
+                    )
+                else:
+                    text = frame["payload"]["text"]
+                    target = choose_response_device(frame["device_id"])
+                    replies.append(build_notification_action(target, generate_reply(text)))
             elif frame["type"] == "action_result":
                 self.state.record_action_result(frame["result"])
                 self._persist_state()

@@ -59,6 +59,28 @@ class EdgeClientTests(unittest.TestCase):
         self.assertEqual(result["type"], "action_result")
         self.assertEqual(result["result"]["status"], "ok")
 
+    def test_builds_direct_action_event(self) -> None:
+        client = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+
+        frame = client.build_direct_action_event(
+            capability="notification.show",
+            payload={"message": "urgent ping"},
+        )
+
+        self.assertEqual(frame["type"], "event_push")
+        self.assertEqual(
+            frame["payload"]["direct_action"]["capability"],
+            "notification.show",
+        )
+        self.assertEqual(
+            frame["payload"]["direct_action"]["payload"]["message"],
+            "urgent ping",
+        )
+
 
 class EdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
     async def test_websocket_client_receives_action_and_returns_action_result(self) -> None:

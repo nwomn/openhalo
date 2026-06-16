@@ -34,6 +34,20 @@ class SessionClient:
             "payload": {"text": text},
         }
 
+    def build_direct_action_event(self, capability: str, payload: dict) -> dict:
+        return {
+            "type": "event_push",
+            "device_id": self.device_id,
+            "capability": "text.input",
+            "payload": {
+                "text": "",
+                "direct_action": {
+                    "capability": capability,
+                    "payload": payload,
+                },
+            },
+        }
+
     def handle_action_request(self, frame: dict) -> dict:
         result = execute_action(frame["action"])
         return {

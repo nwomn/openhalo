@@ -64,6 +64,8 @@ Current boundary rules:
 - All physical cross-boundary traffic must flow through `Edge Session Link <-> Gateway`
 - Cross-boundary relationships between frontend and backend internal modules are logical only unless they pass through that transport choke point
 - `Gateway` is a boundary and control-plane layer, not the primary reasoning layer
+- The runtime should support both a normal deliberative path and an explicit edge-requested fast path for direct actions
+- A direct action fast path may bypass `Presence Router` and `Agent Executor`, but it must still pass through `Gateway`, update runtime state/context, and record action results
 
 ## Edge Representation Model
 
@@ -130,12 +132,14 @@ Sub-goals:
 - 2.1. Confirm first-class abstractions for the new system
 - 2.2. Downgrade legacy abstractions to implementation details where appropriate
 - 2.3. Define the minimum state model needed for continuity
+- 2.4. Define the runtime dispatch-path abstraction for deliberative handling versus direct edge-requested action handling
 
 Acceptance criteria:
 
 - First-class abstractions are documented
 - `channel`, `session`, and `agent` are explicitly classified as either primary or secondary concepts
 - The minimum state model includes tasks, context, device state, and handoff state
+- The runtime documents which layers may be bypassed by an explicit direct-action request and which state/context recording steps remain mandatory
 
 Status:
 
@@ -155,6 +159,7 @@ Sub-goals:
 - 3.2. Define the first implementation milestone
 - 3.3. Identify the minimum backend modules for v0
 - 3.4. Identify the minimum device surfaces for v0
+- 3.5. Define the first post-v0 multi-edge slice using the same edge template on more than one device instance
 
 Acceptance criteria:
 
@@ -162,6 +167,7 @@ Acceptance criteria:
 - Project baseline documentation exists
 - The first milestone is small enough to implement without solving the whole system
 - The v0 scope names which modules and device surfaces are first-class
+- The next slice after v0 names how multiple same-template edges participate and what routing behavior it is meant to validate
 
 Status:
 
@@ -174,9 +180,9 @@ We need a milestone ladder from concept to working system.
 Sub-goals:
 
 - 4.1. Define milestone M0: architecture and state model validation
-- 4.2. Define milestone M1: minimal runtime core
-- 4.3. Define milestone M2: first multi-device continuity path
-- 4.4. Define milestone M3: first presence-aware routing path
+- 4.2. Define milestone M1: minimal runtime core with real transport, minimal continuity, and explicit direct-action fast-path support
+- 4.3. Define milestone M2: first multi-device continuity and same-template cross-edge routing path
+- 4.4. Define milestone M3: first presence-aware routing path beyond fixed fast-path and simple fallback rules
 
 Acceptance criteria:
 
@@ -365,6 +371,8 @@ Current preference:
 - Try to reuse only the OpenClaw gateway parts that can be isolated as product-neutral control-plane infrastructure
 - If that isolation does not stay clean, prefer building a minimal replacement gateway rather than carrying forward channel/session-centered assumptions
 - A preliminary source audit suggests `packages/gateway-protocol` and `packages/gateway-client` are the strongest reuse candidates, while `src/gateway/server-methods` is too tightly coupled to OpenClaw runtime semantics to treat as a clean control-plane layer
+- For urgent edge-originated actions, prefer an explicit direct-action path over pretending every event should go through model-driven routing or planning
+- Even when an edge requests a direct action, the runtime should still retain the event and result in shared state so continuity and auditability are preserved
 
 Current v0 milestone direction:
 
@@ -372,11 +380,13 @@ Current v0 milestone direction:
 - Use one long-lived `Edge Session Link <-> Gateway` path
 - Keep auth, presence, and state intentionally minimal
 - Prove one full loop from `text.input` to `notification.show`
+- Preserve room for two runtime dispatch paths: ordinary routed/deliberative handling and explicit direct-action handling
 
 Immediate post-v0 direction:
 
-- Add minimal persistence for device registration and recent event history
-- Add a second surface or second device to prove cross-surface routing
+- Extend persistence enough to support multi-edge continuity experiments cleanly
+- Run more than one instance of the same edge template to prove cross-edge routing without introducing a separate one-off edge type
+- Add explicit direct-action handling so edge-requested fast paths can bypass routing/planning while still updating runtime state
 - Add one non-text capability so the runtime demonstrates more than a text loop
 
 ## Current Project Progress
@@ -415,6 +425,8 @@ Current progress summary:
 - We have manually verified a true two-process local flow using `python3 -m personal_runtime.main` and `python3 -m device_edge.cli_edge --url ...`
 - We now have minimal file-backed continuity through runtime state snapshots and restart recovery via a configurable state path
 - The gateway now persists device, capability, event, and action-result state automatically on the main v0 flow
+- We now prefer a two-path runtime reaction model: a normal routed/deliberative path and an explicit edge-requested direct-action path
+- We have clarified that direct-action requests may skip routing and agent planning, but must still be recorded in runtime state/context together with their execution results
 - We have not yet validated whether OpenClaw gateway code can actually be reused cleanly
 - We have not yet performed deeper extraction tests on the most promising OpenClaw reuse candidates
 

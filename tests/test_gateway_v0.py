@@ -153,6 +153,51 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(event_ack["type"], "event_ack")
         self.assertEqual(action_request["type"], "action_request")
 
+    async def test_direct_action_event_bypasses_router_but_is_still_persisted(self) -> None:
+        state_path = Path(
+            "/root/personal-runtime-agent/.worktrees/v0-single-edge-loop/.runtime-test/direct-action-state.json"
+        )
+        gateway = RuntimeGateway(shared_token="dev-token", state_path=state_path)
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "desktop-dev-1",
+                        "device_type": "desktop-cli",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "capability_announce",
+                    "device_id": "desktop-dev-1",
+                    "capabilities": ["text.input", "notification.show"],
+                },
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {
+                        "text": "urgent ping",
+                        "direct_action": {
+                            "capability": "notification.show",
+                            "payload": {"message": "urgent ping"},
+                        },
+                    },
+                },
+            ]
+        )
+
+        persisted = json.loads(state_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(replies[-2]["type"], "event_ack")
+        self.assertEqual(replies[-1]["type"], "action_request")
+        self.assertEqual(replies[-1]["action"]["payload"]["message"], "urgent ping")
+        self.assertEqual(
+            persisted["events"][-1]["payload"]["direct_action"]["payload"]["message"],
+            "urgent ping",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
