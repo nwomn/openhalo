@@ -1,4 +1,8 @@
+import asyncio
+import json
 import unittest
+
+import websockets
 
 from device_edge.cli_edge import run_cli_once, run_cli_once_over_websocket
 from device_edge.session_client import SessionClient
@@ -59,6 +63,54 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result["type"], "action_result")
         self.assertEqual(result["result"]["status"], "ok")
+        self.assertEqual(gateway.state.action_results[-1]["status"], "ok")
+
+    async def test_websocket_roundtrip_routes_action_to_other_connected_edge(self) -> None:
+        gateway = RuntimeGateway(shared_token="dev-token")
+        source = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        target = SessionClient(
+            device_id="desktop-dev-2",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+
+        async with gateway.run_test_server() as server_info:
+            async with websockets.connect(server_info["url"]) as source_ws:
+                async with websockets.connect(server_info["url"]) as target_ws:
+                    await source_ws.send(json.dumps(source.build_connect_frame()))
+                    await target_ws.send(json.dumps(target.build_connect_frame()))
+
+                    source_connect_ok = json.loads(await source_ws.recv())
+                    target_connect_ok = json.loads(await target_ws.recv())
+
+                    await source_ws.send(
+                        json.dumps(source.build_capability_announce_frame())
+                    )
+                    await target_ws.send(
+                        json.dumps(target.build_capability_announce_frame())
+                    )
+                    await source_ws.send(
+                        json.dumps(source.build_text_event("hello routed runtime"))
+                    )
+
+                    source_event_ack = json.loads(await asyncio.wait_for(source_ws.recv(), timeout=1))
+                    action_request = json.loads(
+                        await asyncio.wait_for(target_ws.recv(), timeout=1)
+                    )
+                    action_result = target.handle_action_request(action_request)
+                    await target_ws.send(json.dumps(action_result))
+
+        self.assertEqual(source_connect_ok["type"], "connect_ok")
+        self.assertEqual(target_connect_ok["type"], "connect_ok")
+        self.assertEqual(source_event_ack["type"], "event_ack")
+        self.assertEqual(action_request["type"], "action_request")
+        self.assertEqual(action_request["device_id"], "desktop-dev-2")
+        self.assertEqual(action_request["action"]["capability"], "notification.show")
+        self.assertEqual(action_result["result"]["status"], "ok")
         self.assertEqual(gateway.state.action_results[-1]["status"], "ok")
 
     async def test_cli_websocket_helper_uses_real_gateway_server(self) -> None:

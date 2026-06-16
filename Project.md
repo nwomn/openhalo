@@ -6,7 +6,7 @@ This project aims to build a new personal agent system oriented around `device -
 
 The intended product is not "another chat agent entry point". It is a personal runtime that can exist across multiple devices, maintain continuity across contexts, and decide how to surface itself through the most appropriate device or interaction surface.
 
-At the current stage, the project has moved from pure architecture-definition into an implemented and testable v0 single-edge runtime with a real WebSocket transport path and minimal continuity. The architecture baseline and early milestone framing are in place, and the first end-to-end desktop/CLI closed loop can now be executed and verified both in-process and across two real local processes while preserving core runtime state across restarts.
+At the current stage, the project has moved from pure architecture-definition into an implemented and testable runtime baseline that now spans both the completed v0 single-edge WebSocket loop and the first same-template multi-edge routing slice. The architecture baseline and early milestone framing are in place, the first end-to-end desktop/CLI closed loop can be executed both in-process and across two real local processes, and the runtime can now route a normal action from one connected edge instance to another while preserving core state across restarts.
 
 ## Background
 
@@ -66,6 +66,7 @@ Current boundary rules:
 - `Gateway` is a boundary and control-plane layer, not the primary reasoning layer
 - The runtime should support both a normal deliberative path and an explicit edge-requested fast path for direct actions
 - A direct action fast path may bypass `Presence Router` and `Agent Executor`, but it must still pass through `Gateway`, update runtime state/context, and record action results
+- For the first same-template multi-edge slice, ordinary routed actions should prefer a different online edge instance with the required capability before falling back to the source device
 
 ## Edge Representation Model
 
@@ -359,6 +360,27 @@ Status:
 
 - Completed
 
+### Completed: First same-template multi-edge routing slice
+
+Result:
+
+- The runtime can now keep two live instances of the same edge template connected at once under different `device_id`s
+- The normal routed path can now target another connected edge instance for `notification.show` instead of always replying to the source device
+- The WebSocket gateway now maintains a minimal online connection registry so `action_request` frames can be delivered to a different live edge connection
+- The ordinary routing path now prefers online peers and falls back to the source device when only offline residual device state is available
+- Automated tests now cover capability-based target selection, sync cross-edge routing, real WebSocket cross-edge delivery, and fallback behavior when a peer is not online
+
+Acceptance criteria:
+
+- Two instances of the same edge template can connect to one runtime with distinct device identities
+- A normal routed action can be delivered from one connected edge to another over the real WebSocket path
+- The runtime still records events and action results correctly while routing across edge instances
+- Offline residual device state does not hijack ordinary routed actions away from the currently active edge
+
+Status:
+
+- Completed
+
 ## Open Questions
 
 - Can OpenClaw gateway be isolated as a reusable control-plane component?
@@ -389,11 +411,18 @@ Immediate post-v0 direction:
 - Add explicit direct-action handling so edge-requested fast paths can bypass routing/planning while still updating runtime state
 - Add one non-text capability so the runtime demonstrates more than a text loop
 
+Current M2 slice direction:
+
+- Treat same-template edge instances as separate live devices distinguished by `device_id`
+- Keep routing rules intentionally simple for now: prefer another online edge with the required capability, otherwise fall back to the source device
+- Preserve the direct-action fast path alongside the new ordinary cross-edge routing path
+- Use this slice to validate gateway connection tracking and cross-edge action delivery before adding richer presence logic
+
 ## Current Project Progress
 
 Current phase:
 
-- V0 real WebSocket single-edge loop with minimal continuity implemented and testable
+- First same-template multi-edge routing slice implemented and testable on top of the completed v0 WebSocket baseline
 
 Current progress summary:
 
@@ -427,6 +456,9 @@ Current progress summary:
 - The gateway now persists device, capability, event, and action-result state automatically on the main v0 flow
 - We now prefer a two-path runtime reaction model: a normal routed/deliberative path and an explicit edge-requested direct-action path
 - We have clarified that direct-action requests may skip routing and agent planning, but must still be recorded in runtime state/context together with their execution results
+- We now have the first same-template multi-edge routing slice working: two edge instances can stay connected and a normal routed notification action can be delivered from one device to another
+- The gateway now tracks live edge connections for WebSocket delivery, allowing cross-edge `action_request` frames instead of only same-socket replies
+- Ordinary routed actions now prefer another online peer with the required capability and safely fall back to the source edge when only offline residual device state is present
 - We have not yet validated whether OpenClaw gateway code can actually be reused cleanly
 - We have not yet performed deeper extraction tests on the most promising OpenClaw reuse candidates
 

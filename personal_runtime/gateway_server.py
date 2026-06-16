@@ -26,9 +26,40 @@ class RuntimeGateway:
             state_path or Path(".runtime/state.json")
         )
         self.state = state or self.state_store.load()
+        self.online_device_ids: set[str] = set()
+        self.live_connections: dict[str, object] = {}
 
     def _persist_state(self) -> None:
         self.state_store.save(self.state)
+
+    def _build_event_replies(self, frame: dict) -> list[dict]:
+        replies = [{"type": "event_ack"}]
+        direct_action = frame["payload"].get("direct_action")
+        if direct_action is not None:
+            replies.append(
+                build_action_request(
+                    direct_action.get("target_device_id", frame["device_id"]),
+                    {
+                        "capability": direct_action["capability"],
+                        "payload": direct_action["payload"],
+                    },
+                )
+            )
+            return replies
+
+        text = frame["payload"]["text"]
+        available_devices = {
+            device_id: self.state.devices[device_id]
+            for device_id in self.online_device_ids
+            if device_id in self.state.devices
+        }
+        target = choose_response_device(
+            frame["device_id"],
+            devices=available_devices or self.state.devices,
+            required_capability="notification.show",
+        )
+        replies.append(build_notification_action(target, generate_reply(text)))
+        return replies
 
     def _handle_frames_sync(self, frames: list[dict]) -> list[dict]:
         replies = []
@@ -41,6 +72,7 @@ class RuntimeGateway:
                     frame["device"]["device_id"],
                     frame["device"]["device_type"],
                 )
+                self.online_device_ids.add(frame["device"]["device_id"])
                 self._persist_state()
                 replies.append({"type": "connect_ok"})
             elif frame["type"] == "capability_announce":
@@ -50,22 +82,7 @@ class RuntimeGateway:
             elif frame["type"] == "event_push":
                 self.state.events.append(frame)
                 self._persist_state()
-                replies.append({"type": "event_ack"})
-                direct_action = frame["payload"].get("direct_action")
-                if direct_action is not None:
-                    replies.append(
-                        build_action_request(
-                            direct_action.get("target_device_id", frame["device_id"]),
-                            {
-                                "capability": direct_action["capability"],
-                                "payload": direct_action["payload"],
-                            },
-                        )
-                    )
-                else:
-                    text = frame["payload"]["text"]
-                    target = choose_response_device(frame["device_id"])
-                    replies.append(build_notification_action(target, generate_reply(text)))
+                replies.extend(self._build_event_replies(frame))
             elif frame["type"] == "action_result":
                 self.state.record_action_result(frame["result"])
                 self._persist_state()
@@ -77,12 +94,40 @@ class RuntimeGateway:
     def run_roundtrip(self, frames: list[dict]) -> list[dict]:
         return self._handle_frames_sync(frames)
 
+    async def _send_frame(self, websocket, frame: dict) -> None:
+        await websocket.send(json.dumps(frame))
+
+    async def _dispatch_websocket_replies(self, source_device_id: str, websocket, replies: list[dict]) -> None:
+        for reply in replies:
+            target_device_id = reply.get("device_id")
+            if reply["type"] == "action_request" and target_device_id != source_device_id:
+                target_websocket = self.live_connections.get(target_device_id)
+                if target_websocket is not None:
+                    await self._send_frame(target_websocket, reply)
+                    continue
+            await self._send_frame(websocket, reply)
+
     async def _websocket_handler(self, websocket) -> None:
-        async for raw_frame in websocket:
-            frame = json.loads(raw_frame)
-            replies = self._handle_frames_sync([frame])
-            for reply in replies:
-                await websocket.send(json.dumps(reply))
+        registered_device_id = None
+        try:
+            async for raw_frame in websocket:
+                frame = json.loads(raw_frame)
+                if frame["type"] == "connect" and frame["auth"]["token"] == self.shared_token:
+                    registered_device_id = frame["device"]["device_id"]
+                    self.online_device_ids.add(registered_device_id)
+                    self.live_connections[registered_device_id] = websocket
+                replies = self._handle_frames_sync([frame])
+                await self._dispatch_websocket_replies(
+                    frame.get("device_id", registered_device_id),
+                    websocket,
+                    replies,
+                )
+        finally:
+            if registered_device_id is not None:
+                current = self.live_connections.get(registered_device_id)
+                if current is websocket:
+                    del self.live_connections[registered_device_id]
+                self.online_device_ids.discard(registered_device_id)
 
     @asynccontextmanager
     async def run_test_server(self):

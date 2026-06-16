@@ -20,6 +20,26 @@ class RuntimeStateTests(unittest.TestCase):
 
         self.assertEqual(target, "desktop-dev-1")
 
+    def test_presence_prefers_other_device_with_requested_capability(self) -> None:
+        devices = {
+            "desktop-dev-1": {
+                "device_type": "desktop-cli",
+                "capabilities": {"text.input", "notification.show"},
+            },
+            "desktop-dev-2": {
+                "device_type": "desktop-cli",
+                "capabilities": {"text.input", "notification.show"},
+            },
+        }
+
+        target = choose_response_device(
+            source_device_id="desktop-dev-1",
+            devices=devices,
+            required_capability="notification.show",
+        )
+
+        self.assertEqual(target, "desktop-dev-2")
+
     def test_roundtrips_to_dict_and_back(self) -> None:
         state = RuntimeState()
         state.register_device("desktop-dev-1", "desktop-cli")

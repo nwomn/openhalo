@@ -5,6 +5,7 @@ from pathlib import Path
 import websockets
 
 from personal_runtime.gateway_server import RuntimeGateway
+from personal_runtime.runtime_state import RuntimeState
 
 
 class GatewayTests(unittest.IsolatedAsyncioTestCase):
@@ -197,6 +198,83 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             persisted["events"][-1]["payload"]["direct_action"]["payload"]["message"],
             "urgent ping",
         )
+
+    async def test_normal_path_can_target_other_registered_device(self) -> None:
+        gateway = RuntimeGateway(shared_token="dev-token")
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "desktop-dev-1",
+                        "device_type": "desktop-cli",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "desktop-dev-2",
+                        "device_type": "desktop-cli",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "capability_announce",
+                    "device_id": "desktop-dev-1",
+                    "capabilities": ["text.input", "notification.show"],
+                },
+                {
+                    "type": "capability_announce",
+                    "device_id": "desktop-dev-2",
+                    "capabilities": ["text.input", "notification.show"],
+                },
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {"text": "hello routed runtime"},
+                },
+            ]
+        )
+
+        self.assertEqual(replies[-1]["type"], "action_request")
+        self.assertEqual(replies[-1]["device_id"], "desktop-dev-2")
+        self.assertEqual(replies[-1]["action"]["capability"], "notification.show")
+
+    async def test_normal_path_falls_back_to_source_when_peer_is_not_online(self) -> None:
+        state = RuntimeState()
+        state.register_device("desktop-dev-2", "desktop-cli")
+        state.register_capability("desktop-dev-2", "notification.show")
+        state.register_capability("desktop-dev-2", "text.input")
+        gateway = RuntimeGateway(shared_token="dev-token", state=state)
+
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "desktop-dev-1",
+                        "device_type": "desktop-cli",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "capability_announce",
+                    "device_id": "desktop-dev-1",
+                    "capabilities": ["text.input", "notification.show"],
+                },
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {"text": "stay local"},
+                },
+            ]
+        )
+
+        self.assertEqual(replies[-1]["type"], "action_request")
+        self.assertEqual(replies[-1]["device_id"], "desktop-dev-1")
 
 
 if __name__ == "__main__":
