@@ -1,0 +1,34 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "python3 /root/personal-runtime-agent/agent_guard/codex_hooks.py SessionStart /root/personal-runtime-agent"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "type": "command",
+        "command": "python3 /root/personal-runtime-agent/agent_guard/codex_hooks.py UserPromptSubmit /root/personal-runtime-agent"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "type": "command",
+        "command": "python3 /root/personal-runtime-agent/agent_guard/codex_hooks.py PreToolUse /root/personal-runtime-agent"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "type": "command",
+        "command": "python3 /root/personal-runtime-agent/agent_guard/codex_hooks.py PostToolUse /root/personal-runtime-agent"
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "python3 /root/personal-runtime-agent/agent_guard/codex_hooks.py Stop /root/personal-runtime-agent"
+      }
+    ]
+  }
+}
