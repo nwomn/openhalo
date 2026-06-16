@@ -5,3 +5,4 @@ __pycache__/
 .venv/
 .runtime/
 .runtime-test/
+*.egg-info/

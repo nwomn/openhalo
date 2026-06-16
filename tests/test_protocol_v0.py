@@ -1,5 +1,7 @@
 import importlib
+import tomllib
 import unittest
+from pathlib import Path
 
 from personal_runtime.protocol import build_connect_frame, validate_frame
 
@@ -13,6 +15,16 @@ class ImportSmokeTests(unittest.TestCase):
         self.assertEqual(
             importlib.import_module("device_edge").__doc__,
             "Device edge v0 package.",
+        )
+
+    def test_pyproject_declares_explicit_package_discovery(self) -> None:
+        payload = tomllib.loads(
+            Path("pyproject.toml").read_text(encoding="utf-8")
+        )
+
+        self.assertEqual(
+            payload["tool"]["setuptools"]["packages"]["find"]["include"],
+            ["agent_guard", "device_edge", "personal_runtime"],
         )
 
 

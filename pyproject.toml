@@ -3,3 +3,10 @@ name = "personal-runtime-agent"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = ["websockets>=12,<16"]
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["agent_guard", "device_edge", "personal_runtime"]
