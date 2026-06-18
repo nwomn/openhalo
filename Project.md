@@ -468,6 +468,27 @@ Status:
 
 - Completed
 
+### Completed: First M3 presence-context foundation batch
+
+Result:
+
+- The runtime now has explicit shared context contracts for `Device`, `Capability`, and normalized `RuntimeObservation` records
+- Runtime state can now store normalized observations with provenance separately from raw edge event details and round-trip them through serialization
+- The project now has a first compact context snapshot reducer module for hot-path presence work
+- The first snapshot field, `user.current_location`, now supports concrete value selection as well as explicit `unknown` and `ambiguous` outcomes
+- Automated tests now cover the shared contract shapes, normalized observation storage, and compact snapshot reducer behavior
+
+Acceptance criteria:
+
+- Shared runtime context contract types exist for device, capability, and normalized observation records
+- Runtime state can record and restore normalized observations with provenance
+- A compact snapshot reducer exists for at least one presence-relevant field and preserves `unknown` / `ambiguous` outcomes when evidence is insufficient or conflicting
+- The new context and snapshot foundation is covered by automated tests
+
+Status:
+
+- Completed
+
 ## Open Questions
 
 - Which device surfaces should be the first non-CLI surfaces for presence-first experiments?
@@ -523,11 +544,18 @@ Current M2 slice direction:
 - Preserve the direct-action fast path alongside the new ordinary cross-edge routing path
 - Use this slice to validate gateway connection tracking and cross-edge action delivery before adding richer presence logic
 
+Current M3 slice direction:
+
+- Build explicit shared context contracts before threading richer presence logic through the live runtime path
+- Store normalized runtime observations with provenance separately from raw edge event details
+- Build compact snapshot reducers one field at a time, preserving `unknown` and `ambiguous` outcomes instead of forcing certainty
+- After the context foundation is stable, thread snapshot-driven routing into `Presence Router` and gateway decision flow
+
 ## Current Project Progress
 
 Current phase:
 
-- First same-template multi-edge routing slice implemented and testable on top of the completed v0 WebSocket baseline
+- First M3 presence-context foundation batch implemented on top of the completed v0 and M2 routing baseline
 
 Current progress summary:
 
@@ -581,6 +609,10 @@ Current progress summary:
 - Ordinary routed actions now prefer another online peer with the required capability and safely fall back to the source edge when only offline residual device state is present
 - We now have a repository-level development environment workflow: ordinary worktrees reuse the root `.venv`, while dependency and packaging experiments use an explicitly created worktree-local `.venv`
 - The repository now includes helper scripts and automated tests for that shared-versus-isolated environment workflow
+- We now have explicit shared runtime context contracts for device, capability, and normalized observation records
+- Runtime state can now retain normalized observations with provenance as a distinct layer instead of collapsing everything into raw event history only
+- We now have the first compact context snapshot reducer for hot-path presence work, including explicit `unknown` and `ambiguous` outcomes for location evidence
+- Targeted automated tests now cover shared context contracts, observation storage, and the first compact snapshot reducer behavior
 - We have our own tested minimal protocol, edge session client, and gateway baseline, reducing the value of deeper OpenClaw gateway extraction work
 - We may still borrow ideas from OpenClaw protocol/client layers later, but that is now optional follow-on work rather than an open prerequisite
 
