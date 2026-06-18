@@ -88,6 +88,7 @@ When contributing to this project:
 - Prefer refining and preserving project clarity over rushing into unframed implementation
 - Keep new decisions reflected in `Project.md`
 - Treat `Project.md` as a living document, not a one-time kickoff note
+- When the user asks for a project progress update, report progress separately for each tracked goal (`Goal 1` through `Goal 4`), including status, recent progress, and remaining gaps or next steps for each goal
 
 ## Hook Enforcement
 

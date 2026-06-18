@@ -4,7 +4,7 @@
 
 This project aims to build a new personal agent system oriented around `device -> context -> presence -> action`, rather than the traditional `channel -> session -> agent` product shape.
 
-The intended product is not "another chat agent entry point". It is a personal runtime that can exist across multiple devices, maintain continuity across contexts, and decide how to surface itself through the most appropriate device or interaction surface.
+The intended product is not "another chat agent entry point". It is a personal runtime that can exist across multiple devices, maintain continuity across contexts, and decide how to surface itself through the most appropriate device or interaction surface. The current product direction is increasingly `presence-first`: the runtime should proactively infer user situation across input channels, decide whether to intervene, and learn intervention policy over time rather than waiting only for explicit user requests.
 
 At the current stage, the project has moved from pure architecture-definition into an implemented and testable runtime baseline that now spans both the completed v0 single-edge WebSocket loop and the first same-template multi-edge routing slice. The architecture baseline and early milestone framing are in place, the first end-to-end desktop/CLI closed loop can be executed both in-process and across two real local processes, and the runtime can now route a normal action from one connected edge instance to another while preserving core state across restarts.
 
@@ -49,24 +49,34 @@ Responsibilities:
 
 - Gateway / control-plane responsibilities
 - Unified task and context state
-- Presence routing
-- Agent execution
+- Agent-driven intervention, planning, and action generation
+- Explicit presence-policy and intervention-governance inside the broader agent runtime
 - External action orchestration
 
 The current architecture baseline is documented in:
 
 - `docs/plans/2026-06-16-runtime-architecture-design.md`
+- `docs/plans/2026-06-18-goal2-presence-context-design.md`
 - `docs/dev-env.md` for repository-level development environment workflow
 
 Current boundary rules:
 
 - `Frontend / Device Edge` is a device-resident edge runtime rather than a thin UI client
 - `Backend / Personal Runtime` is a long-lived cross-device runtime rather than a traditional request-response backend
+- `device`, `capability`, `context`, `agent`, and `action` are the primary runtime abstractions for this project
+- `channel` and `session` are secondary implementation concepts and must not become the top-level product worldview
+- `Presence` should remain an explicit, inspectable governance module inside the broader agent runtime rather than disappearing into opaque agent behavior
 - All physical cross-boundary traffic must flow through `Edge Session Link <-> Gateway`
 - Cross-boundary relationships between frontend and backend internal modules are logical only unless they pass through that transport choke point
 - `Gateway` is a boundary and control-plane layer, not the primary reasoning layer
+- `Presence` is a first-class governance layer inside the broader agent runtime, not just a device-routing helper; routing is only one sub-problem inside presence
+- The working direction for proactive behavior is agent-centered but presence-governed: the runtime should allow the agent to form intervention proposals while requiring explicit presence decisions before user-facing intervention
+- The runtime should support both a sense-first proactive path and an agent-initiative proactive path, and both paths must pass through `Presence Router` before user-facing intervention
+- Presence policy should remain explicit and inspectable even when model-generated or model-repaired; models are not the only durable representation of proactive behavior
 - The runtime should support both a normal deliberative path and an explicit edge-requested fast path for direct actions
 - A direct action fast path may bypass `Presence Router` and `Agent Executor`, but it must still pass through `Gateway`, update runtime state/context, and record action results
+- Runtime feedback interpretation should treat `ignore != negative`; explicit rejection or repeated similar-context dismissal should carry more weight than one-off non-response
+- Presence policy updates should optimize for both immediate user experience and likely future user experience, rather than greedily maximizing the current interaction outcome
 - For the first same-template multi-edge slice, ordinary routed actions should prefer a different online edge instance with the required capability before falling back to the source device
 - Ordinary development work in worktrees should reuse the repository root `.venv` by default, while dependency or packaging experiments should use an explicitly created worktree-local `.venv`
 
@@ -109,26 +119,26 @@ Sub-goals:
 - 1.1. Define the overall system boundary
 - 1.2. Define the backend module boundaries
 - 1.3. Define the frontend/backend contract
-- 1.4. Decide whether OpenClaw gateway can be reused as an isolated control-plane component
+- 1.4. Decide whether OpenClaw gateway should be reused as an isolated control-plane component or kept only as reference material
 
 Acceptance criteria:
 
 - A written architecture description exists
 - The role of `Device Edge` and `Personal Runtime` is explicitly separated
 - The meaning of `Gateway`, `State`, `Presence Router`, `Agent Executor`, and `Action Layer` is documented
-- A clear reuse-vs-rebuild decision frame exists for OpenClaw gateway
+- A clear decision exists on whether OpenClaw gateway code is reused directly, selectively referenced, or replaced
 
 Status:
 
-- In progress
+- Completed
 
 Implementation note:
 
 - The implementation path is no longer only conceptual; the first v0 batch has been started and the scaffold/protocol/state foundations are now in place
 
-### Goal 2: Define the project's primary abstractions
+### Goal 2: Establish the project's primary abstractions
 
-We need to prevent the project from falling back into `channel/session/agent` as the top-level worldview.
+We need a stable and explicit abstraction baseline for the project so later implementation work does not drift back toward a `channel -> session -> agent` product shape.
 
 Sub-goals:
 
@@ -136,21 +146,35 @@ Sub-goals:
 - 2.2. Downgrade legacy abstractions to implementation details where appropriate
 - 2.3. Define the minimum state model needed for continuity
 - 2.4. Define the runtime dispatch-path abstraction for deliberative handling versus direct edge-requested action handling
+- 2.5. Research and define the presence-policy model, including policy representation, scope boundaries, conflict handling, lifecycle management, and feedback-driven refinement
 
 Acceptance criteria:
 
-- First-class abstractions are documented
-- `channel`, `session`, and `agent` are explicitly classified as either primary or secondary concepts
-- The minimum state model includes tasks, context, device state, and handoff state
+- Primary runtime abstractions are documented explicitly as `device`, `capability`, `context`, `agent`, and `action`
+- `channel` and `session` are explicitly classified as secondary implementation concepts rather than primary product abstractions
+- The project documents that `Presence` remains an explicit, inspectable governance module inside the broader agent runtime rather than disappearing into opaque agent behavior
+- The minimum state model includes context, device state, handoff state, intervention history, experience feedback signals, and tasks as a derived or optional structured object rather than the mandatory primary axis
 - The runtime documents which layers may be bypassed by an explicit direct-action request and which state/context recording steps remain mandatory
+- The project documents that proactive behavior is agent-centered but presence-governed, with explicit or inspectable presence policy as the durable control surface for intervention decisions
+- The project documents that early presence-policy refinement should use a review-gated update loop: runtime and agent tooling may prepare policy update candidates from feedback, but user-approved review remains the default before changes take effect
+- The project documents that presence decisions should consume structured context observations and a synthesized context snapshot rather than raw environment signals directly
+- The project documents that the shared observation vocabulary should grow incrementally at the top level: new terms are introduced during edge development, validated centrally, and then used as normal runtime vocabulary once accepted
+- The project documents that proactive runtime evaluation may be initiated either by edge/context signals or by agent initiative, but both paths must converge on the same presence gate
 
 Status:
 
-- In progress
+- Completed
 
 Implementation note:
 
-- Milestone M1 is now partially implemented with a working real WebSocket single-edge closed loop and minimal file-backed continuity, though the runtime is still intentionally minimal
+- This goal is intended to finish once the abstraction vocabulary is written clearly enough that later implementation work can be checked against it, while the anti-drift rule itself remains a standing architecture constraint. The current direction is to treat `agent` as the primary intelligent actor, treat `presence` as an explicit internal governance layer for intervention decisions, treat `task` as a secondary structure that may be created when useful, and allow agents/models to grow or repair inspectable presence policy from feedback over time.
+- The current implementation preference is to keep the online runtime path small and inspectable: edge mappers produce normalized runtime observations, lightweight per-observation reducers synthesize compact context snapshot fields, and `unknown` or `ambiguous` results are allowed when evidence is insufficient.
+- The current implementation preference is to keep presence evaluation unified even when the trigger differs: edge/context activity and agent-initiative checks should both build or refresh compact context snapshot state and then flow through the same presence decision surface.
+- The detailed presence-policy design remains intentionally deferred for a dedicated research and design pass. That pass should explicitly study policy representation shape, conflict avoidance and resolution, orthogonality of policy scope, short-term versus long-term policy lifecycle, how present user-experience optimization should be balanced against future user-experience impact, how policy update review cadence should lengthen as the system becomes more stable, how environment understanding should flow from raw edge signals into structured context observations and then into a presence-consumable context snapshot, and how the shared observation vocabulary should be extended safely as new edge types are added.
+- Heuristic-learning style improvement should live in one unified outer maintenance loop rather than the hot decision path: feedback, replays, and tests may drive coordinated updates to edge mappers, observation reducers, vocabulary, and presence policy, but those changes remain review-gated before entering the normal runtime path.
+- Presence should consume the compact context snapshot directly rather than introducing an additional presence-only feature view; richer observation evidence remains available separately for agent reasoning and debugging when needed.
+- Agent initiative should be a first-class high-salience input to presence evaluation rather than a low-priority afterthought, but it should still remain subject to suppression, privacy, and timing policy.
+- Reference inspiration for this outer-loop direction: [Learning Beyond Gradients](https://trinkle23897.github.io/learning-beyond-gradients/#zh)
 
 ### Goal 3: Define the initial implementation path
 
@@ -174,7 +198,7 @@ Acceptance criteria:
 
 Status:
 
-- In progress
+- Completed
 
 ### Goal 4: Build the project incrementally from architecture to runtime
 
@@ -249,6 +273,26 @@ Acceptance criteria:
 
 - There is an explicit statement that the project is organized into frontend and backend halves
 - There is an explicit statement that a central runtime/gateway layer is required
+
+Status:
+
+- Completed
+
+### Completed: OpenClaw gateway reuse decision
+
+Result:
+
+- The project has moved past the stage where OpenClaw gateway reuse is needed to bootstrap a working runtime baseline
+- The repository now has its own tested minimal protocol helpers, edge session client, and runtime gateway covering the current v0 and early M2 transport needs
+- OpenClaw gateway server code is no longer treated as a primary reuse target for implementation
+- `packages/gateway-protocol` and `packages/gateway-client` remain useful as reference material and possible selective inspiration, not as planned integration dependencies
+- A minimal replacement gateway is now the active project path, with OpenClaw transport and protocol pieces retained only as optional future reference
+
+Acceptance criteria:
+
+- The project has an explicit decision on direct reuse versus replacement for the OpenClaw gateway server surface
+- The decision reflects the current implementation baseline rather than only the earlier source audit
+- The remaining role of OpenClaw protocol/client code is documented clearly enough to guide future work
 
 Status:
 
@@ -341,6 +385,27 @@ Status:
 
 - Completed
 
+### Completed: Explicit direct-action fast path baseline
+
+Result:
+
+- The edge session client can now build an explicit `direct_action` event payload for urgent edge-requested actions
+- The gateway now detects `direct_action` requests on `event_push` frames and converts them directly into `action_request` frames without going through the normal routed reply generation path
+- Direct-action events are still appended to runtime state and persisted before dispatch so continuity and auditability are preserved
+- Returned `action_result` payloads continue to be recorded and persisted through the shared gateway action-result path after local edge execution
+- Automated tests now verify that a direct-action event bypasses the normal routing path while still being persisted
+
+Acceptance criteria:
+
+- An edge can send an explicit direct-action request through the normal gateway transport
+- The gateway can bypass `Presence Router` and `Agent Executor` for that request and emit the requested action directly
+- The runtime still records the event and resulting action outcome in shared state on the existing persistence path
+- The direct-action behavior is covered by automated tests
+
+Status:
+
+- Completed
+
 ### Completed: Minimal runtime continuity persistence
 
 Result:
@@ -405,16 +470,35 @@ Status:
 
 ## Open Questions
 
-- Can OpenClaw gateway be isolated as a reusable control-plane component?
-- If it cannot, what minimum replacement gateway must be implemented first?
-- What should be the first-class object for implementation sequencing: task, device, or presence?
-- Which device surfaces should be v0 first-class surfaces?
+- Which device surfaces should be the first non-CLI surfaces for presence-first experiments?
+- What is the smallest inspectable policy representation that can support model-authored or model-repaired intervention behavior without becoming opaque?
+- Which feedback signals are strong enough to update presence policy automatically versus only being stored as weak evidence?
+- How should the runtime prevent learned or generated policies from colliding with one another as the policy set grows over time?
+- How should policy scope be constrained so independently learned rules stay as orthogonal as possible instead of silently overlapping?
+- What lifecycle model should distinguish short-lived situational policy from durable long-term user preference or trust policy?
+- Which parts of the presence-policy problem should be informed by external research before the first concrete design is locked in?
+- What review cadence should govern early presence-policy updates, and what evidence should be strong enough to justify moving from daily review toward weekly, monthly, or longer review windows?
 
 Current preference:
 
-- Try to reuse only the OpenClaw gateway parts that can be isolated as product-neutral control-plane infrastructure
-- If that isolation does not stay clean, prefer building a minimal replacement gateway rather than carrying forward channel/session-centered assumptions
-- A preliminary source audit suggests `packages/gateway-protocol` and `packages/gateway-client` are the strongest reuse candidates, while `src/gateway/server-methods` is too tightly coupled to OpenClaw runtime semantics to treat as a clean control-plane layer
+- Keep the project on its own minimal gateway path rather than planning around OpenClaw gateway server reuse
+- Treat the earlier OpenClaw source audit as useful reference context, not as an integration roadmap
+- Retain `packages/gateway-protocol` and `packages/gateway-client` only as optional reference material for future protocol organization or client transport hardening
+- Treat proactive intervention as an agent-centered but presence-governed problem rather than a task-first assistant workflow
+- Treat `Presence Router` as an explicit governance/policy layer inside the broader agent runtime whose scope includes whether to intervene, when, where, and with what intensity
+- Prefer explicit or inspectable policy as the durable control surface for proactive behavior, while allowing agent/model loops to create, revise, and repair that policy from runtime feedback
+- Prefer a review-gated policy maintenance loop in early phases: runtime and agents may prepare policy update candidates from feedback, but the user should confirm changes on a deliberate cadence before activation
+- Treat intervention history and experience feedback as first-class state inputs for policy refinement
+- Interpret single ignored interventions as weak evidence rather than immediate negative feedback
+- Optimize policy updates against both current user experience and likely future user experience
+- Treat policy review cadence itself as adaptive governance: early policy changes may be reviewed daily while the system is noisy, then gradually move toward weekly, monthly, or longer windows as behavior stabilizes
+- Prefer a structured environment-understanding pipeline for early presence work: edge sensing produces normalized context observations with source metadata, confidence, and TTL; runtime context state then synthesizes those observations into the snapshot consumed by presence policy
+- Prefer a centrally owned shared observation vocabulary that starts small and grows incrementally; new vocabulary should be added at the top level during edge development, validated there, and then treated as normal runtime vocabulary once accepted
+- Prefer one unified heuristic-learning maintenance loop around the runtime rather than separate learning loops per layer: online behavior should use explicit mappers and lightweight reducers, while feedback-driven improvements update those components and presence policy through review-gated iterations
+- Avoid adding an extra presence-only feature abstraction between context snapshot and `Presence Router`; keep the hot path shallow and let richer evidence remain available separately outside the compact snapshot
+- Prefer a dual-entry proactive model: both edge/context activity and agent initiative may trigger agent proposal generation, but both should converge on the same `Presence Router`
+- Prefer agent-initiative requests to carry higher salience than weak passive signals so the system feels meaningfully proactive, while still remaining constrained by presence suppression and privacy policy
+- Keep the heuristic-learning reference explicit in project context so future implementation work can revisit the outer-loop design source: [Learning Beyond Gradients](https://trinkle23897.github.io/learning-beyond-gradients/#zh)
 - For urgent edge-originated actions, prefer an explicit direct-action path over pretending every event should go through model-driven routing or planning
 - Even when an edge requests a direct action, the runtime should still retain the event and result in shared state so continuity and auditability are preserved
 
@@ -430,7 +514,6 @@ Immediate post-v0 direction:
 
 - Extend persistence enough to support multi-edge continuity experiments cleanly
 - Run more than one instance of the same edge template to prove cross-edge routing without introducing a separate one-off edge type
-- Add explicit direct-action handling so edge-requested fast paths can bypass routing/planning while still updating runtime state
 - Add one non-text capability so the runtime demonstrates more than a text loop
 
 Current M2 slice direction:
@@ -457,10 +540,25 @@ Current progress summary:
 - We prefer graded device profiles for heterogeneous edge hardware, but profile sprawl is now an explicit design risk to control
 - We currently prefer profile modeling that is role-first with device-type metadata, while deferring heavy resource-tier scheduling design
 - We also prefer a minimal role vocabulary that expands only when new device onboarding cannot fit existing roles cleanly
-- We currently prefer a "reuse only if isolatable, otherwise rebuild minimal" stance for the OpenClaw gateway question
-- We now have a preliminary source audit of OpenClaw gateway code that narrows reuse candidates to protocol/client/auth transport layers rather than the full gateway server surface
+- We have now decided not to plan around direct OpenClaw gateway server reuse for implementation
+- The earlier OpenClaw source audit remains useful as reference, especially around protocol and client transport patterns, but no longer drives the main delivery path
 - We have explicitly defined that all physical frontend/backend communication must be funneled through `Edge Session Link <-> Gateway`
 - We have partially defined the frontend/backend contract around capability events, state sync, action commands, and execution results
+- We now prefer an agent-centered but presence-governed product reading of the architecture: the runtime should let the agent form intervention proposals while requiring explicit presence decisions before surfacing itself
+- We now treat the current `Presence Router` concept as a broader intervention-governance layer inside the agent runtime rather than a narrow routing helper
+- We now prefer durable proactive behavior to live in explicit or inspectable policy that can be created and revised by agent/model loops instead of only in end-to-end opaque model behavior
+- We now expect future runtime state for Goal 2 to include intervention history and experience feedback signals so the system can learn from how users react to proactive actions
+- We now explicitly treat a single ignored intervention as weak evidence rather than a definitive negative outcome
+- We now want policy refinement to consider both present interaction quality and likely future user-experience impact, not just the immediate result of the latest action
+- We have now identified presence-policy design itself as a dedicated Goal 2 workstream that should be handled in a focused later discussion with supporting external research rather than being settled incidentally
+- We now prefer early presence-policy updates to be review-gated rather than silently auto-applied, with candidate updates accumulated from runtime feedback and confirmed by the user on an explicit cadence that can lengthen over time
+- We now prefer a v1 environment-understanding pipeline where raw edge signals are normalized into structured context observations and then merged into a context snapshot before any presence-policy decision is evaluated
+- We now prefer observation-vocabulary governance where new shared terms are introduced and validated centrally during edge development, then immediately become normal system vocabulary once added to the top-level contract
+- We now prefer to implement environment understanding with explicit online mappers and small per-observation reducers, while using a single review-gated heuristic-learning outer loop to refine vocabulary, reducers, and presence policy from feedback over time
+- We now prefer `Presence Router` to consume the compact snapshot directly, without an extra presence feature layer, while `Agent Executor` may still inspect snapshot plus supporting observation evidence when deeper reasoning is needed
+- We now have a written Goal 2 design baseline for device/capability contracts, runtime observations, compact context snapshots, presence-policy axes, and the unified heuristic-learning outer loop in `docs/plans/2026-06-18-goal2-presence-context-design.md`
+- We now explicitly support both sense-first and agent-initiative proactive paths, with both paths converging on `Presence Router` and agent-initiative requests carrying meaningful salience without bypassing suppression policy
+- We now treat `agent` as a primary runtime abstraction and `Presence Router` as an explicit governance module inside the broader agent runtime, completing the current Goal 2 abstraction baseline
 - We have selected the first v0 device surface as a desktop/CLI edge and the first capability loop as `text.input -> notification.show`
 - We have also defined the immediate follow-up slice after v0: minimal persistence, a second surface or device, and one non-text capability
 - We now have project-level Codex hooks enforcing `Project.md` session-start and per-turn audit behavior
@@ -476,15 +574,15 @@ Current progress summary:
 - We have manually verified a true two-process local flow using `python3 -m personal_runtime.main` and `python3 -m device_edge.cli_edge --url ...`
 - We now have minimal file-backed continuity through runtime state snapshots and restart recovery via a configurable state path
 - The gateway now persists device, capability, event, and action-result state automatically on the main v0 flow
-- We now prefer a two-path runtime reaction model: a normal routed/deliberative path and an explicit edge-requested direct-action path
-- We have clarified that direct-action requests may skip routing and agent planning, but must still be recorded in runtime state/context together with their execution results
+- We now have a two-path runtime reaction model implemented: a normal routed/deliberative path and an explicit edge-requested direct-action path
+- Direct-action requests can now bypass routing and agent planning while still being recorded in runtime state/context together with their execution results
 - We now have the first same-template multi-edge routing slice working: two edge instances can stay connected and a normal routed notification action can be delivered from one device to another
 - The gateway now tracks live edge connections for WebSocket delivery, allowing cross-edge `action_request` frames instead of only same-socket replies
 - Ordinary routed actions now prefer another online peer with the required capability and safely fall back to the source edge when only offline residual device state is present
 - We now have a repository-level development environment workflow: ordinary worktrees reuse the root `.venv`, while dependency and packaging experiments use an explicitly created worktree-local `.venv`
 - The repository now includes helper scripts and automated tests for that shared-versus-isolated environment workflow
-- We have not yet validated whether OpenClaw gateway code can actually be reused cleanly
-- We have not yet performed deeper extraction tests on the most promising OpenClaw reuse candidates
+- We have our own tested minimal protocol, edge session client, and gateway baseline, reducing the value of deeper OpenClaw gateway extraction work
+- We may still borrow ideas from OpenClaw protocol/client layers later, but that is now optional follow-on work rather than an open prerequisite
 
 Next recommended update trigger:
 

@@ -292,8 +292,9 @@ Current agreed direction:
 
 Current agreed direction:
 
-- Reuse OpenClaw gateway parts only if they can be isolated as product-neutral control-plane infrastructure
-- If isolation fails cleanly, build a minimal replacement gateway
+- Do not plan around direct reuse of the OpenClaw gateway server surface for implementation
+- Keep the personal runtime on its own minimal gateway path now that a working protocol, edge client, and gateway baseline already exist
+- Retain OpenClaw protocol and client layers only as optional reference material for future hardening or selective design borrowing
 
 This avoids pulling channel/session-centered assumptions into the new runtime architecture.
 
@@ -315,4 +316,3 @@ This document does not yet finalize:
 - the minimum state model fields
 - the minimal role vocabulary
 - the first v0 device surfaces
-- whether OpenClaw code can actually be cleanly isolated
