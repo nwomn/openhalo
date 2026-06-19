@@ -51,6 +51,16 @@ Responsibilities:
 
 This layer owns hardware and platform differences.
 
+The same model also applies to host-class edges that run on the runtime's own server. Those edges should expose telemetry and operational capabilities through the normal device/capability contracts instead of bypassing the edge model as backend-internal monitoring.
+
+For the first host-edge slice, that means host-wide telemetry may enter the observation pipeline, while executable actions should stay limited to runtime-scoped lifecycle controls so the action boundary remains inspectable.
+
+Those lifecycle controls should remain contract-stable even if the runtime deployment model changes. The first implementation may target the current plain Python process, but later deployments should be able to swap in a different execution adapter such as `systemd` without changing the capability contract seen by the rest of the runtime.
+
+The same contract discipline should apply to diagnostics. For example, `runtime.collect_logs` should prefer a structured result shape that agents and UIs can inspect directly, while still allowing raw tail text to be included for debugging and operator readability.
+
+The first host edge should also remain process-separate from the backend runtime it observes and controls. In that shape, a restart action can be initiated by the host edge, while recovery confirmation arrives later through fresh `runtime_health` observations instead of relying on the restarting process to confirm its own return.
+
 ### Gateway
 
 Responsibilities:

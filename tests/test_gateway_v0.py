@@ -4,6 +4,7 @@ from pathlib import Path
 
 import websockets
 
+from device_edge.session_client import SessionClient
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.runtime_state import RuntimeState
 
@@ -275,6 +276,46 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(replies[-1]["type"], "action_request")
         self.assertEqual(replies[-1]["device_id"], "desktop-dev-1")
+
+    async def test_records_host_observations_with_runtime_provenance(self) -> None:
+        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        client = SessionClient(
+            device_id="host-edge-1",
+            device_type="server",
+            token="dev-token",
+            capabilities=["host.metrics", "runtime.health", "runtime.control"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+                client.build_observation_event(
+                    capability="runtime.health",
+                    observations=[
+                        {
+                            "name": "runtime.health_state",
+                            "value": "healthy",
+                            "observed_at": "2026-06-19T09:30:00Z",
+                            "confidence": 0.9,
+                        }
+                    ],
+                ),
+            ]
+        )
+
+        self.assertEqual(replies[-1]["type"], "event_ack")
+        self.assertEqual(gateway.state.events[-1]["capability"], "runtime.health")
+        self.assertEqual(gateway.state.observations[-1].name, "runtime.health_state")
+        self.assertEqual(
+            gateway.state.observations[-1].source_device_id,
+            "host-edge-1",
+        )
+        self.assertEqual(
+            gateway.state.observations[-1].source_capability,
+            "runtime.health",
+        )
+        self.assertTrue(gateway.state.observations[-1].source_event_id)
 
 
 if __name__ == "__main__":

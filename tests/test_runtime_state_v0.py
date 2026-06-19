@@ -1,6 +1,7 @@
 import unittest
 from pathlib import Path
 
+from personal_runtime.context_contracts import RuntimeObservation
 from personal_runtime.presence_router import choose_response_device
 from personal_runtime.runtime_state import RuntimeState
 from personal_runtime.state_store import JsonStateStore
@@ -55,6 +56,31 @@ class RuntimeStateTests(unittest.TestCase):
         )
         self.assertEqual(restored.events[-1]["payload"]["text"], "hello")
         self.assertEqual(restored.action_results[-1]["status"], "ok")
+
+    def test_records_runtime_observation_with_provenance(self) -> None:
+        state = RuntimeState()
+        observation = RuntimeObservation(
+            name="user.location",
+            value="home.office",
+            source_device_id="desktop-dev-1",
+            source_capability="desktop_context",
+            source_event_id="evt-123",
+            observed_at="2026-06-18T10:30:00Z",
+            confidence=0.91,
+        )
+
+        state.record_observation(observation)
+        restored = RuntimeState.from_dict(state.to_dict())
+
+        self.assertEqual(len(state.observations), 1)
+        self.assertEqual(state.observations[0].name, "user.location")
+        self.assertEqual(state.observations[0].value, "home.office")
+        self.assertEqual(
+            state.observations[0].source_capability,
+            "desktop_context",
+        )
+        self.assertEqual(len(restored.observations), 1)
+        self.assertEqual(restored.observations[0].source_event_id, "evt-123")
 
 
 class JsonStateStoreTests(unittest.TestCase):
