@@ -66,6 +66,14 @@ flowchart LR
 
 The frontend is not a thin UI client. It is a device-resident edge runtime.
 
+That edge runtime may live on a personal device or on a host-class node such as the cloud server that runs the personal runtime, as long as the host-side edge still behaves like an explicit edge participant rather than a hidden backend shortcut.
+
+For the first host-class edge slice, the preferred control boundary is broad observation of host state but narrow actuation limited to the personal runtime's own process or service lifecycle.
+
+That actuation surface should be expressed as a stable edge capability contract, with deployment-specific execution delegated to replaceable backend adapters such as a plain Python-process controller first and a `systemd` controller later.
+
+For this first host-edge slice, the edge should still run as an explicit frontend-side daemon independent from the backend runtime process, even when both live on the same host. That separation keeps restart initiation, post-restart health observation, and transport boundaries legible.
+
 The backend is not a traditional request-response application server. It is the long-lived personal runtime that maintains continuity across devices, tasks, and contexts.
 
 The gateway is part of the backend, but it is not the system brain. It is the controlled boundary through which edge nodes connect to the runtime.
@@ -134,6 +142,8 @@ Responsibilities:
 - delivery acknowledgements
 - retry and reconnect behavior
 - synchronization envelopes
+
+Even when a host-side edge is physically co-located on the same server as the backend runtime, this boundary should remain explicit so the architecture does not collapse into direct internal module coupling.
 
 ## Backend / Personal Runtime
 

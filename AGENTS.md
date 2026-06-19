@@ -89,6 +89,7 @@ When contributing to this project:
 - Keep new decisions reflected in `Project.md`
 - Treat `Project.md` as a living document, not a one-time kickoff note
 - When the user asks for a project progress update, report progress separately for each tracked goal (`Goal 1` through `Goal 4`), including status, recent progress, and remaining gaps or next steps for each goal
+- When reporting implementation progress or task completion, use `架构位置 -> 本批完成 -> 对整体链路的作用 -> 还缺什么` so updates stay anchored to the end-to-end architecture rather than isolated code changes
 
 ## Hook Enforcement
 

@@ -34,6 +34,8 @@ The project is currently aligned around a two-part system:
 
 Runs on user devices such as desktops, phones, earbuds, home nodes, and background monitors.
 
+The first host-class edge may also run on the same cloud or server substrate that hosts the runtime itself, as long as it still participates through the normal edge boundary rather than becoming an implicit backend side channel.
+
 Responsibilities:
 
 - Local sensing
@@ -57,6 +59,7 @@ The current architecture baseline is documented in:
 
 - `docs/plans/2026-06-16-runtime-architecture-design.md`
 - `docs/plans/2026-06-18-goal2-presence-context-design.md`
+- `docs/plans/2026-06-19-host-edge-v1-design.md`
 - `docs/dev-env.md` for repository-level development environment workflow
 
 Current boundary rules:
@@ -73,6 +76,7 @@ Current boundary rules:
 - The working direction for proactive behavior is agent-centered but presence-governed: the runtime should allow the agent to form intervention proposals while requiring explicit presence decisions before user-facing intervention
 - The runtime should support both a sense-first proactive path and an agent-initiative proactive path, and both paths must pass through `Presence Router` before user-facing intervention
 - Presence policy should remain explicit and inspectable even when model-generated or model-repaired; models are not the only durable representation of proactive behavior
+- A host-resident edge running on the runtime's own server is still modeled as a first-class `Device Edge`; physical co-location does not waive the `Edge Session Link <-> Gateway` boundary
 - The runtime should support both a normal deliberative path and an explicit edge-requested fast path for direct actions
 - A direct action fast path may bypass `Presence Router` and `Agent Executor`, but it must still pass through `Gateway`, update runtime state/context, and record action results
 - Runtime feedback interpretation should treat `ignore != negative`; explicit rejection or repeated similar-context dismissal should carry more weight than one-off non-response
@@ -492,6 +496,7 @@ Status:
 ## Open Questions
 
 - Which device surfaces should be the first non-CLI surfaces for presence-first experiments?
+- What is the smallest safe operational-control surface for the first host edge, and how should that surface be constrained so it stays inspectable?
 - What is the smallest inspectable policy representation that can support model-authored or model-repaired intervention behavior without becoming opaque?
 - Which feedback signals are strong enough to update presence policy automatically versus only being stored as weak evidence?
 - How should the runtime prevent learned or generated policies from colliding with one another as the policy set grows over time?
@@ -522,6 +527,15 @@ Current preference:
 - Keep the heuristic-learning reference explicit in project context so future implementation work can revisit the outer-loop design source: [Learning Beyond Gradients](https://trinkle23897.github.io/learning-beyond-gradients/#zh)
 - For urgent edge-originated actions, prefer an explicit direct-action path over pretending every event should go through model-driven routing or planning
 - Even when an edge requests a direct action, the runtime should still retain the event and result in shared state so continuity and auditability are preserved
+- Treat the runtime's own hosting server as the first host-class `Device Edge` candidate for early non-CLI presence and operations work
+- Model that host edge as a first-class device/capability participant rather than hiding it inside backend-only monitoring code
+- Keep operational control in scope for that first host edge, but constrain it to an explicit capability surface rather than arbitrary shell access
+- For the first host-edge control slice, prefer host-wide observation together with runtime-scoped control rather than immediate whole-server operational control
+- Keep host-edge capability contracts stable while allowing the runtime-control execution backend to vary by deployment model
+- For v1, implement runtime-scoped control against the current plain Python process shape first, while preserving a later adapter path for `systemd`-managed deployment
+- For `runtime_control`, prefer deployment-agnostic action names such as `status`, `restart`, `reload`, and `collect_logs` over backend-specific verbs
+- For `runtime.collect_logs`, prefer a structured result surface first while still carrying raw tail text for debugging compatibility
+- Keep the first host edge as an independent frontend-side daemon rather than a module inside the backend runtime process
 
 Current v0 milestone direction:
 
@@ -550,12 +564,19 @@ Current M3 slice direction:
 - Store normalized runtime observations with provenance separately from raw edge event details
 - Build compact snapshot reducers one field at a time, preserving `unknown` and `ambiguous` outcomes instead of forcing certainty
 - After the context foundation is stable, thread snapshot-driven routing into `Presence Router` and gateway decision flow
+- Use the runtime's own hosting server as the first host-class edge candidate so M3 can learn from real host telemetry rather than only typed CLI input
+- Treat that host edge as both an observation source and a future operational-control surface, with a small inspectable capability boundary
+- Lock the first host-edge control boundary to `host-wide observation + runtime-scoped control` so the first operational loop stays auditable and easy to test
+- Keep the `runtime_control` contract deployment-agnostic and treat Python-process control as the first concrete adapter rather than the permanent execution model
+- Keep `runtime_control` responses structured enough for agent reasoning and UI inspection, while allowing raw diagnostic payloads to ride alongside when helpful
+- Let `runtime_control.restart` initiate restart from the independent host edge, and let post-restart confirmation arrive later through separate `runtime_health` observations rather than synchronous self-confirmation
+- Capture the first host-edge daemon shape and implementation ladder explicitly in `docs/plans/2026-06-19-host-edge-v1-design.md` and `docs/plans/2026-06-19-host-edge-v1-implementation-plan.md`
 
 ## Current Project Progress
 
 Current phase:
 
-- First M3 presence-context foundation batch implemented on top of the completed v0 and M2 routing baseline
+- First M3 presence-context foundation batch implemented on top of the completed v0 and M2 routing baseline, with the first host-edge daemon design and implementation plan now written for host-wide observation and runtime-scoped control
 
 Current progress summary:
 
@@ -578,6 +599,14 @@ Current progress summary:
 - We now expect future runtime state for Goal 2 to include intervention history and experience feedback signals so the system can learn from how users react to proactive actions
 - We now explicitly treat a single ignored intervention as weak evidence rather than a definitive negative outcome
 - We now want policy refinement to consider both present interaction quality and likely future user-experience impact, not just the immediate result of the latest action
+- We now want the first real non-CLI edge to be the runtime's own hosting server, represented as a first-class edge rather than hidden backend instrumentation
+- We now want that first host edge to evolve beyond passive observation into an explicit operational-control surface, while still keeping the control boundary narrow and inspectable
+- We now prefer the first host-edge capability envelope to observe whole-host state while limiting executable actions to the personal runtime's own process or service lifecycle
+- We now prefer the host-edge interface layer to stay stable even if the runtime later moves from a plain Python process to `systemd` or another deployment supervisor
+- We now prefer `runtime_control` actions to stay deployment-agnostic and `runtime.collect_logs` to return structured diagnostics plus raw tail text rather than only opaque log blobs
+- We now require the first host edge to remain a frontend-side daemon independent from the backend runtime process so restart and health-observation loops stay physically separable
+- We now have a dedicated host-edge v1 design baseline covering daemon boundaries, capability contracts, adapter shape, and restart/recovery semantics in `docs/plans/2026-06-19-host-edge-v1-design.md`
+- We now have a dedicated host-edge v1 implementation ladder in `docs/plans/2026-06-19-host-edge-v1-implementation-plan.md`, scoped around configurable edge capabilities, host observation collection, runtime control adapters, host-daemon lifecycle, and observation recording
 - We have now identified presence-policy design itself as a dedicated Goal 2 workstream that should be handled in a focused later discussion with supporting external research rather than being settled incidentally
 - We now prefer early presence-policy updates to be review-gated rather than silently auto-applied, with candidate updates accumulated from runtime feedback and confirmed by the user on an explicit cadence that can lengthen over time
 - We now prefer a v1 environment-understanding pipeline where raw edge signals are normalized into structured context observations and then merged into a context snapshot before any presence-policy decision is evaluated
@@ -613,6 +642,15 @@ Current progress summary:
 - Runtime state can now retain normalized observations with provenance as a distinct layer instead of collapsing everything into raw event history only
 - We now have the first compact context snapshot reducer for hot-path presence work, including explicit `unknown` and `ambiguous` outcomes for location evidence
 - Targeted automated tests now cover shared context contracts, observation storage, and the first compact snapshot reducer behavior
+- We now have a configurable edge-capability foundation on the frontend side, so host-class edges are no longer forced to masquerade as the original text-only CLI capability shape
+- The edge session client can now emit structured observation events with stable `event_id`s, allowing host telemetry to enter the runtime through the normal `Edge Session Link <-> Gateway` path instead of only through text input
+- We now have a Linux-first host observation collector for whole-host telemetry and runtime health snapshots, covering the first real non-CLI observation path for M3
+- We now have a first runtime-scoped control adapter contract on the edge side, with a Python-process implementation for `status`, `restart`, `reload`, and `collect_logs` while preserving a later adapter swap for `systemd` or other supervisors
+- We now have the first independent host-edge daemon foundation that can bootstrap capability frames, push initial host observations, accept runtime control requests, and confirm later recovery through separate health observations
+- The gateway can now ingest observation batches as first-class runtime events, persist the raw edge event, normalize host observations, and record them into shared runtime observation state with provenance
+- The runtime state layer now exposes explicit observation recording so later presence and agent flows can consume host telemetry without reparsing raw event payloads
+- We now have targeted automated coverage for host observation collection, runtime control adapter behavior, host-daemon request handling, gateway observation recording, CLI trace output, and trace-recorder persistence helpers
+- Fresh targeted verification passed for the host-edge foundation batch, while the real WebSocket host-edge roundtrip test remains environment-blocked here because the sandbox cannot bind a local test socket
 - We have our own tested minimal protocol, edge session client, and gateway baseline, reducing the value of deeper OpenClaw gateway extraction work
 - We may still borrow ideas from OpenClaw protocol/client layers later, but that is now optional follow-on work rather than an open prerequisite
 

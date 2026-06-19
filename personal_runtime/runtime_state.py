@@ -26,6 +26,9 @@ class RuntimeState:
     def record_observation(self, observation: RuntimeObservation) -> None:
         self.observations.append(observation)
 
+    def record_observations(self, observations: list[RuntimeObservation]) -> None:
+        self.observations.extend(observations)
+
     def to_dict(self) -> dict:
         return {
             "devices": {

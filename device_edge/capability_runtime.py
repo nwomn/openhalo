@@ -2,5 +2,5 @@
 
 
 class CapabilityRuntime:
-    def __init__(self) -> None:
-        self.capabilities = ["text.input", "notification.show"]
+    def __init__(self, capabilities: list[str] | None = None) -> None:
+        self.capabilities = capabilities or ["text.input", "notification.show"]
