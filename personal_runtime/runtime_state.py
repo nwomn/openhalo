@@ -10,6 +10,7 @@ class RuntimeState:
         self.tasks = []
         self.action_results = []
         self.observations = []
+        self.interventions = []
 
     def register_device(self, device_id: str, device_type: str) -> None:
         self.devices.setdefault(
@@ -29,6 +30,9 @@ class RuntimeState:
     def record_observations(self, observations: list[RuntimeObservation]) -> None:
         self.observations.extend(observations)
 
+    def record_intervention(self, intervention: dict) -> None:
+        self.interventions.append(intervention)
+
     def to_dict(self) -> dict:
         return {
             "devices": {
@@ -44,6 +48,7 @@ class RuntimeState:
             "observations": [
                 observation.to_dict() for observation in self.observations
             ],
+            "interventions": self.interventions,
         }
 
     @classmethod
@@ -61,4 +66,5 @@ class RuntimeState:
             RuntimeObservation.from_dict(observation_payload)
             for observation_payload in payload.get("observations", [])
         ]
+        state.interventions = list(payload.get("interventions", []))
         return state

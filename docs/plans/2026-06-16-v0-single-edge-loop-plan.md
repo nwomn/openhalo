@@ -4,7 +4,7 @@
 
 **Goal:** Build the first usable product slice: one desktop/CLI edge device connects to the backend runtime, registers capabilities, sends text input as an event, receives a generated response, and executes a local notification action.
 
-**Architecture:** Keep v0 intentionally narrow. Use one long-lived WebSocket path between a single edge client and a single backend runtime. Model the backend with the agreed architecture shape, but implement the smallest viable versions of `Gateway`, `State / Context / Task`, `Presence Router`, `Agent Executor`, and `Action Layer`. Model the frontend as one CLI-based `Device Edge` with a minimal capability runtime and local action executor.
+**Architecture:** Keep v0 intentionally narrow. Use one long-lived WebSocket path between a single edge client and a single backend runtime. Model the backend with the agreed architecture shape, but implement the smallest viable versions of `Gateway`, `State / Context / Task`, a minimal `Agent Runtime` with an embedded same-device presence rule, and `Action Layer`. Model the frontend as one CLI-based `Device Edge` with a minimal capability runtime and local action executor.
 
 **Tech Stack:** Python 3.11+, `asyncio`, `websockets`, `unittest`
 

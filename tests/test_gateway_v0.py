@@ -242,6 +242,10 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(replies[-1]["type"], "action_request")
         self.assertEqual(replies[-1]["device_id"], "desktop-dev-2")
         self.assertEqual(replies[-1]["action"]["capability"], "notification.show")
+        self.assertEqual(gateway.state.interventions[-1]["decision"], "allow")
+        self.assertEqual(gateway.state.interventions[-1]["target_device_id"], "desktop-dev-2")
+        self.assertEqual(gateway.state.interventions[-1]["proposal"]["action_capability"], "notification.show")
+        self.assertEqual(gateway.state.interventions[-1]["proposal"]["kind"], "notify")
 
     async def test_normal_path_falls_back_to_source_when_peer_is_not_online(self) -> None:
         state = RuntimeState()
@@ -276,6 +280,105 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(replies[-1]["type"], "action_request")
         self.assertEqual(replies[-1]["device_id"], "desktop-dev-1")
+
+    async def test_normal_path_suppresses_user_facing_action_when_location_context_is_ambiguous(self) -> None:
+        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        client = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show", "desktop_context"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+                client.build_observation_event(
+                    capability="desktop_context",
+                    observations=[
+                        {
+                            "name": "user.location",
+                            "value": "office",
+                            "observed_at": "2026-06-19T10:30:00Z",
+                            "confidence": 0.81,
+                        }
+                    ],
+                ),
+                {
+                    "type": "event_push",
+                    "device_id": "phone-1",
+                    "capability": "mobile_context",
+                    "event_id": "evt-mobile-1",
+                    "payload": {
+                        "observations": [
+                            {
+                                "name": "user.location",
+                                "value": "train",
+                                "observed_at": "2026-06-19T10:29:00Z",
+                                "confidence": 0.80,
+                            }
+                        ]
+                    },
+                },
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {"text": "should be suppressed"},
+                },
+            ]
+        )
+
+        self.assertEqual(replies[-1]["type"], "event_ack")
+        self.assertEqual(len([reply for reply in replies if reply["type"] == "action_request"]), 0)
+        self.assertEqual(gateway.state.interventions[-1]["decision"], "suppress")
+        self.assertEqual(gateway.state.interventions[-1]["reason"], "context_ambiguous")
+
+    async def test_normal_path_suppresses_repeated_intervention_during_cooldown(self) -> None:
+        state = RuntimeState()
+        state.record_intervention(
+            {
+                "target_device_id": "desktop-dev-1",
+                "action_capability": "notification.show",
+                "decision": "allow",
+                "reason": "context_clear",
+                "recorded_at": "2026-06-19T10:30:00Z",
+            }
+        )
+        gateway = RuntimeGateway(shared_token="dev-token", state=state, persist_state=False)
+
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "desktop-dev-1",
+                        "device_type": "desktop-cli",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "capability_announce",
+                    "device_id": "desktop-dev-1",
+                    "capabilities": ["text.input", "notification.show"],
+                },
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {
+                        "text": "repeat too soon",
+                        "observed_at": "2026-06-19T10:32:00Z",
+                    },
+                },
+            ]
+        )
+
+        self.assertEqual(replies[-1]["type"], "event_ack")
+        self.assertEqual(len([reply for reply in replies if reply["type"] == "action_request"]), 0)
+        self.assertEqual(gateway.state.interventions[-1]["decision"], "suppress")
+        self.assertEqual(gateway.state.interventions[-1]["reason"], "cooldown_active")
 
     async def test_records_host_observations_with_runtime_provenance(self) -> None:
         gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)

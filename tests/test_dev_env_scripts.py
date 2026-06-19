@@ -17,7 +17,7 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertTrue(os.access(script_path, os.X_OK))
         self.assertIn('.venv/bin/python', script_path.read_text(encoding="utf-8"))
 
-    def test_bootstrap_script_exists_and_mentions_local_worktree_venv(self) -> None:
+    def test_bootstrap_script_exists_and_mentions_optional_local_worktree_venv(self) -> None:
         script_path = ROOT / "bin" / "bootstrap-worktree-venv"
 
         self.assertTrue(script_path.exists())
@@ -25,14 +25,18 @@ class DevEnvWorkflowTests(unittest.TestCase):
         contents = script_path.read_text(encoding="utf-8")
         self.assertIn("python3 -m venv .venv", contents)
         self.assertIn("worktree-local", contents)
+        self.assertIn("optional", contents)
 
-    def test_dev_env_document_describes_shared_and_isolated_modes(self) -> None:
+    def test_dev_env_document_describes_branch_first_default_and_optional_worktree_mode(self) -> None:
         document_path = ROOT / "docs" / "dev-env.md"
 
         self.assertTrue(document_path.exists())
         contents = document_path.read_text(encoding="utf-8")
-        self.assertIn("Default: reuse the repository root `.venv`", contents)
-        self.assertIn("Exception: create a worktree-local `.venv`", contents)
+        self.assertIn("Default: work on a normal branch in the main workspace.", contents)
+        self.assertIn("Optional: create a worktree-local `.venv`.", contents)
+        self.assertIn("Advanced optional path: use a git worktree", contents)
+        self.assertIn("CLI device validation is acceptable for early module testing", contents)
+        self.assertIn("Host edge verification is required before documenting a module as implemented and operationally ready.", contents)
 
     def test_shared_test_script_runs_using_root_venv(self) -> None:
         script_path = ROOT / "bin" / "test"

@@ -82,6 +82,27 @@ class RuntimeStateTests(unittest.TestCase):
         self.assertEqual(len(restored.observations), 1)
         self.assertEqual(restored.observations[0].source_event_id, "evt-123")
 
+    def test_roundtrips_intervention_history(self) -> None:
+        state = RuntimeState()
+        state.record_intervention(
+            {
+                "target_device_id": "desktop-dev-1",
+                "action_capability": "notification.show",
+                "decision": "allow",
+                "reason": "context_clear",
+                "recorded_at": "2026-06-19T10:30:00Z",
+            }
+        )
+
+        restored = RuntimeState.from_dict(state.to_dict())
+
+        self.assertEqual(len(restored.interventions), 1)
+        self.assertEqual(
+            restored.interventions[0]["action_capability"],
+            "notification.show",
+        )
+        self.assertEqual(restored.interventions[0]["decision"], "allow")
+
 
 class JsonStateStoreTests(unittest.TestCase):
     def test_saves_and_loads_runtime_state(self) -> None:

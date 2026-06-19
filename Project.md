@@ -73,16 +73,19 @@ Current boundary rules:
 - Cross-boundary relationships between frontend and backend internal modules are logical only unless they pass through that transport choke point
 - `Gateway` is a boundary and control-plane layer, not the primary reasoning layer
 - `Presence` is a first-class governance layer inside the broader agent runtime, not just a device-routing helper; routing is only one sub-problem inside presence
+- `Agent Runtime` is the primary intelligent runtime module; proposal formation and execution planning both belong inside that module rather than being modeled as separate top-level backend modules
+- `Presence Router` should be treated as an explicit, inspectable governance submodule inside `Agent Runtime`, so intervention logic remains readable and more deterministic than a pure model-probability output
 - The working direction for proactive behavior is agent-centered but presence-governed: the runtime should allow the agent to form intervention proposals while requiring explicit presence decisions before user-facing intervention
 - The runtime should support both a sense-first proactive path and an agent-initiative proactive path, and both paths must pass through `Presence Router` before user-facing intervention
 - Presence policy should remain explicit and inspectable even when model-generated or model-repaired; models are not the only durable representation of proactive behavior
 - A host-resident edge running on the runtime's own server is still modeled as a first-class `Device Edge`; physical co-location does not waive the `Edge Session Link <-> Gateway` boundary
 - The runtime should support both a normal deliberative path and an explicit edge-requested fast path for direct actions
-- A direct action fast path may bypass `Presence Router` and `Agent Executor`, but it must still pass through `Gateway`, update runtime state/context, and record action results
+- A direct action fast path may bypass the normal `Agent Runtime` path, including `Presence Router`, but it must still pass through `Gateway`, update runtime state/context, and record action results
 - Runtime feedback interpretation should treat `ignore != negative`; explicit rejection or repeated similar-context dismissal should carry more weight than one-off non-response
 - Presence policy updates should optimize for both immediate user experience and likely future user experience, rather than greedily maximizing the current interaction outcome
 - For the first same-template multi-edge slice, ordinary routed actions should prefer a different online edge instance with the required capability before falling back to the source device
-- Ordinary development work in worktrees should reuse the repository root `.venv` by default, while dependency or packaging experiments should use an explicitly created worktree-local `.venv`
+- Ordinary development work should be branch-first in the main workspace and should reuse the repository root `.venv` by default, while optional worktree-based dependency or packaging experiments should use an explicitly created worktree-local `.venv`
+- CLI device validation is acceptable for early module testing, but host-edge verification is required before documenting a module as fully implemented and operationally ready
 
 ## Edge Representation Model
 
@@ -129,7 +132,7 @@ Acceptance criteria:
 
 - A written architecture description exists
 - The role of `Device Edge` and `Personal Runtime` is explicitly separated
-- The meaning of `Gateway`, `State`, `Presence Router`, `Agent Executor`, and `Action Layer` is documented
+- The meaning of `Gateway`, `State`, `Agent Runtime`, `Presence Router`, and `Action Layer` is documented
 - A clear decision exists on whether OpenClaw gateway code is reused directly, selectively referenced, or replaced
 
 Status:
@@ -174,6 +177,7 @@ Implementation note:
 - This goal is intended to finish once the abstraction vocabulary is written clearly enough that later implementation work can be checked against it, while the anti-drift rule itself remains a standing architecture constraint. The current direction is to treat `agent` as the primary intelligent actor, treat `presence` as an explicit internal governance layer for intervention decisions, treat `task` as a secondary structure that may be created when useful, and allow agents/models to grow or repair inspectable presence policy from feedback over time.
 - The current implementation preference is to keep the online runtime path small and inspectable: edge mappers produce normalized runtime observations, lightweight per-observation reducers synthesize compact context snapshot fields, and `unknown` or `ambiguous` results are allowed when evidence is insufficient.
 - The current implementation preference is to keep presence evaluation unified even when the trigger differs: edge/context activity and agent-initiative checks should both build or refresh compact context snapshot state and then flow through the same presence decision surface.
+- The current implementation preference is to model `Agent Runtime` as one coherent backend module whose internal flow includes proposal formation, explicit presence governance, and later execution planning, rather than splitting those responsibilities into multiple top-level architecture boxes.
 - The detailed presence-policy design remains intentionally deferred for a dedicated research and design pass. That pass should explicitly study policy representation shape, conflict avoidance and resolution, orthogonality of policy scope, short-term versus long-term policy lifecycle, how present user-experience optimization should be balanced against future user-experience impact, how policy update review cadence should lengthen as the system becomes more stable, how environment understanding should flow from raw edge signals into structured context observations and then into a presence-consumable context snapshot, and how the shared observation vocabulary should be extended safely as new edge types are added.
 - Heuristic-learning style improvement should live in one unified outer maintenance loop rather than the hot decision path: feedback, replays, and tests may drive coordinated updates to edge mappers, observation reducers, vocabulary, and presence policy, but those changes remain review-gated before entering the normal runtime path.
 - Presence should consume the compact context snapshot directly rather than introducing an additional presence-only feature view; richer observation evidence remains available separately for agent reasoning and debugging when needed.
@@ -214,6 +218,10 @@ Sub-goals:
 - 4.2. Define milestone M1: minimal runtime core with real transport, minimal continuity, and explicit direct-action fast-path support
 - 4.3. Define milestone M2: first multi-device continuity and same-template cross-edge routing path
 - 4.4. Define milestone M3: first presence-aware routing path beyond fixed fast-path and simple fallback rules
+- 4.5. Define milestone M4: first mature host-edge runtime that can run stably as a real edge surface with continuous observation, durable control behavior, and edge-local verification without requiring the backend maturity work to be finished
+- 4.6. Define milestone M5: mature runtime ingestion and context path on top of stable host-edge input, including gateway handling, normalized observation storage, snapshot reduction, and context freshness / ambiguity handling
+- 4.7. Define milestone M6: mature presence, agent, and action path on top of stable real-edge input, so the proactive runtime chain becomes reliable beyond the current validation slice
+- 4.8. Define milestone M7: operational-readiness verification milestone that gates "implemented and ready to run" claims on end-to-end host-edge-path validation rather than CLI-only checks
 
 Acceptance criteria:
 
@@ -308,7 +316,7 @@ Result:
 
 - The first usable product slice is now defined as a single-edge closed loop
 - The first-class v0 device surface is a desktop/CLI edge client
-- The minimum v0 backend module set is `Gateway`, in-memory `State / Context / Task`, a same-device `Presence Router` rule, a minimal `Agent Executor`, and an `Action Layer`
+- The minimum v0 backend module set is `Gateway`, in-memory `State / Context / Task`, a same-device presence rule inside a minimal `Agent Runtime`, and an `Action Layer`
 - The minimum v0 capability loop is `text.input -> event -> response -> notification.show`
 - A concrete implementation plan has been written in `docs/plans/2026-06-16-v0-single-edge-loop-plan.md`
 
@@ -350,7 +358,7 @@ Status:
 Result:
 
 - A minimal `RuntimeGateway` now handles `connect`, `capability_announce`, and `event_push` frames
-- A minimal `Agent Executor` now generates text replies and the `Action Layer` converts them into `notification.show` requests
+- A minimal `Agent Runtime` slice now generates text replies and the `Action Layer` converts them into `notification.show` requests
 - A minimal `SessionClient` now builds connect, capability, and text-event frames and returns `action_result` payloads after local execution
 - A minimal CLI edge runner can execute the whole loop locally from typed text input to printed notification output
 - End-to-end tests now verify the single-edge roundtrip through gateway, edge session client, and local action execution
@@ -402,7 +410,7 @@ Result:
 Acceptance criteria:
 
 - An edge can send an explicit direct-action request through the normal gateway transport
-- The gateway can bypass `Presence Router` and `Agent Executor` for that request and emit the requested action directly
+- The gateway can bypass the normal `Agent Runtime` path for that request, including `Presence Router`, and emit the requested action directly
 - The runtime still records the event and resulting action outcome in shared state on the existing persistence path
 - The direct-action behavior is covered by automated tests
 
@@ -460,13 +468,16 @@ Result:
 - `bin/test` now provides a small helper that always uses the repository root `.venv`
 - `bin/bootstrap-worktree-venv` now provides an explicit opt-in path for isolated worktree environments during dependency or packaging experiments
 - Automated tests now verify the helper scripts and the documented shared-versus-isolated environment rules
+- The default day-to-day repository workflow is now explicitly branch-first in the main workspace, with worktrees kept as an advanced optional path rather than the normal baseline
+- The repository now documents a verification ladder: CLI device tests are acceptable for early validation, while host-edge verification is required before calling a module implemented and operationally ready
 
 Acceptance criteria:
 
-- The default development workflow for ordinary worktrees is explicitly documented
+- The default development workflow for ordinary branch work in the main workspace is explicitly documented
 - The isolated worktree environment exception path is explicitly documented
 - The repository includes helper commands for both modes
 - The environment workflow is covered by automated tests
+- The project-level documentation explicitly distinguishes early CLI validation from host-edge operational verification
 
 Status:
 
@@ -488,6 +499,47 @@ Acceptance criteria:
 - Runtime state can record and restore normalized observations with provenance
 - A compact snapshot reducer exists for at least one presence-relevant field and preserves `unknown` / `ambiguous` outcomes when evidence is insufficient or conflicting
 - The new context and snapshot foundation is covered by automated tests
+
+Status:
+
+- Completed
+
+### Completed: First snapshot-driven presence decision slice
+
+Result:
+
+- The normal runtime path now builds a compact context snapshot from stored normalized observations before user-facing notification routing
+- `Presence Router` now returns an explicit inspectable decision object rather than only a target device id
+- The first live suppression rules now work on the hot path: ambiguous location context suppresses intervention, and a recent allowed intervention can suppress repeated follow-up actions when an explicit event timestamp is available
+- The runtime now records intervention history separately from raw events and action results, and that history survives state serialization
+- Automated tests now cover allowed intervention recording, ambiguous-context suppression, cooldown suppression, and intervention-history roundtrips
+
+Acceptance criteria:
+
+- The live runtime path evaluates an explicit presence decision before emitting a normal user-facing notification action
+- The first presence decision slice can suppress at least one ambiguous-context case and one repeated-intervention case
+- Intervention history is persisted as first-class runtime state for later policy refinement
+- The new slice is covered by automated tests without regressing the existing v0 and M2 roundtrip behavior
+
+Status:
+
+- Completed
+
+### Completed: First intervention-proposal live path slice
+
+Result:
+
+- The normal runtime path no longer jumps directly from compact snapshot into presence gating; it now builds an explicit inspectable intervention proposal first
+- The early agent layer now exposes a minimal `InterventionProposal` shape for the normal notification path
+- `Presence Router` now evaluates proposal-aware notification requests instead of inferring everything only from source device and capability lookup
+- Allowed intervention history now records the proposal payload together with the later presence decision and target device choice
+- Trace output and automated tests now cover the `snapshot -> proposal -> presence -> action` flow on the normal path
+
+Acceptance criteria:
+
+- The live normal path constructs an explicit proposal before evaluating a presence decision
+- Presence evaluation can consume proposal data together with compact snapshot and intervention history
+- Proposal-aware routing behavior is covered by automated tests without regressing existing roundtrip or host-edge behavior
 
 Status:
 
@@ -571,6 +623,7 @@ Current M3 slice direction:
 - Keep `runtime_control` responses structured enough for agent reasoning and UI inspection, while allowing raw diagnostic payloads to ride alongside when helpful
 - Let `runtime_control.restart` initiate restart from the independent host edge, and let post-restart confirmation arrive later through separate `runtime_health` observations rather than synchronous self-confirmation
 - Capture the first host-edge daemon shape and implementation ladder explicitly in `docs/plans/2026-06-19-host-edge-v1-design.md` and `docs/plans/2026-06-19-host-edge-v1-implementation-plan.md`
+- Treat the current host-edge batch as a foundation rather than a finished endpoint; keep that completion work out of M3 and carry it in later milestones instead: M4 for a mature standalone host edge, M5 for backend ingestion/context maturity on top of that input, M6 for presence/agent/action maturity on real edge input, and M7 for end-to-end operational-readiness verification
 
 ## Current Project Progress
 
@@ -612,7 +665,9 @@ Current progress summary:
 - We now prefer a v1 environment-understanding pipeline where raw edge signals are normalized into structured context observations and then merged into a context snapshot before any presence-policy decision is evaluated
 - We now prefer observation-vocabulary governance where new shared terms are introduced and validated centrally during edge development, then immediately become normal system vocabulary once added to the top-level contract
 - We now prefer to implement environment understanding with explicit online mappers and small per-observation reducers, while using a single review-gated heuristic-learning outer loop to refine vocabulary, reducers, and presence policy from feedback over time
-- We now prefer `Presence Router` to consume the compact snapshot directly, without an extra presence feature layer, while `Agent Executor` may still inspect snapshot plus supporting observation evidence when deeper reasoning is needed
+- We now prefer `Presence Router` to consume the compact snapshot directly, without an extra presence feature layer, while the broader `Agent Runtime` may still inspect snapshot plus supporting observation evidence when deeper reasoning is needed
+- We now use `Agent Runtime` as the top-level backend module name, because that module owns both proposal formation and later execution planning around the explicit `Presence Router` submodule
+- The architecture baseline now needs to show `Presence Router` as an internal governance submodule inside `Agent Runtime`, together with the dual-entry proactive flow that converges on that submodule
 - We now have a written Goal 2 design baseline for device/capability contracts, runtime observations, compact context snapshots, presence-policy axes, and the unified heuristic-learning outer loop in `docs/plans/2026-06-18-goal2-presence-context-design.md`
 - We now explicitly support both sense-first and agent-initiative proactive paths, with both paths converging on `Presence Router` and agent-initiative requests carrying meaningful salience without bypassing suppression policy
 - We now treat `agent` as a primary runtime abstraction and `Presence Router` as an explicit governance module inside the broader agent runtime, completing the current Goal 2 abstraction baseline
@@ -620,7 +675,7 @@ Current progress summary:
 - We have also defined the immediate follow-up slice after v0: minimal persistence, a second surface or device, and one non-text capability
 - We now have project-level Codex hooks enforcing `Project.md` session-start and per-turn audit behavior
 - We have now defined the minimum backend module set for the first usable v0 slice
-- We have initialized the repository as a git project and established an isolated worktree-based implementation flow
+- We have initialized the repository as a git project and support both normal branch work and optional isolated worktree-based iteration
 - We have completed the first implementation batch for the v0 plan: Python project scaffold, `personal_runtime` and `device_edge` package roots, shared protocol helpers, in-memory runtime state, and the same-device presence routing stub
 - We now have automated tests covering the v0 scaffold import contract, protocol frame helpers, and runtime state/presence basics alongside the existing project hook tests
 - We have now implemented the first minimal backend gateway loop, response generator, action builder, edge session client, and CLI edge runner
@@ -636,8 +691,9 @@ Current progress summary:
 - We now have the first same-template multi-edge routing slice working: two edge instances can stay connected and a normal routed notification action can be delivered from one device to another
 - The gateway now tracks live edge connections for WebSocket delivery, allowing cross-edge `action_request` frames instead of only same-socket replies
 - Ordinary routed actions now prefer another online peer with the required capability and safely fall back to the source edge when only offline residual device state is present
-- We now have a repository-level development environment workflow: ordinary worktrees reuse the root `.venv`, while dependency and packaging experiments use an explicitly created worktree-local `.venv`
+- We now have a repository-level development environment workflow: ordinary day-to-day work stays branch-first in the main workspace and reuses the root `.venv`, while optional dependency and packaging experiments may use an explicitly created worktree-local `.venv`
 - The repository now includes helper scripts and automated tests for that shared-versus-isolated environment workflow
+- We now require host-edge verification before describing a module as implemented and operationally ready in project documentation, while still allowing early CLI device validation during initial development
 - We now have explicit shared runtime context contracts for device, capability, and normalized observation records
 - Runtime state can now retain normalized observations with provenance as a distinct layer instead of collapsing everything into raw event history only
 - We now have the first compact context snapshot reducer for hot-path presence work, including explicit `unknown` and `ambiguous` outcomes for location evidence
@@ -651,6 +707,11 @@ Current progress summary:
 - The runtime state layer now exposes explicit observation recording so later presence and agent flows can consume host telemetry without reparsing raw event payloads
 - We now have targeted automated coverage for host observation collection, runtime control adapter behavior, host-daemon request handling, gateway observation recording, CLI trace output, and trace-recorder persistence helpers
 - Fresh targeted verification passed for the host-edge foundation batch, while the real WebSocket host-edge roundtrip test remains environment-blocked here because the sandbox cannot bind a local test socket
+- We now explicitly keep M3 scoped as the first presence-aware routing validation slice and move host-edge and product-maturity work into later milestones instead of stretching M3 semantics
+- We now define M4 as the first mature host-edge runtime milestone: the current implementation proves the foundation slice, but the host edge still needs to become a stable standalone real-edge surface with durable observation and control behavior that can be validated on its own
+- We now define M5 as the runtime-ingestion and context-maturity milestone: once host-edge input is stable, the backend still needs more mature gateway ingestion, normalized observation handling, reducer behavior, and freshness / ambiguity management
+- We now define M6 as the presence / agent / action maturity milestone: the proactive runtime chain still needs to become reliable on top of stable real-edge input rather than only on the current validation slice
+- We now define M7 as the operational-readiness verification milestone: end-to-end host-edge-path validation must pass before we describe the system as implemented and ready to run
 - We have our own tested minimal protocol, edge session client, and gateway baseline, reducing the value of deeper OpenClaw gateway extraction work
 - We may still borrow ideas from OpenClaw protocol/client layers later, but that is now optional follow-on work rather than an open prerequisite
 

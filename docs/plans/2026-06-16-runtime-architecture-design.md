@@ -40,18 +40,27 @@ flowchart LR
     subgraph BE["Backend / Personal Runtime"]
         BE1["Gateway<br/>device access<br/>auth<br/>pairing<br/>transport termination<br/>protocol adaptation<br/>ingress / egress routing"]
         BE2["State / Context / Task<br/>device state<br/>event log<br/>task state<br/>context memory<br/>handoff state"]
-        BE3["Presence Router<br/>whether to intervene<br/>where to surface<br/>intensity / timing"]
-        BE4["Agent Executor<br/>planning<br/>reasoning<br/>tool selection<br/>response generation"]
+        subgraph BE3["Agent Runtime"]
+            AR1["Proposal Formation<br/>context interpretation<br/>initiative evaluation<br/>intervention proposal building"]
+            AR2["Presence Router<br/>whether to intervene<br/>where to surface<br/>intensity / timing"]
+            AR3["Execution Planning<br/>reply generation<br/>tool selection<br/>action coordination"]
+
+            AR1 --> AR2
+            AR2 --> AR3
+        end
         BE5["Action Layer<br/>device actions<br/>remote commands<br/>external API calls<br/>notifications"]
         BE6["Model / Tool / Skill Runtime"]
 
         BE1 <--> BE2
-        BE2 <--> BE3
-        BE3 <--> BE4
-        BE4 <--> BE5
-        BE4 <--> BE6
+        BE2 <--> AR1
+        BE2 <--> AR2
+        BE2 <--> AR3
+        AR1 <--> BE6
+        AR3 <--> BE5
+        AR3 <--> BE6
         BE5 <--> BE2
         BE5 <--> BE1
+        BE1 -. "direct action fast path" .-> BE5
     end
 
     FE5 <--> BE1
@@ -60,6 +69,27 @@ flowchart LR
     BE2 -. "logical: state sync / task sync / handoff sync" .-> FE3
     BE5 -. "logical: action commands / prompts / notifications" .-> FE4
     FE4 -. "logical: action result / local execution status" .-> BE5
+```
+
+## Runtime Decision Flow
+
+This diagram complements the module diagram above. The module diagram shows ownership and boundaries. This flow diagram shows how the runtime enters proactive decision-making and how both proactive entry paths converge on the same explicit presence gate inside `Agent Runtime`.
+
+```mermaid
+flowchart TD
+    SF1["Sense-First Trigger<br/>edge / context activity"] --> SF2["Normalized Runtime Observations"]
+    SF2 --> SC["State / Context refreshes compact snapshot"]
+    AI1["Agent-Initiative Trigger<br/>memory / goals / schedule / anomalies / unfinished work"] --> AI2["Context refresh or observation check"]
+    AI2 --> SC
+    SC --> AP["Agent Runtime<br/>Proposal Formation"]
+    AP --> PR["Agent Runtime<br/>Presence Router"]
+    PR -->|allow| EP["Agent Runtime<br/>Execution Planning"]
+    PR -->|suppress / defer| NOOP["No user-facing intervention"]
+    EP --> AL["Action Layer"]
+    AL --> OUT["Edge / external effect"]
+    AL --> ST["State / Context update and action result recording"]
+    DF1["Direct Action Fast Path<br/>edge-requested urgent action"] --> GW["Gateway"]
+    GW --> AL
 ```
 
 ## Core Interpretation
@@ -173,9 +203,21 @@ Responsibilities:
 - maintain context memory
 - maintain handoff and continuity state across devices
 
-### Presence Router
+### Agent Runtime
 
-This layer decides how the runtime should show up.
+This is the primary intelligent backend module.
+
+Responsibilities:
+
+- interpret compact context and supporting evidence
+- form intervention proposals from edge/context activity or agent initiative
+- hold an explicit `Presence Router` governance submodule before user-facing intervention
+- continue into execution planning only after presence allows intervention
+- select tools, generate responses, and coordinate action requests
+
+#### Presence Router
+
+This internal governance submodule decides how the runtime should show up.
 
 Responsibilities:
 
@@ -185,17 +227,11 @@ Responsibilities:
 
 This is one of the biggest differences from a channel-first agent architecture.
 
-### Agent Executor
+#### Proposal Formation And Execution Planning
 
-This is the main reasoning and execution layer.
+Before presence gating, `Agent Runtime` may form intervention proposals from compact context, memory, goals, schedules, anomalies, and unfinished work.
 
-Responsibilities:
-
-- plan work
-- select tools
-- interpret context
-- generate responses
-- coordinate action requests
+After presence allows intervention, that same module may continue into execution planning, tool selection, response generation, and action coordination.
 
 ### Action Layer
 
@@ -211,7 +247,7 @@ Responsibilities:
 
 ### Model / Tool / Skill Runtime
 
-This is the execution substrate used by the agent executor.
+This is the execution substrate used by `Agent Runtime`.
 
 Examples:
 

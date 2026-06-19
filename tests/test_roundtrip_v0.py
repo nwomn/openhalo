@@ -90,6 +90,9 @@ class CliEntryTests(unittest.TestCase):
             any("STATE recorded event_push" in line for line in trace_lines)
         )
         self.assertTrue(
+            any("AGENT built intervention proposal" in line for line in trace_lines)
+        )
+        self.assertTrue(
             any("PRESENCE selected target device" in line for line in trace_lines)
         )
         self.assertTrue(

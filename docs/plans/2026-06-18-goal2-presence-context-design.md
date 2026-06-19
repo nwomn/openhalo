@@ -12,7 +12,7 @@ It is intended to make six things explicit:
 - how `Device` and `Capability` should be represented at the contract level
 - what counts as a runtime `observation`
 - how `observation` differs from `context snapshot`
-- how broad agent responsibilities are split between an explicit `Presence Router` module and other agent execution responsibilities
+- how broad agent responsibilities are split between the explicit `Presence Router` submodule and the rest of `Agent Runtime`
 - how the shared observation vocabulary should grow
 - how heuristic-learning style improvement should refine the system over time without entering the hot path directly
 
@@ -26,15 +26,15 @@ The runtime should support two proactive entry paths that converge on the same e
 
 The working paths are:
 
-- `sense-first path: edge raw signal -> normalized runtime observation -> compact context snapshot -> agent proposal -> presence decision -> agent execution -> action`
-- `agent-initiative path: memory / goals / schedule / anomalies / unfinished work -> context refresh or observation check -> compact context snapshot -> agent proposal -> presence decision -> agent execution -> action`
+- `sense-first path: edge raw signal -> normalized runtime observation -> compact context snapshot -> Agent Runtime proposal formation -> presence decision -> Agent Runtime execution planning -> action`
+- `agent-initiative path: memory / goals / schedule / anomalies / unfinished work -> context refresh or observation check -> compact context snapshot -> Agent Runtime proposal formation -> presence decision -> Agent Runtime execution planning -> action`
 
 Important boundary decisions:
 
 - raw edge signals remain on the edge in v1
 - runtime stores normalized observations plus provenance, not raw device-private evidence
 - the broader agent system consumes compact context plus supporting evidence when needed
-- `Presence Router` remains an explicit, inspectable module inside that broader agent system
+- `Presence Router` remains an explicit, inspectable governance submodule inside `Agent Runtime`
 - both proactive entry paths must flow through that explicit presence module before user-facing intervention
 - heuristic-learning style improvement should happen in one outer maintenance loop that refines vocabulary, mappers, reducers, and presence policy through review-gated updates
 
@@ -81,7 +81,19 @@ Responsibilities:
 - synthesize compact context snapshot fields from that window
 - expose supporting observation evidence for deeper reasoning and debugging
 
-### Presence Router
+### Agent Runtime
+
+Responsibilities:
+
+- consume compact context snapshot plus supporting observation evidence when needed
+- generate intervention proposals before presence gating
+- hold an explicit `Presence Router` governance submodule for intervention decisions
+- generate content, plans, and action requests after presence allows intervention
+- proactively request context checks or observation refreshes when memory, goals, schedules, anomalies, or unfinished work suggest the runtime should reconsider whether to surface itself
+
+This should remain one coherent backend module rather than being split into separate top-level proposal and execution boxes.
+
+#### Presence Router
 
 Responsibilities:
 
@@ -90,16 +102,7 @@ Responsibilities:
 - decide where and how strongly to intervene
 - suppress or defer intervention when cooldown or ambiguity rules require it
 
-This module should be treated as an explicit, inspectable governance layer inside the broader agent rather than as a separate top-level product identity.
-
-### Agent Executor
-
-Responsibilities:
-
-- consume compact context snapshot plus supporting observation evidence when needed
-- generate intervention proposals before presence gating
-- generate content, plans, and action requests after presence allows intervention
-- proactively request context checks or observation refreshes when memory, goals, schedules, anomalies, or unfinished work suggest the runtime should reconsider whether to surface itself
+This submodule should be treated as an explicit, inspectable governance layer inside `Agent Runtime` rather than as a separate top-level product identity.
 
 ## Contract Layers
 
@@ -313,11 +316,11 @@ The current design baseline is:
 1. `State / Context` builds the compact snapshot
 2. either edge/context activity or agent initiative may trigger agent evaluation
 3. the broader agent forms an intervention proposal from compact context, memory, goals, schedules, and other relevant state
-4. `Presence Router` evaluates that proposal as an explicit governance module inside the broader agent
+4. `Presence Router` evaluates that proposal as an explicit governance submodule inside `Agent Runtime`
 5. if intervention or further work is appropriate, the agent continues into execution planning and action generation
 6. the agent may inspect the compact snapshot plus supporting observation evidence when deeper reasoning is required
 
-This means the agent is the primary intelligent actor, while presence is a specialized internal governance layer that controls whether and how that actor is allowed to surface itself.
+This means `Agent Runtime` is the primary intelligent actor, while `Presence Router` is a specialized internal governance submodule that controls whether and how that actor is allowed to surface itself.
 
 The agent is not merely a passive responder in this model.
 
@@ -332,7 +335,7 @@ The project should not add an extra `presence feature view` between snapshot and
 
 The hot path should remain:
 
-`runtime observations -> compact context snapshot -> agent proposal -> Presence Router -> agent execution`
+`runtime observations -> compact context snapshot -> Agent Runtime proposal formation -> Presence Router -> Agent Runtime execution planning -> action`
 
 ## Presence Policy V1
 

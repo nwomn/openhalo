@@ -8,9 +8,11 @@ import websockets
 
 from personal_runtime.action_layer import build_action_request
 from personal_runtime.action_layer import build_notification_action
+from personal_runtime.agent_executor import build_intervention_proposal
 from personal_runtime.agent_executor import generate_reply
 from personal_runtime.context_contracts import RuntimeObservation
-from personal_runtime.presence_router import choose_response_device
+from personal_runtime.context_snapshot import build_context_snapshot
+from personal_runtime.presence_router import choose_presence_decision
 from personal_runtime.runtime_state import RuntimeState
 from personal_runtime.state_store import JsonStateStore
 from personal_runtime.trace_recorder import TraceRecorder
@@ -65,15 +67,40 @@ class RuntimeGateway:
             for device_id in self.online_device_ids
             if device_id in self.state.devices
         }
-        target = choose_response_device(
-            frame["device_id"],
-            devices=available_devices or self.state.devices,
-            required_capability="notification.show",
+        snapshot = build_context_snapshot(self.state.observations)
+        proposal = build_intervention_proposal(
+            text,
+            snapshot=snapshot,
             trace_recorder=self.trace_recorder,
         )
+        decision_time = self._event_timestamp(frame)
+        decision = choose_presence_decision(
+            source_device_id=frame["device_id"],
+            snapshot=snapshot,
+            devices=available_devices or self.state.devices,
+            required_capability=proposal.action_capability,
+            proposal=proposal.to_dict(),
+            intervention_history=self.state.interventions,
+            now_timestamp=decision_time,
+            trace_recorder=self.trace_recorder,
+        )
+        self.state.record_intervention(
+            {
+                "target_device_id": decision.target_device_id,
+                "action_capability": proposal.action_capability,
+                "decision": decision.decision,
+                "reason": decision.reason,
+                "proposal": proposal.to_dict(),
+                "recorded_at": decision_time,
+            }
+        )
+        self._persist_state()
+        if decision.decision != "allow":
+            return replies
+
         replies.append(
             build_notification_action(
-                target,
+                decision.target_device_id or frame["device_id"],
                 generate_reply(text, trace_recorder=self.trace_recorder),
                 trace_recorder=self.trace_recorder,
             )
@@ -159,6 +186,16 @@ class RuntimeGateway:
             )
             for observation_payload in observations
         ]
+
+    def _event_timestamp(self, frame: dict) -> str:
+        payload = frame.get("payload", {})
+        if payload.get("observed_at"):
+            return payload["observed_at"]
+        if frame.get("observed_at"):
+            return frame["observed_at"]
+        if self.state.observations:
+            return self.state.observations[-1].observed_at
+        return ""
 
     async def handle_test_frames(self, frames: list[dict]) -> list[dict]:
         return self._handle_frames_sync(frames)
