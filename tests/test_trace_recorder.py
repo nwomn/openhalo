@@ -18,6 +18,21 @@ class TraceRecorderTests(unittest.TestCase):
             ],
         )
 
+    def test_can_emit_trace_lines_without_retaining_history(self) -> None:
+        emitted_lines: list[str] = []
+        recorder = TraceRecorder(
+            emitters=[emitted_lines.append],
+            retain_entries=False,
+        )
+
+        recorder.record("HOST", "retrying websocket session", delay_s="2.0")
+
+        self.assertEqual(
+            emitted_lines,
+            ["HOST retrying websocket session [delay_s=2.0]"],
+        )
+        self.assertEqual(recorder.format_lines(), [])
+
 
 if __name__ == "__main__":
     unittest.main()

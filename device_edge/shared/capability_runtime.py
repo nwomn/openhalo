@@ -1,4 +1,4 @@
-"""Minimal capability registry for the v0 device edge."""
+"""Minimal capability registry shared across edge surfaces."""
 
 
 class CapabilityRuntime:

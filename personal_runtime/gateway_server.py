@@ -26,6 +26,7 @@ class RuntimeGateway:
         state: RuntimeState | None = None,
         trace_recorder: TraceRecorder | None = None,
         persist_state: bool = True,
+        runtime_event_emitter=None,
     ) -> None:
         self.shared_token = shared_token
         self.state_store = JsonStateStore(
@@ -36,6 +37,7 @@ class RuntimeGateway:
         self.live_connections: dict[str, object] = {}
         self.trace_recorder = trace_recorder
         self.persist_state = persist_state
+        self.runtime_event_emitter = runtime_event_emitter
 
     def _persist_state(self) -> None:
         if not self.persist_state:
@@ -130,6 +132,11 @@ class RuntimeGateway:
                 )
                 self.online_device_ids.add(frame["device"]["device_id"])
                 self._persist_state()
+                self._emit_runtime_event(
+                    "Edge connected: "
+                    f"{frame['device']['device_id']} "
+                    f"({frame['device']['device_type']})"
+                )
                 replies.append({"type": "connect_ok"})
             elif frame["type"] == "capability_announce":
                 self._record_trace(
@@ -209,6 +216,10 @@ class RuntimeGateway:
     def _record_trace(self, component: str, message: str, **fields: str) -> None:
         if self.trace_recorder is not None:
             self.trace_recorder.record(component, message, **fields)
+
+    def _emit_runtime_event(self, message: str) -> None:
+        if self.runtime_event_emitter is not None:
+            self.runtime_event_emitter(message)
 
     async def _dispatch_websocket_replies(self, source_device_id: str, websocket, replies: list[dict]) -> None:
         for reply in replies:

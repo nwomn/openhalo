@@ -41,6 +41,8 @@ The first host edge should expose three capability surfaces:
 
 The control contract should stay deployment-agnostic. The first concrete adapter may target the current plain Python-process deployment, while later adapters may target `systemd` or another supervisor without changing the edge contract seen by the rest of the runtime.
 
+The first host edge should also keep a small bounded local observation history for its own emitted host and runtime-health samples. That local history is not a replacement for runtime-owned normalized observations; it exists so the edge can answer later bounded diagnostics or history requests without requiring the backend to mirror all fine-grained raw evidence continuously.
+
 ## Host Edge Boundary
 
 The first host edge is still part of `Frontend / Device Edge`.
@@ -149,6 +151,7 @@ Initial actions:
 - `runtime.restart`
 - `runtime.reload`
 - `runtime.collect_logs`
+- `runtime.edge_history`
 
 Initial exclusions:
 
@@ -156,6 +159,7 @@ Initial exclusions:
 - `runtime.stop`
 - arbitrary shell or subprocess execution
 - whole-host service or network control
+- unbounded raw-history export
 
 ## Observation Transport Shape
 
@@ -229,6 +233,43 @@ For `runtime.collect_logs`, the result should include both structured entries an
   }
 }
 ```
+
+For `runtime.edge_history`, the result should prefer a bounded structured window first.
+
+Example:
+
+```json
+{
+  "status": "ok",
+  "capability": "runtime.edge_history",
+  "details": {
+    "history_kind": "observation_window",
+    "device_id": "host-edge-1",
+    "entries": [
+      {
+        "capability": "runtime.health",
+        "observed_at": "2026-06-19T09:31:00Z",
+        "observations": [
+          {
+            "name": "runtime.health_state",
+            "value": "healthy",
+            "confidence": 1.0
+          }
+        ]
+      }
+    ],
+    "returned_entries": 1,
+    "available_entries": 12
+  }
+}
+```
+
+V1 rules:
+
+- edge-local history stays bounded by entry count, not infinite duration
+- the default retrieval surface should return a recent structured window rather than a full raw log dump
+- history retrieval should be explicit and on-demand, not continuously mirrored into runtime state
+- if later product needs require richer export, that should remain a separate contract decision instead of silently expanding the default history surface
 
 `runtime.reload` may return `unsupported` in the first Python-process adapter if no safe reload command exists yet.
 
@@ -304,6 +345,8 @@ A minimal acceptable behavior is:
 - later health re-observation after reconnect
 
 If action-result delivery proves too fragile during disruptive operations, a small local pending-operation journal can be added later without changing the contract.
+
+For manual demos and operator inspection, the daemon may also emit an optional live local trace stream. That trace should stay edge-local by default, be human-readable first, and help show reconnect attempts, observation cycles, and runtime-control handling without requiring the backend state file to act as the only visibility surface.
 
 ## Non-Goals For V1
 

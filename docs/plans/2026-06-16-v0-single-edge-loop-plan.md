@@ -569,7 +569,7 @@ python -m personal_runtime.main
 2. Start the edge client:
 
 ```bash
-python -m device_edge.cli_edge
+python -m device_edge.cli.cli_edge
 ```
 
 3. Type a line of input such as:

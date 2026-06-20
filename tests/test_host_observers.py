@@ -1,7 +1,7 @@
 import unittest
 
-from device_edge.host_observers import build_host_metric_observations
-from device_edge.host_observers import build_runtime_health_observations
+from device_edge.host.host_observers import build_host_metric_observations
+from device_edge.host.host_observers import build_runtime_health_observations
 
 
 class HostObserverTests(unittest.TestCase):

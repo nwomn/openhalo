@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON_BIN="$ROOT_DIR/.venv/bin/python"
+
+HOST="${HOST_EDGE_VERIFY_HOST:-127.0.0.1}"
+PORT="${HOST_EDGE_VERIFY_PORT:-8765}"
+TOKEN="${HOST_EDGE_VERIFY_TOKEN:-dev-token}"
+DEVICE_ID="${HOST_EDGE_VERIFY_DEVICE_ID:-host-edge-1}"
+STATE_PATH="${HOST_EDGE_VERIFY_STATE_PATH:-$ROOT_DIR/.runtime/host-edge-verify-state.json}"
+IDLE_TIMEOUT="${HOST_EDGE_VERIFY_IDLE_TIMEOUT:-0.2}"
+MAX_IDLE_CYCLES="${HOST_EDGE_VERIFY_MAX_IDLE_CYCLES:-1}"
+MAX_SESSIONS="${HOST_EDGE_VERIFY_MAX_SESSIONS:-1}"
+RUNTIME_START_COMMAND="${HOST_EDGE_VERIFY_RUNTIME_START_COMMAND:-python -m personal_runtime.main --host ${HOST} --port ${PORT} --token ${TOKEN} --state-path ${STATE_PATH}}"
+DIRECT_ACTION_CAPABILITY="${HOST_EDGE_VERIFY_DIRECT_ACTION_CAPABILITY:-runtime.status}"
+LOG_PREFIX="[verify-host-edge]"
+
+DRY_RUN=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    *)
+      echo "$LOG_PREFIX unknown argument: $1" >&2
+      exit 2
+      ;;
+  esac
+done
+
+RUNTIME_CMD=(
+  "$PYTHON_BIN" -u -m personal_runtime.main
+  --host "$HOST"
+  --port "$PORT"
+  --token "$TOKEN"
+  --state-path "$STATE_PATH"
+)
+HOST_DAEMON_CMD=(
+  "$PYTHON_BIN" -u -m device_edge.host.host_daemon
+  --url "ws://${HOST}:${PORT}"
+  --token "$TOKEN"
+  --device-id "$DEVICE_ID"
+  --runtime-start-command "$RUNTIME_START_COMMAND"
+  --idle-timeout "$IDLE_TIMEOUT"
+  --max-idle-cycles "$MAX_IDLE_CYCLES"
+  --max-sessions "$MAX_SESSIONS"
+)
+read -r -d '' DIRECT_ACTION_PY <<PY || true
+import asyncio
+import json
+
+import websockets
+
+from device_edge.shared.session_client import SessionClient
+
+
+async def main() -> None:
+    client = SessionClient(
+        device_id="desktop-dev-verify",
+        device_type="desktop-cli",
+        token="${TOKEN}",
+    )
+    async with websockets.connect("ws://${HOST}:${PORT}") as websocket:
+        await websocket.send(json.dumps(client.build_connect_frame()))
+        await websocket.send(json.dumps(client.build_capability_announce_frame()))
+        await websocket.send(
+            json.dumps(
+                client.build_direct_action_event(
+                    capability="${DIRECT_ACTION_CAPABILITY}",
+                    payload={},
+                    target_device_id="${DEVICE_ID}",
+                )
+            )
+        )
+        connect_ok = json.loads(await websocket.recv())
+        event_ack = json.loads(await websocket.recv())
+        print(connect_ok["type"])
+        print(event_ack["type"])
+        await asyncio.sleep(0.05)
+
+
+asyncio.run(main())
+PY
+DIRECT_ACTION_CMD=(
+  "$PYTHON_BIN" -c
+  "$DIRECT_ACTION_PY"
+)
+
+print_cmd() {
+  local label="$1"
+  shift
+  printf "%s %s:" "$LOG_PREFIX" "$label"
+  printf " %q" "$@"
+  printf "\n"
+}
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  print_cmd "runtime" "${RUNTIME_CMD[@]}"
+  print_cmd "host-daemon" "${HOST_DAEMON_CMD[@]}"
+  print_cmd "direct-action" "${DIRECT_ACTION_CMD[@]}"
+  exit 0
+fi
+
+mkdir -p "$(dirname "$STATE_PATH")"
+
+RUNTIME_LOG_DIR="$ROOT_DIR/.runtime"
+mkdir -p "$RUNTIME_LOG_DIR"
+RUNTIME_LOG="$RUNTIME_LOG_DIR/verify-host-edge-runtime.log"
+HOST_DAEMON_LOG="$RUNTIME_LOG_DIR/verify-host-edge-daemon.log"
+rm -f "$RUNTIME_LOG" "$HOST_DAEMON_LOG"
+cleanup() {
+  if [[ -n "${DIRECT_ACTION_PID:-}" ]]; then
+    wait "$DIRECT_ACTION_PID" 2>/dev/null || true
+  fi
+  if [[ -n "${HOST_DAEMON_PID:-}" ]]; then
+    kill "$HOST_DAEMON_PID" 2>/dev/null || true
+    wait "$HOST_DAEMON_PID" 2>/dev/null || true
+  fi
+  if [[ -n "${RUNTIME_PID:-}" ]]; then
+    kill "$RUNTIME_PID" 2>/dev/null || true
+    wait "$RUNTIME_PID" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT
+
+print_cmd "runtime" "${RUNTIME_CMD[@]}"
+"${RUNTIME_CMD[@]}" >"$RUNTIME_LOG" 2>&1 &
+RUNTIME_PID=$!
+
+for _ in $(seq 1 50); do
+  if grep -q "Personal runtime WebSocket server is ready" "$RUNTIME_LOG"; then
+    break
+  fi
+  sleep 0.1
+done
+
+if ! grep -q "Personal runtime WebSocket server is ready" "$RUNTIME_LOG"; then
+  echo "$LOG_PREFIX runtime did not start cleanly" >&2
+  cat "$RUNTIME_LOG" >&2
+  exit 1
+fi
+
+print_cmd "host-daemon" "${HOST_DAEMON_CMD[@]}"
+"${HOST_DAEMON_CMD[@]}" >"$HOST_DAEMON_LOG" 2>&1 &
+HOST_DAEMON_PID=$!
+
+sleep 0.3
+
+print_cmd "direct-action" "${DIRECT_ACTION_CMD[@]}"
+"${DIRECT_ACTION_CMD[@]}"
+
+wait "$HOST_DAEMON_PID"
+HOST_DAEMON_PID=""
+
+echo "$LOG_PREFIX host daemon completed bounded verification run"
+cat "$HOST_DAEMON_LOG"

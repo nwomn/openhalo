@@ -10,12 +10,16 @@ from personal_runtime.gateway_server import RuntimeGateway
 def build_runtime_server_message(url: str) -> str:
     return (
         "Personal runtime WebSocket server is ready.\n"
-        f"Connect an edge client to {url}"
+        f"WebSocket URL: {url}"
     )
 
 
 def build_gateway(token: str, state_path: Path) -> RuntimeGateway:
-    return RuntimeGateway(shared_token=token, state_path=state_path)
+    return RuntimeGateway(
+        shared_token=token,
+        state_path=state_path,
+        runtime_event_emitter=print,
+    )
 
 
 async def run_server(host: str, port: int, token: str, state_path: Path) -> None:

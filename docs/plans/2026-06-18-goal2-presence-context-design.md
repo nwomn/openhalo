@@ -48,6 +48,7 @@ Responsibilities:
 - maintain device-local capability knowledge
 - map raw local signals into normalized runtime observations
 - retain raw local evidence on the edge for local debugging when needed
+- retain device-local recent history when finer-grained evidence may later be needed by agent reasoning, debugging, or operator review
 
 This layer owns hardware and platform differences.
 
@@ -58,6 +59,8 @@ For the first host-edge slice, that means host-wide telemetry may enter the obse
 Those lifecycle controls should remain contract-stable even if the runtime deployment model changes. The first implementation may target the current plain Python process, but later deployments should be able to swap in a different execution adapter such as `systemd` without changing the capability contract seen by the rest of the runtime.
 
 The same contract discipline should apply to diagnostics. For example, `runtime.collect_logs` should prefer a structured result shape that agents and UIs can inspect directly, while still allowing raw tail text to be included for debugging and operator readability.
+
+The same pattern should apply to finer-grained edge history access. When the backend agent needs more detail than the compact snapshot and normalized runtime observations provide, it should not rely on the runtime continuously duplicating all raw edge evidence into core state. Instead, the edge should remain the default owner of raw local evidence and short-window detailed history, while the runtime requests an explicit structured history or diagnostics view only when needed.
 
 The first host edge should also remain process-separate from the backend runtime it observes and controls. In that shape, a restart action can be initiated by the host edge, while recovery confirmation arrives later through fresh `runtime_health` observations instead of relying on the restarting process to confirm its own return.
 
@@ -211,6 +214,12 @@ V1 storage rule:
 
 - raw edge signals remain on the edge
 - runtime stores normalized observations and provenance only
+
+When deeper investigation is required:
+
+- the agent may inspect compact snapshot plus supporting normalized observation evidence by default
+- if that is still insufficient, the runtime should request a bounded edge-local history or diagnostics view explicitly rather than assuming core already stores the full raw evidence stream
+- returned edge history should prefer structured summaries or bounded windows first, while raw payloads remain a more exceptional debugging surface
 
 ## Shared Observation Vocabulary
 

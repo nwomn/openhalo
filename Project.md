@@ -181,6 +181,7 @@ Implementation note:
 - The detailed presence-policy design remains intentionally deferred for a dedicated research and design pass. That pass should explicitly study policy representation shape, conflict avoidance and resolution, orthogonality of policy scope, short-term versus long-term policy lifecycle, how present user-experience optimization should be balanced against future user-experience impact, how policy update review cadence should lengthen as the system becomes more stable, how environment understanding should flow from raw edge signals into structured context observations and then into a presence-consumable context snapshot, and how the shared observation vocabulary should be extended safely as new edge types are added.
 - Heuristic-learning style improvement should live in one unified outer maintenance loop rather than the hot decision path: feedback, replays, and tests may drive coordinated updates to edge mappers, observation reducers, vocabulary, and presence policy, but those changes remain review-gated before entering the normal runtime path.
 - Presence should consume the compact context snapshot directly rather than introducing an additional presence-only feature view; richer observation evidence remains available separately for agent reasoning and debugging when needed.
+- The current design preference is that raw fine-grained device history remains edge-local by default: core stores normalized observations plus provenance, while deeper agent inspection of device history should use explicit bounded edge-side diagnostics or history retrieval instead of continuous raw-history duplication into backend state.
 - Agent initiative should be a first-class high-salience input to presence evaluation rather than a low-priority afterthought, but it should still remain subject to suppression, privacy, and timing policy.
 - Reference inspiration for this outer-loop direction: [Learning Beyond Gradients](https://trinkle23897.github.io/learning-beyond-gradients/#zh)
 
@@ -222,6 +223,7 @@ Sub-goals:
 - 4.6. Define milestone M5: mature runtime ingestion and context path on top of stable host-edge input, including gateway handling, normalized observation storage, snapshot reduction, and context freshness / ambiguity handling
 - 4.7. Define milestone M6: mature presence, agent, and action path on top of stable real-edge input, so the proactive runtime chain becomes reliable beyond the current validation slice
 - 4.8. Define milestone M7: operational-readiness verification milestone that gates "implemented and ready to run" claims on end-to-end host-edge-path validation rather than CLI-only checks
+- 4.9. Define milestone M8: bounded-growth and storage-hygiene hardening pass after the first mature product slice, covering unbounded state growth, high-frequency persistence pressure, duplicated long-term storage, and other operational accumulation risks across the system
 
 Acceptance criteria:
 
@@ -362,7 +364,7 @@ Result:
 - A minimal `SessionClient` now builds connect, capability, and text-event frames and returns `action_result` payloads after local execution
 - A minimal CLI edge runner can execute the whole loop locally from typed text input to printed notification output
 - End-to-end tests now verify the single-edge roundtrip through gateway, edge session client, and local action execution
-- Manual command-line verification now demonstrates the closed loop with `python3 -m device_edge.cli_edge`
+- Manual command-line verification now demonstrates the closed loop with `python3 -m device_edge.cli.cli_edge`
 
 Acceptance criteria:
 
@@ -545,6 +547,27 @@ Status:
 
 - Completed
 
+### Completed: First M4 mature host-edge runtime milestone
+
+Result:
+
+- The host edge can now run as an independent long-lived daemon process through `python -m device_edge.host.host_daemon`, rather than only as an in-process or one-shot control helper
+- The host-edge runtime can now sustain continuous observation behavior with periodic idle-cycle sampling, post-action runtime-health follow-up, bounded reconnect/backoff handling, and bounded local observation history
+- Runtime-scoped control remains available through the normal gateway path, including structured `runtime.status`, restart/recovery confirmation flow, and explicit edge-side history retrieval
+- The repository now has both bounded automated verification and bounded local operational verification for the mature host-edge path, including `tests.test_host_daemon_v1`, `tests.test_roundtrip_v0`, and `bin/verify-host-edge`
+- Manual verification visibility is now materially better on both sides of the edge boundary: the host daemon can emit local trace output, and the runtime now emits neutral startup readiness plus explicit edge-connected events to stdout
+
+Acceptance criteria:
+
+- The host edge can run stably as a standalone real edge surface outside the backend runtime process
+- The host edge can continue or resume durable observation/control behavior across idle periods and backend disconnects instead of treating them as terminal failure
+- The host-edge control path remains runtime-scoped and inspectable while preserving separate post-action health confirmation
+- The host edge can be verified on its own through explicit edge-local and bounded end-to-end verification paths without waiting for later backend-maturity milestones
+
+Status:
+
+- Completed
+
 ## Open Questions
 
 - Which device surfaces should be the first non-CLI surfaces for presence-first experiments?
@@ -629,7 +652,7 @@ Current M3 slice direction:
 
 Current phase:
 
-- First M3 presence-context foundation batch implemented on top of the completed v0 and M2 routing baseline, with the first host-edge daemon design and implementation plan now written for host-wide observation and runtime-scoped control
+- First M4 mature host-edge runtime milestone completed, with active implementation now moving into M5 runtime-ingestion and context maturity on top of stable host-edge input
 
 Current progress summary:
 
@@ -666,6 +689,7 @@ Current progress summary:
 - We now prefer observation-vocabulary governance where new shared terms are introduced and validated centrally during edge development, then immediately become normal system vocabulary once added to the top-level contract
 - We now prefer to implement environment understanding with explicit online mappers and small per-observation reducers, while using a single review-gated heuristic-learning outer loop to refine vocabulary, reducers, and presence policy from feedback over time
 - We now prefer `Presence Router` to consume the compact snapshot directly, without an extra presence feature layer, while the broader `Agent Runtime` may still inspect snapshot plus supporting observation evidence when deeper reasoning is needed
+- We now prefer edge-local ownership of fine-grained raw device history, with backend agents requesting bounded structured edge-history views only when deeper reasoning or debugging requires more than the compact snapshot and normalized runtime observations
 - We now use `Agent Runtime` as the top-level backend module name, because that module owns both proposal formation and later execution planning around the explicit `Presence Router` submodule
 - The architecture baseline now needs to show `Presence Router` as an internal governance submodule inside `Agent Runtime`, together with the dual-entry proactive flow that converges on that submodule
 - We now have a written Goal 2 design baseline for device/capability contracts, runtime observations, compact context snapshots, presence-policy axes, and the unified heuristic-learning outer loop in `docs/plans/2026-06-18-goal2-presence-context-design.md`
@@ -680,10 +704,10 @@ Current progress summary:
 - We now have automated tests covering the v0 scaffold import contract, protocol frame helpers, and runtime state/presence basics alongside the existing project hook tests
 - We have now implemented the first minimal backend gateway loop, response generator, action builder, edge session client, and CLI edge runner
 - We now have an executable and testable end-to-end single-edge closed loop from `text.input` to `notification.show`
-- We can manually verify the local loop with `python3 -m device_edge.cli_edge`, and automated discovery now covers the full v0 and hook test suite
+- We can manually verify the local loop with `python3 -m device_edge.cli.cli_edge`, and automated discovery now covers the full v0 and hook test suite
 - We now have a project-local `.venv` for dependency isolation instead of relying on global Python packages
 - We now have a real WebSocket transport path for the single-edge loop, including gateway server binding, edge client connection, action dispatch, and action-result return
-- We have manually verified a true two-process local flow using `python3 -m personal_runtime.main` and `python3 -m device_edge.cli_edge --url ...`
+- We have manually verified a true two-process local flow using `python3 -m personal_runtime.main` and `python3 -m device_edge.cli.cli_edge --url ...`
 - We now have minimal file-backed continuity through runtime state snapshots and restart recovery via a configurable state path
 - The gateway now persists device, capability, event, and action-result state automatically on the main v0 flow
 - We now have a two-path runtime reaction model implemented: a normal routed/deliberative path and an explicit edge-requested direct-action path
@@ -703,15 +727,39 @@ Current progress summary:
 - We now have a Linux-first host observation collector for whole-host telemetry and runtime health snapshots, covering the first real non-CLI observation path for M3
 - We now have a first runtime-scoped control adapter contract on the edge side, with a Python-process implementation for `status`, `restart`, `reload`, and `collect_logs` while preserving a later adapter swap for `systemd` or other supervisors
 - We now have the first independent host-edge daemon foundation that can bootstrap capability frames, push initial host observations, accept runtime control requests, and confirm later recovery through separate health observations
+- The host-edge daemon can now sustain a longer-lived websocket session shape instead of only a single control roundtrip: it can continue observation cycles during idle periods, handle more than one runtime-control action in one connected session, and preserve the later health-follow-up path for disruptive actions
+- The host-edge slice now includes a dedicated daemon startup path with explicit runtime connection and control options, plus a reconnect loop that retries after backend outages instead of treating disconnects as terminal edge failure
+- The host-edge reconnect loop now supports bounded backoff growth and injectable jitter instead of only a fixed retry delay, which makes the daemon behavior closer to a real resident edge process under repeated backend outages
+- The daemon startup surface now exposes reconnect backoff, max-delay, and fixed-jitter options explicitly, so the host-edge retry behavior can be tuned operationally instead of only through internal code changes
+- The host-edge daemon session and startup surface now also support bounded idle verification controls, including configurable idle timeout and max-idle-cycle exit, so local host-edge validation can stop cleanly after a small observation run instead of requiring indefinite residency
+- The host-edge daemon startup surface now also exposes bounded session-count exit through `max_sessions`, so local daemon verification can be capped by reconnect/session attempts as well as by idle observation behavior
+- The host-edge daemon can now continue periodic observation cycles after the initial scheduled samples are exhausted when a timestamp provider is available, which moves the slice closer to a genuinely resident edge surface instead of a finite scripted session
+- The Python-process runtime-control adapter can now discover a matching runtime process from a configurable `/proc` root for default `runtime.status` inspection, rather than only returning placeholder status when no custom supplier is injected
+- The host-edge daemon startup path no longer passes edge-local history configuration into the reconnect loop incorrectly, fixing a real CLI startup regression that unit tests had previously missed behind a mocked `run_forever`
+- The repository now includes a dedicated `bin/verify-host-edge` bounded verification path that starts the runtime server, runs the host daemon as a real separate process, sends a targeted `runtime.status` request through the normal gateway path, and waits for a clean daemon exit
 - The gateway can now ingest observation batches as first-class runtime events, persist the raw edge event, normalize host observations, and record them into shared runtime observation state with provenance
 - The runtime state layer now exposes explicit observation recording so later presence and agent flows can consume host telemetry without reparsing raw event payloads
+- We now prefer the host edge itself to keep a bounded local observation-history window, and to expose that history only through explicit structured retrieval requests when deeper agent reasoning or debugging needs more detail than normalized core observations provide
+- The host edge now keeps a bounded in-memory local observation-history window and exposes a first explicit `runtime.edge_history` retrieval surface for recent structured edge-side history instead of assuming core continuously mirrors fine-grained device evidence
+- The host-edge daemon can now emit optional live local trace output to stdout and/or a local trace file, making reconnects, observation cycles, and runtime-control handling visible during manual edge-side verification instead of forcing operators to infer everything from core state alone
+- The `device_edge` package is now physically split by edge role into `device_edge/shared`, `device_edge/cli`, and `device_edge/host`, and the earlier top-level edge module shells have now been removed so repository code, scripts, and tests consistently use the new paths directly
 - We now have targeted automated coverage for host observation collection, runtime control adapter behavior, host-daemon request handling, gateway observation recording, CLI trace output, and trace-recorder persistence helpers
-- Fresh targeted verification passed for the host-edge foundation batch, while the real WebSocket host-edge roundtrip test remains environment-blocked here because the sandbox cannot bind a local test socket
+- We now have targeted automated coverage for the longer-lived host-edge daemon session shape as well, including multiple runtime-control actions in one websocket session and idle-period observation cycles between actions
+- We now have targeted automated coverage for host-daemon reconnect behavior, daemon entrypoint wiring, periodic observation extension beyond the initial schedule, and default runtime-process discovery for `runtime.status`
+- We now have targeted automated coverage for bounded reconnect backoff and jitter behavior as part of the host-daemon retry path
+- We now have targeted automated coverage for the daemon startup wiring of reconnect backoff, max-delay, and fixed-jitter options as part of the host-edge operational surface
+- We now have targeted automated coverage for bounded idle verification behavior, including max-idle-cycle session exit and daemon startup wiring of idle-timeout controls
+- We now have targeted automated coverage for daemon startup wiring of bounded session-count exit as part of the host-edge local verification surface
+- We now have targeted automated coverage for host-daemon live trace wiring and for the startup-path regression where CLI wiring passed an unexpected `history_limit` argument into `run_forever`
+- We now have automated coverage and a documented dry-run path for the dedicated `bin/verify-host-edge` local verification entrypoint
+- We now have targeted automated coverage for bounded edge-local observation history and explicit `runtime.edge_history` retrieval on the host-edge side
+- Fresh targeted verification passed for the mature host-edge slice, including the dedicated host-daemon, roundtrip, dev-environment, and edge-layout test suites together with a bounded `bin/verify-host-edge` end-to-end run
 - We now explicitly keep M3 scoped as the first presence-aware routing validation slice and move host-edge and product-maturity work into later milestones instead of stretching M3 semantics
-- We now define M4 as the first mature host-edge runtime milestone: the current implementation proves the foundation slice, but the host edge still needs to become a stable standalone real-edge surface with durable observation and control behavior that can be validated on its own
+- We now consider M4 complete: the host edge can run as a stable standalone real-edge surface with continuous observation, durable runtime-scoped control behavior, reconnect handling, and dedicated local verification paths
 - We now define M5 as the runtime-ingestion and context-maturity milestone: once host-edge input is stable, the backend still needs more mature gateway ingestion, normalized observation handling, reducer behavior, and freshness / ambiguity management
 - We now define M6 as the presence / agent / action maturity milestone: the proactive runtime chain still needs to become reliable on top of stable real-edge input rather than only on the current validation slice
 - We now define M7 as the operational-readiness verification milestone: end-to-end host-edge-path validation must pass before we describe the system as implemented and ready to run
+- We now define M8 as the post-maturity bounded-growth and storage-hygiene milestone: after the first mature product slice lands, the system should receive an explicit sweep for unbounded state files, high-frequency persistence paths, duplicated long-term storage, retention/rotation gaps, and similar operational accumulation hazards instead of treating them as isolated follow-up bugs
 - We have our own tested minimal protocol, edge session client, and gateway baseline, reducing the value of deeper OpenClaw gateway extraction work
 - We may still borrow ideas from OpenClaw protocol/client layers later, but that is now optional follow-on work rather than an open prerequisite
 

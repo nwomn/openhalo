@@ -1,12 +1,12 @@
-"""Minimal session client for the v0 device edge."""
+"""Minimal session client shared by multiple edge surfaces."""
 
 import json
 from itertools import count
 
 import websockets
 
-from device_edge.capability_runtime import CapabilityRuntime
-from device_edge.local_actions import execute_action
+from device_edge.shared.capability_runtime import CapabilityRuntime
+from device_edge.shared.local_actions import execute_action
 from personal_runtime.protocol import build_connect_frame
 from personal_runtime.trace_recorder import TraceRecorder
 
@@ -53,22 +53,30 @@ class SessionClient:
             "payload": {"text": text},
         }
 
-    def build_direct_action_event(self, capability: str, payload: dict) -> dict:
+    def build_direct_action_event(
+        self,
+        capability: str,
+        payload: dict,
+        target_device_id: str | None = None,
+    ) -> dict:
         self._record_trace(
             "EDGE",
             "build direct action event",
             capability=capability,
         )
+        direct_action = {
+            "capability": capability,
+            "payload": payload,
+        }
+        if target_device_id is not None:
+            direct_action["target_device_id"] = target_device_id
         return {
             "type": "event_push",
             "device_id": self.device_id,
             "capability": "text.input",
             "payload": {
                 "text": "",
-                "direct_action": {
-                    "capability": capability,
-                    "payload": payload,
-                },
+                "direct_action": direct_action,
             },
         }
 

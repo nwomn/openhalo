@@ -4,7 +4,7 @@ from pathlib import Path
 
 import websockets
 
-from device_edge.session_client import SessionClient
+from device_edge.shared.session_client import SessionClient
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.runtime_state import RuntimeState
 

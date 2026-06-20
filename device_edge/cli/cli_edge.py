@@ -1,9 +1,9 @@
-"""CLI runner for the v0 single-edge loop."""
+"""CLI edge surface implementation."""
 
 import argparse
 import asyncio
 
-from device_edge.session_client import SessionClient
+from device_edge.shared.session_client import SessionClient
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.trace_recorder import TraceRecorder
 
@@ -103,5 +103,9 @@ def main() -> None:
     print(f"Action result: {result['result']['status']}")
 
 
-if __name__ == "__main__":
-    main()
+__all__ = [
+    "LocalCliSession",
+    "main",
+    "run_cli_once",
+    "run_cli_once_over_websocket",
+]

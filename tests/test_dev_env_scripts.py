@@ -37,6 +37,7 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("Advanced optional path: use a git worktree", contents)
         self.assertIn("CLI device validation is acceptable for early module testing", contents)
         self.assertIn("Host edge verification is required before documenting a module as implemented and operationally ready.", contents)
+        self.assertIn("bin/verify-host-edge", contents)
 
     def test_shared_test_script_runs_using_root_venv(self) -> None:
         script_path = ROOT / "bin" / "test"
@@ -70,6 +71,34 @@ class DevEnvWorkflowTests(unittest.TestCase):
             )
 
             self.assertTrue(Path(temp_dir, ".venv", "bin", "python").exists())
+
+    def test_host_edge_verification_script_exists_and_is_executable(self) -> None:
+        script_path = ROOT / "bin" / "verify-host-edge"
+
+        self.assertTrue(script_path.exists())
+        self.assertTrue(os.access(script_path, os.X_OK))
+        contents = script_path.read_text(encoding="utf-8")
+        self.assertIn("personal_runtime.main", contents)
+        self.assertIn("device_edge.host.host_daemon", contents)
+        self.assertIn("--max-idle-cycles", contents)
+        self.assertIn("--max-sessions", contents)
+        self.assertIn(".runtime", contents)
+
+    def test_host_edge_verification_script_supports_dry_run(self) -> None:
+        script_path = ROOT / "bin" / "verify-host-edge"
+
+        result = subprocess.run(
+            [str(script_path), "--dry-run"],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+        )
+
+        self.assertIn("personal_runtime.main", result.stdout)
+        self.assertIn("device_edge.host.host_daemon", result.stdout)
+        self.assertIn("runtime.status", result.stdout)
+        self.assertIn(".runtime/host-edge-verify-state.json", result.stdout)
 
 
 if __name__ == "__main__":

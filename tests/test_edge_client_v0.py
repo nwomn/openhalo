@@ -1,16 +1,26 @@
 import json
+import importlib
 import unittest
 
 import websockets
 
-from device_edge.capability_runtime import CapabilityRuntime
-from device_edge.local_actions import execute_action
-from device_edge.session_client import SessionClient
+from device_edge.shared.capability_runtime import CapabilityRuntime
+from device_edge.shared.local_actions import execute_action
+from device_edge.shared.session_client import SessionClient
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.trace_recorder import TraceRecorder
 
 
 class EdgeClientTests(unittest.TestCase):
+    def test_new_edge_subpackages_expose_shared_cli_and_host_modules(self) -> None:
+        shared_module = importlib.import_module("device_edge.shared.session_client")
+        cli_module = importlib.import_module("device_edge.cli.cli_edge")
+        host_module = importlib.import_module("device_edge.host.host_daemon")
+
+        self.assertIs(shared_module.SessionClient, SessionClient)
+        self.assertTrue(callable(cli_module.run_cli_once))
+        self.assertTrue(hasattr(host_module, "HostEdgeDaemon"))
+
     def test_registers_minimal_capabilities(self) -> None:
         runtime = CapabilityRuntime()
 
@@ -119,6 +129,29 @@ class EdgeClientTests(unittest.TestCase):
         self.assertEqual(
             frame["payload"]["direct_action"]["payload"]["message"],
             "urgent ping",
+        )
+
+    def test_builds_direct_action_event_with_explicit_target_device(self) -> None:
+        client = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+
+        frame = client.build_direct_action_event(
+            capability="runtime.status",
+            payload={},
+            target_device_id="host-edge-1",
+        )
+
+        self.assertEqual(frame["type"], "event_push")
+        self.assertEqual(
+            frame["payload"]["direct_action"]["target_device_id"],
+            "host-edge-1",
+        )
+        self.assertEqual(
+            frame["payload"]["direct_action"]["capability"],
+            "runtime.status",
         )
 
     def test_records_trace_for_edge_frame_build_and_action_execution(self) -> None:

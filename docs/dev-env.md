@@ -49,7 +49,15 @@ If a dependency experiment succeeds, commit the source-of-truth file changes suc
 CLI device validation is acceptable for early module testing.
 
 Use the existing desktop/CLI edge loop for the first pass when you want to confirm that a new runtime path, protocol shape, or state transition basically works.
+Preferred command shape: `python -m device_edge.cli.cli_edge`
 
 Host edge verification is required before documenting a module as implemented and operationally ready.
 
 If a change is going to be described in project documentation as a completed module that is ready to run in the intended runtime environment, it must be verified through the host edge path we already built, not only through the CLI device path.
+Preferred command shape: `python -m device_edge.host.host_daemon`
+
+Use `bin/verify-host-edge` for the default bounded local host-edge verification run.
+
+The script starts the runtime server, starts the host daemon with bounded idle and session controls, sends a targeted `runtime.status` direct action through the normal gateway path, and waits for the host daemon to exit cleanly.
+
+Use `bin/verify-host-edge --dry-run` first when you want to inspect the exact commands without starting processes.

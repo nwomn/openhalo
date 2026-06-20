@@ -1,4 +1,4 @@
-"""Local action execution for the v0 device edge."""
+"""Local action execution shared by simple edge surfaces."""
 
 
 def execute_action(action: dict) -> dict:
