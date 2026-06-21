@@ -7,11 +7,12 @@ from pathlib import Path
 import websockets
 
 from personal_runtime.action_layer import build_action_request
-from personal_runtime.action_layer import build_notification_action
+from personal_runtime.action_layer import build_planned_action
 from personal_runtime.agent_executor import build_intervention_proposal
-from personal_runtime.agent_executor import generate_reply
+from personal_runtime.agent_executor import build_agent_initiative_proposal
 from personal_runtime.context_contracts import RuntimeObservation
 from personal_runtime.context_snapshot import build_context_snapshot
+from personal_runtime.context_snapshot import build_context_snapshot_contract
 from personal_runtime.presence_router import choose_presence_decision
 from personal_runtime.runtime_state import RuntimeState
 from personal_runtime.state_store import JsonStateStore
@@ -46,7 +47,8 @@ class RuntimeGateway:
 
     def _build_event_replies(self, frame: dict) -> list[dict]:
         replies = [{"type": "event_ack"}]
-        direct_action = frame["payload"].get("direct_action")
+        payload = frame["payload"]
+        direct_action = payload.get("direct_action")
         if direct_action is not None:
             replies.append(
                 build_action_request(
@@ -60,27 +62,32 @@ class RuntimeGateway:
             )
             return replies
 
-        if frame["payload"].get("observations"):
+        if payload.get("observations"):
             return replies
 
-        text = frame["payload"]["text"]
         available_devices = {
             device_id: self.state.devices[device_id]
             for device_id in self.online_device_ids
             if device_id in self.state.devices
         }
-        snapshot = build_context_snapshot(self.state.observations)
-        proposal = build_intervention_proposal(
-            text,
-            snapshot=snapshot,
-            trace_recorder=self.trace_recorder,
-        )
         decision_time = self._event_timestamp(frame)
+        snapshot = build_context_snapshot(
+            self.state.observations,
+            snapshot_time=decision_time or None,
+        )
+        snapshot_contract = build_context_snapshot_contract(
+            self.state.observations,
+            snapshot_time=decision_time or None,
+        )
+        proposal = self._build_normal_path_proposal(
+            frame,
+            snapshot=snapshot,
+        )
         decision = choose_presence_decision(
             source_device_id=frame["device_id"],
             snapshot=snapshot,
             devices=available_devices or self.state.devices,
-            required_capability=proposal.action_capability,
+            required_capability=proposal.required_capability,
             proposal=proposal.to_dict(),
             intervention_history=self.state.interventions,
             now_timestamp=decision_time,
@@ -93,6 +100,7 @@ class RuntimeGateway:
                 "decision": decision.decision,
                 "reason": decision.reason,
                 "proposal": proposal.to_dict(),
+                "snapshot_contract": snapshot_contract,
                 "recorded_at": decision_time,
             }
         )
@@ -101,13 +109,74 @@ class RuntimeGateway:
             return replies
 
         replies.append(
-            build_notification_action(
+            build_planned_action(
                 decision.target_device_id or frame["device_id"],
-                generate_reply(text, trace_recorder=self.trace_recorder),
+                proposal.to_dict(),
                 trace_recorder=self.trace_recorder,
             )
         )
         return replies
+
+    def trigger_agent_initiative(
+        self,
+        source_device_id: str,
+        initiative_request: dict,
+        observed_at: str,
+    ) -> list[dict]:
+        self._record_trace(
+            "GATEWAY",
+            "triggered agent initiative",
+            source_device_id=source_device_id,
+            action_capability=initiative_request["action_capability"],
+        )
+        frame = {
+            "type": "event_push",
+            "device_id": source_device_id,
+            "capability": "agent.initiative",
+            "payload": {
+                "observed_at": observed_at,
+                "agent_initiative": initiative_request,
+            },
+        }
+        return self._build_event_replies(frame)
+
+    async def dispatch_agent_initiative(
+        self,
+        source_device_id: str,
+        initiative_request: dict,
+        observed_at: str,
+    ) -> list[dict]:
+        replies = self.trigger_agent_initiative(
+            source_device_id=source_device_id,
+            initiative_request=initiative_request,
+            observed_at=observed_at,
+        )
+        for reply in replies:
+            if reply["type"] != "action_request":
+                continue
+            target_device_id = reply["device_id"]
+            target_websocket = self.live_connections.get(target_device_id)
+            if target_websocket is not None:
+                await self._send_frame(target_websocket, reply)
+        return replies
+
+    def _build_normal_path_proposal(
+        self,
+        frame: dict,
+        snapshot: dict,
+    ):
+        payload = frame["payload"]
+        if payload.get("agent_initiative") is not None:
+            return build_agent_initiative_proposal(
+                payload["agent_initiative"],
+                snapshot=snapshot,
+                trace_recorder=self.trace_recorder,
+            )
+        return build_intervention_proposal(
+            payload["text"],
+            snapshot=snapshot,
+            trace_recorder=self.trace_recorder,
+        )
 
     def _handle_frames_sync(self, frames: list[dict]) -> list[dict]:
         replies = []

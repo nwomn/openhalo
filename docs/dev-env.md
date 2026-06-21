@@ -51,6 +51,37 @@ CLI device validation is acceptable for early module testing.
 Use the existing desktop/CLI edge loop for the first pass when you want to confirm that a new runtime path, protocol shape, or state transition basically works.
 Preferred command shape: `python -m device_edge.cli.cli_edge`
 
+When you need to inspect the full M5 hot path as one human-readable chain, use:
+Preferred command shape: `python -m device_edge.cli.cli_edge --inspect-chain --text "hello runtime"`
+
+That inspection mode runs one local interaction and prints the chain in this order:
+
+- trace
+- normalized observations
+- compact snapshot
+- snapshot contract
+- proposal
+- presence decision
+- recorded intervention
+
+This is the fastest local way to confirm what the runtime actually consumed on the `normalized observations -> compact snapshot / snapshot contract -> Agent proposal -> Presence decision -> recorded intervention` chain without manually digging through multiple files.
+
+When you need to inspect the M6 initiative path as one human-readable chain, use:
+Preferred command shape: `python -m device_edge.cli.cli_edge --inspect-agent-initiative`
+
+That inspection mode runs one local initiative-triggered interaction and prints the chain in this order:
+
+- trace
+- normalized observations
+- compact snapshot
+- snapshot contract
+- proposal
+- presence decision
+- recorded intervention
+- action result
+
+This is the fastest local way to confirm that a runtime-originated initiative now flows through the same `snapshot -> proposal -> Presence Router -> action` chain instead of depending on a direct-action bypass.
+
 Host edge verification is required before documenting a module as implemented and operationally ready.
 
 If a change is going to be described in project documentation as a completed module that is ready to run in the intended runtime environment, it must be verified through the host edge path we already built, not only through the CLI device path.

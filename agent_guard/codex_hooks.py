@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sys
 from dataclasses import asdict
 from dataclasses import dataclass
@@ -20,6 +21,46 @@ REQUIRED_SUMMARY_TEMPLATE = """Project.md Check:
 - project_updated: yes|no
 - summary: One concise sentence.
 """
+REQUIRED_PROGRESS_UPDATE_TEMPLATE = """Project progress updates must include separate `Goal 1` through `Goal 4` sections.
+Each Goal section must include:
+- `状态`
+- `架构位置`
+- `本批完成`
+- `对整体链路的作用`
+- `还缺什么`
+"""
+REQUIRED_ARCHITECTURE_SUMMARY_TEMPLATE = """Edited turns must include a final `架构实现小结` block.
+That block must include:
+- `架构位置`
+- `本步完成`
+- `影响链路`
+"""
+
+GOAL_HEADER_RE = re.compile(
+    r"^\s{0,3}(?:[#>*-]+\s*)?(?:\*\*)?Goal\s*([1-4])(?:\*\*)?(?:[:：].*)?$",
+    re.IGNORECASE,
+)
+PROGRESS_REQUEST_PATTERNS = (
+    "progress update",
+    "project progress",
+    "status update",
+    "progress report",
+    "项目进度",
+    "汇报",
+    "进度",
+)
+REQUIRED_PROGRESS_LABELS = (
+    "状态",
+    "架构位置",
+    "本批完成",
+    "对整体链路的作用",
+    "还缺什么",
+)
+REQUIRED_ARCHITECTURE_SUMMARY_LABELS = (
+    "架构位置",
+    "本步完成",
+    "影响链路",
+)
 
 
 @dataclass(frozen=True)
@@ -31,6 +72,7 @@ class SessionState:
     last_user_prompt: str | None = None
     turn_active: bool = False
     activity_since_check: bool = False
+    edit_activity_since_check: bool = False
     last_tool_name: str | None = None
 
 
@@ -115,6 +157,55 @@ def parse_project_check(message_text: str) -> TurnAudit | None:
     )
 
 
+def is_project_progress_update_request(prompt: str | None) -> bool:
+    if prompt is None:
+        return False
+    normalized = prompt.casefold()
+    return any(pattern in normalized for pattern in PROGRESS_REQUEST_PATTERNS)
+
+
+def validate_progress_update_response(message_text: str) -> str | None:
+    sections = _extract_goal_sections(message_text)
+    for goal_number in range(1, 5):
+        section_text = sections.get(goal_number)
+        if section_text is None:
+            return f"Project progress updates must include a Goal {goal_number} section."
+        for label in REQUIRED_PROGRESS_LABELS:
+            if label not in section_text:
+                return (
+                    f"Goal {goal_number} must include the required progress label "
+                    f"`{label}`."
+                )
+    return None
+
+
+def validate_architecture_summary_response(message_text: str) -> str | None:
+    if "架构实现小结" not in message_text:
+        return "Edited turns must include a `架构实现小结` block."
+    for label in REQUIRED_ARCHITECTURE_SUMMARY_LABELS:
+        if label not in message_text:
+            return f"`架构实现小结` must include the required label `{label}`."
+    return None
+
+
+def _extract_goal_sections(message_text: str) -> dict[int, str]:
+    lines = message_text.splitlines()
+    headers: list[tuple[int, int]] = []
+    for index, line in enumerate(lines):
+        match = GOAL_HEADER_RE.search(line)
+        if match is None:
+            continue
+        headers.append((int(match.group(1)), index))
+
+    sections: dict[int, str] = {}
+    for current_index, (goal_number, start_line) in enumerate(headers):
+        end_line = len(lines)
+        if current_index + 1 < len(headers):
+            end_line = headers[current_index + 1][1]
+        sections[goal_number] = "\n".join(lines[start_line:end_line])
+    return sections
+
+
 def validate_turn_audit(
     audit: TurnAudit,
     session: SessionState,
@@ -187,6 +278,7 @@ def handle_session_start(root: Path, payload: dict) -> int:
         project_read=True,
         turn_active=False,
         activity_since_check=False,
+        edit_activity_since_check=False,
     )
     save_state(state_path, state)
     return allow("Project.md baseline loaded for this session.")
@@ -205,6 +297,7 @@ def handle_user_prompt_submit(root: Path, payload: dict) -> int:
             "last_user_prompt": payload.get("prompt"),
             "turn_active": True,
             "activity_since_check": False,
+            "edit_activity_since_check": False,
             "last_tool_name": None,
         }
     )
@@ -227,11 +320,16 @@ def handle_post_tool_use(root: Path, payload: dict) -> int:
     state = load_state(state_path)
     if state is None:
         return block("Project.md session baseline is missing.")
+    tool_name = payload.get("tool_name")
     state = SessionState(
         **{
             **asdict(state),
             "activity_since_check": True,
-            "last_tool_name": payload.get("tool_name"),
+            "edit_activity_since_check": (
+                state.edit_activity_since_check
+                or tool_name == "functions.apply_patch"
+            ),
+            "last_tool_name": tool_name,
         }
     )
     save_state(state_path, state)
@@ -252,19 +350,31 @@ def handle_stop(root: Path, payload: dict) -> int:
         or payload.get("last_assistant_message", "")
     )
     current_project_hash = hash_file(project_path)
+    errors: list[str] = []
+    if is_project_progress_update_request(state.last_user_prompt):
+        progress_error = validate_progress_update_response(transcript)
+        if progress_error is not None:
+            errors.append(progress_error + "\n\n" + REQUIRED_PROGRESS_UPDATE_TEMPLATE)
+    if state.edit_activity_since_check:
+        architecture_error = validate_architecture_summary_response(transcript)
+        if architecture_error is not None:
+            errors.append(
+                architecture_error + "\n\n" + REQUIRED_ARCHITECTURE_SUMMARY_TEMPLATE
+            )
     audit = parse_project_check(transcript)
     if audit is None:
         if current_project_hash != state.project_hash_at_start:
-            message = (
+            errors.append(
                 "Project.md changed during this turn. Add a Project.md Check block "
                 "to explicitly declare whether tracked project state changed.\n\n"
                 + REQUIRED_SUMMARY_TEMPLATE
             )
+        if errors:
             print(
                 json.dumps(
                     {
                         "decision": "block",
-                        "reason": message,
+                        "reason": "\n\n".join(errors),
                         "continue": True,
                     }
                 )
@@ -278,6 +388,7 @@ def handle_stop(root: Path, payload: dict) -> int:
                 "phase_at_start": extract_project_phase(project_path.read_text(encoding="utf-8")),
                 "turn_active": False,
                 "activity_since_check": False,
+                "edit_activity_since_check": False,
             }
         )
         save_state(state_path, next_state)
@@ -289,18 +400,29 @@ def handle_stop(root: Path, payload: dict) -> int:
         current_project_hash=current_project_hash,
     )
     if error is not None:
-        print(json.dumps({"decision": "block", "reason": error, "continue": True}))
+        errors.append(error)
+    if errors:
+        print(
+            json.dumps(
+                {
+                    "decision": "block",
+                    "reason": "\n\n".join(errors),
+                    "continue": True,
+                }
+            )
+        )
         return 2
 
     next_state = SessionState(
         **{
             **asdict(state),
             "project_hash_at_start": current_project_hash,
-            "phase_at_start": extract_project_phase(project_path.read_text(encoding="utf-8")),
-            "turn_active": False,
-            "activity_since_check": False,
-        }
-    )
+                "phase_at_start": extract_project_phase(project_path.read_text(encoding="utf-8")),
+                "turn_active": False,
+                "activity_since_check": False,
+                "edit_activity_since_check": False,
+            }
+        )
     save_state(state_path, next_state)
     return allow()
 

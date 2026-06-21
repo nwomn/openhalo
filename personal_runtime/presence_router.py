@@ -66,13 +66,20 @@ def choose_presence_decision(
 
     target_device_id = source_device_id
     target_capability = required_capability or _proposal.get("action_capability")
+    target_device_hint = _proposal.get("target_device_hint")
     if devices and target_capability:
-        for device_id, payload in devices.items():
-            if device_id == source_device_id:
-                continue
-            if target_capability in payload["capabilities"]:
-                target_device_id = device_id
-                break
+        if (
+            target_device_hint in devices
+            and target_capability in devices[target_device_hint]["capabilities"]
+        ):
+            target_device_id = target_device_hint
+        else:
+            for device_id, payload in devices.items():
+                if device_id == source_device_id:
+                    continue
+                if target_capability in payload["capabilities"]:
+                    target_device_id = device_id
+                    break
 
     decision = PresenceDecision(
         decision="allow",

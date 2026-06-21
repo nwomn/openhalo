@@ -225,6 +225,13 @@ Sub-goals:
 - 4.8. Define milestone M7: operational-readiness verification milestone that gates "implemented and ready to run" claims on end-to-end host-edge-path validation rather than CLI-only checks
 - 4.9. Define milestone M8: bounded-growth and storage-hygiene hardening pass after the first mature product slice, covering unbounded state growth, high-frequency persistence pressure, duplicated long-term storage, and other operational accumulation risks across the system
 
+Accepted execution breakdown for M5:
+
+- M5.1 `Gateway -> Runtime Observation Ingest`: observation batches arrive through the normal edge/gateway path, persist correctly, normalize into runtime-owned observations, and retain provenance cleanly enough for later reasoning and replay
+- M5.2 `State / Context -> Compact Snapshot Field Pack`: the runtime builds an initial compact snapshot surface from those normalized observations one field at a time, with explicit contracts for field names, types, and fallback shape
+- M5.3 `State / Context -> Freshness / Ambiguity / Evidence Rules`: snapshot reducers stop behaving as timeless latest-value lookups and instead apply explicit freshness aging plus bounded ambiguity / uncertainty handling where the field semantics require it
+- M5.4 `Gateway -> State / Context -> Presence Input Verification`: the live runtime path demonstrably consumes the intended decision-time snapshot contract end to end, so M5 is accepted as a real runtime-ingestion/context milestone rather than only a pile of local reducer slices
+
 Acceptance criteria:
 
 - Each milestone has a clear scope
@@ -233,7 +240,7 @@ Acceptance criteria:
 
 Status:
 
-- In progress
+- In progress (`M6` completed and accepted; active execution focus moves to `M7`)
 
 ## Completed Sub-goals
 
@@ -244,6 +251,8 @@ Result:
 - Project-level Codex hooks have been added in `.codex/hooks.json`
 - Shared enforcement logic has been added in `agent_guard/codex_hooks.py`
 - `AGENTS.md` now documents the internal per-turn audit and the conditional `Project.md Check` exception path
+- Project progress updates are now also hook-enforced: when the user asks for a progress report, the response must include separate `Goal 1` through `Goal 4` sections with explicit architecture-aware labels for `状态`, `架构位置`, `本批完成`, `对整体链路的作用`, and `还缺什么`
+- Edited turns are now also hook-enforced: when a turn uses `apply_patch`, the final response must include a `架构实现小结` block with explicit `架构位置`, `本步完成`, and `影响链路` labels
 - A minimal automated test suite validates audit parsing and enforcement rules
 
 Acceptance criteria:
@@ -251,6 +260,8 @@ Acceptance criteria:
 - The repository has project-level Codex hooks for session start and turn-end enforcement
 - The enforced workflow validates that `Project.md` was read at session start
 - The enforced workflow validates that every meaningful interaction performs a `Project.md` progress check
+- The enforced workflow validates the required `Goal 1` through `Goal 4` architecture-aware structure for project progress updates
+- The enforced workflow validates the required `架构实现小结` structure for edited turns
 - The enforced workflow blocks inconsistent `Project.md` update claims while keeping normal responses free of mandatory visible audit output
 
 Status:
@@ -568,6 +579,280 @@ Status:
 
 - Completed
 
+### Completed: First M5 observation freshness and expiry slice
+
+Result:
+
+- Compact context snapshot building now supports an explicit snapshot reference timestamp instead of always treating the full stored observation history as equally current
+- The first reducer-level freshness policy is now live for `user.location`, so stale location evidence ages out to `unknown` instead of continuing to drive presence decisions indefinitely
+- The live gateway path now builds normal-path snapshots against the triggering event's decision time, which prevents expired conflicting location evidence from causing false ambiguity suppression
+- Automated tests now cover stale-versus-fresh snapshot behavior and the live runtime path that must ignore stale conflicting location evidence during notification routing
+
+Acceptance criteria:
+
+- Snapshot reducers can evaluate freshness against an explicit reference time
+- At least one presence-relevant field uses freshness filtering before returning a compact snapshot value
+- The live gateway path uses a decision-time snapshot instead of a timeless observation-history read
+- The new freshness slice is covered by automated tests without regressing the existing ambiguity and cooldown presence behavior
+
+Status:
+
+- Completed
+
+### Completed: First M5 freshness-aware runtime health snapshot field
+
+Result:
+
+- The compact snapshot now exposes `runtime.current_health_state` as a first runtime-ingestion field derived from host-edge `runtime.health_state` observations
+- Runtime-health snapshot values now use the same explicit snapshot-time freshness pattern as location evidence, so stale host-edge health reports age out to `unknown`
+- The runtime can now carry one freshness-aware host-edge health signal in the compact snapshot without widening this batch into broader host-metric aggregation or policy changes
+- Automated tests now cover fresh and stale runtime-health snapshot behavior alongside the existing location freshness slice
+
+Acceptance criteria:
+
+- The compact snapshot exposes at least one freshness-aware runtime-health field
+- Stale runtime-health evidence resolves to `unknown` instead of remaining indefinitely current
+- The new runtime-health snapshot behavior is covered by automated tests without regressing the earlier M5 freshness slice
+
+Status:
+
+- Completed
+
+### Completed: First M5 freshness-aware host metric snapshot field
+
+Result:
+
+- The compact snapshot now exposes `host.current_memory_pressure` as the first host-metric field derived from normalized `host.memory_pressure` observations
+- Host memory pressure now uses the same explicit snapshot-time freshness pattern as location and runtime health, so stale host metric evidence ages out to `unknown`
+- The runtime can now carry one compact freshness-aware host telemetry signal beyond runtime-specific health state without widening this batch into broader metric aggregation or agent-policy changes
+- Automated tests now cover fresh and stale host memory pressure snapshot behavior alongside the earlier location and runtime health freshness slices
+
+Acceptance criteria:
+
+- The compact snapshot exposes at least one freshness-aware host metric field
+- Stale host metric evidence resolves to `unknown` instead of remaining indefinitely current
+- The new host-metric snapshot behavior is covered by automated tests without regressing the earlier M5 freshness slices
+
+Status:
+
+- Completed
+
+### Completed: Second M5 freshness-aware host metric snapshot field
+
+Result:
+
+- The compact snapshot now exposes `host.current_cpu_load_ratio` as a freshness-aware host-metric field derived from normalized `host.cpu_load_ratio` observations
+- Host CPU load now uses the same explicit snapshot-time freshness pattern as location, runtime-side snapshot fields, and host memory pressure, so stale host CPU evidence ages out to `unknown`
+- The runtime can now carry a second compact freshness-aware host telemetry signal without widening this batch into threshold policy, metric aggregation, or agent-behavior changes
+- Automated tests now cover fresh and stale host CPU load snapshot behavior alongside the earlier M5 freshness slices
+
+Acceptance criteria:
+
+- The compact snapshot exposes a second freshness-aware host metric field
+- Stale host CPU load evidence resolves to `unknown` instead of remaining indefinitely current
+- The new host CPU snapshot behavior is covered by automated tests without regressing the earlier M5 freshness slices
+
+Status:
+
+- Completed
+
+### Completed: Third M5 freshness-aware host metric snapshot field
+
+Result:
+
+- The compact snapshot now exposes `host.current_memory_available_bytes` as a freshness-aware host-metric field derived from normalized `host.memory_available_bytes` observations
+- Host available memory now uses the same explicit snapshot-time freshness pattern as location, runtime-side snapshot fields, host CPU load, and host memory pressure, so stale host memory-availability evidence ages out to `unknown`
+- The runtime can now carry a third compact freshness-aware host telemetry signal without widening this batch into threshold policy, metric aggregation, or agent-behavior changes
+- Automated tests now cover fresh and stale host available-memory snapshot behavior alongside the earlier M5 freshness slices
+
+Acceptance criteria:
+
+- The compact snapshot exposes a third freshness-aware host metric field
+- Stale host available-memory evidence resolves to `unknown` instead of remaining indefinitely current
+- The new host available-memory snapshot behavior is covered by automated tests without regressing the earlier M5 freshness slices
+
+Status:
+
+- Completed
+
+### Completed: Fourth M5 freshness-aware host metric snapshot field
+
+Result:
+
+- The compact snapshot now exposes `host.current_memory_used_bytes` as a freshness-aware host-metric field derived from normalized `host.memory_used_bytes` observations
+- Host used memory now uses the same explicit snapshot-time freshness pattern as location, runtime-side snapshot fields, and the other host-metric fields, so stale host memory-usage evidence ages out to `unknown`
+- The runtime can now carry a fourth compact freshness-aware host telemetry signal without widening this batch into threshold policy, metric aggregation, or agent-behavior changes
+- Automated tests now cover fresh and stale host used-memory snapshot behavior alongside the earlier M5 freshness slices
+
+Acceptance criteria:
+
+- The compact snapshot exposes a fourth freshness-aware host metric field
+- Stale host used-memory evidence resolves to `unknown` instead of remaining indefinitely current
+- The new host used-memory snapshot behavior is covered by automated tests without regressing the earlier M5 freshness slices
+
+Status:
+
+- Completed
+
+### Completed: First M5 freshness-aware runtime process presence snapshot field
+
+Result:
+
+- The compact snapshot now exposes `runtime.current_process_present` as a freshness-aware runtime-ingestion field derived from host-edge `runtime.process_present` observations
+- Runtime process presence now uses the same explicit snapshot-time freshness pattern as location, runtime health, and host memory pressure, so stale process-presence evidence ages out to `unknown`
+- The runtime can now carry a second compact runtime-health-adjacent host signal without widening this batch into presence decisions, agent behavior, or broader reducer refactoring
+- Automated tests now cover fresh and stale runtime process presence snapshot behavior alongside the earlier M5 freshness slices
+
+Acceptance criteria:
+
+- The compact snapshot exposes a freshness-aware runtime process presence field
+- Stale runtime process presence evidence resolves to `unknown` instead of remaining indefinitely current
+- The new runtime process presence snapshot behavior is covered by automated tests without regressing the earlier M5 freshness slices
+
+Status:
+
+- Completed
+
+### Completed: First M5 freshness-aware runtime process RSS snapshot field
+
+Result:
+
+- The compact snapshot now exposes `runtime.current_process_memory_rss_bytes` as a freshness-aware runtime-ingestion field derived from host-edge `runtime.process_memory_rss_bytes` observations
+- Runtime process RSS now uses the same explicit snapshot-time freshness pattern as location, runtime health, runtime process presence, and host memory pressure, so stale process-memory evidence ages out to `unknown`
+- The runtime can now carry a third compact runtime-health-adjacent host signal without widening this batch into threshold policy, aggregation, or agent-behavior changes
+- Automated tests now cover fresh and stale runtime process RSS snapshot behavior alongside the earlier M5 freshness slices
+
+Acceptance criteria:
+
+- The compact snapshot exposes a freshness-aware runtime process RSS field
+- Stale runtime process RSS evidence resolves to `unknown` instead of remaining indefinitely current
+- The new runtime process RSS snapshot behavior is covered by automated tests without regressing the earlier M5 freshness slices
+
+Status:
+
+- Completed
+
+### Completed: Second M5 freshness-aware runtime process lifecycle snapshot field
+
+Result:
+
+- The compact snapshot now exposes `runtime.current_process_started_at` as a freshness-aware runtime-ingestion field derived from host-edge `runtime.process_started_at` observations
+- Runtime process start time now uses the same explicit snapshot-time freshness pattern as location, the other runtime-side snapshot fields, and the host-metric fields, so stale process-lifecycle evidence ages out to `unknown`
+- The runtime can now carry a fourth compact runtime-health-adjacent host signal without widening this batch into restart heuristics, policy changes, or broader time-semantics work
+- Automated tests now cover fresh and stale runtime process started-at snapshot behavior alongside the earlier M5 freshness slices
+
+Acceptance criteria:
+
+- The compact snapshot exposes a freshness-aware runtime process lifecycle field
+- Stale runtime process started-at evidence resolves to `unknown` instead of remaining indefinitely current
+- The new runtime process started-at snapshot behavior is covered by automated tests without regressing the earlier M5 freshness slices
+
+Status:
+
+- Completed
+
+### Completed: First M5 freshness-aware runtime process identity snapshot field
+
+Result:
+
+- The compact snapshot now exposes `runtime.current_process_pid` as a freshness-aware runtime-ingestion field derived from host-edge `runtime.process_pid` observations
+- Runtime process pid now uses the same explicit snapshot-time freshness pattern as location, the other runtime-side snapshot fields, and the host-metric fields, so stale process-identity evidence ages out to `unknown`
+- The runtime can now carry a fifth compact runtime-health-adjacent host signal without widening this batch into restart heuristics, policy changes, or broader reducer refactoring
+- Automated tests now cover fresh and stale runtime process pid snapshot behavior alongside the earlier M5 freshness slices
+
+Acceptance criteria:
+
+- The compact snapshot exposes a freshness-aware runtime process identity field
+- Stale runtime process pid evidence resolves to `unknown` instead of remaining indefinitely current
+- The new runtime process pid snapshot behavior is covered by automated tests without regressing the earlier M5 freshness slices
+
+Status:
+
+- Completed
+
+### Completed: M5 decision-time snapshot contract and evidence baseline
+
+Result:
+
+- `State / Context` now exposes a parallel decision-time snapshot contract view in addition to the compact field dict, so each snapshot field can be inspected as `value + status + bounded supporting evidence`
+- The snapshot contract now records explicit field states for `fresh`, `stale`, `missing`, and `ambiguous` outcomes instead of leaving those semantics implicit inside reducer-local behavior only
+- The compact hot-path API remains unchanged for current callers, while the broader runtime now has a stable inspection surface for replay, debugging, and later agent-side deeper reasoning
+- Automated tests now cover fresh, stale, missing, and ambiguous contract states without regressing the earlier compact snapshot field-pack behavior
+
+Acceptance criteria:
+
+- The runtime exposes a decision-time snapshot contract alongside the compact snapshot field dict
+- The contract makes freshness / ambiguity / evidence status explicit per field
+- Supporting evidence remains bounded and inspectable rather than widening the compact snapshot into a raw-history mirror
+- The new contract behavior is covered by automated tests without regressing the earlier M5 freshness slices
+
+Status:
+
+- Completed
+
+### Completed: M5 gateway-to-presence input verification baseline
+
+Result:
+
+- The live gateway normal path now records the exact decision-time snapshot contract that was used when building a proposal and evaluating a presence decision
+- Intervention history can now show whether runtime and host telemetry was consumed as fresh evidence or aged out as stale evidence on the real gateway path, rather than only proving that local reducers return the right value in isolation
+- The runtime now has a concrete human-inspectable verification surface for M5 acceptance: recorded interventions include the compact decision input contract together with proposal, decision, reason, and target device
+- Automated tests now cover live intervention recording for both fresh and stale runtime-health-adjacent telemetry without widening this batch into richer presence-policy changes
+
+Acceptance criteria:
+
+- The gateway normal path records the decision-time snapshot contract used for intervention evaluation
+- Recorded interventions can distinguish fresh versus stale runtime/host telemetry on the live path
+- The end-to-end verification surface is inspectable enough for human acceptance of M5 as a runtime-ingestion/context milestone
+- The new live-path verification behavior is covered by automated tests without regressing existing gateway routing behavior
+
+Status:
+
+- Completed
+
+### Completed: M5 runtime-ingestion and context-maturity milestone acceptance
+
+Result:
+
+- `M5` has now been accepted as complete using real host-edge input instead of relying only on inspection-injected sample observations
+- The normal `Gateway -> State / Context -> Presence` path now has human-inspectable acceptance evidence across raw edge events, normalized observations, compact snapshot fields, explicit snapshot contract state, and recorded interventions
+- Human acceptance can now inspect both runtime-side persisted evidence and edge-side daemon trace output for the same live decision-time chain
+- The live-path acceptance pass also closed two real verification gaps: `python -m device_edge.cli.cli_edge --inspect-chain` now executes through the module entrypoint, and snapshot freshness reduction now accepts fractional-second observation timestamps emitted by the real host daemon
+
+Acceptance criteria:
+
+- `M5` is accepted through the normal gateway path using real host-edge telemetry
+- Decision-time snapshot input remains inspectable in recorded intervention history rather than only through isolated reducer tests
+- Human verification can inspect both runtime-side and edge-side evidence for the same live chain
+- Real host-daemon timestamp shape does not break snapshot freshness evaluation on the live path
+
+Status:
+
+- Completed
+
+### Completed: M6 dual-entry proactive runtime milestone acceptance
+
+Result:
+
+- The live runtime now supports both sense-first and agent-initiative proposal entry paths on top of the accepted M5 observation and snapshot surface
+- The backend can now trigger an explicit `agent_initiative` proposal from runtime-owned state rather than relying only on an edge-originated text event to start the normal path
+- Both entry paths now rebuild a decision-time compact snapshot and snapshot contract, form an inspectable intervention proposal, and converge on the same explicit `Presence Router` before action planning
+- The normal allowed path now supports both user-facing `notification.show` actions and narrow host-control actions such as `runtime.status` without falling back to the direct-action bypass
+- Initiative proposals can now carry action payload, proposal source, bounded metadata, and a target-device hint while still remaining subject to cooldown and ambiguity suppression on the shared presence path
+- The repository now has a dedicated M6 local inspection entrypoint: `python -m device_edge.cli.cli_edge --inspect-agent-initiative`, which prints trace, observations, snapshot, snapshot contract, proposal, presence decision, recorded intervention, and action result for one initiative-triggered run
+- Automated tests now cover runtime-triggered initiative entry, cooldown suppression on the initiative path, CLI initiative triggering, initiative chain inspection, and a real websocket host-edge `runtime.status` roundtrip driven by runtime-side initiative dispatch
+
+Acceptance criteria:
+
+- The live runtime supports both sense-first and agent-initiative proposal entry on top of stable real-edge input
+- Both proactive entry paths converge on the same explicit `Presence Router`
+- Allowed actions can continue into at least one user-facing notification path and one narrow host-control path without using the direct-action bypass
+- M6 behavior is covered by automated tests and a human-readable inspection path for manual acceptance
+
+Status:
+
+- Completed
+
 ## Open Questions
 
 - Which device surfaces should be the first non-CLI surfaces for presence-first experiments?
@@ -652,7 +937,7 @@ Current M3 slice direction:
 
 Current phase:
 
-- First M4 mature host-edge runtime milestone completed, with active implementation now moving into M5 runtime-ingestion and context maturity on top of stable host-edge input
+- M7 operational-readiness verification milestone started, following accepted completion of the M6 presence / agent / action maturity milestone
 
 Current progress summary:
 
@@ -665,6 +950,8 @@ Current progress summary:
 - We prefer graded device profiles for heterogeneous edge hardware, but profile sprawl is now an explicit design risk to control
 - We currently prefer profile modeling that is role-first with device-type metadata, while deferring heavy resource-tier scheduling design
 - We also prefer a minimal role vocabulary that expands only when new device onboarding cannot fit existing roles cleanly
+- We now have a completed M5 runtime context surface: normalized host/runtime observations feed a compact snapshot field-pack, a decision-time snapshot contract with explicit evidence states, and a live gateway intervention record that preserves what the runtime actually consumed
+- We have now explicitly accepted and marked `M5` complete in the project baseline after live host-edge verification of the `observation -> snapshot -> intervention` chain
 - We have now decided not to plan around direct OpenClaw gateway server reuse for implementation
 - The earlier OpenClaw source audit remains useful as reference, especially around protocol and client transport patterns, but no longer drives the main delivery path
 - We have explicitly defined that all physical frontend/backend communication must be funneled through `Edge Session Link <-> Gateway`
@@ -757,8 +1044,31 @@ Current progress summary:
 - We now explicitly keep M3 scoped as the first presence-aware routing validation slice and move host-edge and product-maturity work into later milestones instead of stretching M3 semantics
 - We now consider M4 complete: the host edge can run as a stable standalone real-edge surface with continuous observation, durable runtime-scoped control behavior, reconnect handling, and dedicated local verification paths
 - We now define M5 as the runtime-ingestion and context-maturity milestone: once host-edge input is stable, the backend still needs more mature gateway ingestion, normalized observation handling, reducer behavior, and freshness / ambiguity management
-- We now define M6 as the presence / agent / action maturity milestone: the proactive runtime chain still needs to become reliable on top of stable real-edge input rather than only on the current validation slice
-- We now define M7 as the operational-readiness verification milestone: end-to-end host-edge-path validation must pass before we describe the system as implemented and ready to run
+- We now make M5 more execution-friendly by breaking it into four acceptance-oriented sub-stages: `M5.1` gateway ingest / normalized observations, `M5.2` compact snapshot field-pack growth, `M5.3` freshness / ambiguity / evidence rules, and `M5.4` end-to-end presence-input verification
+- We have now landed the first explicit M5 freshness / expiry slice: compact snapshots accept a decision-time reference, stale `user.location` evidence ages out before presence evaluation, and the live gateway path no longer lets expired conflicting location evidence suppress a normal notification action
+- We now have the first freshness-aware runtime-ingestion snapshot field beyond user location as well: `runtime.current_health_state` is derived from host-edge `runtime.health_state` observations and ages out to `unknown` when the health evidence is stale
+- We now have a second freshness-aware runtime-ingestion snapshot field as well: `runtime.current_process_present` is derived from host-edge `runtime.process_present` observations and ages out to `unknown` when the process-presence evidence is stale
+- We now have a third freshness-aware runtime-ingestion snapshot field as well: `runtime.current_process_memory_rss_bytes` is derived from host-edge `runtime.process_memory_rss_bytes` observations and ages out to `unknown` when the process-memory evidence is stale
+- We now have a fourth freshness-aware runtime-ingestion snapshot field as well: `runtime.current_process_started_at` is derived from host-edge `runtime.process_started_at` observations and ages out to `unknown` when the process-lifecycle evidence is stale
+- We now have a fifth freshness-aware runtime-ingestion snapshot field as well: `runtime.current_process_pid` is derived from host-edge `runtime.process_pid` observations and ages out to `unknown` when the process-identity evidence is stale
+- We now have the first freshness-aware compact host-metric snapshot field as well: `host.current_memory_pressure` is derived from normalized `host.memory_pressure` observations and ages out to `unknown` when the host metric evidence is stale
+- We now have a second freshness-aware compact host-metric snapshot field as well: `host.current_cpu_load_ratio` is derived from normalized `host.cpu_load_ratio` observations and ages out to `unknown` when the host CPU evidence is stale
+- We now have a third freshness-aware compact host-metric snapshot field as well: `host.current_memory_available_bytes` is derived from normalized `host.memory_available_bytes` observations and ages out to `unknown` when the host memory-availability evidence is stale
+- We now have a fourth freshness-aware compact host-metric snapshot field as well: `host.current_memory_used_bytes` is derived from normalized `host.memory_used_bytes` observations and ages out to `unknown` when the host memory-usage evidence is stale
+- We now expose a parallel decision-time snapshot contract with explicit `fresh`, `stale`, `missing`, and `ambiguous` field states plus bounded supporting evidence, so M5 freshness/ambiguity semantics are inspectable outside reducer internals
+- The live gateway normal path now records that decision-time snapshot contract into intervention history, which makes M5 human-verifiable on the real `Gateway -> State / Context -> Presence` chain rather than only through local reducer slices
+- M5 has now been accepted as complete using targeted `tests.test_context_snapshot`, `tests.test_gateway_v0`, and `tests.test_roundtrip_v0` verification together with recorded intervention inspection and real host-edge evidence review
+- We now also have a dedicated local chain-inspection entrypoint for human acceptance work: `python -m device_edge.cli.cli_edge --inspect-chain --text "..."` prints trace, normalized observations, compact snapshot, snapshot contract, proposal, presence decision, and recorded intervention in one report
+- The runtime now also exposes a backend-originated initiative path on the live normal chain, so proactive work no longer depends only on an edge text event to begin proposal formation
+- Both sense-first and agent-initiative triggers now rebuild the same decision-time snapshot inputs, form inspectable proposals, and converge on the same `Presence Router` before any user-facing or host-control action is emitted
+- The normal execution-planning path now supports both `notification.show` and narrow `runtime.control` actions such as `runtime.status`, allowing a host-edge control action to be dispatched on the mature proactive path instead of only through the direct-action bypass
+- Initiative proposals now record explicit proposal source, bounded metadata, action payload, and target-device intent in intervention history, making the live proactive chain easier to inspect and replay
+- We now have a dedicated M6 inspection entrypoint for manual acceptance: `python -m device_edge.cli.cli_edge --inspect-agent-initiative` prints the initiative-triggered trace, snapshot inputs, proposal, presence decision, recorded intervention, and resulting action outcome in one report
+- A real websocket verification now proves that runtime-originated initiative dispatch can route `runtime.status` to a connected host edge and record the returned result through the normal action-result path
+- We now consider M6 complete: the runtime has a dual-entry proactive chain, unified presence governance, and a first mature execution-planning path across both user-facing notification and narrow host-control actions
+- We now hard-enforce the project progress report format at the hook layer: when the user asks for progress, the response must include separate `Goal 1` through `Goal 4` sections and each section must carry the required architecture-aware labels
+- We now also hard-enforce architecture-aware final reply summaries for edited turns: when a turn uses `apply_patch`, the final response must include `架构实现小结` with `架构位置`, `本步完成`, and `影响链路`
+- We now move active execution focus to M7 operational-readiness verification: end-to-end host-edge-path validation must now gate stronger “implemented and ready to run” claims on top of the newly accepted M6 runtime behavior
 - We now define M8 as the post-maturity bounded-growth and storage-hygiene milestone: after the first mature product slice lands, the system should receive an explicit sweep for unbounded state files, high-frequency persistence paths, duplicated long-term storage, retention/rotation gaps, and similar operational accumulation hazards instead of treating them as isolated follow-up bugs
 - We have our own tested minimal protocol, edge session client, and gateway baseline, reducing the value of deeper OpenClaw gateway extraction work
 - We may still borrow ideas from OpenClaw protocol/client layers later, but that is now optional follow-on work rather than an open prerequisite

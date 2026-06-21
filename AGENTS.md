@@ -88,8 +88,11 @@ When contributing to this project:
 - Prefer refining and preserving project clarity over rushing into unframed implementation
 - Keep new decisions reflected in `Project.md`
 - Treat `Project.md` as a living document, not a one-time kickoff note
-- When the user asks for a project progress update, report progress separately for each tracked goal (`Goal 1` through `Goal 4`), including status, recent progress, and remaining gaps or next steps for each goal
-- When reporting implementation or milestone progress, explain it in architecture-aware terms using this structure when helpful: `架构位置 -> 本批完成 -> 对整体链路的作用 -> 还缺什么`
+- When the user asks for a project progress update, the response must report progress separately for each tracked goal (`Goal 1` through `Goal 4`)
+- Each `Goal 1` through `Goal 4` section in a project progress update must include these labels explicitly: `状态`, `架构位置`, `本批完成`, `对整体链路的作用`, `还缺什么`
+- Project progress updates must use that architecture-aware structure as a hard requirement, not only as a stylistic preference
+- When a turn makes code or document edits, the final response must include a `架构实现小结` block
+- The `架构实现小结` block must include these labels explicitly: `架构位置`, `本步完成`, `影响链路`
 
 ## Hook Enforcement
 
@@ -103,3 +106,5 @@ The active hook chain is:
 3. `PreToolUse`: blocks tool execution if the session baseline is missing
 4. `PostToolUse`: marks that meaningful work happened in the current turn
 5. `Stop`: performs the internal turn audit and only requires a visible `Project.md Check` block when `Project.md` changed or an inconsistency must be resolved
+6. `Stop`: blocks project progress updates that omit the required `Goal 1` through `Goal 4` architecture-aware report structure
+7. `Stop`: blocks edited turns whose final response omits the required `架构实现小结` structure

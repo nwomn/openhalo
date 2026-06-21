@@ -111,6 +111,26 @@ class CliEntryTests(unittest.TestCase):
         self.assertIn("ws://127.0.0.1:8765", message)
         self.assertNotIn("Connect an edge client", message)
 
+    def test_local_cli_session_can_trigger_agent_initiative(self) -> None:
+        session = LocalCliSession(token="dev-token", trace=True)
+
+        result = session.trigger_agent_initiative(
+            action_capability="notification.show",
+            action_payload={"message": "initiative ping"},
+            reason="manual_check",
+            observed_at="2026-06-21T10:10:00Z",
+        )
+        trace_lines = session.drain_trace_lines()
+
+        self.assertEqual(result["type"], "action_result")
+        self.assertEqual(result["result"]["status"], "ok")
+        self.assertTrue(
+            any("GATEWAY triggered agent initiative" in line for line in trace_lines)
+        )
+        self.assertTrue(
+            any("AGENT built intervention proposal [source=agent_initiative" in line for line in trace_lines)
+        )
+
 
 class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
     async def test_websocket_connect_emits_runtime_connection_event(self) -> None:
@@ -210,6 +230,83 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result["type"], "action_result")
         self.assertEqual(result["result"]["status"], "ok")
+
+    async def test_websocket_agent_initiative_can_route_runtime_status_to_host_edge(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+
+        class RuntimeStatusAdapter:
+            def execute(self, action: dict) -> dict:
+                return {
+                    "status": "ok",
+                    "capability": action["capability"],
+                    "details": {"state": "running", "pid": 42137},
+                }
+
+        host_daemon = HostEdgeDaemon(
+            device_id="host-edge-1",
+            token="dev-token",
+            runtime_control_adapter=RuntimeStatusAdapter(),
+            host_metrics_provider=lambda: {
+                "cpu_load_ratio": 0.31,
+                "memory_used_bytes": 400,
+                "memory_available_bytes": 600,
+                "memory_pressure": "normal",
+                "net_rx_bytes": 10,
+                "net_tx_bytes": 12,
+            },
+            runtime_health_provider=lambda: {
+                "health_state": "healthy",
+                "process_pid": 42137,
+                "process_present": True,
+                "process_started_at": "2026-06-19T09:00:00Z",
+                "process_memory_rss_bytes": 28114944,
+            },
+        )
+        ready = asyncio.Event()
+
+        async with gateway.run_test_server() as server_info:
+            daemon_task = asyncio.create_task(
+                host_daemon.run_websocket_control_session(
+                    url=server_info["url"],
+                    observed_at="2026-06-21T10:08:00Z",
+                    ready_event=ready,
+                )
+            )
+            await ready.wait()
+            async with websockets.connect(server_info["url"]) as source_ws:
+                source = SessionClient(
+                    device_id="desktop-dev-1",
+                    device_type="desktop-cli",
+                    token="dev-token",
+                )
+                await source_ws.send(json.dumps(source.build_connect_frame()))
+                await source_ws.send(json.dumps(source.build_capability_announce_frame()))
+                source_connect_ok = json.loads(await source_ws.recv())
+                await gateway.dispatch_agent_initiative(
+                    source_device_id="desktop-dev-1",
+                    initiative_request={
+                        "action_capability": "runtime.status",
+                        "action_payload": {},
+                        "reason": "runtime_health_check",
+                        "target_device_hint": "host-edge-1",
+                    },
+                    observed_at="2026-06-21T10:10:00Z",
+                )
+            action_result = await asyncio.wait_for(daemon_task, timeout=1)
+
+        self.assertEqual(source_connect_ok["type"], "connect_ok")
+        self.assertEqual(action_result["result"]["status"], "ok")
+        self.assertEqual(action_result["result"]["capability"], "runtime.status")
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["source"],
+            "agent_initiative",
+        )
+        self.assertEqual(
+            gateway.state.action_results[-1]["capability"],
+            "runtime.status",
+        )
 
 
 class HostEdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):

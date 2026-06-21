@@ -335,6 +335,382 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(gateway.state.interventions[-1]["decision"], "suppress")
         self.assertEqual(gateway.state.interventions[-1]["reason"], "context_ambiguous")
 
+    async def test_normal_path_ignores_stale_conflicting_location_evidence(self) -> None:
+        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        client = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show", "desktop_context"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+                client.build_observation_event(
+                    capability="desktop_context",
+                    observations=[
+                        {
+                            "name": "user.location",
+                            "value": "office",
+                            "observed_at": "2026-06-19T10:30:00Z",
+                            "confidence": 0.81,
+                        }
+                    ],
+                ),
+                {
+                    "type": "event_push",
+                    "device_id": "phone-1",
+                    "capability": "mobile_context",
+                    "event_id": "evt-mobile-1",
+                    "payload": {
+                        "observations": [
+                            {
+                                "name": "user.location",
+                                "value": "train",
+                                "observed_at": "2026-06-19T10:29:00Z",
+                                "confidence": 0.80,
+                            }
+                        ]
+                    },
+                },
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {
+                        "text": "fresh enough to notify",
+                        "observed_at": "2026-06-19T10:36:00Z",
+                    },
+                },
+            ]
+        )
+
+        self.assertEqual(replies[-1]["type"], "action_request")
+        self.assertEqual(replies[-1]["action"]["capability"], "notification.show")
+        self.assertEqual(gateway.state.interventions[-1]["decision"], "allow")
+        self.assertEqual(gateway.state.interventions[-1]["reason"], "context_clear")
+        self.assertEqual(
+            gateway.state.interventions[-1]["snapshot_contract"]["fields"][
+                "user.current_location"
+            ]["status"],
+            "stale",
+        )
+
+    async def test_normal_path_records_fresh_runtime_health_contract_for_intervention(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        source = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+        host = SessionClient(
+            device_id="host-edge-1",
+            device_type="server",
+            token="dev-token",
+            capabilities=["host.metrics", "runtime.health", "runtime.control"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                source.build_connect_frame(),
+                source.build_capability_announce_frame(),
+                host.build_connect_frame(),
+                host.build_capability_announce_frame(),
+                host.build_observation_event(
+                    capability="runtime.health",
+                    observations=[
+                        {
+                            "name": "runtime.health_state",
+                            "value": "healthy",
+                            "observed_at": "2026-06-21T10:08:00Z",
+                            "confidence": 1.0,
+                        },
+                        {
+                            "name": "runtime.process_pid",
+                            "value": 4242,
+                            "observed_at": "2026-06-21T10:08:00Z",
+                            "confidence": 1.0,
+                        },
+                    ],
+                ),
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {
+                        "text": "notify me",
+                        "observed_at": "2026-06-21T10:10:00Z",
+                    },
+                },
+            ]
+        )
+
+        self.assertEqual(replies[-1]["type"], "action_request")
+        snapshot_contract = gateway.state.interventions[-1]["snapshot_contract"]
+        self.assertEqual(snapshot_contract["snapshot_time"], "2026-06-21T10:10:00Z")
+        self.assertEqual(
+            snapshot_contract["fields"]["runtime.current_health_state"]["value"],
+            "healthy",
+        )
+        self.assertEqual(
+            snapshot_contract["fields"]["runtime.current_health_state"]["status"],
+            "fresh",
+        )
+        self.assertEqual(
+            snapshot_contract["fields"]["runtime.current_process_pid"]["value"],
+            4242,
+        )
+        self.assertEqual(
+            snapshot_contract["fields"]["runtime.current_process_pid"]["status"],
+            "fresh",
+        )
+
+    async def test_normal_path_records_stale_runtime_health_contract_for_intervention(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        source = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+        host = SessionClient(
+            device_id="host-edge-1",
+            device_type="server",
+            token="dev-token",
+            capabilities=["host.metrics", "runtime.health", "runtime.control"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                source.build_connect_frame(),
+                source.build_capability_announce_frame(),
+                host.build_connect_frame(),
+                host.build_capability_announce_frame(),
+                host.build_observation_event(
+                    capability="runtime.health",
+                    observations=[
+                        {
+                            "name": "runtime.health_state",
+                            "value": "healthy",
+                            "observed_at": "2026-06-21T10:00:00Z",
+                            "confidence": 1.0,
+                        }
+                    ],
+                ),
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {
+                        "text": "notify me anyway",
+                        "observed_at": "2026-06-21T10:10:00Z",
+                    },
+                },
+            ]
+        )
+
+        self.assertEqual(replies[-1]["type"], "action_request")
+        snapshot_contract = gateway.state.interventions[-1]["snapshot_contract"]
+        self.assertEqual(
+            snapshot_contract["fields"]["runtime.current_health_state"]["value"],
+            "unknown",
+        )
+        self.assertEqual(
+            snapshot_contract["fields"]["runtime.current_health_state"]["status"],
+            "stale",
+        )
+        self.assertEqual(
+            snapshot_contract["fields"]["runtime.current_health_state"]["evidence"][0][
+                "name"
+            ],
+            "runtime.health_state",
+        )
+
+    async def test_agent_initiative_path_routes_runtime_status_through_presence_and_records_source(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        source = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+        host = SessionClient(
+            device_id="host-edge-1",
+            device_type="server",
+            token="dev-token",
+            capabilities=["host.metrics", "runtime.health", "runtime.control"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                source.build_connect_frame(),
+                source.build_capability_announce_frame(),
+                host.build_connect_frame(),
+                host.build_capability_announce_frame(),
+                host.build_observation_event(
+                    capability="runtime.health",
+                    observations=[
+                        {
+                            "name": "runtime.health_state",
+                            "value": "healthy",
+                            "observed_at": "2026-06-21T10:08:00Z",
+                            "confidence": 1.0,
+                        }
+                    ],
+                ),
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {
+                        "observed_at": "2026-06-21T10:10:00Z",
+                        "agent_initiative": {
+                            "action_capability": "runtime.status",
+                            "action_payload": {},
+                            "reason": "runtime_health_check",
+                            "target_device_hint": "host-edge-1",
+                        },
+                    },
+                },
+            ]
+        )
+
+        self.assertEqual(replies[-1]["type"], "action_request")
+        self.assertEqual(replies[-1]["device_id"], "host-edge-1")
+        self.assertEqual(replies[-1]["action"]["capability"], "runtime.status")
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["source"],
+            "agent_initiative",
+        )
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["action_capability"],
+            "runtime.status",
+        )
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["metadata"]["reason"],
+            "runtime_health_check",
+        )
+        self.assertEqual(
+            gateway.state.interventions[-1]["snapshot_contract"]["snapshot_time"],
+            "2026-06-21T10:10:00Z",
+        )
+
+    async def test_agent_initiative_path_still_respects_presence_cooldown(self) -> None:
+        state = RuntimeState()
+        state.record_intervention(
+            {
+                "target_device_id": "host-edge-1",
+                "action_capability": "runtime.status",
+                "decision": "allow",
+                "reason": "context_clear",
+                "proposal": {
+                    "source": "agent_initiative",
+                    "action_capability": "runtime.status",
+                },
+                "recorded_at": "2026-06-21T10:06:00Z",
+            }
+        )
+        gateway = RuntimeGateway(shared_token="dev-token", state=state, persist_state=False)
+        source = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+        host = SessionClient(
+            device_id="host-edge-1",
+            device_type="server",
+            token="dev-token",
+            capabilities=["host.metrics", "runtime.health", "runtime.control"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                source.build_connect_frame(),
+                source.build_capability_announce_frame(),
+                host.build_connect_frame(),
+                host.build_capability_announce_frame(),
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {
+                        "observed_at": "2026-06-21T10:10:00Z",
+                        "agent_initiative": {
+                            "action_capability": "runtime.status",
+                            "action_payload": {},
+                            "reason": "runtime_health_check",
+                            "target_device_hint": "host-edge-1",
+                        },
+                    },
+                },
+            ]
+        )
+
+        self.assertEqual(replies[-1]["type"], "event_ack")
+        self.assertEqual(
+            len([reply for reply in replies if reply["type"] == "action_request"]),
+            0,
+        )
+        self.assertEqual(gateway.state.interventions[-1]["decision"], "suppress")
+        self.assertEqual(gateway.state.interventions[-1]["reason"], "cooldown_active")
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["source"],
+            "agent_initiative",
+        )
+
+    async def test_runtime_can_trigger_agent_initiative_without_edge_text_event(self) -> None:
+        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        source = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+        host = SessionClient(
+            device_id="host-edge-1",
+            device_type="server",
+            token="dev-token",
+            capabilities=["host.metrics", "runtime.health", "runtime.control"],
+        )
+
+        await gateway.handle_test_frames(
+            [
+                source.build_connect_frame(),
+                source.build_capability_announce_frame(),
+                host.build_connect_frame(),
+                host.build_capability_announce_frame(),
+            ]
+        )
+
+        replies = gateway.trigger_agent_initiative(
+            source_device_id="desktop-dev-1",
+            initiative_request={
+                "action_capability": "runtime.status",
+                "action_payload": {},
+                "reason": "runtime_health_check",
+                "target_device_hint": "host-edge-1",
+            },
+            observed_at="2026-06-21T10:10:00Z",
+        )
+
+        self.assertEqual(replies[-1]["type"], "action_request")
+        self.assertEqual(replies[-1]["device_id"], "host-edge-1")
+        self.assertEqual(replies[-1]["action"]["capability"], "runtime.status")
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["source"],
+            "agent_initiative",
+        )
+
     async def test_normal_path_suppresses_repeated_intervention_during_cooldown(self) -> None:
         state = RuntimeState()
         state.record_intervention(
