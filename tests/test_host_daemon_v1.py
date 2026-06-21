@@ -744,6 +744,8 @@ class HostDaemonTests(unittest.TestCase):
                 "1.5",
                 "--max-idle-cycles",
                 "2",
+                "--max-action-requests",
+                "3",
                 "--max-sessions",
                 "4",
                 "--history-limit",
@@ -764,6 +766,7 @@ class HostDaemonTests(unittest.TestCase):
         self.assertEqual(args.reconnect_jitter_fixed, 0.4)
         self.assertEqual(args.idle_timeout, 1.5)
         self.assertEqual(args.max_idle_cycles, 2)
+        self.assertEqual(args.max_action_requests, 3)
         self.assertEqual(args.max_sessions, 4)
         self.assertEqual(args.history_limit, 7)
         self.assertTrue(args.trace)
@@ -846,6 +849,8 @@ class HostDaemonTests(unittest.TestCase):
                             "2.0",
                             "--max-idle-cycles",
                             "3",
+                            "--max-action-requests",
+                            "4",
                             "--max-sessions",
                             "5",
                             "--history-limit",
@@ -862,6 +867,7 @@ class HostDaemonTests(unittest.TestCase):
         self.assertAlmostEqual(kwargs["reconnect_jitter"](4.0, 2), 4.5)
         self.assertEqual(kwargs["idle_timeout_s"], 2.0)
         self.assertEqual(kwargs["max_idle_cycles"], 3)
+        self.assertEqual(kwargs["max_action_requests"], 4)
         self.assertEqual(kwargs["max_sessions"], 5)
         self.assertNotIn("history_limit", kwargs)
         self.assertIn("Host edge daemon connecting", stdout.getvalue())

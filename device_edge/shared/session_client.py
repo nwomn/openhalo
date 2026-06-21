@@ -80,6 +80,39 @@ class SessionClient:
             },
         }
 
+    def build_agent_initiative_event(
+        self,
+        action_capability: str,
+        action_payload: dict,
+        reason: str,
+        observed_at: str,
+        target_device_hint: str | None = None,
+        message: str | None = None,
+    ) -> dict:
+        self._record_trace(
+            "EDGE",
+            "build agent.initiative event",
+            capability=action_capability,
+        )
+        initiative = {
+            "action_capability": action_capability,
+            "action_payload": action_payload,
+            "reason": reason,
+        }
+        if target_device_hint is not None:
+            initiative["target_device_hint"] = target_device_hint
+        if message is not None:
+            initiative["message"] = message
+        return {
+            "type": "event_push",
+            "device_id": self.device_id,
+            "capability": "agent.initiative",
+            "payload": {
+                "observed_at": observed_at,
+                "agent_initiative": initiative,
+            },
+        }
+
     def build_observation_event(self, capability: str, observations: list[dict]) -> dict:
         event_id = f"{self.device_id}-evt-{next(self._event_counter)}"
         self._record_trace(

@@ -154,6 +154,33 @@ class EdgeClientTests(unittest.TestCase):
             "runtime.status",
         )
 
+    def test_builds_agent_initiative_event_with_target_hint(self) -> None:
+        client = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+
+        frame = client.build_agent_initiative_event(
+            action_capability="runtime.status",
+            action_payload={},
+            reason="runtime_health_check",
+            observed_at="2026-06-21T10:10:00Z",
+            target_device_hint="host-edge-1",
+        )
+
+        self.assertEqual(frame["type"], "event_push")
+        self.assertEqual(frame["capability"], "agent.initiative")
+        self.assertEqual(frame["payload"]["observed_at"], "2026-06-21T10:10:00Z")
+        self.assertEqual(
+            frame["payload"]["agent_initiative"]["action_capability"],
+            "runtime.status",
+        )
+        self.assertEqual(
+            frame["payload"]["agent_initiative"]["target_device_hint"],
+            "host-edge-1",
+        )
+
     def test_records_trace_for_edge_frame_build_and_action_execution(self) -> None:
         trace = TraceRecorder()
         client = SessionClient(

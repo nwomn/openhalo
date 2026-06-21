@@ -89,6 +89,6 @@ Preferred command shape: `python -m device_edge.host.host_daemon`
 
 Use `bin/verify-host-edge` for the default bounded local host-edge verification run.
 
-The script starts the runtime server, starts the host daemon with bounded idle and session controls, sends a targeted `runtime.status` direct action through the normal gateway path, and waits for the host daemon to exit cleanly.
+The script starts the runtime server, starts the host daemon with bounded idle, action-count, and session controls, verifies one targeted `runtime.status` direct action through the normal gateway path, verifies one runtime-originated initiative path to the same host edge through `Presence Router` and the normal action-planning path, then checks persisted runtime state before waiting for the host daemon to exit cleanly.
 
 Use `bin/verify-host-edge --dry-run` first when you want to inspect the exact commands without starting processes.

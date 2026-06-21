@@ -240,7 +240,7 @@ Acceptance criteria:
 
 Status:
 
-- In progress (`M6` completed and accepted; active execution focus moves to `M7`)
+- In progress (`M7` completed and accepted; active execution focus moves to `M8`)
 
 ## Completed Sub-goals
 
@@ -1069,6 +1069,11 @@ Current progress summary:
 - We now hard-enforce the project progress report format at the hook layer: when the user asks for progress, the response must include separate `Goal 1` through `Goal 4` sections and each section must carry the required architecture-aware labels
 - We now also hard-enforce architecture-aware final reply summaries for edited turns: when a turn uses `apply_patch`, the final response must include `架构实现小结` with `架构位置`, `本步完成`, and `影响链路`
 - We now move active execution focus to M7 operational-readiness verification: end-to-end host-edge-path validation must now gate stronger “implemented and ready to run” claims on top of the newly accepted M6 runtime behavior
+- We now have a dedicated M7 implementation plan in `docs/plans/2026-06-21-m7-operational-readiness-verification-plan.md`, focused on turning host-edge readiness into a concrete bounded acceptance gate instead of another feature-expansion batch
+- The default `bin/verify-host-edge` readiness run is now defined to cover both host-edge control entry modes we rely on operationally: the explicit direct-action fast path and the runtime-originated initiative path that still flows through snapshot rebuild, proposal formation, `Presence Router`, and normal action planning before hitting the host edge
+- The host-edge daemon verification surface now includes an explicit bounded `max_action_requests` control so local readiness runs can exit after handling the intended number of action requests rather than relying only on idle-time timing
+- Refreshed M7 verification evidence now passed across both targeted automated suites and a bounded real `bin/verify-host-edge` run: the repository can now gate stronger “implemented and ready to run” claims on both the direct-action host-control path and the normal runtime-initiative host-control path, each validated against a separate real host-edge daemon
+- We now consider M7 complete: host-edge-path operational-readiness verification is no longer only a documentation rule, but a concrete bounded acceptance gate with real runtime, host-daemon, websocket, persisted-state, and dual-path action evidence
 - We now define M8 as the post-maturity bounded-growth and storage-hygiene milestone: after the first mature product slice lands, the system should receive an explicit sweep for unbounded state files, high-frequency persistence paths, duplicated long-term storage, retention/rotation gaps, and similar operational accumulation hazards instead of treating them as isolated follow-up bugs
 - We have our own tested minimal protocol, edge session client, and gateway baseline, reducing the value of deeper OpenClaw gateway extraction work
 - We may still borrow ideas from OpenClaw protocol/client layers later, but that is now optional follow-on work rather than an open prerequisite

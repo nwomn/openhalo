@@ -292,6 +292,7 @@ class HostEdgeDaemon:
         reconnect_jitter=None,
         idle_timeout_s: float = 30.0,
         max_idle_cycles: int | None = None,
+        max_action_requests: int | None = None,
         max_sessions: int | None = None,
     ) -> None:
         attempts = 0
@@ -312,6 +313,7 @@ class HostEdgeDaemon:
                     observation_timestamp_provider=observation_timestamp_provider,
                     idle_timeout_s=idle_timeout_s,
                     max_idle_cycles=max_idle_cycles,
+                    max_action_requests=max_action_requests,
                 )
                 consecutive_failures = 0
                 completed_sessions += 1
@@ -373,6 +375,11 @@ def build_host_daemon_parser() -> argparse.ArgumentParser:
         "--max-idle-cycles",
         type=int,
         help="Optional number of idle observation cycles before exiting the daemon session.",
+    )
+    parser.add_argument(
+        "--max-action-requests",
+        type=int,
+        help="Optional number of action requests to handle before exiting the daemon session.",
     )
     parser.add_argument(
         "--max-sessions",
@@ -526,6 +533,7 @@ def main(argv: list[str] | None = None) -> None:
             reconnect_jitter=build_reconnect_jitter(args),
             idle_timeout_s=args.idle_timeout,
             max_idle_cycles=args.max_idle_cycles,
+            max_action_requests=args.max_action_requests,
             max_sessions=args.max_sessions,
         )
     )

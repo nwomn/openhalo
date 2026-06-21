@@ -8,12 +8,18 @@ HOST="${HOST_EDGE_VERIFY_HOST:-127.0.0.1}"
 PORT="${HOST_EDGE_VERIFY_PORT:-8765}"
 TOKEN="${HOST_EDGE_VERIFY_TOKEN:-dev-token}"
 DEVICE_ID="${HOST_EDGE_VERIFY_DEVICE_ID:-host-edge-1}"
+SOURCE_DEVICE_ID="${HOST_EDGE_VERIFY_SOURCE_DEVICE_ID:-desktop-dev-verify}"
 STATE_PATH="${HOST_EDGE_VERIFY_STATE_PATH:-$ROOT_DIR/.runtime/host-edge-verify-state.json}"
-IDLE_TIMEOUT="${HOST_EDGE_VERIFY_IDLE_TIMEOUT:-0.2}"
-MAX_IDLE_CYCLES="${HOST_EDGE_VERIFY_MAX_IDLE_CYCLES:-1}"
+IDLE_TIMEOUT="${HOST_EDGE_VERIFY_IDLE_TIMEOUT:-1.0}"
+MAX_IDLE_CYCLES="${HOST_EDGE_VERIFY_MAX_IDLE_CYCLES:-3}"
+MAX_ACTION_REQUESTS="${HOST_EDGE_VERIFY_MAX_ACTION_REQUESTS:-2}"
 MAX_SESSIONS="${HOST_EDGE_VERIFY_MAX_SESSIONS:-1}"
 RUNTIME_START_COMMAND="${HOST_EDGE_VERIFY_RUNTIME_START_COMMAND:-python -m personal_runtime.main --host ${HOST} --port ${PORT} --token ${TOKEN} --state-path ${STATE_PATH}}"
 DIRECT_ACTION_CAPABILITY="${HOST_EDGE_VERIFY_DIRECT_ACTION_CAPABILITY:-runtime.status}"
+INITIATIVE_ACTION_CAPABILITY="${HOST_EDGE_VERIFY_INITIATIVE_ACTION_CAPABILITY:-runtime.status}"
+DIRECT_OBSERVED_AT="${HOST_EDGE_VERIFY_DIRECT_OBSERVED_AT:-2026-06-21T10:10:00Z}"
+INITIATIVE_OBSERVED_AT="${HOST_EDGE_VERIFY_INITIATIVE_OBSERVED_AT:-2026-06-21T10:11:00Z}"
+INITIATIVE_REASON="${HOST_EDGE_VERIFY_INITIATIVE_REASON:-runtime_health_check}"
 LOG_PREFIX="[verify-host-edge]"
 
 DRY_RUN=0
@@ -46,6 +52,7 @@ HOST_DAEMON_CMD=(
   --runtime-start-command "$RUNTIME_START_COMMAND"
   --idle-timeout "$IDLE_TIMEOUT"
   --max-idle-cycles "$MAX_IDLE_CYCLES"
+  --max-action-requests "$MAX_ACTION_REQUESTS"
   --max-sessions "$MAX_SESSIONS"
 )
 read -r -d '' DIRECT_ACTION_PY <<PY || true
@@ -59,13 +66,14 @@ from device_edge.shared.session_client import SessionClient
 
 async def main() -> None:
     client = SessionClient(
-        device_id="desktop-dev-verify",
+        device_id="${SOURCE_DEVICE_ID}",
         device_type="desktop-cli",
         token="${TOKEN}",
     )
     async with websockets.connect("ws://${HOST}:${PORT}") as websocket:
         await websocket.send(json.dumps(client.build_connect_frame()))
         await websocket.send(json.dumps(client.build_capability_announce_frame()))
+        connect_ok = json.loads(await websocket.recv())
         await websocket.send(
             json.dumps(
                 client.build_direct_action_event(
@@ -75,7 +83,6 @@ async def main() -> None:
                 )
             )
         )
-        connect_ok = json.loads(await websocket.recv())
         event_ack = json.loads(await websocket.recv())
         print(connect_ok["type"])
         print(event_ack["type"])
@@ -87,6 +94,83 @@ PY
 DIRECT_ACTION_CMD=(
   "$PYTHON_BIN" -c
   "$DIRECT_ACTION_PY"
+)
+read -r -d '' INITIATIVE_ACTION_PY <<PY || true
+import asyncio
+import json
+
+import websockets
+
+from device_edge.shared.session_client import SessionClient
+
+
+async def main() -> None:
+    client = SessionClient(
+        device_id="${SOURCE_DEVICE_ID}",
+        device_type="desktop-cli",
+        token="${TOKEN}",
+    )
+    async with websockets.connect("ws://${HOST}:${PORT}") as websocket:
+        await websocket.send(json.dumps(client.build_connect_frame()))
+        await websocket.send(json.dumps(client.build_capability_announce_frame()))
+        connect_ok = json.loads(await websocket.recv())
+        await websocket.send(
+            json.dumps(
+                client.build_agent_initiative_event(
+                    action_capability="${INITIATIVE_ACTION_CAPABILITY}",
+                    action_payload={},
+                    reason="${INITIATIVE_REASON}",
+                    observed_at="${INITIATIVE_OBSERVED_AT}",
+                    target_device_hint="${DEVICE_ID}",
+                )
+            )
+        )
+        event_ack = json.loads(await websocket.recv())
+        print(connect_ok["type"])
+        print(event_ack["type"])
+        await asyncio.sleep(0.05)
+
+
+asyncio.run(main())
+PY
+INITIATIVE_ACTION_CMD=(
+  "$PYTHON_BIN" -c
+  "$INITIATIVE_ACTION_PY"
+)
+read -r -d '' STATE_CHECK_PY <<PY || true
+import json
+from pathlib import Path
+
+
+state_path = Path("${STATE_PATH}")
+payload = json.loads(state_path.read_text(encoding="utf-8"))
+action_results = payload.get("action_results", [])
+runtime_status_results = [
+    result for result in action_results if result.get("capability") == "runtime.status"
+]
+if len(runtime_status_results) < 2:
+    raise SystemExit("expected at least two runtime.status action results")
+
+interventions = payload.get("interventions", [])
+initiative_interventions = [
+    item
+    for item in interventions
+    if item.get("proposal", {}).get("source") == "agent_initiative"
+]
+if not initiative_interventions:
+    raise SystemExit("expected at least one agent_initiative intervention")
+
+observations = payload.get("observations", [])
+if not any(item.get("source_device_id") == "${DEVICE_ID}" for item in observations):
+    raise SystemExit("expected host-edge observations in runtime state")
+
+print("runtime.status_results", len(runtime_status_results))
+print("agent_initiative_interventions", len(initiative_interventions))
+print("host_edge_observations", len(observations))
+PY
+STATE_CHECK_CMD=(
+  "$PYTHON_BIN" -c
+  "$STATE_CHECK_PY"
 )
 
 print_cmd() {
@@ -101,10 +185,13 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   print_cmd "runtime" "${RUNTIME_CMD[@]}"
   print_cmd "host-daemon" "${HOST_DAEMON_CMD[@]}"
   print_cmd "direct-action" "${DIRECT_ACTION_CMD[@]}"
+  print_cmd "initiative-action" "${INITIATIVE_ACTION_CMD[@]}"
+  print_cmd "state-check" "${STATE_CHECK_CMD[@]}"
   exit 0
 fi
 
 mkdir -p "$(dirname "$STATE_PATH")"
+rm -f "$STATE_PATH"
 
 RUNTIME_LOG_DIR="$ROOT_DIR/.runtime"
 mkdir -p "$RUNTIME_LOG_DIR"
@@ -112,6 +199,9 @@ RUNTIME_LOG="$RUNTIME_LOG_DIR/verify-host-edge-runtime.log"
 HOST_DAEMON_LOG="$RUNTIME_LOG_DIR/verify-host-edge-daemon.log"
 rm -f "$RUNTIME_LOG" "$HOST_DAEMON_LOG"
 cleanup() {
+  if [[ -n "${INITIATIVE_ACTION_PID:-}" ]]; then
+    wait "$INITIATIVE_ACTION_PID" 2>/dev/null || true
+  fi
   if [[ -n "${DIRECT_ACTION_PID:-}" ]]; then
     wait "$DIRECT_ACTION_PID" 2>/dev/null || true
   fi
@@ -147,13 +237,31 @@ print_cmd "host-daemon" "${HOST_DAEMON_CMD[@]}"
 "${HOST_DAEMON_CMD[@]}" >"$HOST_DAEMON_LOG" 2>&1 &
 HOST_DAEMON_PID=$!
 
-sleep 0.3
+for _ in $(seq 1 50); do
+  if grep -q "Edge connected: ${DEVICE_ID} (server)" "$RUNTIME_LOG"; then
+    break
+  fi
+  sleep 0.1
+done
+
+if ! grep -q "Edge connected: ${DEVICE_ID} (server)" "$RUNTIME_LOG"; then
+  echo "$LOG_PREFIX host edge did not connect cleanly" >&2
+  cat "$RUNTIME_LOG" >&2
+  cat "$HOST_DAEMON_LOG" >&2
+  exit 1
+fi
 
 print_cmd "direct-action" "${DIRECT_ACTION_CMD[@]}"
 "${DIRECT_ACTION_CMD[@]}"
 
+print_cmd "initiative-action" "${INITIATIVE_ACTION_CMD[@]}"
+"${INITIATIVE_ACTION_CMD[@]}"
+
 wait "$HOST_DAEMON_PID"
 HOST_DAEMON_PID=""
+
+print_cmd "state-check" "${STATE_CHECK_CMD[@]}"
+"${STATE_CHECK_CMD[@]}"
 
 echo "$LOG_PREFIX host daemon completed bounded verification run"
 cat "$HOST_DAEMON_LOG"

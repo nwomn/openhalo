@@ -97,7 +97,10 @@ class DevEnvWorkflowTests(unittest.TestCase):
 
         self.assertIn("personal_runtime.main", result.stdout)
         self.assertIn("device_edge.host.host_daemon", result.stdout)
-        self.assertIn("runtime.status", result.stdout)
+        self.assertIn("direct-action", result.stdout)
+        self.assertIn("initiative-action", result.stdout)
+        self.assertIn("agent_initiative", result.stdout)
+        self.assertIn("state-check", result.stdout)
         self.assertIn(".runtime/host-edge-verify-state.json", result.stdout)
 
 
