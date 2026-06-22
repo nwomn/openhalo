@@ -2,6 +2,7 @@ import asyncio
 import json
 import io
 import unittest
+from pathlib import Path
 
 import websockets
 
@@ -13,10 +14,16 @@ from device_edge.shared.session_client import SessionClient
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.main import build_runtime_server_message
 
+ROOT = Path(__file__).resolve().parents[1]
+TEST_LLM_CONFIG = ROOT / "tests" / "fixtures" / "llm-config-test.toml"
+
 
 class RoundtripTests(unittest.IsolatedAsyncioTestCase):
     async def test_user_text_roundtrips_back_to_same_edge(self) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token")
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         client = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
@@ -40,13 +47,17 @@ class RoundtripTests(unittest.IsolatedAsyncioTestCase):
 
 class CliEntryTests(unittest.TestCase):
     def test_run_cli_once_returns_ok_action_result(self) -> None:
-        result = run_cli_once("hello runtime")
+        result = run_cli_once("hello runtime", config_path=TEST_LLM_CONFIG)
 
         self.assertEqual(result["type"], "action_result")
         self.assertEqual(result["result"]["status"], "ok")
 
     def test_local_cli_session_stays_alive_across_multiple_inputs(self) -> None:
-        session = LocalCliSession(token="dev-token", trace=True)
+        session = LocalCliSession(
+            token="dev-token",
+            trace=True,
+            config_path=TEST_LLM_CONFIG,
+        )
 
         bootstrap_trace = session.drain_trace_lines()
         first_result = session.send_text("first message")
@@ -79,7 +90,11 @@ class CliEntryTests(unittest.TestCase):
         )
 
     def test_run_cli_once_can_return_trace_steps_for_local_roundtrip(self) -> None:
-        result, trace_lines = run_cli_once("hello runtime", trace=True)
+        result, trace_lines = run_cli_once(
+            "hello runtime",
+            trace=True,
+            config_path=TEST_LLM_CONFIG,
+        )
 
         self.assertEqual(result["type"], "action_result")
         self.assertEqual(result["result"]["status"], "ok")
@@ -98,7 +113,7 @@ class CliEntryTests(unittest.TestCase):
             any("PRESENCE selected target device" in line for line in trace_lines)
         )
         self.assertTrue(
-            any("AGENT generated reply" in line for line in trace_lines)
+            any("AGENT built intervention proposal" in line for line in trace_lines)
         )
         self.assertTrue(
             any("ACTION built notification.show request" in line for line in trace_lines)
@@ -113,8 +128,27 @@ class CliEntryTests(unittest.TestCase):
         self.assertIn("ws://127.0.0.1:8765", message)
         self.assertNotIn("Connect an edge client", message)
 
+    def test_local_cli_session_records_llm_profile_metadata_on_text_reply(self) -> None:
+        session = LocalCliSession(
+            token="dev-token",
+            trace=True,
+            config_path=TEST_LLM_CONFIG,
+        )
+
+        result = session.send_text("hello runtime")
+        proposal = session.gateway.state.interventions[-1]["proposal"]
+
+        self.assertEqual(result["result"]["status"], "ok")
+        self.assertEqual(proposal["metadata"]["llm_profile"], "interactive_reply")
+        self.assertTrue(proposal["metadata"]["used_deterministic_fallback"])
+        self.assertEqual(proposal["action_payload"]["message"], "Runtime heard: hello runtime")
+
     def test_local_cli_session_can_trigger_agent_initiative(self) -> None:
-        session = LocalCliSession(token="dev-token", trace=True)
+        session = LocalCliSession(
+            token="dev-token",
+            trace=True,
+            config_path=TEST_LLM_CONFIG,
+        )
 
         result = session.trigger_agent_initiative(
             action_capability="notification.show",
@@ -164,7 +198,11 @@ class CliEntryTests(unittest.TestCase):
 class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
     async def test_websocket_connect_emits_runtime_connection_event(self) -> None:
         events: list[str] = []
-        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         gateway.runtime_event_emitter = events.append
         client = SessionClient(
             device_id="desktop-dev-1",
@@ -184,7 +222,10 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_websocket_roundtrip_records_action_result_on_gateway(self) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token")
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         client = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
@@ -201,7 +242,10 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(gateway.state.action_results[-1]["status"], "ok")
 
     async def test_websocket_roundtrip_routes_action_to_other_connected_edge(self) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token")
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         source = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
@@ -249,7 +293,10 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(gateway.state.action_results[-1]["status"], "ok")
 
     async def test_cli_websocket_helper_uses_real_gateway_server(self) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token")
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         async with gateway.run_test_server() as server_info:
             result = await run_cli_once_over_websocket(
                 text="hello runtime",
@@ -263,7 +310,11 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
     async def test_websocket_agent_initiative_can_route_runtime_status_to_host_edge(
         self,
     ) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
 
         class RuntimeStatusAdapter:
             def execute(self, action: dict) -> dict:
@@ -340,7 +391,11 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
 
 class HostEdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
     async def test_host_edge_receives_runtime_status_over_websocket(self) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
 
         class RuntimeStatusAdapter:
             def execute(self, action: dict) -> dict:
@@ -420,7 +475,11 @@ class HostEdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
     async def test_host_edge_daemon_session_handles_multiple_runtime_control_actions(
         self,
     ) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
 
         class MultiActionAdapter:
             def execute(self, action: dict) -> dict:
@@ -533,7 +592,11 @@ class HostEdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
     async def test_host_edge_restart_returns_accepted_and_later_health_confirms_recovery(
         self,
     ) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
 
         class RestartState:
             def __init__(self) -> None:

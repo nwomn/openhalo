@@ -246,7 +246,7 @@ Acceptance criteria:
 
 Status:
 
-- In progress (`M7` and `M8` completed and accepted; active execution focus moves to `M9` cloud-model-backed agent baseline, `M10` grounding/runtime memory, and then `M11` terminal/CLI interaction maturity before policy learning and broader multi-edge expansion, with storage hardening deferred to `M14`)
+- In progress (`M7`, `M8`, and `M9` completed and accepted; active execution focus moves to `M10` grounding/runtime memory and then `M11` terminal/CLI interaction maturity before policy learning and broader multi-edge expansion, with storage hardening deferred to `M14`)
 
 ## Completed Sub-goals
 
@@ -859,12 +859,35 @@ Status:
 
 - Completed
 
+### Completed: M9 cloud-model-backed agent baseline acceptance
+
+Result:
+
+- The runtime now has a formal provider boundary inside `Agent Runtime`, with runtime model configuration split into provider, model, and profile layers instead of hard-coded provider/model selection inside proposal-generation call sites
+- The first accepted adapter path is a narrow but mature `openai_compatible` slice, preserving explicit `Presence Router` governance, inspectable proposal metadata, and bounded deterministic fallback behavior on the normal runtime chain
+- Normal text replies now carry inspectable `llm_profile`, `llm_provider`, `llm_model`, and `used_deterministic_fallback` metadata through proposal recording and chain-inspection surfaces, so human acceptance can distinguish real model execution from local fallback behavior
+- The repository now includes a tracked default `config/llm-config.toml`, optional machine-local `.runtime/llm-config.toml` override support, and explicit provider-level header configuration for future multi-provider compatibility hardening
+- The current CRS provider path has been verified end to end on the real runtime chain: adding an explicit runtime `User-Agent` avoids the CRS gateway's Cloudflare `1010` block and restores successful `/responses` calls on `https://api-cf.cubence.com/v1`
+- Local runtime and CLI regression tests are now isolated from machine-local override config through explicit test config injection, so automated verification stays deterministic while manual acceptance can continue using a real local provider override
+
+Acceptance criteria:
+
+- The runtime can use a real cloud model for proposal and reply generation through a formal provider/configuration boundary rather than a one-off hard-coded call path
+- Real model-backed replies remain subject to the existing normal `Gateway -> State / Context -> Presence -> Action` chain instead of bypassing `Presence Router` governance
+- Human inspection can distinguish real provider execution from deterministic fallback through recorded proposal metadata and existing local inspection entrypoints
+- The first accepted implementation is covered by automated tests and verified end to end against at least one real `openai_compatible` provider path
+
+Status:
+
+- Completed
+
 ## Open Questions
 
 - Which device surfaces should be the first non-CLI surfaces for presence-first experiments?
 - What is the smallest reliable terminal-presence signal set that is good enough for runtime push decisions without overfitting to one shell or multiplexer?
-- Which cloud model provider and invocation boundary should be the first supported backend for model-backed agent work?
+- Which concrete `openai_compatible` providers and model families should be implemented first after the shared provider boundary lands?
 - What is the minimum grounding bundle every model call should receive from runtime state, snapshot, and goal context?
+- When should explicit profile-selected model calls grow into automatic provider/model fallback and broader strategy routing?
 - What is the smallest safe operational-control surface for the first host edge, and how should that surface be constrained so it stays inspectable?
 - What is the smallest inspectable policy representation that can support model-authored or model-repaired intervention behavior without becoming opaque?
 - Which feedback signals are strong enough to update presence policy automatically versus only being stored as weak evidence?
@@ -912,6 +935,10 @@ Current preference:
 - Keep terminal-edge intelligence thin: local UX control may exist on the edge, but proposal formation, intervention policy, and routing authority should remain in the backend runtime
 - Prefer the next post-M7 milestone sequence to stay narrow and layered: M8 formal terminal edge first, M9 cloud-model agent baseline second, M10 grounding and memory third, M11 terminal/CLI interaction maturity fourth, M12 policy learning/review fifth, and bounded-growth hardening later at M14
 - Prefer cloud-model proposal and reply generation to stay behind a provider boundary inside `Agent Runtime`, with explicit presence governance and normal edge routing still deciding whether and where anything surfaces
+- Prefer a hybrid model-provider architecture for `M9`: keep a shared provider registry, model catalog, and runtime-facing profile-selection layer, while implementing only the `openai_compatible` adapter branch in the first accepted slice
+- Prefer runtime call sites to select named model profiles rather than hard-coding provider/model pairs directly in business logic, so later provider swaps and model-routing changes stay configuration-driven
+- Prefer OpenClaw-style separation between explicit selection, provider/auth failover, model fallback, and later strategy routing; the runtime should not silently treat those as one undifferentiated mechanism
+- Defer automatic provider/model strategy routing until after the first grounded model stage, rather than hiding routing policy inside the initial `M9` provider-integration batch
 - Prefer model grounding to be runtime-native: model calls should consume compact snapshot, active goals, bounded retrieved edge evidence, and durable runtime state rather than raw channel transcripts alone
 - Prefer feedback-driven policy evolution to remain review-gated even after model-backed behavior arrives, so the runtime does not silently rewrite durable intervention policy from weak evidence
 
@@ -1102,8 +1129,15 @@ Current progress summary:
 - Repeated explicit terminal `text.input` requests are now treated as user-driven interaction rather than proactive interruption: the shared cooldown still constrains repeated runtime-initiated user-facing push, but it no longer suppresses back-to-back live terminal requests in the same resident session
 - Compact snapshot freshness now rejects future-dated observation evidence, which keeps decision-time terminal presence evaluation aligned with the actual runtime timestamp used for intervention decisions
 - We now want real model integration to enter behind an explicit provider boundary inside `Agent Runtime`, so proposal and reply generation can become model-backed without collapsing the architecture back into chat-session product assumptions
+- We now have a dedicated `M9` provider-configuration design baseline in `docs/plans/2026-06-22-m9-provider-configuration-design.md`, defining a hybrid provider architecture with separate provider, model, profile, and selection-policy layers
+- We now prefer `M9` runtime call sites to select named model profiles instead of hard-coded provider/model pairs, while the first accepted implementation remains limited to the `openai_compatible` adapter path
+- We now explicitly defer broad provider/model strategy routing until after the first grounded model stage, so `M9` can focus on a mature configuration boundary without prematurely mixing in `M10` grounding or later policy work
 - We now want the first model-backed stage after that to focus on grounding rather than only provider wiring, so runtime memory, snapshot context, goals, and bounded edge evidence meaningfully shape model behavior
 - We now want policy learning and review to remain its own later milestone after model grounding, rather than being hidden inside the first provider-integration batch
+- We now have the first working `M9` provider/configuration implementation slice: runtime model config is split into provider, model, and profile layers; the first accepted adapter path is `openai_compatible`; normal text replies now carry inspectable provider/profile/fallback metadata through the existing proposal and chain-inspection surfaces
+- The repository now includes a tracked default `config/llm-config.toml` plus optional local `.runtime/llm-config.toml` override behavior, targeted provider-unit coverage, gateway coverage, and human-readable local inspection guidance for the first `M9` profile-driven text-reply path
+- We now have a verified real-provider `M9` acceptance result for the current CRS path: the runtime's `openai_compatible` adapter sends an explicit `User-Agent`, which avoids the CRS gateway's Cloudflare `1010` block and restores successful `/responses` calls on the existing `https://api-cf.cubence.com/v1` provider base URL
+- Local runtime and CLI regression tests are now isolated from machine-local `.runtime/llm-config.toml` overrides through explicit test config injection, so automated suites stay deterministic while manual acceptance can continue using a real local provider override
 - We have our own tested minimal protocol, edge session client, and gateway baseline, reducing the value of deeper OpenClaw gateway extraction work
 - We may still borrow ideas from OpenClaw protocol/client layers later, but that is now optional follow-on work rather than an open prerequisite
 

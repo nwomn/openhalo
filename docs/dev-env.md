@@ -66,6 +66,28 @@ That inspection mode runs one local interaction and prints the chain in this ord
 
 This is the fastest local way to confirm what the runtime actually consumed on the `normalized observations -> compact snapshot / snapshot contract -> Agent proposal -> Presence decision -> recorded intervention` chain without manually digging through multiple files.
 
+That same inspection path is now also the first local `M9` acceptance surface for model-provider wiring.
+
+For the first `M9` slice, inspect the `Proposal` section and confirm it contains:
+
+- `llm_profile`
+- `llm_provider`
+- `llm_model`
+- `used_deterministic_fallback`
+
+Default local behavior should still work even without external credentials. In that case the proposal metadata should show deterministic fallback and the final user-facing message should remain the current local `"Runtime heard: ..."` reply style.
+
+The repository now keeps a tracked default provider baseline in `config/llm-config.toml`.
+
+When you want a machine-local override, create `.runtime/llm-config.toml`. The runtime prefers that local override when it exists and otherwise falls back to the tracked repository baseline.
+
+When you want to test a real `openai_compatible` provider path later, keep the same command shape but provide:
+
+- either `config/llm-config.toml` or a local `.runtime/llm-config.toml` override
+- the provider auth env var referenced by that config, such as `OPENAI_API_KEY`
+
+The acceptance command stays the same; only the provider result and fallback metadata should change.
+
 When you need to inspect the M6 initiative path as one human-readable chain, use:
 Preferred command shape: `python -m device_edge.cli.cli_edge --inspect-agent-initiative`
 

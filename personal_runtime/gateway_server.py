@@ -29,6 +29,7 @@ class RuntimeGateway:
         trace_recorder: TraceRecorder | None = None,
         persist_state: bool = True,
         runtime_event_emitter=None,
+        llm_config_path: Path | None = None,
     ) -> None:
         self.shared_token = shared_token
         self.state_store = JsonStateStore(
@@ -40,6 +41,7 @@ class RuntimeGateway:
         self.trace_recorder = trace_recorder
         self.persist_state = persist_state
         self.runtime_event_emitter = runtime_event_emitter
+        self.llm_config_path = llm_config_path
 
     def _persist_state(self) -> None:
         if not self.persist_state:
@@ -173,6 +175,7 @@ class RuntimeGateway:
             payload["text"],
             snapshot=snapshot,
             trace_recorder=self.trace_recorder,
+            config_path=self.llm_config_path,
         )
 
     def _handle_frames_sync(self, frames: list[dict]) -> list[dict]:

@@ -38,6 +38,16 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(reply[-1]["type"], "action_request")
         self.assertEqual(reply[-1]["action"]["capability"], "notification.show")
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["metadata"]["llm_profile"],
+            "interactive_reply",
+        )
+        self.assertIn(
+            gateway.state.interventions[-1]["proposal"]["metadata"][
+                "used_deterministic_fallback"
+            ],
+            {True, False},
+        )
 
     async def test_sync_roundtrip_wrapper_returns_replies(self) -> None:
         gateway = RuntimeGateway(shared_token="dev-token")

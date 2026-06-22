@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 from datetime import UTC, datetime
+from pathlib import Path
 
 from device_edge.host.host_daemon import HostEdgeDaemon
 from device_edge.shared.session_client import SessionClient
@@ -13,12 +14,18 @@ from personal_runtime.trace_recorder import TraceRecorder
 
 
 class LocalCliSession:
-    def __init__(self, token: str = "dev-token", trace: bool = False) -> None:
+    def __init__(
+        self,
+        token: str = "dev-token",
+        trace: bool = False,
+        config_path: Path | None = None,
+    ) -> None:
         self.trace_recorder = TraceRecorder() if trace else None
         self.gateway = RuntimeGateway(
             shared_token=token,
             trace_recorder=self.trace_recorder,
             persist_state=False,
+            llm_config_path=config_path,
         )
         self.client = SessionClient(
             device_id="desktop-dev-1",
@@ -93,16 +100,21 @@ def run_cli_once(
     text: str,
     token: str = "dev-token",
     trace: bool = False,
+    config_path: Path | None = None,
 ) -> dict | tuple[dict, list[str]]:
-    session = LocalCliSession(token=token, trace=trace)
+    session = LocalCliSession(token=token, trace=trace, config_path=config_path)
     result = session.send_text(text)
     if trace:
         return result, session.drain_trace_lines()
     return result
 
 
-def inspect_cli_once(text: str, token: str = "dev-token") -> dict:
-    session = LocalCliSession(token=token, trace=True)
+def inspect_cli_once(
+    text: str,
+    token: str = "dev-token",
+    config_path: Path | None = None,
+) -> dict:
+    session = LocalCliSession(token=token, trace=True, config_path=config_path)
     observed_at = (
         datetime.now(UTC)
         .replace(microsecond=0)
@@ -158,8 +170,9 @@ def inspect_cli_once(text: str, token: str = "dev-token") -> dict:
 def inspect_agent_initiative_once(
     action_capability: str = "runtime.status",
     token: str = "dev-token",
+    config_path: Path | None = None,
 ) -> dict:
-    session = LocalCliSession(token=token, trace=True)
+    session = LocalCliSession(token=token, trace=True, config_path=config_path)
     observed_at = (
         datetime.now(UTC)
         .replace(microsecond=0)
@@ -265,11 +278,17 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if not args.inspect_agent_initiative:
+    if args.inspect_agent_initiative:
+        text = args.text or ""
+    elif args.inspect_chain:
+        if args.text is not None:
+            text = args.text
+        else:
+            print("CLI edge ready. Type one line to send to the runtime:")
+            text = input("> ").strip()
+    else:
         print("CLI edge ready. Type one line to send to the runtime:")
         text = args.text or input("> ").strip()
-    else:
-        text = args.text or ""
     if args.url:
         result = asyncio.run(
             run_cli_once_over_websocket(text=text, url=args.url, token=args.token)

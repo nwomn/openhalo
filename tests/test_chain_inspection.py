@@ -7,11 +7,12 @@ from device_edge.cli.terminal_daemon import build_terminal_daemon_parser
 from personal_runtime.chain_inspection import format_chain_report
 
 ROOT = Path(__file__).resolve().parents[1]
+TEST_LLM_CONFIG = ROOT / "tests" / "fixtures" / "llm-config-test.toml"
 
 
 class ChainInspectionTests(unittest.TestCase):
     def test_inspect_cli_once_returns_structured_chain_report(self) -> None:
-        report = inspect_cli_once("hello runtime")
+        report = inspect_cli_once("hello runtime", config_path=TEST_LLM_CONFIG)
 
         self.assertEqual(report["action_result"]["result"]["status"], "ok")
         self.assertTrue(report["trace_lines"])
@@ -24,10 +25,15 @@ class ChainInspectionTests(unittest.TestCase):
         )
         self.assertEqual(report["proposal"]["kind"], "notify")
         self.assertEqual(report["proposal"]["source"], "sense_first")
+        self.assertEqual(
+            report["proposal"]["metadata"]["llm_profile"],
+            "interactive_reply",
+        )
+        self.assertTrue(report["proposal"]["metadata"]["used_deterministic_fallback"])
         self.assertIn(report["presence_decision"]["decision"], {"allow", "suppress"})
 
     def test_formatted_chain_report_contains_major_sections_in_order(self) -> None:
-        report = inspect_cli_once("hello runtime")
+        report = inspect_cli_once("hello runtime", config_path=TEST_LLM_CONFIG)
 
         rendered = format_chain_report(report)
 
@@ -38,6 +44,8 @@ class ChainInspectionTests(unittest.TestCase):
         self.assertIn("Proposal:", rendered)
         self.assertIn("Presence Decision:", rendered)
         self.assertIn("Recorded Intervention:", rendered)
+        self.assertIn('"llm_profile": "interactive_reply"', rendered)
+        self.assertIn('"used_deterministic_fallback": true', rendered)
         self.assertLess(rendered.index("Trace:"), rendered.index("Observations:"))
         self.assertLess(
             rendered.index("Observations:"), rendered.index("Compact Snapshot:")
@@ -78,6 +86,10 @@ class ChainInspectionTests(unittest.TestCase):
 
         self.assertIn("Trace:", result.stdout)
         self.assertIn("Recorded Intervention:", result.stdout)
+        self.assertNotIn(
+            "CLI edge ready. Type one line to send to the runtime:",
+            result.stdout,
+        )
 
     def test_cli_module_prints_chain_report_in_agent_initiative_mode(self) -> None:
         result = subprocess.run(
