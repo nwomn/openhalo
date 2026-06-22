@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from device_edge.cli.cli_edge import inspect_agent_initiative_once, inspect_cli_once
+from device_edge.cli.terminal_daemon import build_terminal_daemon_parser
 from personal_runtime.chain_inspection import format_chain_report
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -95,3 +96,18 @@ class ChainInspectionTests(unittest.TestCase):
         self.assertIn("Proposal:", result.stdout)
         self.assertIn('"source": "agent_initiative"', result.stdout)
         self.assertIn("Action Result:", result.stdout)
+
+    def test_terminal_daemon_parser_accepts_runtime_url_and_device_id(self) -> None:
+        parser = build_terminal_daemon_parser()
+
+        args = parser.parse_args(
+            [
+                "--url",
+                "ws://127.0.0.1:8765",
+                "--device-id",
+                "terminal-edge-custom",
+            ]
+        )
+
+        self.assertEqual(args.url, "ws://127.0.0.1:8765")
+        self.assertEqual(args.device_id, "terminal-edge-custom")

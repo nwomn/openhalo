@@ -711,7 +711,203 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             "agent_initiative",
         )
 
-    async def test_normal_path_suppresses_repeated_intervention_during_cooldown(self) -> None:
+    async def test_agent_initiative_notification_to_terminal_edge_is_suppressed_when_terminal_is_idle(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        source = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+        terminal = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show", "terminal.context"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                source.build_connect_frame(),
+                source.build_capability_announce_frame(),
+                terminal.build_connect_frame(),
+                terminal.build_capability_announce_frame(),
+                terminal.build_observation_event(
+                    capability="terminal.context",
+                    observations=[
+                        {
+                            "name": "terminal.activity_state",
+                            "value": "idle",
+                            "observed_at": "2026-06-22T10:09:00Z",
+                            "confidence": 1.0,
+                        }
+                    ],
+                ),
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "agent.initiative",
+                    "payload": {
+                        "observed_at": "2026-06-22T10:10:00Z",
+                        "agent_initiative": {
+                            "action_capability": "notification.show",
+                            "action_payload": {"message": "runtime push"},
+                            "reason": "manual_terminal_push",
+                            "target_device_hint": "terminal-edge-1",
+                        },
+                    },
+                },
+            ]
+        )
+
+        self.assertEqual(replies[-1]["type"], "event_ack")
+        self.assertEqual(
+            len([reply for reply in replies if reply["type"] == "action_request"]),
+            0,
+        )
+        self.assertEqual(gateway.state.interventions[-1]["decision"], "suppress")
+        self.assertEqual(
+            gateway.state.interventions[-1]["reason"],
+            "terminal_inactive",
+        )
+
+    async def test_agent_initiative_notification_to_terminal_edge_is_allowed_when_terminal_is_active(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        source = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+        terminal = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show", "terminal.context"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                source.build_connect_frame(),
+                source.build_capability_announce_frame(),
+                terminal.build_connect_frame(),
+                terminal.build_capability_announce_frame(),
+                terminal.build_observation_event(
+                    capability="terminal.context",
+                    observations=[
+                        {
+                            "name": "terminal.activity_state",
+                            "value": "active",
+                            "observed_at": "2026-06-22T10:09:00Z",
+                            "confidence": 1.0,
+                        }
+                    ],
+                ),
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "agent.initiative",
+                    "payload": {
+                        "observed_at": "2026-06-22T10:10:00Z",
+                        "agent_initiative": {
+                            "action_capability": "notification.show",
+                            "action_payload": {"message": "runtime push"},
+                            "reason": "manual_terminal_push",
+                            "target_device_hint": "terminal-edge-1",
+                        },
+                    },
+                },
+            ]
+        )
+
+        self.assertEqual(replies[-1]["type"], "action_request")
+        self.assertEqual(replies[-1]["device_id"], "terminal-edge-1")
+        self.assertEqual(replies[-1]["action"]["capability"], "notification.show")
+        self.assertEqual(gateway.state.interventions[-1]["decision"], "allow")
+
+    async def test_agent_initiative_notification_to_offline_idle_terminal_is_suppressed_instead_of_falling_back(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        source = SessionClient(
+            device_id="desktop-dev-verify",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+
+        await gateway.handle_test_frames(
+            [
+                source.build_connect_frame(),
+                source.build_capability_announce_frame(),
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "terminal-edge-1",
+                        "device_type": "desktop-cli",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "capability_announce",
+                    "device_id": "terminal-edge-1",
+                    "capabilities": ["text.input", "notification.show", "terminal.context"],
+                },
+                {
+                    "type": "event_push",
+                    "device_id": "terminal-edge-1",
+                    "capability": "terminal.context",
+                    "event_id": "terminal-idle-1",
+                    "payload": {
+                        "observations": [
+                            {
+                                "name": "terminal.activity_state",
+                                "value": "idle",
+                                "observed_at": "2026-06-22T10:12:00Z",
+                                "confidence": 1.0,
+                            }
+                        ]
+                    },
+                },
+            ]
+        )
+        gateway.online_device_ids.discard("terminal-edge-1")
+
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-verify",
+                    "capability": "agent.initiative",
+                    "payload": {
+                        "observed_at": "2026-06-22T10:13:00Z",
+                        "agent_initiative": {
+                            "action_capability": "notification.show",
+                            "action_payload": {"message": "runtime push idle"},
+                            "reason": "terminal_push_idle",
+                            "target_device_hint": "terminal-edge-1",
+                        },
+                    },
+                },
+            ]
+        )
+
+        self.assertEqual(replies[-1]["type"], "event_ack")
+        self.assertEqual(
+            len([reply for reply in replies if reply["type"] == "action_request"]),
+            0,
+        )
+        self.assertEqual(gateway.state.interventions[-1]["decision"], "suppress")
+        self.assertEqual(
+            gateway.state.interventions[-1]["reason"],
+            "terminal_inactive",
+        )
+
+    async def test_agent_initiative_notification_is_suppressed_during_cooldown(self) -> None:
         state = RuntimeState()
         state.record_intervention(
             {
@@ -740,12 +936,30 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                     "capabilities": ["text.input", "notification.show"],
                 },
                 {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "phone-1",
+                        "device_type": "mobile",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "capability_announce",
+                    "device_id": "phone-1",
+                    "capabilities": ["text.input", "notification.show"],
+                },
+                {
                     "type": "event_push",
-                    "device_id": "desktop-dev-1",
-                    "capability": "text.input",
+                    "device_id": "phone-1",
+                    "capability": "agent.initiative",
                     "payload": {
-                        "text": "repeat too soon",
                         "observed_at": "2026-06-19T10:32:00Z",
+                        "agent_initiative": {
+                            "action_capability": "notification.show",
+                            "action_payload": {"message": "repeat too soon"},
+                            "reason": "repeat_too_soon",
+                            "target_device_hint": "desktop-dev-1",
+                        },
                     },
                 },
             ]
@@ -755,6 +969,55 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len([reply for reply in replies if reply["type"] == "action_request"]), 0)
         self.assertEqual(gateway.state.interventions[-1]["decision"], "suppress")
         self.assertEqual(gateway.state.interventions[-1]["reason"], "cooldown_active")
+
+    async def test_normal_path_allows_repeated_explicit_user_text_during_cooldown(self) -> None:
+        state = RuntimeState()
+        state.record_intervention(
+            {
+                "target_device_id": "desktop-dev-1",
+                "action_capability": "notification.show",
+                "decision": "allow",
+                "reason": "context_clear",
+                "recorded_at": "2026-06-19T10:30:00Z",
+                "proposal": {
+                    "source": "sense_first",
+                    "metadata": {"trigger": "text.input"},
+                },
+            }
+        )
+        gateway = RuntimeGateway(shared_token="dev-token", state=state, persist_state=False)
+
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "desktop-dev-1",
+                        "device_type": "desktop-cli",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "capability_announce",
+                    "device_id": "desktop-dev-1",
+                    "capabilities": ["text.input", "notification.show"],
+                },
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {
+                        "text": "second explicit request",
+                        "observed_at": "2026-06-19T10:32:00Z",
+                    },
+                },
+            ]
+        )
+
+        self.assertEqual(replies[-1]["type"], "action_request")
+        self.assertEqual(replies[-1]["action"]["capability"], "notification.show")
+        self.assertEqual(gateway.state.interventions[-1]["decision"], "allow")
+        self.assertEqual(gateway.state.interventions[-1]["reason"], "context_clear")
 
     async def test_records_host_observations_with_runtime_provenance(self) -> None:
         gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
