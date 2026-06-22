@@ -1,11 +1,13 @@
 import asyncio
 import json
+import io
 import unittest
 
 import websockets
 
 from device_edge.cli.cli_edge import LocalCliSession
 from device_edge.cli.cli_edge import run_cli_once, run_cli_once_over_websocket
+from device_edge.cli.terminal_daemon import TerminalEdgeDaemon
 from device_edge.host.host_daemon import HostEdgeDaemon
 from device_edge.shared.session_client import SessionClient
 from personal_runtime.gateway_server import RuntimeGateway
@@ -130,6 +132,33 @@ class CliEntryTests(unittest.TestCase):
         self.assertTrue(
             any("AGENT built intervention proposal [source=agent_initiative" in line for line in trace_lines)
         )
+
+    def test_terminal_daemon_executes_notification_show_with_terminal_details(self) -> None:
+        stdout = io.StringIO()
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=stdout,
+        )
+
+        result = daemon.handle_action_request(
+            {
+                "type": "action_request",
+                "device_id": "terminal-edge-1",
+                "action": {
+                    "capability": "notification.show",
+                    "payload": {"message": "runtime push"},
+                },
+            }
+        )
+
+        self.assertEqual(result["type"], "action_result")
+        self.assertEqual(result["result"]["status"], "ok")
+        self.assertEqual(
+            result["result"]["details"]["delivered_via"],
+            "terminal.stdout",
+        )
+        self.assertIn("runtime push", stdout.getvalue())
 
 
 class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):

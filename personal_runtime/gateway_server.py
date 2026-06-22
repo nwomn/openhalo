@@ -2,6 +2,7 @@
 
 import json
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 
 import websockets
@@ -65,11 +66,6 @@ class RuntimeGateway:
         if payload.get("observations"):
             return replies
 
-        available_devices = {
-            device_id: self.state.devices[device_id]
-            for device_id in self.online_device_ids
-            if device_id in self.state.devices
-        }
         decision_time = self._event_timestamp(frame)
         snapshot = build_context_snapshot(
             self.state.observations,
@@ -86,7 +82,8 @@ class RuntimeGateway:
         decision = choose_presence_decision(
             source_device_id=frame["device_id"],
             snapshot=snapshot,
-            devices=available_devices or self.state.devices,
+            devices=self.state.devices,
+            online_device_ids=set(self.online_device_ids),
             required_capability=proposal.required_capability,
             proposal=proposal.to_dict(),
             intervention_history=self.state.interventions,
@@ -270,7 +267,18 @@ class RuntimeGateway:
         if frame.get("observed_at"):
             return frame["observed_at"]
         if self.state.observations:
-            return self.state.observations[-1].observed_at
+            known_timestamps = [
+                observation.observed_at
+                for observation in self.state.observations
+                if observation.observed_at
+            ]
+            if known_timestamps:
+                return max(
+                    known_timestamps,
+                    key=lambda timestamp: datetime.fromisoformat(
+                        timestamp.replace("Z", "+00:00")
+                    ),
+                )
         return ""
 
     async def handle_test_frames(self, frames: list[dict]) -> list[dict]:

@@ -4,6 +4,7 @@ from personal_runtime.context_contracts import RuntimeObservation
 
 
 LOCATION_FRESHNESS_MINUTES = 5
+TERMINAL_ACTIVITY_FRESHNESS_MINUTES = 5
 RUNTIME_HEALTH_FRESHNESS_MINUTES = 5
 RUNTIME_PROCESS_PID_FRESHNESS_MINUTES = 5
 RUNTIME_PROCESS_PRESENT_FRESHNESS_MINUTES = 5
@@ -98,9 +99,8 @@ def _within_freshness_window(
     snapshot_time: str,
     freshness_minutes: int,
 ) -> bool:
-    return (
-        _to_epoch_minutes(snapshot_time) - _to_epoch_minutes(observed_at)
-    ) <= freshness_minutes
+    age_minutes = _to_epoch_minutes(snapshot_time) - _to_epoch_minutes(observed_at)
+    return 0 <= age_minutes <= freshness_minutes
 
 
 def _build_field_contract(
@@ -209,6 +209,39 @@ def _reduce_runtime_health_state(
 
     ordered = sorted(
         health_observations,
+        key=lambda observation: (
+            observation.observed_at,
+            observation.confidence,
+        ),
+        reverse=True,
+    )
+    return ordered[0].value
+
+
+def _reduce_terminal_activity_state(
+    observations: list[RuntimeObservation],
+    snapshot_time: str | None = None,
+) -> str:
+    terminal_activity_observations = [
+        observation
+        for observation in observations
+        if observation.name == "terminal.activity_state"
+    ]
+    if snapshot_time is not None:
+        terminal_activity_observations = [
+            observation
+            for observation in terminal_activity_observations
+            if _within_freshness_window(
+                observed_at=observation.observed_at,
+                snapshot_time=snapshot_time,
+                freshness_minutes=TERMINAL_ACTIVITY_FRESHNESS_MINUTES,
+            )
+        ]
+    if not terminal_activity_observations:
+        return "unknown"
+
+    ordered = sorted(
+        terminal_activity_observations,
         key=lambda observation: (
             observation.observed_at,
             observation.confidence,
@@ -497,6 +530,12 @@ def _snapshot_field_specs():
             "user.location",
             _reduce_current_location,
             LOCATION_FRESHNESS_MINUTES,
+        ),
+        (
+            "terminal.current_activity_state",
+            "terminal.activity_state",
+            _reduce_terminal_activity_state,
+            TERMINAL_ACTIVITY_FRESHNESS_MINUTES,
         ),
         (
             "runtime.current_health_state",

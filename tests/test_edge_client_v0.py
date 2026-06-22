@@ -181,6 +181,31 @@ class EdgeClientTests(unittest.TestCase):
             "host-edge-1",
         )
 
+    def test_builds_terminal_activity_event(self) -> None:
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show", "terminal.context"],
+        )
+
+        frame = client.build_terminal_activity_event(
+            activity_state="active",
+            observed_at="2026-06-22T10:10:00Z",
+        )
+
+        self.assertEqual(frame["type"], "event_push")
+        self.assertEqual(frame["device_id"], "terminal-edge-1")
+        self.assertEqual(frame["capability"], "terminal.context")
+        self.assertEqual(
+            frame["payload"]["observations"][0]["name"],
+            "terminal.activity_state",
+        )
+        self.assertEqual(
+            frame["payload"]["observations"][0]["value"],
+            "active",
+        )
+
     def test_records_trace_for_edge_frame_build_and_action_execution(self) -> None:
         trace = TraceRecorder()
         client = SessionClient(

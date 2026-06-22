@@ -70,6 +70,84 @@ class ContextSnapshotTests(unittest.TestCase):
             contract["fields"]["host.current_cpu_load_ratio"]["evidence"], []
         )
 
+    def test_builds_contract_for_fresh_terminal_activity_evidence_at_snapshot_time(
+        self,
+    ) -> None:
+        contract = build_context_snapshot_contract(
+            [
+                RuntimeObservation(
+                    name="terminal.activity_state",
+                    value="active",
+                    source_device_id="terminal-edge-1",
+                    source_capability="terminal.context",
+                    source_event_id="evt-terminal-1",
+                    observed_at="2026-06-22T10:08:00Z",
+                    confidence=1.0,
+                )
+            ],
+            snapshot_time="2026-06-22T10:10:00Z",
+        )
+
+        self.assertEqual(
+            contract["fields"]["terminal.current_activity_state"]["value"],
+            "active",
+        )
+        self.assertEqual(
+            contract["fields"]["terminal.current_activity_state"]["status"],
+            "fresh",
+        )
+        self.assertEqual(
+            contract["fields"]["terminal.current_activity_state"]["evidence"][0]["name"],
+            "terminal.activity_state",
+        )
+
+    def test_returns_unknown_when_terminal_activity_evidence_is_stale_at_snapshot_time(
+        self,
+    ) -> None:
+        snapshot = build_context_snapshot(
+            [
+                RuntimeObservation(
+                    name="terminal.activity_state",
+                    value="active",
+                    source_device_id="terminal-edge-1",
+                    source_capability="terminal.context",
+                    source_event_id="evt-terminal-1",
+                    observed_at="2026-06-22T10:00:00Z",
+                    confidence=1.0,
+                )
+            ],
+            snapshot_time="2026-06-22T10:10:00Z",
+        )
+
+        self.assertEqual(snapshot["terminal.current_activity_state"], "unknown")
+
+    def test_ignores_future_terminal_activity_evidence_at_snapshot_time(self) -> None:
+        snapshot = build_context_snapshot(
+            [
+                RuntimeObservation(
+                    name="terminal.activity_state",
+                    value="idle",
+                    source_device_id="terminal-edge-1",
+                    source_capability="terminal.context",
+                    source_event_id="evt-terminal-future",
+                    observed_at="2026-06-22T10:12:00Z",
+                    confidence=1.0,
+                ),
+                RuntimeObservation(
+                    name="terminal.activity_state",
+                    value="active",
+                    source_device_id="terminal-edge-1",
+                    source_capability="terminal.context",
+                    source_event_id="evt-terminal-active",
+                    observed_at="2026-06-22T10:09:00Z",
+                    confidence=1.0,
+                ),
+            ],
+            snapshot_time="2026-06-22T10:10:00Z",
+        )
+
+        self.assertEqual(snapshot["terminal.current_activity_state"], "active")
+
     def test_builds_contract_for_ambiguous_location_evidence(self) -> None:
         contract = build_context_snapshot_contract(
             [
@@ -158,6 +236,7 @@ class ContextSnapshotTests(unittest.TestCase):
         snapshot = build_context_snapshot([])
 
         self.assertEqual(snapshot["user.current_location"], "unknown")
+        self.assertEqual(snapshot["terminal.current_activity_state"], "unknown")
         self.assertEqual(snapshot["runtime.current_health_state"], "unknown")
         self.assertEqual(snapshot["runtime.current_process_pid"], "unknown")
         self.assertEqual(snapshot["runtime.current_process_present"], "unknown")

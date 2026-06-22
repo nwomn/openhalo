@@ -129,6 +129,23 @@ class SessionClient:
             "payload": {"observations": observations},
         }
 
+    def build_terminal_activity_event(
+        self,
+        activity_state: str,
+        observed_at: str,
+    ) -> dict:
+        return self.build_observation_event(
+            capability="terminal.context",
+            observations=[
+                {
+                    "name": "terminal.activity_state",
+                    "value": activity_state,
+                    "observed_at": observed_at,
+                    "confidence": 1.0,
+                }
+            ],
+        )
+
     def handle_action_request(self, frame: dict) -> dict:
         result = execute_action(frame["action"])
         self._record_trace(

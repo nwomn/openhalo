@@ -6,7 +6,7 @@ This project aims to build a new personal agent system oriented around `device -
 
 The intended product is not "another chat agent entry point". It is a personal runtime that can exist across multiple devices, maintain continuity across contexts, and decide how to surface itself through the most appropriate device or interaction surface. The current product direction is increasingly `presence-first`: the runtime should proactively infer user situation across input channels, decide whether to intervene, and learn intervention policy over time rather than waiting only for explicit user requests.
 
-At the current stage, the project has moved from pure architecture-definition into an implemented and testable runtime baseline that now spans both the completed v0 single-edge WebSocket loop and the first same-template multi-edge routing slice. The architecture baseline and early milestone framing are in place, the first end-to-end desktop/CLI closed loop can be executed both in-process and across two real local processes, and the runtime can now route a normal action from one connected edge instance to another while preserving core state across restarts.
+At the current stage, the project has moved from pure architecture-definition into an implemented and testable runtime baseline that now spans both the completed v0 single-edge WebSocket loop and the first same-template multi-edge routing slice. The architecture baseline and early milestone framing are in place, the first end-to-end desktop/CLI closed loop can be executed both in-process and across two real local processes, and the runtime can now route a normal action from one connected edge instance to another while preserving core state across restarts. The desktop/CLI surface has now been promoted into the first formal long-running terminal edge, with both user-initiated and runtime-initiated interaction still expressed through the normal `device -> context -> presence -> action` architecture rather than a chat-centered exception path. The current frontend baseline now includes both bounded scripted acceptance for repeatable verification and a true foreground live terminal session that reads user input from `stdin` on the same resident edge session.
 
 ## Background
 
@@ -223,7 +223,13 @@ Sub-goals:
 - 4.6. Define milestone M5: mature runtime ingestion and context path on top of stable host-edge input, including gateway handling, normalized observation storage, snapshot reduction, and context freshness / ambiguity handling
 - 4.7. Define milestone M6: mature presence, agent, and action path on top of stable real-edge input, so the proactive runtime chain becomes reliable beyond the current validation slice
 - 4.8. Define milestone M7: operational-readiness verification milestone that gates "implemented and ready to run" claims on end-to-end host-edge-path validation rather than CLI-only checks
-- 4.9. Define milestone M8: bounded-growth and storage-hygiene hardening pass after the first mature product slice, covering unbounded state growth, high-frequency persistence pressure, duplicated long-term storage, and other operational accumulation risks across the system
+- 4.9. Define milestone M8: first formal terminal-edge interaction surface, turning the desktop/CLI edge into a resident terminal `Device Edge` with pull-style user requests, presence-gated runtime push, and explicit terminal activity sensing on the normal runtime path rather than as a chat-special case
+- 4.10. Define milestone M9: cloud-model-backed agent baseline, so the runtime can use a real cloud model for proposal and reply generation while preserving explicit `Presence Router` governance, inspectable planning surfaces, and bounded non-model fallback behavior
+- 4.11. Define milestone M10: model grounding and runtime memory baseline, so model-backed proposal and reply generation are anchored in compact context snapshot, active runtime goals, bounded edge-history retrieval, and durable state instead of behaving like stateless channel chat
+- 4.12. Define milestone M11: terminal/CLI interaction maturity pass, so the first terminal edge grows from a minimal resident daemon into a substantially more complete agent CLI surface with stronger interaction ergonomics, session readability, streaming/status visibility, input affordances, and human-usable command-line UX that can better stand beside tools such as Lobster, Codex, and Claude Code without changing the core presence-governed runtime architecture
+- 4.13. Define milestone M12: policy learning and review loop, so intervention feedback, ignored interactions, explicit user responses, and runtime replays can produce review-gated policy updates rather than remaining as ad hoc one-off heuristics
+- 4.14. Define milestone M13: multi-edge interaction expansion after the first terminal/model baseline, so additional device surfaces can join the same presence-governed interaction model without re-centering the system on any single frontend
+- 4.15. Define milestone M14: bounded-growth and storage-hygiene hardening pass after the first mature product slice, covering unbounded state growth, high-frequency persistence pressure, duplicated long-term storage, and other operational accumulation risks across the system
 
 Accepted execution breakdown for M5:
 
@@ -240,7 +246,7 @@ Acceptance criteria:
 
 Status:
 
-- In progress (`M7` completed and accepted; active execution focus moves to `M8`)
+- In progress (`M7` and `M8` completed and accepted; active execution focus moves to `M9` cloud-model-backed agent baseline, `M10` grounding/runtime memory, and then `M11` terminal/CLI interaction maturity before policy learning and broader multi-edge expansion, with storage hardening deferred to `M14`)
 
 ## Completed Sub-goals
 
@@ -856,6 +862,9 @@ Status:
 ## Open Questions
 
 - Which device surfaces should be the first non-CLI surfaces for presence-first experiments?
+- What is the smallest reliable terminal-presence signal set that is good enough for runtime push decisions without overfitting to one shell or multiplexer?
+- Which cloud model provider and invocation boundary should be the first supported backend for model-backed agent work?
+- What is the minimum grounding bundle every model call should receive from runtime state, snapshot, and goal context?
 - What is the smallest safe operational-control surface for the first host edge, and how should that surface be constrained so it stays inspectable?
 - What is the smallest inspectable policy representation that can support model-authored or model-repaired intervention behavior without becoming opaque?
 - Which feedback signals are strong enough to update presence policy automatically versus only being stored as weak evidence?
@@ -896,6 +905,15 @@ Current preference:
 - For `runtime_control`, prefer deployment-agnostic action names such as `status`, `restart`, `reload`, and `collect_logs` over backend-specific verbs
 - For `runtime.collect_logs`, prefer a structured result surface first while still carrying raw tail text for debugging compatibility
 - Keep the first host edge as an independent frontend-side daemon rather than a module inside the backend runtime process
+- The desktop/CLI edge should now be treated as the preferred first formal long-running interaction surface rather than only as a validation harness
+- Treat terminal conversation as one capability surface inside that edge, not as a special top-level product abstraction
+- The first terminal edge should support both pull-style user requests and push-style runtime interventions, but push should depend on terminal presence or activity instead of blindly printing into unattended terminals
+- Model terminal-side user input, activity or idle evidence, runtime-originated message delivery, reply, and ignore or non-response as ordinary edge events and actions on the normal runtime path instead of inventing a chat-only side protocol
+- Keep terminal-edge intelligence thin: local UX control may exist on the edge, but proposal formation, intervention policy, and routing authority should remain in the backend runtime
+- Prefer the next post-M7 milestone sequence to stay narrow and layered: M8 formal terminal edge first, M9 cloud-model agent baseline second, M10 grounding and memory third, M11 terminal/CLI interaction maturity fourth, M12 policy learning/review fifth, and bounded-growth hardening later at M14
+- Prefer cloud-model proposal and reply generation to stay behind a provider boundary inside `Agent Runtime`, with explicit presence governance and normal edge routing still deciding whether and where anything surfaces
+- Prefer model grounding to be runtime-native: model calls should consume compact snapshot, active goals, bounded retrieved edge evidence, and durable runtime state rather than raw channel transcripts alone
+- Prefer feedback-driven policy evolution to remain review-gated even after model-backed behavior arrives, so the runtime does not silently rewrite durable intervention policy from weak evidence
 
 Current v0 milestone direction:
 
@@ -937,7 +955,7 @@ Current M3 slice direction:
 
 Current phase:
 
-- M7 operational-readiness verification milestone started, following accepted completion of the M6 presence / agent / action maturity milestone
+- Post-M8 architecture expansion is now focused on M9 cloud-model-backed agent baseline, M10 grounding/memory, and then a dedicated M11 terminal/CLI interaction maturity pass before policy learning/review and broader multi-edge expansion, while bounded-growth and storage-hygiene hardening is intentionally deferred to M14
 
 Current progress summary:
 
@@ -1074,7 +1092,18 @@ Current progress summary:
 - The host-edge daemon verification surface now includes an explicit bounded `max_action_requests` control so local readiness runs can exit after handling the intended number of action requests rather than relying only on idle-time timing
 - Refreshed M7 verification evidence now passed across both targeted automated suites and a bounded real `bin/verify-host-edge` run: the repository can now gate stronger “implemented and ready to run” claims on both the direct-action host-control path and the normal runtime-initiative host-control path, each validated against a separate real host-edge daemon
 - We now consider M7 complete: host-edge-path operational-readiness verification is no longer only a documentation rule, but a concrete bounded acceptance gate with real runtime, host-daemon, websocket, persisted-state, and dual-path action evidence
-- We now define M8 as the post-maturity bounded-growth and storage-hygiene milestone: after the first mature product slice lands, the system should receive an explicit sweep for unbounded state files, high-frequency persistence paths, duplicated long-term storage, retention/rotation gaps, and similar operational accumulation hazards instead of treating them as isolated follow-up bugs
+- We now reorder the post-M7 roadmap so storage hardening is no longer the immediate next step: M8 formal terminal edge, M9 cloud-model-backed agent baseline, M10 model grounding/runtime memory, M11 terminal/CLI interaction maturity, M12 policy learning/review, M13 multi-edge interaction expansion, and M14 bounded-growth/storage-hygiene hardening
+- We now intentionally defer bounded-growth and storage-hygiene hardening to M14, after the first formal terminal/model interaction surfaces have been validated more concretely
+- We now prefer the desktop/CLI edge to evolve from a verification harness into the first formal long-running terminal `Device Edge` for product-facing interaction
+- We now explicitly treat terminal interaction as ordinary environment sensing plus runtime action on a `Device Edge`, not as a special chat-centered system mode
+- We now want the first formal terminal edge to support both user-initiated pull requests and presence-gated runtime-initiated push interactions on the same normal runtime chain
+- We now consider M8 complete: the desktop/CLI surface has been promoted into a resident terminal edge with explicit `terminal.activity_state` observations on the normal runtime path, bounded resident daemon controls, pull-style user requests, presence-gated runtime push, a true foreground live terminal session that reads `stdin` on the same resident websocket session, and a dedicated `bin/verify-terminal-edge` acceptance run that records delivered terminal actions plus active/idle push decisions in persisted runtime state
+- Terminal push targeting is now explicitly terminal-locked: when a runtime-initiated `notification.show` targets a terminal edge, idle or unavailable terminal state suppresses the push instead of silently falling back to another online device
+- Repeated explicit terminal `text.input` requests are now treated as user-driven interaction rather than proactive interruption: the shared cooldown still constrains repeated runtime-initiated user-facing push, but it no longer suppresses back-to-back live terminal requests in the same resident session
+- Compact snapshot freshness now rejects future-dated observation evidence, which keeps decision-time terminal presence evaluation aligned with the actual runtime timestamp used for intervention decisions
+- We now want real model integration to enter behind an explicit provider boundary inside `Agent Runtime`, so proposal and reply generation can become model-backed without collapsing the architecture back into chat-session product assumptions
+- We now want the first model-backed stage after that to focus on grounding rather than only provider wiring, so runtime memory, snapshot context, goals, and bounded edge evidence meaningfully shape model behavior
+- We now want policy learning and review to remain its own later milestone after model grounding, rather than being hidden inside the first provider-integration batch
 - We have our own tested minimal protocol, edge session client, and gateway baseline, reducing the value of deeper OpenClaw gateway extraction work
 - We may still borrow ideas from OpenClaw protocol/client layers later, but that is now optional follow-on work rather than an open prerequisite
 

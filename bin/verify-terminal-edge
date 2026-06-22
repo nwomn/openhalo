@@ -1,0 +1,346 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON_BIN="$ROOT_DIR/.venv/bin/python"
+
+HOST="${TERMINAL_EDGE_VERIFY_HOST:-127.0.0.1}"
+PORT="${TERMINAL_EDGE_VERIFY_PORT:-8765}"
+TOKEN="${TERMINAL_EDGE_VERIFY_TOKEN:-dev-token}"
+DEVICE_ID="${TERMINAL_EDGE_VERIFY_DEVICE_ID:-terminal-edge-1}"
+SOURCE_DEVICE_ID="${TERMINAL_EDGE_VERIFY_SOURCE_DEVICE_ID:-desktop-dev-verify}"
+STATE_PATH="${TERMINAL_EDGE_VERIFY_STATE_PATH:-$ROOT_DIR/.runtime/terminal-edge-verify-state.json}"
+SCRIPTED_TEXT="${TERMINAL_EDGE_VERIFY_SCRIPTED_TEXT:-hello runtime}"
+SCRIPTED_OBSERVED_AT="${TERMINAL_EDGE_VERIFY_SCRIPTED_OBSERVED_AT:-2026-06-22T10:00:00Z}"
+STARTUP_OBSERVED_AT="${TERMINAL_EDGE_VERIFY_STARTUP_OBSERVED_AT:-2026-06-22T09:59:00Z}"
+IDLE_OBSERVED_AT="${TERMINAL_EDGE_VERIFY_IDLE_OBSERVED_AT:-2026-06-22T10:12:00Z}"
+IDLE_TIMEOUT="${TERMINAL_EDGE_VERIFY_IDLE_TIMEOUT:-1.0}"
+MAX_IDLE_CYCLES="${TERMINAL_EDGE_VERIFY_MAX_IDLE_CYCLES:-2}"
+MAX_ACTION_REQUESTS="${TERMINAL_EDGE_VERIFY_MAX_ACTION_REQUESTS:-3}"
+MAX_SESSIONS="${TERMINAL_EDGE_VERIFY_MAX_SESSIONS:-1}"
+PUSH_OBSERVED_AT="${TERMINAL_EDGE_VERIFY_PUSH_OBSERVED_AT:-2026-06-22T10:05:00Z}"
+PUSH_IDLE_OBSERVED_AT="${TERMINAL_EDGE_VERIFY_PUSH_IDLE_OBSERVED_AT:-2026-06-22T10:13:00Z}"
+LOG_PREFIX="[verify-terminal-edge]"
+
+DRY_RUN=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    *)
+      echo "$LOG_PREFIX unknown argument: $1" >&2
+      exit 2
+      ;;
+  esac
+done
+
+RUNTIME_CMD=(
+  "$PYTHON_BIN" -u -m personal_runtime.main
+  --host "$HOST"
+  --port "$PORT"
+  --token "$TOKEN"
+  --state-path "$STATE_PATH"
+)
+TERMINAL_DAEMON_CMD=(
+  "$PYTHON_BIN" -u -m device_edge.cli.terminal_daemon
+  --url "ws://${HOST}:${PORT}"
+  --token "$TOKEN"
+  --device-id "$DEVICE_ID"
+  --startup-observed-at "$STARTUP_OBSERVED_AT"
+  --stdin-observed-at "$SCRIPTED_OBSERVED_AT"
+  --idle-timeout "$IDLE_TIMEOUT"
+  --idle-observed-at "$IDLE_OBSERVED_AT"
+  --max-idle-cycles "$MAX_IDLE_CYCLES"
+  --max-action-requests "$MAX_ACTION_REQUESTS"
+  --max-sessions "$MAX_SESSIONS"
+)
+TERMINAL_STDIN_CMD=(
+  "$PYTHON_BIN" -c
+  "import sys; sys.stdout.write(${SCRIPTED_TEXT@Q} + '\n')"
+)
+read -r -d '' RUNTIME_PUSH_ACTIVE_PY <<PY || true
+import asyncio
+import json
+
+import websockets
+
+
+async def main() -> None:
+    async with websockets.connect("ws://${HOST}:${PORT}") as websocket:
+        await websocket.send(
+            json.dumps(
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "${SOURCE_DEVICE_ID}",
+                        "device_type": "desktop-cli",
+                    },
+                    "auth": {"token": "${TOKEN}"},
+                }
+            )
+        )
+        await websocket.send(
+            json.dumps(
+                {
+                    "type": "capability_announce",
+                    "device_id": "${SOURCE_DEVICE_ID}",
+                    "capabilities": ["text.input", "notification.show"],
+                }
+            )
+        )
+        await websocket.recv()
+        await websocket.send(
+            json.dumps(
+                {
+                    "type": "event_push",
+                    "device_id": "${SOURCE_DEVICE_ID}",
+                    "capability": "agent.initiative",
+                    "payload": {
+                        "observed_at": "${PUSH_OBSERVED_AT}",
+                        "agent_initiative": {
+                            "action_capability": "notification.show",
+                            "action_payload": {"message": "runtime push active"},
+                            "reason": "terminal_push_active",
+                            "target_device_hint": "${DEVICE_ID}",
+                        },
+                    },
+                }
+            )
+        )
+        event_ack = json.loads(await websocket.recv())
+        print(event_ack["type"])
+
+
+asyncio.run(main())
+PY
+RUNTIME_PUSH_ACTIVE_CMD=(
+  "$PYTHON_BIN" -c
+  "$RUNTIME_PUSH_ACTIVE_PY"
+)
+read -r -d '' RUNTIME_PUSH_IDLE_PY <<PY || true
+import asyncio
+import json
+
+import websockets
+
+
+async def main() -> None:
+    async with websockets.connect("ws://${HOST}:${PORT}") as websocket:
+        await websocket.send(
+            json.dumps(
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "${SOURCE_DEVICE_ID}",
+                        "device_type": "desktop-cli",
+                    },
+                    "auth": {"token": "${TOKEN}"},
+                }
+            )
+        )
+        await websocket.send(
+            json.dumps(
+                {
+                    "type": "capability_announce",
+                    "device_id": "${SOURCE_DEVICE_ID}",
+                    "capabilities": ["text.input", "notification.show"],
+                }
+            )
+        )
+        await websocket.recv()
+        await websocket.send(
+            json.dumps(
+                {
+                    "type": "event_push",
+                    "device_id": "${SOURCE_DEVICE_ID}",
+                    "capability": "agent.initiative",
+                    "payload": {
+                        "observed_at": "${PUSH_IDLE_OBSERVED_AT}",
+                        "agent_initiative": {
+                            "action_capability": "notification.show",
+                            "action_payload": {"message": "runtime push idle"},
+                            "reason": "terminal_push_idle",
+                            "target_device_hint": "${DEVICE_ID}",
+                        },
+                    },
+                }
+            )
+        )
+        event_ack = json.loads(await websocket.recv())
+        print(event_ack["type"])
+
+
+asyncio.run(main())
+PY
+RUNTIME_PUSH_IDLE_CMD=(
+  "$PYTHON_BIN" -c
+  "$RUNTIME_PUSH_IDLE_PY"
+)
+read -r -d '' STATE_CHECK_PY <<PY || true
+import json
+from pathlib import Path
+
+payload = json.loads(Path("${STATE_PATH}").read_text(encoding="utf-8"))
+action_results = payload.get("action_results", [])
+delivered = [
+    item
+    for item in action_results
+    if item.get("details", {}).get("delivered_via") == "terminal.stdout"
+]
+interventions = payload.get("interventions", [])
+allowed_push = [
+    item
+    for item in interventions
+    if item.get("proposal", {}).get("metadata", {}).get("reason") == "terminal_push_active"
+    and item.get("decision") == "allow"
+]
+suppressed_push = [
+    item
+    for item in interventions
+    if item.get("proposal", {}).get("metadata", {}).get("reason") == "terminal_push_idle"
+    and item.get("decision") == "suppress"
+]
+terminal_observations = [
+    item
+    for item in payload.get("observations", [])
+    if item.get("source_device_id") == "${DEVICE_ID}"
+    and item.get("name") == "terminal.activity_state"
+]
+if not delivered:
+    raise SystemExit("expected delivered terminal action results")
+if not allowed_push:
+    raise SystemExit("expected allowed active terminal push")
+if not suppressed_push:
+    raise SystemExit("expected suppressed idle terminal push")
+if not terminal_observations:
+    raise SystemExit("expected terminal activity observations")
+print("terminal_deliveries", len(delivered))
+print("allowed_pushes", len(allowed_push))
+print("suppressed_pushes", len(suppressed_push))
+print("terminal_activity_observations", len(terminal_observations))
+PY
+STATE_CHECK_CMD=(
+  "$PYTHON_BIN" -c
+  "$STATE_CHECK_PY"
+)
+# terminal.context / notification.show are both verified through this bounded M8 run.
+TERMINAL_PULL_CMD=(
+  "$PYTHON_BIN" -c
+  "print('terminal-pull driven by live stdin acceptance input')"
+)
+
+print_cmd() {
+  local label="$1"
+  shift
+  printf "%s %s:" "$LOG_PREFIX" "$label"
+  printf " %q" "$@"
+  printf "\n"
+}
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  print_cmd "runtime" "${RUNTIME_CMD[@]}"
+  print_cmd "terminal-stdin" "${TERMINAL_STDIN_CMD[@]}"
+  print_cmd "terminal-daemon" "${TERMINAL_DAEMON_CMD[@]}"
+  print_cmd "terminal-pull" "${TERMINAL_PULL_CMD[@]}"
+  print_cmd "runtime-push-active" "${RUNTIME_PUSH_ACTIVE_CMD[@]}"
+  print_cmd "runtime-push-idle" "${RUNTIME_PUSH_IDLE_CMD[@]}"
+  print_cmd "state-check" "${STATE_CHECK_CMD[@]}"
+  exit 0
+fi
+
+mkdir -p "$(dirname "$STATE_PATH")"
+rm -f "$STATE_PATH"
+
+RUNTIME_LOG_DIR="$ROOT_DIR/.runtime"
+mkdir -p "$RUNTIME_LOG_DIR"
+RUNTIME_LOG="$RUNTIME_LOG_DIR/verify-terminal-edge-runtime.log"
+TERMINAL_LOG="$RUNTIME_LOG_DIR/verify-terminal-edge-daemon.log"
+rm -f "$RUNTIME_LOG" "$TERMINAL_LOG"
+
+cleanup() {
+  if [[ -n "${TERMINAL_DAEMON_PID:-}" ]]; then
+    kill "$TERMINAL_DAEMON_PID" 2>/dev/null || true
+    wait "$TERMINAL_DAEMON_PID" 2>/dev/null || true
+  fi
+  if [[ -n "${RUNTIME_PID:-}" ]]; then
+    kill "$RUNTIME_PID" 2>/dev/null || true
+    wait "$RUNTIME_PID" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT
+
+print_cmd "runtime" "${RUNTIME_CMD[@]}"
+"${RUNTIME_CMD[@]}" >"$RUNTIME_LOG" 2>&1 &
+RUNTIME_PID=$!
+
+for _ in $(seq 1 50); do
+  if grep -q "Personal runtime WebSocket server is ready" "$RUNTIME_LOG"; then
+    break
+  fi
+  sleep 0.1
+done
+
+if ! grep -q "Personal runtime WebSocket server is ready" "$RUNTIME_LOG"; then
+  echo "$LOG_PREFIX runtime did not start cleanly" >&2
+  cat "$RUNTIME_LOG" >&2
+  exit 1
+fi
+
+print_cmd "terminal-daemon" "${TERMINAL_DAEMON_CMD[@]}"
+print_cmd "terminal-stdin" "${TERMINAL_STDIN_CMD[@]}"
+"${TERMINAL_STDIN_CMD[@]}" | \
+TERMINAL_EDGE_SCRIPTED_OBSERVED_AT="$SCRIPTED_OBSERVED_AT" \
+"${TERMINAL_DAEMON_CMD[@]}" >"$TERMINAL_LOG" 2>&1 &
+TERMINAL_DAEMON_PID=$!
+
+for _ in $(seq 1 50); do
+  if grep -q "Edge connected: ${DEVICE_ID} (desktop-cli)" "$RUNTIME_LOG"; then
+    break
+  fi
+  sleep 0.1
+done
+
+if ! grep -q "Edge connected: ${DEVICE_ID} (desktop-cli)" "$RUNTIME_LOG"; then
+  echo "$LOG_PREFIX terminal edge did not connect cleanly" >&2
+  cat "$RUNTIME_LOG" >&2
+  cat "$TERMINAL_LOG" >&2
+  exit 1
+fi
+
+print_cmd "terminal-pull" "${TERMINAL_PULL_CMD[@]}"
+"${TERMINAL_PULL_CMD[@]}"
+
+for _ in $(seq 1 50); do
+  if [[ -f "$STATE_PATH" ]] && grep -q "Runtime heard: ${SCRIPTED_TEXT}" "$STATE_PATH"; then
+    break
+  fi
+  sleep 0.1
+done
+
+print_cmd "runtime-push-active" "${RUNTIME_PUSH_ACTIVE_CMD[@]}"
+"${RUNTIME_PUSH_ACTIVE_CMD[@]}"
+
+for _ in $(seq 1 50); do
+  if [[ -f "$STATE_PATH" ]] && grep -q "runtime push active" "$STATE_PATH"; then
+    break
+  fi
+  sleep 0.1
+done
+
+for _ in $(seq 1 50); do
+  if [[ -f "$STATE_PATH" ]] && grep -q "\"observed_at\": \"${IDLE_OBSERVED_AT}\"" "$STATE_PATH"; then
+    break
+  fi
+  sleep 0.1
+done
+
+print_cmd "runtime-push-idle" "${RUNTIME_PUSH_IDLE_CMD[@]}"
+"${RUNTIME_PUSH_IDLE_CMD[@]}"
+
+wait "$TERMINAL_DAEMON_PID"
+
+print_cmd "state-check" "${STATE_CHECK_CMD[@]}"
+"${STATE_CHECK_CMD[@]}"

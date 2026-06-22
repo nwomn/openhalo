@@ -38,6 +38,8 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("CLI device validation is acceptable for early module testing", contents)
         self.assertIn("Host edge verification is required before documenting a module as implemented and operationally ready.", contents)
         self.assertIn("bin/verify-host-edge", contents)
+        self.assertIn("stdin", contents)
+        self.assertIn("live terminal session", contents)
 
     def test_shared_test_script_runs_using_root_venv(self) -> None:
         script_path = ROOT / "bin" / "test"
@@ -102,6 +104,37 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("agent_initiative", result.stdout)
         self.assertIn("state-check", result.stdout)
         self.assertIn(".runtime/host-edge-verify-state.json", result.stdout)
+
+    def test_terminal_edge_verification_script_exists_and_is_executable(self) -> None:
+        script_path = ROOT / "bin" / "verify-terminal-edge"
+
+        self.assertTrue(script_path.exists())
+        self.assertTrue(os.access(script_path, os.X_OK))
+        contents = script_path.read_text(encoding="utf-8")
+        self.assertIn("personal_runtime.main", contents)
+        self.assertIn("device_edge.cli.terminal_daemon", contents)
+        self.assertIn("terminal.context", contents)
+        self.assertIn("notification.show", contents)
+        self.assertIn(".runtime", contents)
+
+    def test_terminal_edge_verification_script_supports_dry_run(self) -> None:
+        script_path = ROOT / "bin" / "verify-terminal-edge"
+
+        result = subprocess.run(
+            [str(script_path), "--dry-run"],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+        )
+
+        self.assertIn("personal_runtime.main", result.stdout)
+        self.assertIn("device_edge.cli.terminal_daemon", result.stdout)
+        self.assertIn("terminal-pull", result.stdout)
+        self.assertIn("runtime-push-active", result.stdout)
+        self.assertIn("runtime-push-idle", result.stdout)
+        self.assertIn("state-check", result.stdout)
+        self.assertIn(".runtime/terminal-edge-verify-state.json", result.stdout)
 
 
 if __name__ == "__main__":
