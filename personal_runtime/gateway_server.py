@@ -15,6 +15,7 @@ from personal_runtime.context_contracts import RuntimeObservation
 from personal_runtime.context_snapshot import build_context_snapshot
 from personal_runtime.context_snapshot import build_context_snapshot_contract
 from personal_runtime.presence_router import choose_presence_decision
+from personal_runtime.runtime_memory import build_model_grounding_bundle
 from personal_runtime.runtime_state import RuntimeState
 from personal_runtime.state_store import JsonStateStore
 from personal_runtime.trace_recorder import TraceRecorder
@@ -30,6 +31,7 @@ class RuntimeGateway:
         persist_state: bool = True,
         runtime_event_emitter=None,
         llm_config_path: Path | None = None,
+        grounding_edge_history_fetcher=None,
     ) -> None:
         self.shared_token = shared_token
         self.state_store = JsonStateStore(
@@ -42,6 +44,7 @@ class RuntimeGateway:
         self.persist_state = persist_state
         self.runtime_event_emitter = runtime_event_emitter
         self.llm_config_path = llm_config_path
+        self.grounding_edge_history_fetcher = grounding_edge_history_fetcher
 
     def _persist_state(self) -> None:
         if not self.persist_state:
@@ -73,6 +76,12 @@ class RuntimeGateway:
             self.state.observations,
             snapshot_time=decision_time or None,
         )
+        edge_history = self._build_edge_history_for_grounding()
+        grounding_bundle = build_model_grounding_bundle(
+            state=self.state,
+            snapshot=snapshot,
+            edge_history=edge_history,
+        )
         snapshot_contract = build_context_snapshot_contract(
             self.state.observations,
             snapshot_time=decision_time or None,
@@ -80,6 +89,7 @@ class RuntimeGateway:
         proposal = self._build_normal_path_proposal(
             frame,
             snapshot=snapshot,
+            grounding_bundle=grounding_bundle,
         )
         decision = choose_presence_decision(
             source_device_id=frame["device_id"],
@@ -99,6 +109,7 @@ class RuntimeGateway:
                 "decision": decision.decision,
                 "reason": decision.reason,
                 "proposal": proposal.to_dict(),
+                "grounding_bundle": grounding_bundle,
                 "snapshot_contract": snapshot_contract,
                 "recorded_at": decision_time,
             }
@@ -163,20 +174,28 @@ class RuntimeGateway:
         self,
         frame: dict,
         snapshot: dict,
+        grounding_bundle: dict | None = None,
     ):
         payload = frame["payload"]
         if payload.get("agent_initiative") is not None:
             return build_agent_initiative_proposal(
                 payload["agent_initiative"],
                 snapshot=snapshot,
+                grounding_bundle=grounding_bundle,
                 trace_recorder=self.trace_recorder,
             )
         return build_intervention_proposal(
             payload["text"],
             snapshot=snapshot,
+            grounding_bundle=grounding_bundle,
             trace_recorder=self.trace_recorder,
             config_path=self.llm_config_path,
         )
+
+    def _build_edge_history_for_grounding(self) -> dict | None:
+        if self.grounding_edge_history_fetcher is None:
+            return None
+        return self.grounding_edge_history_fetcher()
 
     def _handle_frames_sync(self, frames: list[dict]) -> list[dict]:
         replies = []

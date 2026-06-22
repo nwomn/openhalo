@@ -7,6 +7,7 @@ import asyncio
 import json
 import os
 import sys
+import io
 from datetime import datetime
 from datetime import timezone
 from contextlib import suppress
@@ -91,10 +92,39 @@ class TerminalEdgeDaemon:
 
     async def _read_live_input_line(self) -> str | None:
         loop = asyncio.get_running_loop()
-        line = await loop.run_in_executor(None, self.input_stream.readline)
-        if line == "":
-            return None
-        return line
+        fileno = None
+        try:
+            fileno = self.input_stream.fileno()
+        except (AttributeError, io.UnsupportedOperation, OSError):
+            fileno = None
+
+        if fileno is None:
+            line = await loop.run_in_executor(None, self.input_stream.readline)
+            if line == "":
+                return None
+            return line
+
+        line_future = loop.create_future()
+
+        def on_readable() -> None:
+            if line_future.done():
+                return
+            try:
+                line = self.input_stream.readline()
+            except Exception as exc:  # pragma: no cover - defensive passthrough
+                line_future.set_exception(exc)
+            else:
+                line_future.set_result(None if line == "" else line)
+            finally:
+                with suppress(Exception):
+                    loop.remove_reader(fileno)
+
+        loop.add_reader(fileno, on_readable)
+        try:
+            return await line_future
+        finally:
+            with suppress(Exception):
+                loop.remove_reader(fileno)
 
     async def _send_user_input(
         self,
@@ -183,128 +213,136 @@ class TerminalEdgeDaemon:
         live_input_open = enable_live_input
         live_input_task = None
 
-        for frame in self.build_bootstrap_frames():
-            await self._send_frame(websocket, frame)
-        await self._recv_frame(websocket)
+        try:
+            for frame in self.build_bootstrap_frames():
+                await self._send_frame(websocket, frame)
+            await self._recv_frame(websocket)
 
-        startup_timestamp = self._next_observed_at(startup_observed_at)
-        await self._send_frame(
-            websocket,
-            self.build_terminal_activity_frame(
-                activity_state="active",
-                observed_at=startup_timestamp,
-            ),
-        )
-        await self._recv_frame(websocket)
-        terminal_activity_state = "active"
-
-        for scripted_input in scripted_inputs:
-            input_sent = await self._send_user_input(
+            startup_timestamp = self._next_observed_at(startup_observed_at)
+            await self._send_frame(
                 websocket,
-                text=scripted_input["text"],
-                observed_at=scripted_input["observed_at"],
-                pending_frames=pending_frames,
+                self.build_terminal_activity_frame(
+                    activity_state="active",
+                    observed_at=startup_timestamp,
+                ),
             )
-            if input_sent:
-                terminal_activity_state = "active"
+            await self._recv_frame(websocket)
+            terminal_activity_state = "active"
 
-        if idle_after_inputs:
-            while max_action_requests is None or len(results) < max_action_requests:
-                recv_task = asyncio.create_task(self._recv_frame(websocket))
-                if live_input_open and live_input_task is None:
-                    live_input_task = asyncio.create_task(self._read_live_input_line())
-                try:
-                    wait_set = {recv_task}
-                    if live_input_task is not None:
-                        wait_set.add(live_input_task)
-                    done, pending = await asyncio.wait(
-                        wait_set,
-                        timeout=idle_timeout_s,
-                        return_when=asyncio.FIRST_COMPLETED,
-                    )
-                except asyncio.TimeoutError:
-                    done = set()
-                    pending = {recv_task}
-                    if live_input_task is not None:
-                        pending.add(live_input_task)
-
-                if recv_task in pending:
-                    recv_task.cancel()
-                    with suppress(asyncio.CancelledError):
-                        await recv_task
-
-                if not done:
-                    if terminal_activity_state == "idle":
-                        if max_idle_cycles is not None:
-                            idle_cycles += 1
-                            if idle_cycles >= max_idle_cycles:
-                                return results
-                        continue
-                    idle_timestamp = self._next_observed_at(idle_observed_at)
-                    await self._send_frame(
-                        websocket,
-                        self.build_terminal_activity_frame(
-                            activity_state="idle",
-                            observed_at=idle_timestamp,
-                        ),
-                    )
-                    try:
-                        await self._recv_expected_frame(
-                            websocket,
-                            pending_frames,
-                            expected_type="event_ack",
-                        )
-                    except RuntimeError as exc:
-                        if "StopIteration" not in str(exc):
-                            raise
-                        return results
-                    terminal_activity_state = "idle"
-                    idle_cycles += 1
-                    if max_idle_cycles is not None and idle_cycles >= max_idle_cycles:
-                        return results
-                    continue
-
-                if live_input_task is not None and live_input_task in done:
-                    line = live_input_task.result()
-                    live_input_task = None
-                    if line is None:
-                        live_input_open = False
-                    else:
-                        observed_at_override = self.stdin_observed_at
-                        self.stdin_observed_at = None
-                        input_sent = await self._send_user_input(
-                            websocket,
-                            text=line,
-                            observed_at=observed_at_override,
-                            pending_frames=pending_frames,
-                        )
-                        if input_sent:
-                            terminal_activity_state = "active"
-                            idle_cycles = 0
-
-                if recv_task in done:
-                    try:
-                        frame = recv_task.result()
-                    except RuntimeError as exc:
-                        if "StopIteration" not in str(exc):
-                            raise
-                        break
-                    pending_frames.append(frame)
-
-                action_frame = next(
-                    (
-                        pending_frames.pop(index)
-                        for index, candidate in enumerate(pending_frames)
-                        if candidate.get("type") == "action_request"
-                    ),
-                    None,
+            for scripted_input in scripted_inputs:
+                input_sent = await self._send_user_input(
+                    websocket,
+                    text=scripted_input["text"],
+                    observed_at=scripted_input["observed_at"],
+                    pending_frames=pending_frames,
                 )
-                if action_frame is None:
-                    continue
-                idle_cycles = 0
-                result = self.handle_action_request(action_frame)
-                results.append(result)
-                await self._send_frame(websocket, result)
+                if input_sent:
+                    terminal_activity_state = "active"
+
+            if idle_after_inputs:
+                while max_action_requests is None or len(results) < max_action_requests:
+                    recv_task = asyncio.create_task(self._recv_frame(websocket))
+                    if live_input_open and live_input_task is None:
+                        live_input_task = asyncio.create_task(
+                            self._read_live_input_line()
+                        )
+                    try:
+                        wait_set = {recv_task}
+                        if live_input_task is not None:
+                            wait_set.add(live_input_task)
+                        done, pending = await asyncio.wait(
+                            wait_set,
+                            timeout=idle_timeout_s,
+                            return_when=asyncio.FIRST_COMPLETED,
+                        )
+                    except asyncio.TimeoutError:
+                        done = set()
+                        pending = {recv_task}
+                        if live_input_task is not None:
+                            pending.add(live_input_task)
+
+                    if recv_task in pending:
+                        recv_task.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await recv_task
+
+                    if not done:
+                        if terminal_activity_state == "idle":
+                            if max_idle_cycles is not None:
+                                idle_cycles += 1
+                                if idle_cycles >= max_idle_cycles:
+                                    return results
+                            continue
+                        idle_timestamp = self._next_observed_at(idle_observed_at)
+                        await self._send_frame(
+                            websocket,
+                            self.build_terminal_activity_frame(
+                                activity_state="idle",
+                                observed_at=idle_timestamp,
+                            ),
+                        )
+                        try:
+                            await self._recv_expected_frame(
+                                websocket,
+                                pending_frames,
+                                expected_type="event_ack",
+                            )
+                        except RuntimeError as exc:
+                            if "StopIteration" not in str(exc):
+                                raise
+                            return results
+                        terminal_activity_state = "idle"
+                        idle_cycles += 1
+                        if max_idle_cycles is not None and idle_cycles >= max_idle_cycles:
+                            return results
+                        continue
+
+                    if live_input_task is not None and live_input_task in done:
+                        line = live_input_task.result()
+                        live_input_task = None
+                        if line is None:
+                            live_input_open = False
+                        else:
+                            observed_at_override = self.stdin_observed_at
+                            self.stdin_observed_at = None
+                            input_sent = await self._send_user_input(
+                                websocket,
+                                text=line,
+                                observed_at=observed_at_override,
+                                pending_frames=pending_frames,
+                            )
+                            if input_sent:
+                                terminal_activity_state = "active"
+                                idle_cycles = 0
+
+                    if recv_task in done:
+                        try:
+                            frame = recv_task.result()
+                        except RuntimeError as exc:
+                            if "StopIteration" not in str(exc):
+                                raise
+                            break
+                        pending_frames.append(frame)
+
+                    action_frame = next(
+                        (
+                            pending_frames.pop(index)
+                            for index, candidate in enumerate(pending_frames)
+                            if candidate.get("type") == "action_request"
+                        ),
+                        None,
+                    )
+                    if action_frame is None:
+                        continue
+                    idle_cycles = 0
+                    result = self.handle_action_request(action_frame)
+                    results.append(result)
+                    await self._send_frame(websocket, result)
+        finally:
+            if live_input_task is not None and not live_input_task.done():
+                live_input_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await live_input_task
 
         return results
 

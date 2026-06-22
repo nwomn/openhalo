@@ -11,6 +11,13 @@ class RuntimePersistenceTests(unittest.IsolatedAsyncioTestCase):
             "/root/personal-runtime-agent/.worktrees/v0-single-edge-loop/.runtime-test/restored-state.json"
         )
         first_gateway = RuntimeGateway(shared_token="dev-token", state_path=state_path)
+        first_gateway.state.upsert_goal(
+            goal_id="goal-1",
+            title="Keep runtime healthy",
+            status="active",
+            summary="Watch runtime health signals.",
+            updated_at="2026-06-22T10:00:00Z",
+        )
         await first_gateway.handle_test_frames(
             [
                 {
@@ -48,6 +55,8 @@ class RuntimePersistenceTests(unittest.IsolatedAsyncioTestCase):
             "hello after restart",
         )
         self.assertEqual(restored_gateway.state.action_results[-1]["status"], "ok")
+        self.assertEqual(restored_gateway.state.tasks[0]["goal_id"], "goal-1")
+        self.assertEqual(restored_gateway.state.tasks[0]["status"], "active")
 
 
 if __name__ == "__main__":

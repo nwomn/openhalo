@@ -12,6 +12,13 @@ from personal_runtime.runtime_state import RuntimeState
 class GatewayTests(unittest.IsolatedAsyncioTestCase):
     async def test_connect_event_and_action_roundtrip(self) -> None:
         gateway = RuntimeGateway(shared_token="dev-token")
+        gateway.state.upsert_goal(
+            goal_id="goal-1",
+            title="Keep runtime healthy",
+            status="active",
+            summary="Watch runtime health signals.",
+            updated_at="2026-06-22T10:00:00Z",
+        )
         reply = await gateway.handle_test_frames(
             [
                 {
@@ -47,6 +54,22 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                 "used_deterministic_fallback"
             ],
             {True, False},
+        )
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["metadata"][
+                "grounding_bundle_version"
+            ],
+            "m10.v1",
+        )
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["metadata"][
+                "grounding_active_goal_count"
+            ],
+            1,
+        )
+        self.assertIn(
+            "grounding_recent_user_inputs",
+            gateway.state.interventions[-1]["proposal"]["metadata"],
         )
 
     async def test_sync_roundtrip_wrapper_returns_replies(self) -> None:

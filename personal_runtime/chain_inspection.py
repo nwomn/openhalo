@@ -18,6 +18,7 @@ def build_chain_report(session, action_result: dict) -> dict:
             for field_name, field_contract in snapshot_contract["fields"].items()
         },
         "snapshot_contract": snapshot_contract,
+        "grounding": intervention.get("grounding_bundle", {}),
         "proposal": intervention["proposal"],
         "presence_decision": {
             "decision": intervention["decision"],
@@ -34,6 +35,7 @@ def format_chain_report(report: dict) -> str:
         ("Trace", report["trace_lines"]),
         ("Observations", report["observations"]),
         ("Compact Snapshot", report["snapshot"]),
+        ("Grounding Bundle", report.get("grounding", {})),
         ("Snapshot Contract", report["snapshot_contract"]),
         ("Proposal", report["proposal"]),
         ("Presence Decision", report["presence_decision"]),

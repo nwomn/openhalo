@@ -30,6 +30,16 @@ class ChainInspectionTests(unittest.TestCase):
             "interactive_reply",
         )
         self.assertTrue(report["proposal"]["metadata"]["used_deterministic_fallback"])
+        self.assertEqual(report["grounding"]["bundle_version"], "m10.v1")
+        self.assertIn("active_goals", report["grounding"])
+        self.assertIn("recent_memory", report["grounding"])
+        self.assertEqual(
+            report["grounding"]["edge_history"]["history_kind"],
+            "observation_window",
+        )
+        self.assertGreaterEqual(
+            report["grounding"]["edge_history"]["returned_entries"], 1
+        )
         self.assertIn(report["presence_decision"]["decision"], {"allow", "suppress"})
 
     def test_formatted_chain_report_contains_major_sections_in_order(self) -> None:
@@ -40,18 +50,25 @@ class ChainInspectionTests(unittest.TestCase):
         self.assertIn("Trace:", rendered)
         self.assertIn("Observations:", rendered)
         self.assertIn("Compact Snapshot:", rendered)
+        self.assertIn("Grounding Bundle:", rendered)
         self.assertIn("Snapshot Contract:", rendered)
         self.assertIn("Proposal:", rendered)
         self.assertIn("Presence Decision:", rendered)
         self.assertIn("Recorded Intervention:", rendered)
         self.assertIn('"llm_profile": "interactive_reply"', rendered)
         self.assertIn('"used_deterministic_fallback": true', rendered)
+        self.assertIn('"bundle_version": "m10.v1"', rendered)
+        self.assertIn('"history_kind": "observation_window"', rendered)
         self.assertLess(rendered.index("Trace:"), rendered.index("Observations:"))
         self.assertLess(
             rendered.index("Observations:"), rendered.index("Compact Snapshot:")
         )
         self.assertLess(
             rendered.index("Compact Snapshot:"),
+            rendered.index("Grounding Bundle:"),
+        )
+        self.assertLess(
+            rendered.index("Grounding Bundle:"),
             rendered.index("Snapshot Contract:"),
         )
         self.assertLess(rendered.index("Proposal:"), rendered.index("Presence Decision:"))

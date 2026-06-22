@@ -19,6 +19,7 @@ class LocalCliSession:
         token: str = "dev-token",
         trace: bool = False,
         config_path: Path | None = None,
+        grounding_edge_history_fetcher=None,
     ) -> None:
         self.trace_recorder = TraceRecorder() if trace else None
         self.gateway = RuntimeGateway(
@@ -26,6 +27,7 @@ class LocalCliSession:
             trace_recorder=self.trace_recorder,
             persist_state=False,
             llm_config_path=config_path,
+            grounding_edge_history_fetcher=grounding_edge_history_fetcher,
         )
         self.client = SessionClient(
             device_id="desktop-dev-1",
@@ -114,54 +116,33 @@ def inspect_cli_once(
     token: str = "dev-token",
     config_path: Path | None = None,
 ) -> dict:
-    session = LocalCliSession(token=token, trace=True, config_path=config_path)
     observed_at = (
         datetime.now(UTC)
         .replace(microsecond=0)
         .isoformat()
         .replace("+00:00", "Z")
     )
+    host_daemon = _build_inspection_host_daemon(
+        token=token,
+        observed_at=observed_at,
+    )
+    session = LocalCliSession(
+        token=token,
+        trace=True,
+        config_path=config_path,
+        grounding_edge_history_fetcher=lambda: _fetch_inspection_edge_history(
+            host_daemon
+        ),
+    )
+    session.gateway.state.upsert_goal(
+        goal_id="goal-1",
+        title="Keep runtime healthy",
+        status="active",
+        summary="Watch runtime health signals.",
+        updated_at="2026-06-22T10:00:00Z",
+    )
     session.gateway.run_roundtrip(
-        [
-            {
-                "type": "event_push",
-                "device_id": "host-edge-1",
-                "capability": "runtime.health",
-                "event_id": "inspect-runtime-health-1",
-                "payload": {
-                    "observations": [
-                        {
-                            "name": "runtime.health_state",
-                            "value": "healthy",
-                            "observed_at": observed_at,
-                            "confidence": 1.0,
-                        },
-                        {
-                            "name": "runtime.process_pid",
-                            "value": 4242,
-                            "observed_at": observed_at,
-                            "confidence": 1.0,
-                        },
-                    ]
-                },
-            },
-            {
-                "type": "event_push",
-                "device_id": "host-edge-1",
-                "capability": "host.metrics",
-                "event_id": "inspect-host-metrics-1",
-                "payload": {
-                    "observations": [
-                        {
-                            "name": "host.memory_pressure",
-                            "value": "normal",
-                            "observed_at": observed_at,
-                            "confidence": 1.0,
-                        }
-                    ]
-                },
-            },
-        ]
+        host_daemon.build_bootstrap_frames() + host_daemon.build_observation_frames(observed_at=observed_at)
     )
     action_result = session.send_text(text)
     return build_chain_report(session, action_result)
@@ -172,66 +153,35 @@ def inspect_agent_initiative_once(
     token: str = "dev-token",
     config_path: Path | None = None,
 ) -> dict:
-    session = LocalCliSession(token=token, trace=True, config_path=config_path)
     observed_at = (
         datetime.now(UTC)
         .replace(microsecond=0)
         .isoformat()
         .replace("+00:00", "Z")
     )
-    session.gateway.run_roundtrip(
-        [
-            {
-                "type": "connect",
-                "device": {
-                    "device_id": "host-edge-1",
-                    "device_type": "server",
-                },
-                "auth": {"token": token},
-            },
-            {
-                "type": "capability_announce",
-                "device_id": "host-edge-1",
-                "capabilities": ["host.metrics", "runtime.health", "runtime.control"],
-            },
-            {
-                "type": "event_push",
-                "device_id": "host-edge-1",
-                "capability": "runtime.health",
-                "event_id": "inspect-runtime-health-initiative-1",
-                "payload": {
-                    "observations": [
-                        {
-                            "name": "runtime.health_state",
-                            "value": "healthy",
-                            "observed_at": observed_at,
-                            "confidence": 1.0,
-                        }
-                    ]
-                },
-            },
-        ]
-    )
-    host_daemon = HostEdgeDaemon(
-        device_id="host-edge-1",
+    host_daemon = _build_inspection_host_daemon(
         token=token,
-        runtime_control_adapter=_InspectionRuntimeStatusAdapter(),
-        host_metrics_provider=lambda: {
-            "cpu_load_ratio": 0.31,
-            "memory_used_bytes": 400,
-            "memory_available_bytes": 600,
-            "memory_pressure": "normal",
-            "net_rx_bytes": 10,
-            "net_tx_bytes": 12,
-        },
-        runtime_health_provider=lambda: {
-            "health_state": "healthy",
-            "process_pid": 4242,
-            "process_present": True,
-            "process_started_at": observed_at,
-            "process_memory_rss_bytes": 28114944,
-        },
-        trace_recorder=session.trace_recorder,
+        observed_at=observed_at,
+    )
+    session = LocalCliSession(
+        token=token,
+        trace=True,
+        config_path=config_path,
+        grounding_edge_history_fetcher=lambda: _fetch_inspection_edge_history(
+            host_daemon
+        ),
+    )
+    session.gateway.state.upsert_goal(
+        goal_id="goal-1",
+        title="Keep runtime healthy",
+        status="active",
+        summary="Watch runtime health signals.",
+        updated_at="2026-06-22T10:00:00Z",
+    )
+    host_daemon.trace_recorder = session.trace_recorder
+    host_daemon.client.trace_recorder = session.trace_recorder
+    session.gateway.run_roundtrip(
+        host_daemon.build_bootstrap_frames() + host_daemon.build_observation_frames(observed_at=observed_at)
     )
     action_result = session.trigger_agent_initiative(
         action_capability=action_capability,
@@ -329,11 +279,61 @@ __all__ = [
 
 class _InspectionRuntimeStatusAdapter:
     def execute(self, action: dict) -> dict:
+        if action["capability"] == "runtime.edge_history":
+            details = action["payload"]["history_supplier"](
+                action["payload"].get("limit", 20),
+                action["payload"].get("capability"),
+            )
+            return {
+                "status": "ok",
+                "capability": action["capability"],
+                "details": details,
+            }
         return {
             "status": "ok",
             "capability": action["capability"],
             "details": {"state": "running", "pid": 4242},
         }
+
+
+def _build_inspection_host_daemon(
+    token: str,
+    observed_at: str,
+) -> HostEdgeDaemon:
+    return HostEdgeDaemon(
+        device_id="host-edge-1",
+        token=token,
+        runtime_control_adapter=_InspectionRuntimeStatusAdapter(),
+        host_metrics_provider=lambda: {
+            "cpu_load_ratio": 0.31,
+            "memory_used_bytes": 400,
+            "memory_available_bytes": 600,
+            "memory_pressure": "normal",
+            "net_rx_bytes": 10,
+            "net_tx_bytes": 12,
+        },
+        runtime_health_provider=lambda: {
+            "health_state": "healthy",
+            "process_pid": 4242,
+            "process_present": True,
+            "process_started_at": observed_at,
+            "process_memory_rss_bytes": 28114944,
+        },
+    )
+
+
+def _fetch_inspection_edge_history(host_daemon: HostEdgeDaemon) -> dict:
+    result = host_daemon.handle_action_request(
+        {
+            "type": "action_request",
+            "device_id": host_daemon.client.device_id,
+            "action": {
+                "capability": "runtime.edge_history",
+                "payload": {"limit": 2},
+            },
+        }
+    )
+    return result["result"]["details"]
 
 
 if __name__ == "__main__":

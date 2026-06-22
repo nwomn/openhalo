@@ -398,6 +398,64 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
             "2026-06-22T10:11:00Z",
         )
 
+    async def test_daemon_session_cancels_pending_live_input_task_on_exit(self) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+        )
+        sent_frames: list[dict] = []
+        read_started = asyncio.Event()
+        read_cancelled = asyncio.Event()
+
+        async def fake_read_live_input_line() -> str | None:
+            read_started.set()
+            try:
+                await asyncio.Future()
+            except asyncio.CancelledError:
+                read_cancelled.set()
+                raise
+
+        daemon._read_live_input_line = fake_read_live_input_line  # type: ignore[method-assign]
+
+        class FakeWebSocket:
+            def __init__(self) -> None:
+                self.recv_count = 0
+
+            async def send(self, payload: str) -> None:
+                sent_frames.append(json.loads(payload))
+
+            async def recv(self) -> str:
+                self.recv_count += 1
+                if self.recv_count == 1:
+                    return json.dumps({"type": "connect_ok"})
+                if self.recv_count == 2:
+                    return json.dumps({"type": "event_ack"})
+                if self.recv_count == 3:
+                    return json.dumps(
+                        {
+                            "type": "action_request",
+                            "device_id": "terminal-edge-1",
+                            "action": {
+                                "capability": "notification.show",
+                                "payload": {"message": "runtime push"},
+                            },
+                        }
+                    )
+                raise RuntimeError("StopIteration")
+
+        results = await daemon.run_scripted_session(
+            websocket=FakeWebSocket(),
+            scripted_inputs=[],
+            startup_observed_at="2026-06-22T10:10:00Z",
+            idle_after_inputs=True,
+            enable_live_input=True,
+            max_action_requests=1,
+        )
+
+        self.assertEqual(len(results), 1)
+        self.assertTrue(read_started.is_set())
+        self.assertTrue(read_cancelled.is_set())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -33,6 +33,27 @@ class RuntimeState:
     def record_intervention(self, intervention: dict) -> None:
         self.interventions.append(intervention)
 
+    def upsert_goal(
+        self,
+        goal_id: str,
+        title: str,
+        status: str,
+        summary: str,
+        updated_at: str,
+    ) -> None:
+        goal_payload = {
+            "goal_id": goal_id,
+            "title": title,
+            "status": status,
+            "summary": summary,
+            "updated_at": updated_at,
+        }
+        for index, existing_goal in enumerate(self.tasks):
+            if existing_goal.get("goal_id") == goal_id:
+                self.tasks[index] = goal_payload
+                return
+        self.tasks.append(goal_payload)
+
     def to_dict(self) -> dict:
         return {
             "devices": {

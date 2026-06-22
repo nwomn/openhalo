@@ -246,7 +246,7 @@ Acceptance criteria:
 
 Status:
 
-- In progress (`M7`, `M8`, and `M9` completed and accepted; active execution focus moves to `M10` grounding/runtime memory and then `M11` terminal/CLI interaction maturity before policy learning and broader multi-edge expansion, with storage hardening deferred to `M14`)
+- In progress (`M7`, `M8`, `M9`, and `M10` completed and accepted; active execution focus now moves to `M11` terminal/CLI interaction maturity before policy learning and broader multi-edge expansion, with storage hardening deferred to `M14`)
 
 ## Completed Sub-goals
 
@@ -876,6 +876,29 @@ Acceptance criteria:
 - Real model-backed replies remain subject to the existing normal `Gateway -> State / Context -> Presence -> Action` chain instead of bypassing `Presence Router` governance
 - Human inspection can distinguish real provider execution from deterministic fallback through recorded proposal metadata and existing local inspection entrypoints
 - The first accepted implementation is covered by automated tests and verified end to end against at least one real `openai_compatible` provider path
+
+Status:
+
+- Completed
+
+### Completed: M10 model grounding and runtime memory baseline acceptance
+
+Result:
+
+- The runtime now builds an explicit runtime-native grounding bundle for model-backed reply and proposal generation instead of passing only raw user text plus compact snapshot into the provider layer
+- The first accepted grounding bundle is intentionally small and inspectable: it includes compact snapshot state, active runtime goals, bounded recent runtime memory for user inputs/interventions/action results, and a bounded edge-history window
+- Durable runtime goals now live inside persisted `RuntimeState`, so active goal context survives restart and can shape later grounded model calls without inventing a separate side store
+- Proposal metadata now records grounding provenance such as bundle version, active-goal count, recent-memory counts, and whether bounded edge history was attached, so inspection and replay can distinguish grounded runtime-native calls from thinner prompt shapes
+- The local inspection chain now performs an explicit bounded `runtime.edge_history` retrieval through the host-edge control surface and prints the resulting `Grounding Bundle` alongside the compact snapshot, proposal, presence decision, and recorded intervention for human acceptance
+- The repository now has targeted automated coverage for grounding-bundle construction, bounded recent-memory shaping, goal persistence shape, provider-request grounding injection, and inspection visibility for the first `M10` slice
+- The resident terminal edge exit path has now been tightened so live `stdin` handling no longer relies only on a background-thread `readline()` path in normal TTY use; the daemon now prefers event-loop reader integration for real terminal input and explicitly cancels pending live-input tasks on session exit, reducing the previous need for repeated `Ctrl+C` to terminate the CLI device cleanly
+
+Acceptance criteria:
+
+- Model-backed proposal and reply generation are grounded in compact snapshot state, active runtime goals, bounded recent runtime memory, and explicit bounded edge-history retrieval rather than behaving like stateless channel chat
+- Grounding remains runtime-native and inspectable instead of silently collapsing into opaque chat transcript prompting
+- The first accepted implementation keeps edge-history retrieval explicit and bounded rather than continuously mirroring fine-grained device history into backend state
+- Human inspection can verify the grounded bundle and proposal grounding metadata through an existing local acceptance entrypoint
 
 Status:
 

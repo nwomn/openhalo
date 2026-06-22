@@ -117,10 +117,12 @@ def build_openai_compatible_request(
     model_id: str,
     user_text: str,
     snapshot: dict | None,
+    grounding: dict | None,
     reasoning_effort: str,
     verbosity: str,
 ) -> dict:
     compact_snapshot = snapshot or {}
+    grounding_bundle = grounding or {}
     return {
         "model": model_id,
         "reasoning": {"effort": reasoning_effort},
@@ -145,7 +147,8 @@ def build_openai_compatible_request(
                         "type": "input_text",
                         "text": (
                             f"User text: {user_text}\n"
-                            f"Compact snapshot: {json.dumps(compact_snapshot, sort_keys=True)}"
+                            f"Compact snapshot: {json.dumps(compact_snapshot, sort_keys=True)}\n"
+                            f"Grounding bundle: {json.dumps(grounding_bundle, sort_keys=True)}"
                         ),
                     }
                 ],
@@ -201,6 +204,7 @@ def build_deterministic_reply_plan(
 def generate_text_reply_plan(
     user_text: str,
     snapshot: dict | None = None,
+    grounding: dict | None = None,
     profile_name: str = "interactive_reply",
     config_path: Path | None = None,
     transport=None,
@@ -226,6 +230,7 @@ def generate_text_reply_plan(
             profile=profile,
             user_text=user_text,
             snapshot=snapshot,
+            grounding=grounding,
             transport=transport,
         )
         return parse_openai_compatible_response(
@@ -250,12 +255,14 @@ def execute_openai_compatible_request(
     profile: ProfileConfig,
     user_text: str,
     snapshot: dict | None = None,
+    grounding: dict | None = None,
     transport=None,
 ) -> dict:
     request_payload = build_openai_compatible_request(
         model_id=model.model_id,
         user_text=user_text,
         snapshot=snapshot,
+        grounding=grounding,
         reasoning_effort=profile.reasoning_effort,
         verbosity=profile.verbosity,
     )

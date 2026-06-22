@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from personal_runtime.model_provider import generate_text_reply_plan
+from personal_runtime.runtime_memory import grounding_metadata_from_bundle
 from personal_runtime.action_layer import required_device_capability_for_action
 
 
@@ -26,6 +27,7 @@ class InterventionProposal:
 def build_intervention_proposal(
     user_text: str,
     snapshot: dict | None = None,
+    grounding_bundle: dict | None = None,
     trace_recorder=None,
     config_path: Path | None = None,
 ) -> InterventionProposal:
@@ -33,6 +35,7 @@ def build_intervention_proposal(
     reply_plan = generate_text_reply_plan(
         user_text=user_text,
         snapshot=_snapshot,
+        grounding=grounding_bundle,
         profile_name="interactive_reply",
         config_path=config_path,
     )
@@ -48,6 +51,7 @@ def build_intervention_proposal(
         metadata={
             "trigger": "text.input",
             "snapshot_fields": sorted(_snapshot.keys()),
+            **grounding_metadata_from_bundle(grounding_bundle),
             **reply_plan.metadata,
         },
     )
@@ -65,6 +69,7 @@ def build_intervention_proposal(
 def build_agent_initiative_proposal(
     initiative_request: dict,
     snapshot: dict | None = None,
+    grounding_bundle: dict | None = None,
     trace_recorder=None,
 ) -> InterventionProposal:
     _snapshot = snapshot or {}
@@ -90,6 +95,7 @@ def build_agent_initiative_proposal(
         metadata={
             **metadata,
             "snapshot_fields": sorted(_snapshot.keys()),
+            **grounding_metadata_from_bundle(grounding_bundle),
         },
         target_device_hint=initiative_request.get("target_device_hint"),
     )

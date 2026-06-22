@@ -88,6 +88,24 @@ When you want to test a real `openai_compatible` provider path later, keep the s
 
 The acceptance command stays the same; only the provider result and fallback metadata should change.
 
+That same inspection path is now also the first bounded local `M10` acceptance surface for grounding and runtime memory.
+
+For the first `M10` slice, inspect the `Grounding Bundle` section and confirm it contains:
+
+- compact snapshot state under `snapshot`
+- one bounded `active_goals` list
+- bounded `recent_memory` for user inputs, interventions, and action results
+- bounded `edge_history` with `history_kind = "observation_window"`
+
+Also inspect the `Proposal` metadata and confirm it contains:
+
+- `grounding_bundle_version`
+- `grounding_active_goal_count`
+- `grounding_recent_user_inputs`
+- `grounding_has_edge_history`
+
+The current local `--inspect-chain` flow now exercises grounding through runtime-native state rather than raw input text alone: it seeds one active runtime goal, records recent runtime observations, performs one explicit bounded `runtime.edge_history` retrieval from the inspection host edge, and then prints the grounded proposal and recorded intervention in one report.
+
 When you need to inspect the M6 initiative path as one human-readable chain, use:
 Preferred command shape: `python -m device_edge.cli.cli_edge --inspect-agent-initiative`
 
@@ -140,3 +158,5 @@ python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-
 Type a line and press Enter to send a normal `text.input` event. Leave the terminal idle to let the daemon emit an idle observation. The bounded `bin/verify-terminal-edge` flow remains the preferred acceptance script when you want a repeatable proof run instead of manual `stdin` interaction.
 
 For manual live-terminal acceptance, repeated explicit user input should continue to receive repeated replies in the same resident session. The current presence cooldown is intended to suppress repeated runtime-initiated user-facing interruption, not to suppress a user's own back-to-back terminal requests.
+
+For the current live-terminal baseline, a single `Ctrl+C` in the foreground terminal-daemon session should now terminate the CLI device cleanly during normal TTY use. If manual acceptance still requires repeated interrupt signals, treat that as a terminal-edge interaction regression rather than expected behavior.

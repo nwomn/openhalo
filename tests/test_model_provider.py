@@ -37,6 +37,22 @@ class ModelProviderConfigTests(unittest.TestCase):
             model_id="gpt-5.5",
             user_text="hello runtime",
             snapshot={"runtime.current_health_state": "healthy"},
+            grounding={
+                "bundle_version": "m10.v1",
+                "active_goals": [
+                    {
+                        "goal_id": "goal-1",
+                        "title": "Keep runtime healthy",
+                        "status": "active",
+                    }
+                ],
+                "recent_memory": {
+                    "user_inputs": [{"text": "hello runtime"}],
+                    "interventions": [],
+                    "action_results": [],
+                },
+                "edge_history": {"returned_entries": 1},
+            },
             reasoning_effort="medium",
             verbosity="low",
         )
@@ -46,6 +62,8 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertEqual(request_payload["text"]["verbosity"], "low")
         self.assertIn("hello runtime", str(request_payload["input"]))
         self.assertIn("healthy", str(request_payload["input"]))
+        self.assertIn("Keep runtime healthy", str(request_payload["input"]))
+        self.assertIn('"bundle_version": "m10.v1"', str(request_payload["input"]))
 
     def test_parse_openai_compatible_response_returns_bounded_reply_text(self) -> None:
         plan = parse_openai_compatible_response(

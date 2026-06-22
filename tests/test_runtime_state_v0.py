@@ -103,6 +103,31 @@ class RuntimeStateTests(unittest.TestCase):
         )
         self.assertEqual(restored.interventions[0]["decision"], "allow")
 
+    def test_roundtrips_runtime_goals(self) -> None:
+        state = RuntimeState()
+        state.upsert_goal(
+            goal_id="goal-1",
+            title="Keep runtime healthy",
+            status="active",
+            summary="Watch runtime health signals.",
+            updated_at="2026-06-22T10:00:00Z",
+        )
+        state.upsert_goal(
+            goal_id="goal-2",
+            title="Review idle terminal pushes",
+            status="done",
+            summary="Completed verification.",
+            updated_at="2026-06-22T10:05:00Z",
+        )
+
+        restored = RuntimeState.from_dict(state.to_dict())
+
+        self.assertEqual(len(restored.tasks), 2)
+        self.assertEqual(restored.tasks[0]["goal_id"], "goal-1")
+        self.assertEqual(restored.tasks[0]["status"], "active")
+        self.assertEqual(restored.tasks[1]["goal_id"], "goal-2")
+        self.assertEqual(restored.tasks[1]["status"], "done")
+
 
 class JsonStateStoreTests(unittest.TestCase):
     def test_saves_and_loads_runtime_state(self) -> None:
