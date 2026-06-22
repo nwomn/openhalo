@@ -2,6 +2,7 @@
 
 import json
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 
 import websockets
@@ -266,7 +267,18 @@ class RuntimeGateway:
         if frame.get("observed_at"):
             return frame["observed_at"]
         if self.state.observations:
-            return self.state.observations[-1].observed_at
+            known_timestamps = [
+                observation.observed_at
+                for observation in self.state.observations
+                if observation.observed_at
+            ]
+            if known_timestamps:
+                return max(
+                    known_timestamps,
+                    key=lambda timestamp: datetime.fromisoformat(
+                        timestamp.replace("Z", "+00:00")
+                    ),
+                )
         return ""
 
     async def handle_test_frames(self, frames: list[dict]) -> list[dict]:

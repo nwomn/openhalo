@@ -335,6 +335,65 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(gateway.state.interventions[-1]["decision"], "suppress")
         self.assertEqual(gateway.state.interventions[-1]["reason"], "context_ambiguous")
 
+    async def test_normal_path_uses_latest_known_observation_time_when_event_timestamp_is_missing(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        client = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show", "desktop_context"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+                client.build_observation_event(
+                    capability="desktop_context",
+                    observations=[
+                        {
+                            "name": "user.location",
+                            "value": "office",
+                            "observed_at": "2026-06-19T10:30:00Z",
+                            "confidence": 0.81,
+                        }
+                    ],
+                ),
+                {
+                    "type": "event_push",
+                    "device_id": "phone-1",
+                    "capability": "mobile_context",
+                    "event_id": "evt-mobile-1",
+                    "payload": {
+                        "observations": [
+                            {
+                                "name": "user.location",
+                                "value": "train",
+                                "observed_at": "2026-06-19T10:29:00Z",
+                                "confidence": 0.80,
+                            }
+                        ]
+                    },
+                },
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {"text": "should use latest known context time"},
+                },
+            ]
+        )
+
+        self.assertEqual(replies[-1]["type"], "event_ack")
+        self.assertEqual(
+            gateway.state.interventions[-1]["snapshot_contract"]["snapshot_time"],
+            "2026-06-19T10:30:00Z",
+        )
+        self.assertEqual(gateway.state.interventions[-1]["decision"], "suppress")
+        self.assertEqual(gateway.state.interventions[-1]["reason"], "context_ambiguous")
+
     async def test_normal_path_ignores_stale_conflicting_location_evidence(self) -> None:
         gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
         client = SessionClient(
