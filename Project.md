@@ -227,9 +227,10 @@ Sub-goals:
 - 4.10. Define milestone M9: cloud-model-backed agent baseline, so the runtime can use a real cloud model for proposal and reply generation while preserving explicit `Presence Router` governance, inspectable planning surfaces, and bounded non-model fallback behavior
 - 4.11. Define milestone M10: model grounding and runtime memory baseline, so model-backed proposal and reply generation are anchored in compact context snapshot, active runtime goals, bounded edge-history retrieval, and durable state instead of behaving like stateless channel chat
 - 4.12. Define milestone M11: terminal/CLI interaction maturity pass, so the first terminal edge grows from a minimal resident daemon into a substantially more complete agent CLI surface with stronger interaction ergonomics, session readability, streaming/status visibility, input affordances, and human-usable command-line UX that can better stand beside tools such as Lobster, Codex, and Claude Code without changing the core presence-governed runtime architecture
-- 4.13. Define milestone M12: policy learning and review loop, so intervention feedback, ignored interactions, explicit user responses, and runtime replays can produce review-gated policy updates rather than remaining as ad hoc one-off heuristics
-- 4.14. Define milestone M13: multi-edge interaction expansion after the first terminal/model baseline, so additional device surfaces can join the same presence-governed interaction model without re-centering the system on any single frontend
-- 4.15. Define milestone M14: bounded-growth and storage-hygiene hardening pass after the first mature product slice, covering unbounded state growth, high-frequency persistence pressure, duplicated long-term storage, and other operational accumulation risks across the system
+- 4.13. Define milestone M12: prompt/context engineering and behavior-contract pass, so grounded model-backed proposal and reply generation advance from first runtime-memory wiring into explicit prompt/context assembly, prompt versioning, replay/eval harnesses, and inspectable behavior contracts that verify the runtime actually uses compact snapshot state, active goals, bounded memory, and edge evidence reliably
+- 4.14. Define milestone M13: policy learning and review loop, so intervention feedback, ignored interactions, explicit user responses, and runtime replays can produce review-gated policy updates rather than remaining as ad hoc one-off heuristics
+- 4.15. Define milestone M14: multi-edge interaction expansion after the first terminal/model baseline, so additional device surfaces can join the same presence-governed interaction model without re-centering the system on any single frontend
+- 4.16. Define milestone M15: bounded-growth and storage-hygiene hardening pass after the first mature product slice, covering unbounded state growth, high-frequency persistence pressure, duplicated long-term storage, and other operational accumulation risks across the system
 
 Accepted execution breakdown for M5:
 
@@ -246,7 +247,7 @@ Acceptance criteria:
 
 Status:
 
-- In progress (`M7`, `M8`, `M9`, and `M10` completed and accepted; active execution focus now moves to `M11` terminal/CLI interaction maturity before policy learning and broader multi-edge expansion, with storage hardening deferred to `M14`)
+- In progress (`M7`, `M8`, `M9`, and `M10` completed and accepted; active execution focus now moves to `M11` terminal/CLI interaction maturity and then explicit `M12` prompt/context engineering before policy learning and broader multi-edge expansion, with storage hardening deferred to `M15`)
 
 ## Completed Sub-goals
 
@@ -956,7 +957,7 @@ Current preference:
 - The first terminal edge should support both pull-style user requests and push-style runtime interventions, but push should depend on terminal presence or activity instead of blindly printing into unattended terminals
 - Model terminal-side user input, activity or idle evidence, runtime-originated message delivery, reply, and ignore or non-response as ordinary edge events and actions on the normal runtime path instead of inventing a chat-only side protocol
 - Keep terminal-edge intelligence thin: local UX control may exist on the edge, but proposal formation, intervention policy, and routing authority should remain in the backend runtime
-- Prefer the next post-M7 milestone sequence to stay narrow and layered: M8 formal terminal edge first, M9 cloud-model agent baseline second, M10 grounding and memory third, M11 terminal/CLI interaction maturity fourth, M12 policy learning/review fifth, and bounded-growth hardening later at M14
+- Prefer the next post-M7 milestone sequence to stay narrow and layered: M8 formal terminal edge first, M9 cloud-model agent baseline second, M10 grounding and memory third, M11 terminal/CLI interaction maturity fourth, M12 prompt/context engineering fifth, M13 policy learning/review sixth, and bounded-growth hardening later at M15
 - Prefer cloud-model proposal and reply generation to stay behind a provider boundary inside `Agent Runtime`, with explicit presence governance and normal edge routing still deciding whether and where anything surfaces
 - Prefer a hybrid model-provider architecture for `M9`: keep a shared provider registry, model catalog, and runtime-facing profile-selection layer, while implementing only the `openai_compatible` adapter branch in the first accepted slice
 - Prefer runtime call sites to select named model profiles rather than hard-coding provider/model pairs directly in business logic, so later provider swaps and model-routing changes stay configuration-driven
@@ -1005,7 +1006,7 @@ Current M3 slice direction:
 
 Current phase:
 
-- Post-M8 architecture expansion is now focused on M9 cloud-model-backed agent baseline, M10 grounding/memory, and then a dedicated M11 terminal/CLI interaction maturity pass before policy learning/review and broader multi-edge expansion, while bounded-growth and storage-hygiene hardening is intentionally deferred to M14
+- Post-M8 architecture expansion is now focused on M9 cloud-model-backed agent baseline, M10 grounding/memory, and then a dedicated M11 terminal/CLI interaction maturity pass plus explicit M12 prompt/context engineering before policy learning/review and broader multi-edge expansion, while bounded-growth and storage-hygiene hardening is intentionally deferred to M15
 
 Current progress summary:
 
@@ -1142,8 +1143,8 @@ Current progress summary:
 - The host-edge daemon verification surface now includes an explicit bounded `max_action_requests` control so local readiness runs can exit after handling the intended number of action requests rather than relying only on idle-time timing
 - Refreshed M7 verification evidence now passed across both targeted automated suites and a bounded real `bin/verify-host-edge` run: the repository can now gate stronger “implemented and ready to run” claims on both the direct-action host-control path and the normal runtime-initiative host-control path, each validated against a separate real host-edge daemon
 - We now consider M7 complete: host-edge-path operational-readiness verification is no longer only a documentation rule, but a concrete bounded acceptance gate with real runtime, host-daemon, websocket, persisted-state, and dual-path action evidence
-- We now reorder the post-M7 roadmap so storage hardening is no longer the immediate next step: M8 formal terminal edge, M9 cloud-model-backed agent baseline, M10 model grounding/runtime memory, M11 terminal/CLI interaction maturity, M12 policy learning/review, M13 multi-edge interaction expansion, and M14 bounded-growth/storage-hygiene hardening
-- We now intentionally defer bounded-growth and storage-hygiene hardening to M14, after the first formal terminal/model interaction surfaces have been validated more concretely
+- We now reorder the post-M7 roadmap so storage hardening is no longer the immediate next step: M8 formal terminal edge, M9 cloud-model-backed agent baseline, M10 model grounding/runtime memory, M11 terminal/CLI interaction maturity, M12 prompt/context engineering, M13 policy learning/review, M14 multi-edge interaction expansion, and M15 bounded-growth/storage-hygiene hardening
+- We now intentionally defer bounded-growth and storage-hygiene hardening to M15, after the first formal terminal/model interaction surfaces plus explicit prompt/context engineering have been validated more concretely
 - We now prefer the desktop/CLI edge to evolve from a verification harness into the first formal long-running terminal `Device Edge` for product-facing interaction
 - We now explicitly treat terminal interaction as ordinary environment sensing plus runtime action on a `Device Edge`, not as a special chat-centered system mode
 - We now want the first formal terminal edge to support both user-initiated pull requests and presence-gated runtime-initiated push interactions on the same normal runtime chain
@@ -1156,7 +1157,8 @@ Current progress summary:
 - We now prefer `M9` runtime call sites to select named model profiles instead of hard-coded provider/model pairs, while the first accepted implementation remains limited to the `openai_compatible` adapter path
 - We now explicitly defer broad provider/model strategy routing until after the first grounded model stage, so `M9` can focus on a mature configuration boundary without prematurely mixing in `M10` grounding or later policy work
 - We now want the first model-backed stage after that to focus on grounding rather than only provider wiring, so runtime memory, snapshot context, goals, and bounded edge evidence meaningfully shape model behavior
-- We now want policy learning and review to remain its own later milestone after model grounding, rather than being hidden inside the first provider-integration batch
+- We now want prompt/context engineering to become its own explicit milestone after terminal/CLI maturity, so grounded runtime-native state can be turned into a durable and inspectable agent behavior contract instead of remaining as thin prompt wiring
+- We now want policy learning and review to remain its own later milestone after prompt/context engineering, rather than being hidden inside the first provider-integration batch
 - We now have the first working `M9` provider/configuration implementation slice: runtime model config is split into provider, model, and profile layers; the first accepted adapter path is `openai_compatible`; normal text replies now carry inspectable provider/profile/fallback metadata through the existing proposal and chain-inspection surfaces
 - The repository now includes a tracked default `config/llm-config.toml` plus optional local `.runtime/llm-config.toml` override behavior, targeted provider-unit coverage, gateway coverage, and human-readable local inspection guidance for the first `M9` profile-driven text-reply path
 - We now have a verified real-provider `M9` acceptance result for the current CRS path: the runtime's `openai_compatible` adapter sends an explicit `User-Agent`, which avoids the CRS gateway's Cloudflare `1010` block and restores successful `/responses` calls on the existing `https://api-cf.cubence.com/v1` provider base URL
