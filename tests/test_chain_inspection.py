@@ -11,6 +11,21 @@ TEST_LLM_CONFIG = ROOT / "tests" / "fixtures" / "llm-config-test.toml"
 
 
 class ChainInspectionTests(unittest.TestCase):
+    def test_terminal_daemon_parser_still_accepts_runtime_url_and_device_id(self) -> None:
+        parser = build_terminal_daemon_parser()
+
+        args = parser.parse_args(
+            [
+                "--url",
+                "ws://127.0.0.1:8765",
+                "--device-id",
+                "terminal-edge-custom",
+            ]
+        )
+
+        self.assertEqual(args.url, "ws://127.0.0.1:8765")
+        self.assertEqual(args.device_id, "terminal-edge-custom")
+
     def test_inspect_cli_once_returns_structured_chain_report(self) -> None:
         report = inspect_cli_once("hello runtime", config_path=TEST_LLM_CONFIG)
 
@@ -125,18 +140,3 @@ class ChainInspectionTests(unittest.TestCase):
         self.assertIn("Proposal:", result.stdout)
         self.assertIn('"source": "agent_initiative"', result.stdout)
         self.assertIn("Action Result:", result.stdout)
-
-    def test_terminal_daemon_parser_accepts_runtime_url_and_device_id(self) -> None:
-        parser = build_terminal_daemon_parser()
-
-        args = parser.parse_args(
-            [
-                "--url",
-                "ws://127.0.0.1:8765",
-                "--device-id",
-                "terminal-edge-custom",
-            ]
-        )
-
-        self.assertEqual(args.url, "ws://127.0.0.1:8765")
-        self.assertEqual(args.device_id, "terminal-edge-custom")

@@ -46,6 +46,38 @@ class RoundtripTests(unittest.IsolatedAsyncioTestCase):
 
 
 class CliEntryTests(unittest.TestCase):
+    def test_terminal_daemon_tracks_recent_transcript_for_runtime_and_user_lines(self) -> None:
+        stdout = io.StringIO()
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=stdout,
+        )
+
+        daemon.render_status_line("Connected to runtime.")
+        daemon.render_user_line("hello runtime")
+        daemon.handle_action_request(
+            {
+                "type": "action_request",
+                "device_id": "terminal-edge-1",
+                "action": {
+                    "capability": "notification.show",
+                    "payload": {"message": "Runtime heard: hello runtime"},
+                },
+            }
+        )
+
+        self.assertEqual(
+            list(daemon.transcript),
+            [
+                "[system] Connected to runtime.",
+                "[user] hello runtime",
+                "[runtime] Runtime heard: hello runtime",
+            ],
+        )
+        self.assertEqual(daemon.user_request_count, 0)
+        self.assertEqual(daemon.runtime_message_count, 1)
+
     def test_run_cli_once_returns_ok_action_result(self) -> None:
         result = run_cli_once("hello runtime", config_path=TEST_LLM_CONFIG)
 

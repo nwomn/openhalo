@@ -40,6 +40,36 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("bin/verify-host-edge", contents)
         self.assertIn("stdin", contents)
         self.assertIn("live terminal session", contents)
+        self.assertIn("/help", contents)
+        self.assertIn("/status", contents)
+        self.assertIn("/history", contents)
+        self.assertIn("/quit", contents)
+        self.assertIn("Session status", contents)
+        self.assertIn("--tui", contents)
+        self.assertIn("Textual", contents)
+        self.assertIn("full-screen", contents)
+        self.assertIn("status bar", contents)
+        self.assertIn("transcript", contents)
+        self.assertIn("input box", contents)
+        self.assertIn("fallback", contents)
+        self.assertIn("docs/terminal-tui.md", contents)
+
+    def test_terminal_tui_guide_exists_and_describes_layout_controls_and_limits(self) -> None:
+        document_path = ROOT / "docs" / "terminal-tui.md"
+
+        self.assertTrue(document_path.exists())
+        contents = document_path.read_text(encoding="utf-8")
+        self.assertIn("Textual UI mode", contents)
+        self.assertIn("--tui", contents)
+        self.assertIn("status bar", contents)
+        self.assertIn("transcript pane", contents)
+        self.assertIn("input box", contents)
+        self.assertIn("/help", contents)
+        self.assertIn("/status", contents)
+        self.assertIn("/history", contents)
+        self.assertIn("/quit", contents)
+        self.assertIn("Ctrl+C", contents)
+        self.assertIn("Current Limits", contents)
 
     def test_shared_test_script_runs_using_root_venv(self) -> None:
         script_path = ROOT / "bin" / "test"
@@ -115,6 +145,9 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("device_edge.cli.terminal_daemon", contents)
         self.assertIn("terminal.context", contents)
         self.assertIn("notification.show", contents)
+        self.assertIn("terminal-local-help", contents)
+        self.assertIn("delivered_via", contents)
+        self.assertNotIn("Runtime heard: ${SCRIPTED_TEXT}", contents)
         self.assertIn(".runtime", contents)
 
     def test_terminal_edge_verification_script_supports_dry_run(self) -> None:
@@ -131,6 +164,7 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("personal_runtime.main", result.stdout)
         self.assertIn("device_edge.cli.terminal_daemon", result.stdout)
         self.assertIn("terminal-pull", result.stdout)
+        self.assertIn("terminal-local-help", result.stdout)
         self.assertIn("runtime-push-active", result.stdout)
         self.assertIn("runtime-push-idle", result.stdout)
         self.assertIn("state-check", result.stdout)
