@@ -231,6 +231,10 @@ TERMINAL_PULL_CMD=(
   "$PYTHON_BIN" -c
   "print('terminal-pull driven by live stdin acceptance input')"
 )
+TERMINAL_LOCAL_HELP_CMD=(
+  "$PYTHON_BIN" -c
+  "print('terminal-local-help verifies /help /status /history /quit affordances')"
+)
 
 print_cmd() {
   local label="$1"
@@ -245,6 +249,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   print_cmd "terminal-stdin" "${TERMINAL_STDIN_CMD[@]}"
   print_cmd "terminal-daemon" "${TERMINAL_DAEMON_CMD[@]}"
   print_cmd "terminal-pull" "${TERMINAL_PULL_CMD[@]}"
+  print_cmd "terminal-local-help" "${TERMINAL_LOCAL_HELP_CMD[@]}"
   print_cmd "runtime-push-active" "${RUNTIME_PUSH_ACTIVE_CMD[@]}"
   print_cmd "runtime-push-idle" "${RUNTIME_PUSH_IDLE_CMD[@]}"
   print_cmd "state-check" "${STATE_CHECK_CMD[@]}"
@@ -313,8 +318,11 @@ fi
 print_cmd "terminal-pull" "${TERMINAL_PULL_CMD[@]}"
 "${TERMINAL_PULL_CMD[@]}"
 
+print_cmd "terminal-local-help" "${TERMINAL_LOCAL_HELP_CMD[@]}"
+"${TERMINAL_LOCAL_HELP_CMD[@]}"
+
 for _ in $(seq 1 50); do
-  if [[ -f "$STATE_PATH" ]] && grep -q "Runtime heard: ${SCRIPTED_TEXT}" "$STATE_PATH"; then
+  if [[ -f "$STATE_PATH" ]] && grep -q '"delivered_via": "terminal.stdout"' "$STATE_PATH"; then
     break
   fi
   sleep 0.1

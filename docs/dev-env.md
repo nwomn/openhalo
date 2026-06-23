@@ -143,6 +143,24 @@ The terminal-edge verification path is intended to prove three user-facing termi
 
 Use `bin/verify-terminal-edge --dry-run` first when you want to inspect the exact runtime, terminal-daemon, push, and state-check commands without starting the acceptance run.
 
+The current `M11` terminal/CLI maturity pass adds a thin edge-local UX layer on top of that same runtime path. The resident terminal daemon now keeps a bounded readable session transcript, prints explicit system/runtime/user line prefixes, and exposes a small local command set for human-friendly control without inventing a second backend path.
+
+The first local command affordances are:
+
+- `/help`
+- `/status`
+- `/history`
+- `/quit`
+
+Use them only for edge-local ergonomics:
+
+- `/help` prints the available local commands
+- `/status` prints a readable `Session status` line with connection, activity, counts, and pending-reply visibility
+- `/history` prints the bounded recent session transcript
+- `/quit` exits the resident terminal session cleanly
+
+Those commands must stay local to the terminal edge. They should not be forwarded as normal `text.input` runtime events.
+
 For a true live terminal session, start the runtime first and then run the resident terminal daemon in the foreground. In that mode the daemon keeps one websocket edge session open, reads user requests from `stdin`, emits fresh `terminal.activity_state` observations on the normal runtime path, and still handles runtime-pushed `notification.show` actions in the same session.
 
 Preferred command shape:
@@ -151,6 +169,22 @@ Preferred command shape:
 python -m personal_runtime.main --host 127.0.0.1 --port 8765 --token dev-token
 ```
 
+Preferred full-screen TUI mode:
+
+```bash
+python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token --tui
+```
+
+The new `--tui` mode uses a Textual full-screen UI as the preferred resident terminal surface. The first MVP intentionally keeps the same daemon/runtime protocol path while replacing the plain log stream with a fixed layout:
+
+- a top status bar that remains visible while the session runs
+- a scrollable transcript pane for `[system]`, `[user]`, and `[runtime]` lines
+- a bottom input box for normal user text and local slash commands
+
+See `docs/terminal-tui.md` for the dedicated TUI guide covering layout, status-bar semantics, local commands, exit behavior, and current limits.
+
+Use the older non-TUI foreground command as the compatibility fallback when you need a plain line-oriented terminal session or when diagnosing UI-specific problems:
+
 ```bash
 python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token
 ```
@@ -158,5 +192,22 @@ python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-
 Type a line and press Enter to send a normal `text.input` event. Leave the terminal idle to let the daemon emit an idle observation. The bounded `bin/verify-terminal-edge` flow remains the preferred acceptance script when you want a repeatable proof run instead of manual `stdin` interaction.
 
 For manual live-terminal acceptance, repeated explicit user input should continue to receive repeated replies in the same resident session. The current presence cooldown is intended to suppress repeated runtime-initiated user-facing interruption, not to suppress a user's own back-to-back terminal requests.
+
+For the first manual `M11` acceptance pass, confirm all of these in one foreground session:
+
+- startup prints readable `[system]` status lines instead of silent blocking
+- typing normal text still produces normal runtime replies
+- typing `/help` prints local command guidance without creating a runtime request
+- typing `/status` prints a readable `Session status` line
+- typing `/history` prints recent `[system]`, `[user]`, and `[runtime]` lines
+- typing `/quit` exits the terminal edge cleanly
+
+For the first manual full-screen Textual acceptance pass, confirm all of these in one `--tui` session:
+
+- the app opens in a full-screen terminal layout instead of scrolling plain startup logs
+- the status bar stays visible while connection, activity, and pending-reply state change
+- the transcript pane grows without overwriting the input box
+- the input box accepts both normal text and local slash commands
+- `/quit` closes the session cleanly and exits the TUI without reconnect looping
 
 For the current live-terminal baseline, a single `Ctrl+C` in the foreground terminal-daemon session should now terminate the CLI device cleanly during normal TTY use. If manual acceptance still requires repeated interrupt signals, treat that as a terminal-edge interaction regression rather than expected behavior.

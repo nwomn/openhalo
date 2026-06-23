@@ -247,7 +247,7 @@ Acceptance criteria:
 
 Status:
 
-- In progress (`M7`, `M8`, `M9`, and `M10` completed and accepted; active execution focus now moves to `M11` terminal/CLI interaction maturity and then explicit `M12` prompt/context engineering before policy learning and broader multi-edge expansion, with storage hardening deferred to `M15`)
+- In progress (`M7`, `M8`, `M9`, `M10`, and `M11` completed and accepted; active execution focus now moves to `M12` prompt/context engineering and then explicit `M13` policy learning/review before broader multi-edge expansion, with storage hardening deferred to `M15`)
 
 ## Completed Sub-goals
 
@@ -905,6 +905,29 @@ Status:
 
 - Completed
 
+### Completed: M11 terminal/CLI interaction maturity acceptance
+
+Result:
+
+- The first resident terminal edge now has a thin but human-usable edge-local UX layer on top of the unchanged normal runtime chain, including readable `[system]`, `[user]`, and `[runtime]` session rendering instead of raw undifferentiated stdout output
+- The preferred foreground terminal surface now also includes a first full-screen Textual `--tui` mode with a fixed status bar, scrollable transcript pane, and dedicated input box, while keeping the earlier line-oriented daemon path as a compatibility fallback on the same terminal-edge/runtime session chain
+- The terminal daemon now keeps a bounded readable local transcript plus explicit session counters and visibility state, so a foreground terminal user can inspect recent interaction flow and current edge state without digging into backend state files
+- The first local command affordances are now implemented directly on the terminal edge as edge-local ergonomics rather than backend special cases: `/help`, `/status`, `/history`, and `/quit` stay local to the edge and do not become normal `text.input` runtime traffic
+- Resident terminal behavior remains compatible with the accepted presence-governed runtime architecture: normal user text still flows through the usual `Gateway -> State / Context -> Agent Runtime -> Presence Router -> Action Layer` path, while runtime push still depends on terminal activity evidence and explicit terminal target locking
+- The bounded acceptance path now covers both the earlier M8 terminal behaviors and the new M11 CLI maturity affordances: `bin/verify-terminal-edge --dry-run` exposes the local command verification intent, and the real `bin/verify-terminal-edge` run now verifies one pull interaction, one active terminal push allow, one idle terminal push suppress, and persisted terminal-delivery evidence without depending on a provider-specific reply string
+- The repository now has targeted automated coverage for local terminal command handling, readable session status/history output, runtime message rendering, resident-session behavior after live stdin EOF, and the updated terminal-edge verification/documentation surface
+
+Acceptance criteria:
+
+- The resident terminal edge exposes materially better session readability and human-usable local CLI affordances without introducing a backend-side chat exception path
+- Local terminal commands stay edge-local and do not silently mutate the normal runtime protocol path
+- Runtime-delivered terminal output remains presence-governed and verifiable on the real runtime chain rather than being faked through local-only shortcuts
+- The milestone is covered by targeted automated tests plus a bounded real `bin/verify-terminal-edge` acceptance run
+
+Status:
+
+- Completed
+
 ## Open Questions
 
 - Which device surfaces should be the first non-CLI surfaces for presence-first experiments?
@@ -1006,7 +1029,7 @@ Current M3 slice direction:
 
 Current phase:
 
-- Post-M8 architecture expansion is now focused on M9 cloud-model-backed agent baseline, M10 grounding/memory, and then a dedicated M11 terminal/CLI interaction maturity pass plus explicit M12 prompt/context engineering before policy learning/review and broader multi-edge expansion, while bounded-growth and storage-hygiene hardening is intentionally deferred to M15
+- Post-M11 architecture expansion is now focused on explicit M12 prompt/context engineering and then M13 policy learning/review before broader multi-edge expansion, while bounded-growth and storage-hygiene hardening remains intentionally deferred to M15
 
 Current progress summary:
 
@@ -1163,6 +1186,8 @@ Current progress summary:
 - The repository now includes a tracked default `config/llm-config.toml` plus optional local `.runtime/llm-config.toml` override behavior, targeted provider-unit coverage, gateway coverage, and human-readable local inspection guidance for the first `M9` profile-driven text-reply path
 - We now have a verified real-provider `M9` acceptance result for the current CRS path: the runtime's `openai_compatible` adapter sends an explicit `User-Agent`, which avoids the CRS gateway's Cloudflare `1010` block and restores successful `/responses` calls on the existing `https://api-cf.cubence.com/v1` provider base URL
 - Local runtime and CLI regression tests are now isolated from machine-local `.runtime/llm-config.toml` overrides through explicit test config injection, so automated suites stay deterministic while manual acceptance can continue using a real local provider override
+- We now consider M11 complete: the resident terminal edge has moved beyond the minimal M8 daemon baseline into a more human-usable CLI surface with readable session rendering, bounded local transcript/history, explicit `/help` `/status` `/history` `/quit` edge-local affordances, and a refreshed `bin/verify-terminal-edge` acceptance path that still validates the real presence-governed runtime chain
+- The M11 terminal acceptance script no longer assumes a deterministic provider reply string for its pull-stage readiness check; it now waits on persisted terminal delivery evidence, which keeps the acceptance path valid across both local fallback and real model-backed reply variants
 - We have our own tested minimal protocol, edge session client, and gateway baseline, reducing the value of deeper OpenClaw gateway extraction work
 - We may still borrow ideas from OpenClaw protocol/client layers later, but that is now optional follow-on work rather than an open prerequisite
 

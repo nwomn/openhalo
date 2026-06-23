@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from collections import deque
 import json
 import os
 import sys
@@ -19,6 +20,8 @@ from device_edge.shared.session_client import SessionClient
 
 
 class TerminalEdgeDaemon:
+    transcript_limit = 12
+
     def __init__(
         self,
         device_id: str,
@@ -32,6 +35,14 @@ class TerminalEdgeDaemon:
         self.input_stream = input_stream or sys.stdin
         self.timestamp_provider = timestamp_provider or self._default_timestamp_provider
         self.stdin_observed_at = stdin_observed_at
+        self.connection_state = "disconnected"
+        self.terminal_activity_state = "unknown"
+        self.pending_runtime_reply = False
+        self.user_request_count = 0
+        self.runtime_message_count = 0
+        self.local_command_count = 0
+        self.quit_requested = False
+        self.transcript = deque(maxlen=self.transcript_limit)
         self.client = SessionClient(
             device_id=device_id,
             device_type="desktop-cli",
@@ -90,6 +101,72 @@ class TerminalEdgeDaemon:
             return explicit_observed_at
         return self.timestamp_provider()
 
+    def _append_transcript(self, prefix: str, message: str) -> None:
+        self.transcript.append(f"[{prefix}] {message}")
+
+    def _write_line(self, prefix: str, message: str) -> None:
+        line = f"[{prefix}] {message}"
+        print(line, file=self.output_stream)
+        self.transcript.append(line)
+
+    def render_status_line(self, message: str) -> None:
+        self._write_line("system", message)
+
+    def render_user_line(self, text: str) -> None:
+        self._write_line("user", text)
+
+    def render_runtime_line(self, message: str) -> None:
+        self._write_line("runtime", message)
+
+    def render_help(self) -> None:
+        self.render_status_line(
+            "Available local commands: /help /status /history /quit"
+        )
+
+    def render_status_summary(self) -> None:
+        pending_flag = "yes" if self.pending_runtime_reply else "no"
+        self.render_status_line(
+            "Session status: "
+            f"connection={self.connection_state} "
+            f"activity={self.terminal_activity_state} "
+            f"user_requests={self.user_request_count} "
+            f"runtime_messages={self.runtime_message_count} "
+            f"local_commands={self.local_command_count} "
+            f"pending_runtime_reply={pending_flag}"
+        )
+
+    def render_history(self) -> None:
+        self.render_status_line("Recent session history:")
+        if not self.transcript:
+            self.render_status_line("(empty)")
+            return
+        for line in self.transcript:
+            print(line, file=self.output_stream)
+
+    def handle_local_input(self, text: str) -> bool:
+        normalized_text = text.strip()
+        if not normalized_text.startswith("/"):
+            return False
+
+        self.local_command_count += 1
+        if normalized_text == "/help":
+            self.render_help()
+            return True
+        if normalized_text == "/status":
+            self.render_status_summary()
+            return True
+        if normalized_text == "/history":
+            self.render_history()
+            return True
+        if normalized_text == "/quit":
+            self.quit_requested = True
+            self.render_status_line("Shutting down terminal session.")
+            return True
+
+        self.render_status_line(f"Unknown local command: {normalized_text}")
+        self.render_help()
+        return True
+
     async def _read_live_input_line(self) -> str | None:
         loop = asyncio.get_running_loop()
         fileno = None
@@ -99,7 +176,10 @@ class TerminalEdgeDaemon:
             fileno = None
 
         if fileno is None:
-            line = await loop.run_in_executor(None, self.input_stream.readline)
+            if isinstance(self.input_stream, io.StringIO):
+                line = self.input_stream.readline()
+            else:
+                line = await loop.run_in_executor(None, self.input_stream.readline)
             if line == "":
                 return None
             return line
@@ -136,7 +216,12 @@ class TerminalEdgeDaemon:
         normalized_text = text.strip()
         if not normalized_text:
             return False
+        if self.handle_local_input(normalized_text):
+            return False
         event_timestamp = self._next_observed_at(observed_at)
+        self.user_request_count += 1
+        self.pending_runtime_reply = True
+        self.render_user_line(normalized_text)
         for frame in self.build_user_input_frames(
             text=normalized_text,
             observed_at=event_timestamp,
@@ -150,6 +235,7 @@ class TerminalEdgeDaemon:
                     pending_frames,
                     expected_type="event_ack",
                 )
+        self.terminal_activity_state = "active"
         return True
 
     async def _drain_live_input(self, websocket) -> bool:
@@ -177,11 +263,19 @@ class TerminalEdgeDaemon:
             pending_frames.append(frame)
 
     def handle_action_request(self, frame: dict) -> dict:
+        self.runtime_message_count += 1
+        self.pending_runtime_reply = False
         result = execute_action(
             frame["action"],
             output_stream=self.output_stream,
             delivered_via="terminal.stdout",
+            message_prefix="[runtime] ",
         )
+        if result["status"] == "ok":
+            self._append_transcript(
+                "runtime",
+                frame["action"]["payload"]["message"],
+            )
         return {
             "type": "action_result",
             "device_id": self.client.device_id,
@@ -217,6 +311,10 @@ class TerminalEdgeDaemon:
             for frame in self.build_bootstrap_frames():
                 await self._send_frame(websocket, frame)
             await self._recv_frame(websocket)
+            self.connection_state = "connected"
+            self.render_status_line(
+                f"Connected to runtime as {self.client.device_id}."
+            )
 
             startup_timestamp = self._next_observed_at(startup_observed_at)
             await self._send_frame(
@@ -228,6 +326,8 @@ class TerminalEdgeDaemon:
             )
             await self._recv_frame(websocket)
             terminal_activity_state = "active"
+            self.terminal_activity_state = "active"
+            self.render_status_line("Session ready. Terminal marked active.")
 
             for scripted_input in scripted_inputs:
                 input_sent = await self._send_user_input(
@@ -238,9 +338,12 @@ class TerminalEdgeDaemon:
                 )
                 if input_sent:
                     terminal_activity_state = "active"
+                    self.terminal_activity_state = "active"
 
             if idle_after_inputs:
                 while max_action_requests is None or len(results) < max_action_requests:
+                    if self.quit_requested:
+                        break
                     recv_task = asyncio.create_task(self._recv_frame(websocket))
                     if live_input_open and live_input_task is None:
                         live_input_task = asyncio.create_task(
@@ -292,10 +395,36 @@ class TerminalEdgeDaemon:
                                 raise
                             return results
                         terminal_activity_state = "idle"
+                        self.terminal_activity_state = "idle"
+                        self.render_status_line("Terminal idle.")
                         idle_cycles += 1
                         if max_idle_cycles is not None and idle_cycles >= max_idle_cycles:
                             return results
                         continue
+
+                    recv_closed = False
+                    if recv_task in done:
+                        try:
+                            frame = recv_task.result()
+                        except RuntimeError as exc:
+                            if "StopIteration" not in str(exc):
+                                raise
+                            recv_closed = True
+                        else:
+                            pending_frames.append(frame)
+
+                    if recv_closed:
+                        if live_input_task is not None and live_input_task.done():
+                            line = live_input_task.result()
+                            live_input_task = None
+                            if line is None:
+                                live_input_open = False
+                            elif self.handle_local_input(line):
+                                live_input_open = True
+                                if self.quit_requested:
+                                    break
+                                continue
+                        break
 
                     if live_input_task is not None and live_input_task in done:
                         line = live_input_task.result()
@@ -313,16 +442,10 @@ class TerminalEdgeDaemon:
                             )
                             if input_sent:
                                 terminal_activity_state = "active"
+                                self.terminal_activity_state = "active"
                                 idle_cycles = 0
-
-                    if recv_task in done:
-                        try:
-                            frame = recv_task.result()
-                        except RuntimeError as exc:
-                            if "StopIteration" not in str(exc):
-                                raise
-                            break
-                        pending_frames.append(frame)
+                            if self.quit_requested:
+                                break
 
                     action_frame = next(
                         (
@@ -339,10 +462,13 @@ class TerminalEdgeDaemon:
                     results.append(result)
                     await self._send_frame(websocket, result)
         finally:
+            self.connection_state = "disconnected"
             if live_input_task is not None and not live_input_task.done():
                 live_input_task.cancel()
                 with suppress(asyncio.CancelledError):
                     await live_input_task
+            if self.quit_requested:
+                self.render_status_line("Terminal session closed.")
 
         return results
 
@@ -360,6 +486,8 @@ class TerminalEdgeDaemon:
     ) -> None:
         session_count = 0
         while max_sessions is None or session_count < max_sessions:
+            if self.quit_requested:
+                break
             async with websockets.connect(url) as websocket:
                 await self.run_scripted_session(
                     websocket=websocket,
@@ -373,6 +501,8 @@ class TerminalEdgeDaemon:
                     enable_live_input=enable_live_input,
                 )
             session_count += 1
+            if self.quit_requested:
+                break
 
 
 def build_terminal_daemon_parser() -> argparse.ArgumentParser:
@@ -417,17 +547,17 @@ def build_terminal_daemon_parser() -> argparse.ArgumentParser:
         "--stdin-observed-at",
         help="Optional fixed timestamp for the first live stdin input event.",
     )
+    parser.add_argument(
+        "--tui",
+        action="store_true",
+        help="Run the resident terminal edge in full-screen Textual UI mode.",
+    )
     return parser
 
 
 def main() -> None:
     parser = build_terminal_daemon_parser()
     args = parser.parse_args()
-    daemon = TerminalEdgeDaemon(
-        device_id=args.device_id,
-        token=args.token,
-        stdin_observed_at=args.stdin_observed_at,
-    )
     scripted_inputs = []
     scripted_text = os.environ.get("TERMINAL_EDGE_SCRIPTED_TEXT")
     scripted_observed_at = os.environ.get("TERMINAL_EDGE_SCRIPTED_OBSERVED_AT")
@@ -438,6 +568,28 @@ def main() -> None:
                 "observed_at": scripted_observed_at,
             }
         )
+    if args.tui:
+        from device_edge.cli.terminal_tui import run_textual_terminal_daemon
+
+        run_textual_terminal_daemon(
+            url=args.url,
+            token=args.token,
+            device_id=args.device_id,
+            startup_observed_at=args.startup_observed_at,
+            idle_timeout_s=args.idle_timeout,
+            idle_observed_at=args.idle_observed_at,
+            max_idle_cycles=args.max_idle_cycles,
+            max_action_requests=args.max_action_requests,
+            max_sessions=args.max_sessions,
+            stdin_observed_at=args.stdin_observed_at,
+            scripted_inputs=scripted_inputs,
+        )
+        return
+    daemon = TerminalEdgeDaemon(
+        device_id=args.device_id,
+        token=args.token,
+        stdin_observed_at=args.stdin_observed_at,
+    )
     asyncio.run(
         daemon.run_forever(
             url=args.url,

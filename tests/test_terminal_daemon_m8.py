@@ -1,13 +1,149 @@
 import asyncio
+from collections import deque
+from contextlib import suppress
 import io
 import json
+from pathlib import Path
+import queue
+import tomllib
 import unittest
+from unittest import mock
+
+import websockets
+from textual.widgets import Input
+from textual.widgets import RichLog
+from textual.widgets import Static
 
 from device_edge.cli.terminal_daemon import TerminalEdgeDaemon
 from device_edge.cli.terminal_daemon import build_terminal_daemon_parser
+from device_edge.cli.terminal_daemon import main
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class TerminalEdgeDaemonTests(unittest.TestCase):
+    def test_local_help_command_is_handled_without_runtime_event(self) -> None:
+        stdout = io.StringIO()
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=stdout,
+        )
+
+        handled = daemon.handle_local_input("/help")
+
+        self.assertTrue(handled)
+        self.assertIn("/help", stdout.getvalue())
+        self.assertIn("/status", stdout.getvalue())
+        self.assertEqual(daemon.local_command_count, 1)
+        self.assertEqual(daemon.user_request_count, 0)
+
+    def test_local_status_command_renders_readable_session_summary(self) -> None:
+        stdout = io.StringIO()
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=stdout,
+        )
+        daemon.connection_state = "connected"
+        daemon.terminal_activity_state = "active"
+        daemon.user_request_count = 2
+        daemon.runtime_message_count = 1
+        daemon.local_command_count = 1
+        daemon.pending_runtime_reply = True
+
+        handled = daemon.handle_local_input("/status")
+
+        self.assertTrue(handled)
+        rendered = stdout.getvalue()
+        self.assertIn("Session status", rendered)
+        self.assertIn("connection=connected", rendered)
+        self.assertIn("activity=active", rendered)
+        self.assertIn("user_requests=2", rendered)
+        self.assertIn("runtime_messages=1", rendered)
+        self.assertIn("pending_runtime_reply=yes", rendered)
+
+    def test_local_history_command_renders_recent_transcript(self) -> None:
+        stdout = io.StringIO()
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=stdout,
+        )
+        daemon.transcript.extend(
+            deque(
+                [
+                    "[system] Session ready.",
+                    "[user] hello runtime",
+                    "[runtime] Runtime heard: hello runtime",
+                ],
+                maxlen=daemon.transcript_limit,
+            )
+        )
+
+        handled = daemon.handle_local_input("/history")
+
+        self.assertTrue(handled)
+        rendered = stdout.getvalue()
+        self.assertIn("Recent session history", rendered)
+        self.assertIn("[user] hello runtime", rendered)
+        self.assertIn("[runtime] Runtime heard: hello runtime", rendered)
+
+    def test_local_quit_command_marks_daemon_for_clean_exit(self) -> None:
+        stdout = io.StringIO()
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=stdout,
+        )
+
+        handled = daemon.handle_local_input("/quit")
+
+        self.assertTrue(handled)
+        self.assertTrue(daemon.quit_requested)
+        self.assertIn("Shutting down terminal session", stdout.getvalue())
+
+    def test_render_runtime_action_uses_readable_terminal_prefix(self) -> None:
+        stdout = io.StringIO()
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=stdout,
+        )
+
+        result = daemon.handle_action_request(
+            {
+                "type": "action_request",
+                "device_id": "terminal-edge-1",
+                "action": {
+                    "capability": "notification.show",
+                    "payload": {"message": "runtime push"},
+                },
+            }
+        )
+
+        self.assertEqual(result["result"]["status"], "ok")
+        self.assertIn("[runtime] runtime push", stdout.getvalue())
+        self.assertEqual(daemon.runtime_message_count, 1)
+        self.assertFalse(daemon.pending_runtime_reply)
+
+    def test_render_status_line_records_recent_transcript_entries(self) -> None:
+        stdout = io.StringIO()
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=stdout,
+        )
+
+        daemon.render_status_line("Connected to runtime.")
+        daemon.render_user_line("hello runtime")
+
+        self.assertEqual(
+            list(daemon.transcript),
+            ["[system] Connected to runtime.", "[user] hello runtime"],
+        )
+        self.assertIn("[system] Connected to runtime.", stdout.getvalue())
+
     def test_parser_accepts_optional_live_startup_timestamp_override(self) -> None:
         parser = build_terminal_daemon_parser()
 
@@ -34,6 +170,176 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
         )
 
         self.assertEqual(args.stdin_observed_at, "2026-06-22T10:00:00Z")
+
+    def test_parser_accepts_optional_tui_mode_flag(self) -> None:
+        parser = build_terminal_daemon_parser()
+
+        args = parser.parse_args(
+            [
+                "--url",
+                "ws://127.0.0.1:8765",
+                "--tui",
+            ]
+        )
+
+        self.assertTrue(args.tui)
+
+    def test_parser_defaults_to_line_mode_when_tui_flag_is_omitted(self) -> None:
+        parser = build_terminal_daemon_parser()
+
+        args = parser.parse_args(
+            [
+                "--url",
+                "ws://127.0.0.1:8765",
+            ]
+        )
+
+        self.assertFalse(args.tui)
+
+    def test_project_declares_textual_runtime_dependency_for_tui_mode(self) -> None:
+        payload = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+
+        self.assertIn("textual", payload["project"]["dependencies"])
+
+    def test_queue_input_stream_reads_queued_lines_for_daemon(self) -> None:
+        from device_edge.cli.terminal_tui import QueueLineInput
+
+        line_queue: queue.Queue[str | None] = queue.Queue()
+        stream = QueueLineInput(line_queue)
+
+        line_queue.put("hello runtime")
+        line_queue.put(None)
+
+        self.assertEqual(stream.readline(), "hello runtime\n")
+        self.assertEqual(stream.readline(), "")
+
+    def test_queue_output_stream_emits_completed_transcript_lines(self) -> None:
+        from device_edge.cli.terminal_tui import QueueLineOutput
+
+        line_queue: queue.Queue[str] = queue.Queue()
+        stream = QueueLineOutput(line_queue)
+
+        self.assertEqual(stream.write("[system] Connected"), 18)
+        self.assertTrue(line_queue.empty())
+        self.assertEqual(stream.write("\n[runtime] hello"), 16)
+        self.assertEqual(line_queue.get_nowait(), "[system] Connected")
+        self.assertEqual(stream.write("\n"), 1)
+        self.assertEqual(line_queue.get_nowait(), "[runtime] hello")
+
+    def test_create_textual_terminal_app_uses_queue_backed_daemon_streams(self) -> None:
+        from device_edge.cli.terminal_tui import QueueLineInput
+        from device_edge.cli.terminal_tui import QueueLineOutput
+        from device_edge.cli.terminal_tui import create_textual_terminal_app
+
+        app = create_textual_terminal_app(
+            url="ws://127.0.0.1:8765",
+            token="dev-token",
+            device_id="terminal-edge-1",
+            startup_observed_at=None,
+            idle_timeout_s=30.0,
+            idle_observed_at=None,
+            max_idle_cycles=None,
+            max_action_requests=None,
+            max_sessions=None,
+            stdin_observed_at=None,
+            scripted_inputs=[],
+        )
+
+        self.assertIsInstance(app.daemon.input_stream, QueueLineInput)
+        self.assertIsInstance(app.daemon.output_stream, QueueLineOutput)
+        self.assertIsNotNone(app.start_session)
+
+    def test_main_dispatches_to_textual_mode_when_tui_flag_is_set(self) -> None:
+        with (
+            mock.patch(
+                "sys.argv",
+                [
+                    "terminal_daemon",
+                    "--url",
+                    "ws://127.0.0.1:8765",
+                    "--tui",
+                ],
+            ),
+            mock.patch("asyncio.run") as asyncio_run,
+            mock.patch(
+                "device_edge.cli.terminal_tui.run_textual_terminal_daemon"
+            ) as run_tui,
+        ):
+            main()
+
+        asyncio_run.assert_not_called()
+        run_tui.assert_called_once()
+
+
+class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
+    async def test_textual_terminal_app_exposes_status_transcript_and_input_widgets(
+        self,
+    ) -> None:
+        from device_edge.cli.terminal_tui import TerminalEdgeApp
+
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+        )
+        app = TerminalEdgeApp(
+            daemon=daemon,
+            input_queue=queue.Queue(),
+            transcript_queue=queue.Queue(),
+        )
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            self.assertIsNotNone(app.query_one("#status-bar", Static))
+            self.assertIsNotNone(app.query_one("#transcript-log", RichLog))
+            input_widget = app.query_one("#command-input", Input)
+            self.assertIn("/help", input_widget.placeholder)
+            help_bar = app.query_one("#help-bar", Static)
+            self.assertIn("/quit", str(help_bar.content))
+
+    async def test_textual_terminal_app_renders_live_daemon_status_summary(
+        self,
+    ) -> None:
+        from device_edge.cli.terminal_tui import TerminalEdgeApp
+
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+        )
+        daemon.connection_state = "connected"
+        daemon.terminal_activity_state = "active"
+        daemon.pending_runtime_reply = True
+        app = TerminalEdgeApp(
+            daemon=daemon,
+            input_queue=queue.Queue(),
+            transcript_queue=queue.Queue(),
+        )
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            status_bar = app.query_one("#status-bar", Static)
+            self.assertIn("connection=connected", str(status_bar.content))
+            self.assertIn("state=waiting", str(status_bar.content))
+
+    async def test_textual_terminal_app_drains_transcript_queue_into_log(self) -> None:
+        from device_edge.cli.terminal_tui import TerminalEdgeApp
+
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+        )
+        transcript_queue: queue.Queue[str] = queue.Queue()
+        transcript_queue.put("[system] Connected to runtime.")
+        app = TerminalEdgeApp(
+            daemon=daemon,
+            input_queue=queue.Queue(),
+            transcript_queue=transcript_queue,
+        )
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            await pilot.pause()
+            transcript_log = app.query_one("#transcript-log", RichLog)
+            self.assertGreaterEqual(len(transcript_log.lines), 1)
 
     def test_builds_bootstrap_frames_for_terminal_edge(self) -> None:
         daemon = TerminalEdgeDaemon(
@@ -94,6 +400,87 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
 
 
 class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_run_forever_stops_reconnecting_after_quit_command(self) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+        )
+        session_calls: list[int] = []
+
+        async def fake_run_scripted_session(**kwargs) -> list[dict]:
+            session_calls.append(1)
+            daemon.quit_requested = True
+            return []
+
+        daemon.run_scripted_session = fake_run_scripted_session  # type: ignore[method-assign]
+
+        class FakeConnection:
+            async def __aenter__(self):
+                return object()
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        original_connect = websockets.connect
+        websockets.connect = lambda url: FakeConnection()  # type: ignore[assignment]
+        try:
+            await daemon.run_forever(
+                url="ws://127.0.0.1:8765",
+                max_sessions=5,
+                enable_live_input=True,
+            )
+        finally:
+            websockets.connect = original_connect  # type: ignore[assignment]
+
+        self.assertEqual(len(session_calls), 1)
+
+    async def test_daemon_session_handles_live_help_command_without_runtime_event(
+        self,
+    ) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            input_stream=io.StringIO("/help\n"),
+            output_stream=io.StringIO(),
+            timestamp_provider=lambda: "2026-06-22T10:09:00Z",
+        )
+        sent_frames: list[dict] = []
+
+        class FakeWebSocket:
+            def __init__(self) -> None:
+                self.recv_count = 0
+
+            async def send(self, payload: str) -> None:
+                sent_frames.append(json.loads(payload))
+
+            async def recv(self) -> str:
+                self.recv_count += 1
+                if self.recv_count == 1:
+                    return json.dumps({"type": "connect_ok"})
+                if self.recv_count == 2:
+                    return json.dumps({"type": "event_ack"})
+                raise RuntimeError("StopIteration")
+
+        results = await daemon.run_scripted_session(
+            websocket=FakeWebSocket(),
+            scripted_inputs=[],
+            startup_observed_at=None,
+            idle_after_inputs=True,
+            enable_live_input=True,
+            max_idle_cycles=1,
+            idle_timeout_s=0.01,
+        )
+
+        self.assertEqual(results, [])
+        self.assertEqual(
+            [frame["type"] for frame in sent_frames],
+            ["connect", "capability_announce", "event_push"],
+        )
+        self.assertFalse(
+            any(frame.get("capability") == "text.input" for frame in sent_frames)
+        )
+        self.assertIn("Available local commands", daemon.output_stream.getvalue())
+
     async def test_daemon_session_reads_live_terminal_input_from_stdin(
         self,
     ) -> None:
@@ -241,6 +628,239 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             [frame["payload"]["text"] for frame in text_frames],
             ["hello?", "status?"],
+        )
+
+    async def test_daemon_session_keeps_resident_after_stdin_eof_until_runtime_push_arrives(
+        self,
+    ) -> None:
+        observed_at_values = iter(
+            [
+                "2026-06-22T10:09:00Z",
+                "2026-06-22T10:10:00Z",
+            ]
+        )
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            input_stream=io.StringIO("hello runtime\n"),
+            output_stream=io.StringIO(),
+            timestamp_provider=lambda: next(observed_at_values),
+        )
+        sent_frames: list[dict] = []
+        recv_queue: list[dict] = [
+            {"type": "connect_ok"},
+            {"type": "event_ack"},
+        ]
+
+        class FakeWebSocket:
+            async def send(self, payload: str) -> None:
+                frame = json.loads(payload)
+                sent_frames.append(frame)
+                if frame.get("capability") == "terminal.context":
+                    recv_queue.append({"type": "event_ack"})
+                if frame.get("capability") == "text.input":
+                    recv_queue.append({"type": "event_ack"})
+                    recv_queue.append(
+                        {
+                            "type": "action_request",
+                            "device_id": "terminal-edge-1",
+                            "action": {
+                                "capability": "notification.show",
+                                "payload": {
+                                    "message": "Runtime heard: hello runtime"
+                                },
+                            },
+                        }
+                    )
+
+            async def recv(self) -> str:
+                while not recv_queue:
+                    await asyncio.sleep(0)
+                return json.dumps(recv_queue.pop(0))
+
+        results = await daemon.run_scripted_session(
+            websocket=FakeWebSocket(),
+            scripted_inputs=[],
+            startup_observed_at=None,
+            idle_after_inputs=True,
+            enable_live_input=True,
+            max_action_requests=1,
+        )
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(
+            results[0]["result"]["details"]["message"],
+            "Runtime heard: hello runtime",
+        )
+
+    async def test_daemon_session_keeps_resident_for_runtime_push_after_first_reply(
+        self,
+    ) -> None:
+        observed_at_values = iter(
+            [
+                "2026-06-22T10:09:00Z",
+                "2026-06-22T10:10:00Z",
+            ]
+        )
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            input_stream=io.StringIO("hello runtime\n"),
+            output_stream=io.StringIO(),
+            timestamp_provider=lambda: next(observed_at_values),
+        )
+        sent_frames: list[dict] = []
+        recv_queue: list[dict] = [
+            {"type": "connect_ok"},
+            {"type": "event_ack"},
+        ]
+        injected_runtime_push = False
+
+        class FakeWebSocket:
+            async def send(self, payload: str) -> None:
+                nonlocal injected_runtime_push
+                frame = json.loads(payload)
+                sent_frames.append(frame)
+                if frame.get("capability") == "terminal.context":
+                    recv_queue.append({"type": "event_ack"})
+                if frame.get("capability") == "text.input":
+                    recv_queue.append({"type": "event_ack"})
+                    recv_queue.append(
+                        {
+                            "type": "action_request",
+                            "device_id": "terminal-edge-1",
+                            "action": {
+                                "capability": "notification.show",
+                                "payload": {
+                                    "message": "Runtime heard: hello runtime"
+                                },
+                            },
+                        }
+                    )
+                if (
+                    frame.get("type") == "action_result"
+                    and frame["result"]["details"]["message"]
+                    == "Runtime heard: hello runtime"
+                    and not injected_runtime_push
+                ):
+                    injected_runtime_push = True
+                    recv_queue.append(
+                        {
+                            "type": "action_request",
+                            "device_id": "terminal-edge-1",
+                            "action": {
+                                "capability": "notification.show",
+                                "payload": {"message": "runtime push active"},
+                            },
+                        }
+                    )
+
+            async def recv(self) -> str:
+                while not recv_queue:
+                    await asyncio.sleep(0)
+                return json.dumps(recv_queue.pop(0))
+
+        results = await daemon.run_scripted_session(
+            websocket=FakeWebSocket(),
+            scripted_inputs=[],
+            startup_observed_at=None,
+            idle_after_inputs=True,
+            enable_live_input=True,
+            max_action_requests=2,
+        )
+
+        self.assertEqual(
+            [result["result"]["details"]["message"] for result in results],
+            ["Runtime heard: hello runtime", "runtime push active"],
+        )
+
+    async def test_daemon_session_waits_for_delayed_runtime_push_after_first_reply(
+        self,
+    ) -> None:
+        observed_at_values = iter(
+            [
+                "2026-06-22T10:09:00Z",
+                "2026-06-22T10:10:00Z",
+            ]
+        )
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            input_stream=io.StringIO("hello runtime\n"),
+            output_stream=io.StringIO(),
+            timestamp_provider=lambda: next(observed_at_values),
+        )
+        recv_queue: asyncio.Queue[dict] = asyncio.Queue()
+        await recv_queue.put({"type": "connect_ok"})
+        await recv_queue.put({"type": "event_ack"})
+        first_reply_delivered = asyncio.Event()
+
+        class FakeWebSocket:
+            async def send(self, payload: str) -> None:
+                frame = json.loads(payload)
+                if frame.get("capability") == "terminal.context":
+                    await recv_queue.put({"type": "event_ack"})
+                if frame.get("capability") == "text.input":
+                    await recv_queue.put({"type": "event_ack"})
+                    await recv_queue.put(
+                        {
+                            "type": "action_request",
+                            "device_id": "terminal-edge-1",
+                            "action": {
+                                "capability": "notification.show",
+                                "payload": {
+                                    "message": "Runtime heard: hello runtime"
+                                },
+                            },
+                        }
+                    )
+                if (
+                    frame.get("type") == "action_result"
+                    and frame["result"]["details"]["message"]
+                    == "Runtime heard: hello runtime"
+                ):
+                    first_reply_delivered.set()
+
+            async def recv(self) -> str:
+                frame = await recv_queue.get()
+                return json.dumps(frame)
+
+        async def inject_delayed_push() -> None:
+            await first_reply_delivered.wait()
+            await asyncio.sleep(0.05)
+            await recv_queue.put(
+                {
+                    "type": "action_request",
+                    "device_id": "terminal-edge-1",
+                    "action": {
+                        "capability": "notification.show",
+                        "payload": {"message": "runtime push active"},
+                    },
+                }
+            )
+
+        injector_task = asyncio.create_task(inject_delayed_push())
+        try:
+            results = await asyncio.wait_for(
+                daemon.run_scripted_session(
+                    websocket=FakeWebSocket(),
+                    scripted_inputs=[],
+                    startup_observed_at=None,
+                    idle_after_inputs=True,
+                    enable_live_input=True,
+                    max_action_requests=2,
+                    idle_timeout_s=0.2,
+                ),
+                timeout=1,
+            )
+        finally:
+            injector_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await injector_task
+
+        self.assertEqual(
+            [result["result"]["details"]["message"] for result in results],
+            ["Runtime heard: hello runtime", "runtime push active"],
         )
 
     async def test_daemon_session_sends_scripted_pull_input_and_terminal_activity(

@@ -2,7 +2,7 @@
 name = "personal-runtime-agent"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ["websockets>=12,<16"]
+dependencies = ["websockets>=12,<16", "textual"]
 
 [build-system]
 requires = ["setuptools>=64"]
