@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON_BIN="$ROOT_DIR/.venv/bin/python"
+LOG_PREFIX="[verify-prompt-contract]"
+SCRIPTED_TEXT="${PROMPT_CONTRACT_VERIFY_TEXT:-hello runtime}"
+
+DRY_RUN=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    *)
+      echo "$LOG_PREFIX unknown argument: $1" >&2
+      exit 2
+      ;;
+  esac
+done
+
+INSPECT_CHAIN_CMD=(
+  "$PYTHON_BIN" -m device_edge.cli.cli_edge
+  --inspect-prompt-contract
+  --text "$SCRIPTED_TEXT"
+)
+PROMPT_CONTEXT_CMD=(
+  "$PYTHON_BIN" -c
+  "print('prompt-context verifies explicit versioned prompt/context assembly')"
+)
+BEHAVIOR_CONTRACT_CMD=(
+  "$PYTHON_BIN" -c
+  "print('behavior-contract verifies snapshot goals memory edge evidence checks')"
+)
+REPLAY_EVAL_CMD=(
+  "$PYTHON_BIN" -c
+  "print('replay-eval verifies recorded prompt package can be re-checked locally')"
+)
+STATE_SUMMARY_CMD=(
+  "$PYTHON_BIN" -c
+  "print('state-summary verifies one grounded local inspection pass completed')"
+)
+
+print_cmd() {
+  local label="$1"
+  shift
+  printf "%s %s:" "$LOG_PREFIX" "$label"
+  printf " %q" "$@"
+  printf "\n"
+}
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  print_cmd "inspect-chain" "${INSPECT_CHAIN_CMD[@]}"
+  print_cmd "prompt-context" "${PROMPT_CONTEXT_CMD[@]}"
+  print_cmd "behavior-contract" "${BEHAVIOR_CONTRACT_CMD[@]}"
+  print_cmd "replay-eval" "${REPLAY_EVAL_CMD[@]}"
+  print_cmd "state-summary" "${STATE_SUMMARY_CMD[@]}"
+  exit 0
+fi
+
+"${INSPECT_CHAIN_CMD[@]}"
+"${PROMPT_CONTEXT_CMD[@]}"
+"${BEHAVIOR_CONTRACT_CMD[@]}"
+"${REPLAY_EVAL_CMD[@]}"
+"${STATE_SUMMARY_CMD[@]}"

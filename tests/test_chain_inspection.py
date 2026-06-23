@@ -55,6 +55,13 @@ class ChainInspectionTests(unittest.TestCase):
         self.assertGreaterEqual(
             report["grounding"]["edge_history"]["returned_entries"], 1
         )
+        self.assertIn("prompt_context", report)
+        self.assertIn("version", report["prompt_context"])
+        self.assertIn("sections", report["prompt_context"])
+        self.assertIn("behavior_contract", report)
+        self.assertIn("checks", report["behavior_contract"])
+        self.assertIn("replay_eval", report)
+        self.assertIn("checks", report["replay_eval"])
         self.assertIn(report["presence_decision"]["decision"], {"allow", "suppress"})
 
     def test_formatted_chain_report_contains_major_sections_in_order(self) -> None:
@@ -66,13 +73,17 @@ class ChainInspectionTests(unittest.TestCase):
         self.assertIn("Observations:", rendered)
         self.assertIn("Compact Snapshot:", rendered)
         self.assertIn("Grounding Bundle:", rendered)
+        self.assertIn("Prompt Context:", rendered)
+        self.assertIn("Behavior Contract:", rendered)
         self.assertIn("Snapshot Contract:", rendered)
         self.assertIn("Proposal:", rendered)
         self.assertIn("Presence Decision:", rendered)
         self.assertIn("Recorded Intervention:", rendered)
+        self.assertIn("Replay Eval:", rendered)
         self.assertIn('"llm_profile": "interactive_reply"', rendered)
         self.assertIn('"used_deterministic_fallback": true', rendered)
         self.assertIn('"bundle_version": "m10.v1"', rendered)
+        self.assertIn('"prompt_context_version"', rendered)
         self.assertIn('"history_kind": "observation_window"', rendered)
         self.assertLess(rendered.index("Trace:"), rendered.index("Observations:"))
         self.assertLess(
@@ -84,12 +95,24 @@ class ChainInspectionTests(unittest.TestCase):
         )
         self.assertLess(
             rendered.index("Grounding Bundle:"),
+            rendered.index("Prompt Context:"),
+        )
+        self.assertLess(
+            rendered.index("Prompt Context:"),
+            rendered.index("Behavior Contract:"),
+        )
+        self.assertLess(
+            rendered.index("Behavior Contract:"),
             rendered.index("Snapshot Contract:"),
         )
         self.assertLess(rendered.index("Proposal:"), rendered.index("Presence Decision:"))
         self.assertLess(
             rendered.index("Presence Decision:"),
             rendered.index("Recorded Intervention:"),
+        )
+        self.assertLess(
+            rendered.index("Recorded Intervention:"),
+            rendered.index("Replay Eval:"),
         )
 
     def test_inspect_agent_initiative_once_returns_structured_chain_report(self) -> None:
@@ -122,6 +145,26 @@ class ChainInspectionTests(unittest.TestCase):
             "CLI edge ready. Type one line to send to the runtime:",
             result.stdout,
         )
+
+    def test_cli_module_prints_prompt_contract_report_in_prompt_contract_mode(self) -> None:
+        result = subprocess.run(
+            [
+                str(ROOT / ".venv" / "bin" / "python"),
+                "-m",
+                "device_edge.cli.cli_edge",
+                "--inspect-prompt-contract",
+                "--text",
+                "hello runtime",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+        )
+
+        self.assertIn("Prompt Context:", result.stdout)
+        self.assertIn("Behavior Contract:", result.stdout)
+        self.assertIn("Replay Eval:", result.stdout)
 
     def test_cli_module_prints_chain_report_in_agent_initiative_mode(self) -> None:
         result = subprocess.run(

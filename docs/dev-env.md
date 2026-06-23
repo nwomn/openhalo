@@ -106,6 +106,39 @@ Also inspect the `Proposal` metadata and confirm it contains:
 
 The current local `--inspect-chain` flow now exercises grounding through runtime-native state rather than raw input text alone: it seeds one active runtime goal, records recent runtime observations, performs one explicit bounded `runtime.edge_history` retrieval from the inspection host edge, and then prints the grounded proposal and recorded intervention in one report.
 
+That same inspection path is now also the first bounded local `M12` acceptance surface for prompt/context engineering and behavior-contract verification.
+
+Use:
+Preferred command shape: `python -m device_edge.cli.cli_edge --inspect-prompt-contract --text "hello runtime"`
+
+For the first `M12` slice, inspect these sections in the printed report:
+
+- `Prompt Context`
+- `Behavior Contract`
+- `Replay Eval`
+
+Confirm the prompt/context section shows:
+
+- an explicit prompt/context version
+- `compact_snapshot`
+- `active_goals`
+- `recent_memory`
+- `edge_evidence`
+
+Confirm the behavior contract shows passing checks for:
+
+- compact snapshot presence
+- active goals presence
+- recent memory presence
+- edge evidence presence
+- grounding bundle version match
+
+Confirm the replay/eval section reports a passing re-check of the recorded prompt/context package without requiring a second provider call.
+
+Use `bin/verify-prompt-contract` for the default bounded M12 prompt/context acceptance path.
+
+Use `bin/verify-prompt-contract --dry-run` first when you want to inspect the exact inspect-chain, prompt/context, behavior contract, replay/eval, and state-summary commands without running the acceptance pass.
+
 When you need to inspect the M6 initiative path as one human-readable chain, use:
 Preferred command shape: `python -m device_edge.cli.cli_edge --inspect-agent-initiative`
 

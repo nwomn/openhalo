@@ -5,6 +5,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from personal_runtime.model_provider import generate_text_reply_plan
+from personal_runtime.prompt_context import build_behavior_contract
+from personal_runtime.prompt_context import build_prompt_context_package
+from personal_runtime.prompt_context import prompt_context_metadata_from_package
 from personal_runtime.runtime_memory import grounding_metadata_from_bundle
 from personal_runtime.action_layer import required_device_capability_for_action
 
@@ -32,6 +35,15 @@ def build_intervention_proposal(
     config_path: Path | None = None,
 ) -> InterventionProposal:
     _snapshot = snapshot or {}
+    prompt_context_package = build_prompt_context_package(
+        user_text=user_text,
+        snapshot=_snapshot,
+        grounding_bundle=grounding_bundle,
+    )
+    behavior_contract = build_behavior_contract(
+        prompt_context_package=prompt_context_package,
+        grounding_bundle=grounding_bundle,
+    )
     reply_plan = generate_text_reply_plan(
         user_text=user_text,
         snapshot=_snapshot,
@@ -52,6 +64,10 @@ def build_intervention_proposal(
             "trigger": "text.input",
             "snapshot_fields": sorted(_snapshot.keys()),
             **grounding_metadata_from_bundle(grounding_bundle),
+            **prompt_context_metadata_from_package(
+                prompt_context_package,
+                behavior_contract,
+            ),
             **reply_plan.metadata,
         },
     )
@@ -81,6 +97,15 @@ def build_agent_initiative_proposal(
         if key
         not in {"action_capability", "action_payload", "target_device_hint"}
     }
+    prompt_context_package = build_prompt_context_package(
+        user_text=initiative_request.get("message", ""),
+        snapshot=_snapshot,
+        grounding_bundle=grounding_bundle,
+    )
+    behavior_contract = build_behavior_contract(
+        prompt_context_package=prompt_context_package,
+        grounding_bundle=grounding_bundle,
+    )
     proposal = InterventionProposal(
         kind="runtime_control"
         if action_capability.startswith("runtime.")
@@ -96,6 +121,10 @@ def build_agent_initiative_proposal(
             **metadata,
             "snapshot_fields": sorted(_snapshot.keys()),
             **grounding_metadata_from_bundle(grounding_bundle),
+            **prompt_context_metadata_from_package(
+                prompt_context_package,
+                behavior_contract,
+            ),
         },
         target_device_hint=initiative_request.get("target_device_hint"),
     )

@@ -77,6 +77,8 @@ Current boundary rules:
 - `Presence Router` should be treated as an explicit, inspectable governance submodule inside `Agent Runtime`, so intervention logic remains readable and more deterministic than a pure model-probability output
 - The working direction for proactive behavior is agent-centered but presence-governed: the runtime should allow the agent to form intervention proposals while requiring explicit presence decisions before user-facing intervention
 - The runtime should support both a sense-first proactive path and an agent-initiative proactive path, and both paths must pass through `Presence Router` before user-facing intervention
+- Edge-delivered signals may carry either passive environment evidence or explicit user-expressed intent; both still count as edge/context input on the sense-first path, and the runtime should interpret that input through normal proposal formation on the shared agent/presence path rather than treating any one edge type as a special case
+- The hot decision path should stay shallow and explicit: once an edge-driven event reaches deliberative handling, the preferred runtime-owned chain is `event -> compact snapshot -> grounding bundle -> prompt/context package -> model-backed proposal formation -> Presence Router -> execution planning/action`, and new intermediate representations on that path require a clear non-duplicative reason
 - Presence policy should remain explicit and inspectable even when model-generated or model-repaired; models are not the only durable representation of proactive behavior
 - A host-resident edge running on the runtime's own server is still modeled as a first-class `Device Edge`; physical co-location does not waive the `Edge Session Link <-> Gateway` boundary
 - The runtime should support both a normal deliberative path and an explicit edge-requested fast path for direct actions
@@ -86,6 +88,7 @@ Current boundary rules:
 - For the first same-template multi-edge slice, ordinary routed actions should prefer a different online edge instance with the required capability before falling back to the source device
 - Ordinary development work should be branch-first in the main workspace and should reuse the repository root `.venv` by default, while optional worktree-based dependency or packaging experiments should use an explicitly created worktree-local `.venv`
 - CLI device validation is acceptable for early module testing, but host-edge verification is required before documenting a module as fully implemented and operationally ready
+- In this project, `manual acceptance` or `human acceptance` means testing implemented functionality in a simulated real usage scenario, rather than only checking static output, isolated unit behavior, or non-interactive script success
 
 ## Edge Representation Model
 
@@ -178,6 +181,9 @@ Implementation note:
 - The current implementation preference is to keep the online runtime path small and inspectable: edge mappers produce normalized runtime observations, lightweight per-observation reducers synthesize compact context snapshot fields, and `unknown` or `ambiguous` results are allowed when evidence is insufficient.
 - The current implementation preference is to keep presence evaluation unified even when the trigger differs: edge/context activity and agent-initiative checks should both build or refresh compact context snapshot state and then flow through the same presence decision surface.
 - The current implementation preference is to model `Agent Runtime` as one coherent backend module whose internal flow includes proposal formation, explicit presence governance, and later execution planning, rather than splitting those responsibilities into multiple top-level architecture boxes.
+- When edge-delivered signals carry user intent, the current design preference is to extend `Agent Runtime` proposal formation so it can yield multiple proposal classes such as `reply`, `action`, `clarification`, and `no_intervention`, rather than introducing a separate top-level `Intent Interpretation` module.
+- The current implementation preference is to avoid duplicate context-carrier layers on the hot path: if `grounding bundle` feeds a `prompt/context package`, later steps should consume that package directly rather than rebuilding equivalent payloads under new names.
+- Inspection-oriented surfaces such as behavior contracts, replay/eval reports, or other verification artifacts should be treated as sidecars around the hot path by default; they may validate or summarize live-chain artifacts, but should not become mandatory intermediate decision objects unless they directly change runtime behavior.
 - The detailed presence-policy design remains intentionally deferred for a dedicated research and design pass. That pass should explicitly study policy representation shape, conflict avoidance and resolution, orthogonality of policy scope, short-term versus long-term policy lifecycle, how present user-experience optimization should be balanced against future user-experience impact, how policy update review cadence should lengthen as the system becomes more stable, how environment understanding should flow from raw edge signals into structured context observations and then into a presence-consumable context snapshot, and how the shared observation vocabulary should be extended safely as new edge types are added.
 - Heuristic-learning style improvement should live in one unified outer maintenance loop rather than the hot decision path: feedback, replays, and tests may drive coordinated updates to edge mappers, observation reducers, vocabulary, and presence policy, but those changes remain review-gated before entering the normal runtime path.
 - Presence should consume the compact context snapshot directly rather than introducing an additional presence-only feature view; richer observation evidence remains available separately for agent reasoning and debugging when needed.
@@ -228,9 +234,27 @@ Sub-goals:
 - 4.11. Define milestone M10: model grounding and runtime memory baseline, so model-backed proposal and reply generation are anchored in compact context snapshot, active runtime goals, bounded edge-history retrieval, and durable state instead of behaving like stateless channel chat
 - 4.12. Define milestone M11: terminal/CLI interaction maturity pass, so the first terminal edge grows from a minimal resident daemon into a substantially more complete agent CLI surface with stronger interaction ergonomics, session readability, streaming/status visibility, input affordances, and human-usable command-line UX that can better stand beside tools such as Lobster, Codex, and Claude Code without changing the core presence-governed runtime architecture
 - 4.13. Define milestone M12: prompt/context engineering and behavior-contract pass, so grounded model-backed proposal and reply generation advance from first runtime-memory wiring into explicit prompt/context assembly, prompt versioning, replay/eval harnesses, and inspectable behavior contracts that verify the runtime actually uses compact snapshot state, active goals, bounded memory, and edge evidence reliably
-- 4.14. Define milestone M13: policy learning and review loop, so intervention feedback, ignored interactions, explicit user responses, and runtime replays can produce review-gated policy updates rather than remaining as ad hoc one-off heuristics
-- 4.15. Define milestone M14: multi-edge interaction expansion after the first terminal/model baseline, so additional device surfaces can join the same presence-governed interaction model without re-centering the system on any single frontend
-- 4.16. Define milestone M15: bounded-growth and storage-hygiene hardening pass after the first mature product slice, covering unbounded state growth, high-frequency persistence pressure, duplicated long-term storage, and other operational accumulation risks across the system
+- 4.14. Define milestone M13: proposal-formation maturity pass, so the runtime advances from the current narrow reply-shaped proposal slice into a sufficiently capable proposal-formation system that can interpret edge-delivered signals and grounded runtime context into inspectable `reply`, `action`, `clarification`, and `no_intervention` proposals on the normal live chain
+- 4.15. Define milestone M14: policy learning and review loop, so intervention feedback, ignored interactions, explicit user responses, and runtime replays can produce review-gated policy updates rather than remaining as ad hoc one-off heuristics
+- 4.16. Define milestone M15: multi-edge interaction expansion after the first terminal/model baseline, so additional device surfaces can join the same presence-governed interaction model without re-centering the system on any single frontend
+- 4.17. Define milestone M16: bounded-growth and storage-hygiene hardening pass after the first mature product slice, covering unbounded state growth, high-frequency persistence pressure, duplicated long-term storage, and other operational accumulation risks across the system
+
+Milestone ownership clarification:
+
+- The structural home for richer proposal formation from edge-delivered signals, including proposal classes such as `reply`, `action`, `clarification`, and `no_intervention`, belongs primarily to the `M6` `Agent Runtime` proposal-formation surface.
+- The accepted `M6` implementation should not be read as full semantic completion of proposal formation; before model integration it establishes the correct live-chain location and a narrow deterministic slice, but not yet sufficiently capable open-ended intent interpretation.
+- `M13` is now the explicit maturity milestone for this surface: it owns turning that narrow slice into a reliable multi-type proposal-formation capability on the live chain.
+- Adjacent milestones deepen that behavior from other angles without changing the ownership boundary: `M9` supplies provider-backed generation, `M10` supplies runtime grounding and memory, `M12` supplies prompt/context and behavior-contract hardening, and `M14` supplies review-gated policy learning from outcomes after proposal typing itself is already mature enough to evaluate.
+
+Acceptance criteria for M13 proposal-formation maturity:
+
+- The normal live chain can emit inspectable proposal classes `reply`, `action`, `clarification`, and `no_intervention` from edge-delivered signals without bypassing `Presence Router`
+- Proposal formation consumes compact snapshot state, active goals, bounded memory, and relevant edge evidence on the actual runtime path rather than falling back to raw text-only heuristics
+- Proposal records expose enough structured rationale to inspect why a given input became a reply, action, clarification, or no-intervention decision
+- The accepted live-chain implementation does not grow redundant middle layers beyond the documented `event -> compact snapshot -> grounding bundle -> prompt/context package -> proposal formation -> Presence Router -> execution planning/action` shape; inspection sidecars may exist, but they must remain secondary to the main runtime path
+- Narrow deterministic fallbacks remain available when the model is unavailable, but the primary accepted path for open-ended intent interpretation is model-backed and grounded
+- Automated tests cover at least one accepted scenario for each proposal class plus failure-path or ambiguity handling where clarification or no-intervention is the correct outcome
+- Human acceptance demonstrates the feature in simulated real usage: a tester can drive representative terminal/device interactions through the live runtime and observe all four proposal classes appear in appropriate scenarios with readable inspection output
 
 Accepted execution breakdown for M5:
 
@@ -247,7 +271,7 @@ Acceptance criteria:
 
 Status:
 
-- In progress (`M7`, `M8`, `M9`, `M10`, and `M11` completed and accepted; active execution focus now moves to `M12` prompt/context engineering and then explicit `M13` policy learning/review before broader multi-edge expansion, with storage hardening deferred to `M15`)
+- In progress (`M7`, `M8`, `M9`, `M10`, `M11`, and `M12` completed and accepted; active execution focus now moves to explicit `M13` proposal-formation maturity before `M14` policy learning/review, with storage hardening deferred to `M16`)
 
 ## Completed Sub-goals
 
@@ -844,6 +868,7 @@ Result:
 - The live runtime now supports both sense-first and agent-initiative proposal entry paths on top of the accepted M5 observation and snapshot surface
 - The backend can now trigger an explicit `agent_initiative` proposal from runtime-owned state rather than relying only on an edge-originated text event to start the normal path
 - Both entry paths now rebuild a decision-time compact snapshot and snapshot contract, form an inspectable intervention proposal, and converge on the same explicit `Presence Router` before action planning
+- The accepted `M6` proposal-formation slice remains intentionally narrow: ordinary sense-first text input still collapses into a reply-shaped `notification.show` proposal rather than a fully generalized proposal-typing system
 - The normal allowed path now supports both user-facing `notification.show` actions and narrow host-control actions such as `runtime.status` without falling back to the direct-action bypass
 - Initiative proposals can now carry action payload, proposal source, bounded metadata, and a target-device hint while still remaining subject to cooldown and ambiguity suppression on the shared presence path
 - The repository now has a dedicated M6 local inspection entrypoint: `python -m device_edge.cli.cli_edge --inspect-agent-initiative`, which prints trace, observations, snapshot, snapshot contract, proposal, presence decision, recorded intervention, and action result for one initiative-triggered run
@@ -928,6 +953,28 @@ Status:
 
 - Completed
 
+### Completed: M12 prompt/context engineering and behavior-contract acceptance
+
+Result:
+
+- The runtime now has an explicit prompt/context assembly layer inside `Agent Runtime`, so grounded model-backed reply generation no longer formats compact snapshot and grounding state as ad hoc provider strings only
+- The first accepted prompt/context package is versioned as `m12.v1` and keeps its inspectable sections intentionally small: `compact_snapshot`, `active_goals`, `recent_memory`, and bounded `edge_evidence`
+- Proposal metadata now records explicit prompt/context provenance such as prompt version, section names, bounded section counts, and behavior-contract check results, so recorded interventions can show whether the normal runtime path actually carried the intended grounded state into the model-facing layer
+- The local chain-inspection report now exposes `Prompt Context`, `Behavior Contract`, and `Replay Eval` sections as first-class inspection surfaces on the same live runtime chain that already prints observations, compact snapshot, grounding bundle, proposal, presence decision, and recorded intervention
+- The repository now has a bounded local M12 acceptance entrypoint: `bin/verify-prompt-contract` prints one grounded inspection report, verifies the explicit prompt/context and behavior-contract surfaces, and confirms a replay/eval pass on the recorded prompt package without requiring a second provider call
+- The repository now has targeted automated coverage for explicit prompt/context assembly, behavior-contract checks, provider-request prompt injection, prompt-contract inspection output, and the new verification/documentation surface
+
+Acceptance criteria:
+
+- Grounded model-backed proposal and reply generation use an explicit prompt/context assembly surface rather than only thin prompt wiring
+- Prompt/context versioning is inspectable through recorded proposal metadata and local inspection output
+- The runtime exposes a behavior-contract surface that verifies compact snapshot state, active goals, bounded recent memory, and bounded edge evidence are present and internally consistent with the grounding bundle
+- A bounded replay/eval acceptance path can re-check the recorded prompt package locally without depending on a fresh provider response
+
+Status:
+
+- Completed
+
 ## Open Questions
 
 - Which device surfaces should be the first non-CLI surfaces for presence-first experiments?
@@ -980,7 +1027,7 @@ Current preference:
 - The first terminal edge should support both pull-style user requests and push-style runtime interventions, but push should depend on terminal presence or activity instead of blindly printing into unattended terminals
 - Model terminal-side user input, activity or idle evidence, runtime-originated message delivery, reply, and ignore or non-response as ordinary edge events and actions on the normal runtime path instead of inventing a chat-only side protocol
 - Keep terminal-edge intelligence thin: local UX control may exist on the edge, but proposal formation, intervention policy, and routing authority should remain in the backend runtime
-- Prefer the next post-M7 milestone sequence to stay narrow and layered: M8 formal terminal edge first, M9 cloud-model agent baseline second, M10 grounding and memory third, M11 terminal/CLI interaction maturity fourth, M12 prompt/context engineering fifth, M13 policy learning/review sixth, and bounded-growth hardening later at M15
+- Prefer the next post-M7 milestone sequence to stay narrow and layered: M8 formal terminal edge first, M9 cloud-model agent baseline second, M10 grounding and memory third, M11 terminal/CLI interaction maturity fourth, M12 prompt/context engineering fifth, M13 proposal-formation maturity sixth, M14 policy learning/review seventh, and bounded-growth hardening later at M16
 - Prefer cloud-model proposal and reply generation to stay behind a provider boundary inside `Agent Runtime`, with explicit presence governance and normal edge routing still deciding whether and where anything surfaces
 - Prefer a hybrid model-provider architecture for `M9`: keep a shared provider registry, model catalog, and runtime-facing profile-selection layer, while implementing only the `openai_compatible` adapter branch in the first accepted slice
 - Prefer runtime call sites to select named model profiles rather than hard-coding provider/model pairs directly in business logic, so later provider swaps and model-routing changes stay configuration-driven
@@ -1029,7 +1076,7 @@ Current M3 slice direction:
 
 Current phase:
 
-- Post-M11 architecture expansion is now focused on explicit M12 prompt/context engineering and then M13 policy learning/review before broader multi-edge expansion, while bounded-growth and storage-hygiene hardening remains intentionally deferred to M15
+- Post-M12 architecture expansion is now focused on explicit M13 proposal-formation maturity before M14 policy learning/review and broader multi-edge expansion, while bounded-growth and storage-hygiene hardening remains intentionally deferred to M16
 
 Current progress summary:
 
@@ -1166,8 +1213,8 @@ Current progress summary:
 - The host-edge daemon verification surface now includes an explicit bounded `max_action_requests` control so local readiness runs can exit after handling the intended number of action requests rather than relying only on idle-time timing
 - Refreshed M7 verification evidence now passed across both targeted automated suites and a bounded real `bin/verify-host-edge` run: the repository can now gate stronger “implemented and ready to run” claims on both the direct-action host-control path and the normal runtime-initiative host-control path, each validated against a separate real host-edge daemon
 - We now consider M7 complete: host-edge-path operational-readiness verification is no longer only a documentation rule, but a concrete bounded acceptance gate with real runtime, host-daemon, websocket, persisted-state, and dual-path action evidence
-- We now reorder the post-M7 roadmap so storage hardening is no longer the immediate next step: M8 formal terminal edge, M9 cloud-model-backed agent baseline, M10 model grounding/runtime memory, M11 terminal/CLI interaction maturity, M12 prompt/context engineering, M13 policy learning/review, M14 multi-edge interaction expansion, and M15 bounded-growth/storage-hygiene hardening
-- We now intentionally defer bounded-growth and storage-hygiene hardening to M15, after the first formal terminal/model interaction surfaces plus explicit prompt/context engineering have been validated more concretely
+- We now reorder the post-M7 roadmap so storage hardening is no longer the immediate next step: M8 formal terminal edge, M9 cloud-model-backed agent baseline, M10 model grounding/runtime memory, M11 terminal/CLI interaction maturity, M12 prompt/context engineering, M13 proposal-formation maturity, M14 policy learning/review, M15 multi-edge interaction expansion, and M16 bounded-growth/storage-hygiene hardening
+- We now intentionally defer bounded-growth and storage-hygiene hardening to M16, after the first formal terminal/model interaction surfaces plus explicit proposal-formation maturity and policy learning design have been validated more concretely
 - We now prefer the desktop/CLI edge to evolve from a verification harness into the first formal long-running terminal `Device Edge` for product-facing interaction
 - We now explicitly treat terminal interaction as ordinary environment sensing plus runtime action on a `Device Edge`, not as a special chat-centered system mode
 - We now want the first formal terminal edge to support both user-initiated pull requests and presence-gated runtime-initiated push interactions on the same normal runtime chain
@@ -1181,13 +1228,16 @@ Current progress summary:
 - We now explicitly defer broad provider/model strategy routing until after the first grounded model stage, so `M9` can focus on a mature configuration boundary without prematurely mixing in `M10` grounding or later policy work
 - We now want the first model-backed stage after that to focus on grounding rather than only provider wiring, so runtime memory, snapshot context, goals, and bounded edge evidence meaningfully shape model behavior
 - We now want prompt/context engineering to become its own explicit milestone after terminal/CLI maturity, so grounded runtime-native state can be turned into a durable and inspectable agent behavior contract instead of remaining as thin prompt wiring
-- We now want policy learning and review to remain its own later milestone after prompt/context engineering, rather than being hidden inside the first provider-integration batch
+- We now want proposal-formation maturity to become its own explicit milestone after prompt/context engineering, so the runtime can reliably distinguish reply, action, clarification, and no-intervention outcomes on the live chain before policy learning starts adapting that behavior
+- We now want policy learning and review to remain its own later milestone after proposal-formation maturity, rather than being hidden inside the first provider-integration batch
 - We now have the first working `M9` provider/configuration implementation slice: runtime model config is split into provider, model, and profile layers; the first accepted adapter path is `openai_compatible`; normal text replies now carry inspectable provider/profile/fallback metadata through the existing proposal and chain-inspection surfaces
 - The repository now includes a tracked default `config/llm-config.toml` plus optional local `.runtime/llm-config.toml` override behavior, targeted provider-unit coverage, gateway coverage, and human-readable local inspection guidance for the first `M9` profile-driven text-reply path
 - We now have a verified real-provider `M9` acceptance result for the current CRS path: the runtime's `openai_compatible` adapter sends an explicit `User-Agent`, which avoids the CRS gateway's Cloudflare `1010` block and restores successful `/responses` calls on the existing `https://api-cf.cubence.com/v1` provider base URL
 - Local runtime and CLI regression tests are now isolated from machine-local `.runtime/llm-config.toml` overrides through explicit test config injection, so automated suites stay deterministic while manual acceptance can continue using a real local provider override
 - We now consider M11 complete: the resident terminal edge has moved beyond the minimal M8 daemon baseline into a more human-usable CLI surface with readable session rendering, bounded local transcript/history, explicit `/help` `/status` `/history` `/quit` edge-local affordances, and a refreshed `bin/verify-terminal-edge` acceptance path that still validates the real presence-governed runtime chain
 - The M11 terminal acceptance script no longer assumes a deterministic provider reply string for its pull-stage readiness check; it now waits on persisted terminal delivery evidence, which keeps the acceptance path valid across both local fallback and real model-backed reply variants
+- We now consider M12 complete: the runtime has an explicit versioned prompt/context package, proposal-level prompt provenance metadata, a first inspectable behavior-contract surface, and a bounded `bin/verify-prompt-contract` acceptance path that re-checks the recorded grounded prompt package locally
+- The local inspection ladder now extends beyond M10 grounding metadata into explicit prompt/context engineering: one `--inspect-prompt-contract` run now prints prompt sections, behavior-contract checks, and replay/eval results on the same grounded runtime chain
 - We have our own tested minimal protocol, edge session client, and gateway baseline, reducing the value of deeper OpenClaw gateway extraction work
 - We may still borrow ideas from OpenClaw protocol/client layers later, but that is now optional follow-on work rather than an open prerequisite
 

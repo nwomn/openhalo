@@ -226,10 +226,21 @@ def main() -> None:
         action="store_true",
         help="Print a human-readable M6 initiative inspection report in local roundtrip mode.",
     )
+    parser.add_argument(
+        "--inspect-prompt-contract",
+        action="store_true",
+        help="Print a human-readable M12 prompt/context contract report in local roundtrip mode.",
+    )
     args = parser.parse_args()
 
     if args.inspect_agent_initiative:
         text = args.text or ""
+    elif args.inspect_prompt_contract:
+        if args.text is not None:
+            text = args.text
+        else:
+            print("CLI edge ready. Type one line to send to the runtime:")
+            text = input("> ").strip()
     elif args.inspect_chain:
         if args.text is not None:
             text = args.text
@@ -246,6 +257,12 @@ def main() -> None:
     else:
         if args.inspect_agent_initiative:
             report = inspect_agent_initiative_once(token=args.token)
+            print(format_chain_report(report))
+            result = report["action_result"]
+            print(f"Action result: {result['result']['status']}")
+            return
+        if args.inspect_prompt_contract:
+            report = inspect_cli_once(text, token=args.token)
             print(format_chain_report(report))
             result = report["action_result"]
             print(f"Action result: {result['result']['status']}")

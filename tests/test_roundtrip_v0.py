@@ -173,6 +173,16 @@ class CliEntryTests(unittest.TestCase):
         self.assertEqual(result["result"]["status"], "ok")
         self.assertEqual(proposal["metadata"]["llm_profile"], "interactive_reply")
         self.assertTrue(proposal["metadata"]["used_deterministic_fallback"])
+        self.assertEqual(proposal["metadata"]["prompt_context_version"], "m12.v1")
+        self.assertEqual(
+            proposal["metadata"]["prompt_context_sections"],
+            [
+                "active_goals",
+                "compact_snapshot",
+                "edge_evidence",
+                "recent_memory",
+            ],
+        )
         self.assertEqual(proposal["action_payload"]["message"], "Runtime heard: hello runtime")
 
     def test_local_cli_session_can_trigger_agent_initiative(self) -> None:

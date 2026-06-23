@@ -13,6 +13,7 @@ from personal_runtime.model_provider import (
     load_runtime_model_config,
     resolve_profile_config,
 )
+from personal_runtime.prompt_context import PROMPT_CONTEXT_VERSION
 
 
 class ModelProviderConfigTests(unittest.TestCase):
@@ -60,10 +61,14 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertEqual(request_payload["model"], "gpt-5.5")
         self.assertEqual(request_payload["reasoning"]["effort"], "medium")
         self.assertEqual(request_payload["text"]["verbosity"], "low")
+        self.assertIn("Prompt context version", str(request_payload["input"]))
+        self.assertIn(PROMPT_CONTEXT_VERSION, str(request_payload["input"]))
         self.assertIn("hello runtime", str(request_payload["input"]))
         self.assertIn("healthy", str(request_payload["input"]))
         self.assertIn("Keep runtime healthy", str(request_payload["input"]))
         self.assertIn('"bundle_version": "m10.v1"', str(request_payload["input"]))
+        self.assertIn('"edge_evidence"', str(request_payload["input"]))
+        self.assertIn('"recent_memory"', str(request_payload["input"]))
 
     def test_parse_openai_compatible_response_returns_bounded_reply_text(self) -> None:
         plan = parse_openai_compatible_response(

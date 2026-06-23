@@ -10,6 +10,8 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
+from personal_runtime.prompt_context import build_prompt_context_package
+
 
 DEFAULT_CONFIG_PATH = Path("config/llm-config.toml")
 LOCAL_OVERRIDE_CONFIG_PATH = Path(".runtime/llm-config.toml")
@@ -121,8 +123,11 @@ def build_openai_compatible_request(
     reasoning_effort: str,
     verbosity: str,
 ) -> dict:
-    compact_snapshot = snapshot or {}
-    grounding_bundle = grounding or {}
+    prompt_context_package = build_prompt_context_package(
+        user_text=user_text,
+        snapshot=snapshot,
+        grounding_bundle=grounding,
+    )
     return {
         "model": model_id,
         "reasoning": {"effort": reasoning_effort},
@@ -147,8 +152,9 @@ def build_openai_compatible_request(
                         "type": "input_text",
                         "text": (
                             f"User text: {user_text}\n"
-                            f"Compact snapshot: {json.dumps(compact_snapshot, sort_keys=True)}\n"
-                            f"Grounding bundle: {json.dumps(grounding_bundle, sort_keys=True)}"
+                            f"Prompt context version: {prompt_context_package['version']}\n"
+                            f"Prompt context package: {json.dumps(prompt_context_package, sort_keys=True)}\n"
+                            f"Grounding bundle: {json.dumps(grounding or {}, sort_keys=True)}"
                         ),
                     }
                 ],

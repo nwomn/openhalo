@@ -170,6 +170,44 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("state-check", result.stdout)
         self.assertIn(".runtime/terminal-edge-verify-state.json", result.stdout)
 
+    def test_prompt_contract_verification_script_exists_and_is_executable(self) -> None:
+        script_path = ROOT / "bin" / "verify-prompt-contract"
+
+        self.assertTrue(script_path.exists())
+        self.assertTrue(os.access(script_path, os.X_OK))
+        contents = script_path.read_text(encoding="utf-8")
+        self.assertIn("device_edge.cli.cli_edge", contents)
+        self.assertIn("--inspect-prompt-contract", contents)
+        self.assertIn("prompt-context", contents)
+        self.assertIn("behavior-contract", contents)
+        self.assertIn("replay-eval", contents)
+
+    def test_prompt_contract_verification_script_supports_dry_run(self) -> None:
+        script_path = ROOT / "bin" / "verify-prompt-contract"
+
+        result = subprocess.run(
+            [str(script_path), "--dry-run"],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+        )
+
+        self.assertIn("inspect-chain", result.stdout)
+        self.assertIn("prompt-context", result.stdout)
+        self.assertIn("behavior-contract", result.stdout)
+        self.assertIn("replay-eval", result.stdout)
+        self.assertIn("state-summary", result.stdout)
+
+    def test_dev_env_document_mentions_prompt_contract_acceptance_path(self) -> None:
+        document_path = ROOT / "docs" / "dev-env.md"
+
+        contents = document_path.read_text(encoding="utf-8")
+        self.assertIn("verify-prompt-contract", contents)
+        self.assertIn("prompt/context", contents)
+        self.assertIn("behavior contract", contents)
+        self.assertIn("replay/eval", contents)
+
 
 if __name__ == "__main__":
     unittest.main()
