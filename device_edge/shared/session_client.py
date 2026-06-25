@@ -153,11 +153,14 @@ class SessionClient:
             "executed notification.show",
             status=result["status"],
         )
-        return {
+        action_result = {
             "type": "action_result",
             "device_id": self.device_id,
             "result": result,
         }
+        if frame.get("interaction_id"):
+            action_result["interaction_id"] = frame["interaction_id"]
+        return action_result
 
     async def run_websocket_roundtrip(self, server_factory, text: str) -> dict:
         async with server_factory() as server_info:

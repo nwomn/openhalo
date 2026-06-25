@@ -13,9 +13,13 @@ from device_edge.host.host_daemon import HostEdgeDaemon
 from device_edge.shared.session_client import SessionClient
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.main import build_runtime_server_message
+from personal_runtime.main import build_runtime_server_parser
 
 ROOT = Path(__file__).resolve().parents[1]
 TEST_LLM_CONFIG = ROOT / "tests" / "fixtures" / "llm-config-test.toml"
+VISIBLE_ERROR_LLM_CONFIG = (
+    ROOT / "tests" / "fixtures" / "llm-config-visible-error-test.toml"
+)
 
 
 class RoundtripTests(unittest.IsolatedAsyncioTestCase):
@@ -160,6 +164,21 @@ class CliEntryTests(unittest.TestCase):
         self.assertIn("ws://127.0.0.1:8765", message)
         self.assertNotIn("Connect an edge client", message)
 
+    def test_runtime_server_parser_accepts_explicit_llm_config_path(self) -> None:
+        parser = build_runtime_server_parser()
+
+        args = parser.parse_args(
+            [
+                "--llm-config-path",
+                "tests/fixtures/llm-config-test.toml",
+            ]
+        )
+
+        self.assertEqual(
+            args.llm_config_path,
+            "tests/fixtures/llm-config-test.toml",
+        )
+
     def test_local_cli_session_records_llm_profile_metadata_on_text_reply(self) -> None:
         session = LocalCliSession(
             token="dev-token",
@@ -171,8 +190,10 @@ class CliEntryTests(unittest.TestCase):
         proposal = session.gateway.state.interventions[-1]["proposal"]
 
         self.assertEqual(result["result"]["status"], "ok")
-        self.assertEqual(proposal["metadata"]["llm_profile"], "interactive_reply")
+        self.assertEqual(proposal["proposal_type"], "reply")
+        self.assertEqual(proposal["metadata"]["llm_profile"], "proposal_formation")
         self.assertTrue(proposal["metadata"]["used_deterministic_fallback"])
+        self.assertIn("proposal_rationale", proposal["metadata"])
         self.assertEqual(proposal["metadata"]["prompt_context_version"], "m12.v1")
         self.assertEqual(
             proposal["metadata"]["prompt_context_sections"],
@@ -184,6 +205,64 @@ class CliEntryTests(unittest.TestCase):
             ],
         )
         self.assertEqual(proposal["action_payload"]["message"], "Runtime heard: hello runtime")
+
+    def test_local_cli_session_can_form_clarification_proposal_from_user_text(self) -> None:
+        session = LocalCliSession(
+            token="dev-token",
+            trace=True,
+            config_path=TEST_LLM_CONFIG,
+        )
+
+        result = session.send_text("help")
+        proposal = session.gateway.state.interventions[-1]["proposal"]
+
+        self.assertEqual(result["result"]["status"], "ok")
+        self.assertEqual(proposal["proposal_type"], "clarification")
+        self.assertEqual(proposal["action_capability"], "notification.show")
+        self.assertIn("proposal_rationale", proposal["metadata"])
+
+    def test_local_cli_session_can_form_no_intervention_proposal_from_user_text(self) -> None:
+        session = LocalCliSession(
+            token="dev-token",
+            trace=True,
+            config_path=TEST_LLM_CONFIG,
+        )
+
+        result = session.send_text("thanks")
+        proposal = session.gateway.state.interventions[-1]["proposal"]
+
+        self.assertEqual(result["result"]["status"], "completed")
+        self.assertEqual(proposal["proposal_type"], "no_intervention")
+        self.assertIsNone(proposal["action_capability"])
+
+    def test_local_cli_session_surfaces_provider_failure_reason_in_visible_reply_mode(
+        self,
+    ) -> None:
+        session = LocalCliSession(
+            token="dev-token",
+            trace=True,
+            config_path=VISIBLE_ERROR_LLM_CONFIG,
+        )
+
+        result = session.send_text("hello runtime")
+        proposal = session.gateway.state.interventions[-1]["proposal"]
+
+        self.assertEqual(result["result"]["status"], "ok")
+        self.assertEqual(proposal["proposal_type"], "reply")
+        self.assertEqual(proposal["action_capability"], "notification.show")
+        self.assertIn(
+            "Real model reply unavailable",
+            proposal["action_payload"]["message"],
+        )
+        self.assertIn(
+            "TEST_REAL_MODEL_REQUIRED_KEY_MISSING",
+            proposal["action_payload"]["message"],
+        )
+        self.assertEqual(
+            proposal["metadata"]["provider_failure_behavior"],
+            "user_visible_error",
+        )
+        self.assertFalse(proposal["metadata"]["used_deterministic_fallback"])
 
     def test_local_cli_session_can_trigger_agent_initiative(self) -> None:
         session = LocalCliSession(
@@ -429,6 +508,152 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
             gateway.state.action_results[-1]["capability"],
             "runtime.status",
         )
+
+    async def test_websocket_roundtrip_can_route_runtime_status_from_normal_text(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        class RuntimeStatusAdapter:
+            def execute(self, action: dict) -> dict:
+                return {
+                    "status": "ok",
+                    "capability": action["capability"],
+                    "details": {"state": "running", "pid": 42137},
+                }
+
+        host_daemon = HostEdgeDaemon(
+            device_id="host-edge-1",
+            token="dev-token",
+            runtime_control_adapter=RuntimeStatusAdapter(),
+            host_metrics_provider=lambda: {
+                "cpu_load_ratio": 0.31,
+                "memory_used_bytes": 400,
+                "memory_available_bytes": 600,
+                "memory_pressure": "normal",
+                "net_rx_bytes": 10,
+                "net_tx_bytes": 12,
+            },
+            runtime_health_provider=lambda: {
+                "health_state": "healthy",
+                "process_pid": 42137,
+                "process_present": True,
+                "process_started_at": "2026-06-19T09:00:00Z",
+                "process_memory_rss_bytes": 28114944,
+            },
+        )
+        ready = asyncio.Event()
+
+        async with gateway.run_test_server() as server_info:
+            daemon_task = asyncio.create_task(
+                host_daemon.run_websocket_control_session(
+                    url=server_info["url"],
+                    observed_at="2026-06-21T10:08:00Z",
+                    ready_event=ready,
+                )
+            )
+            await ready.wait()
+            async with websockets.connect(server_info["url"]) as websocket:
+                client = SessionClient(
+                    device_id="desktop-dev-1",
+                    device_type="desktop-cli",
+                    token="dev-token",
+                )
+                await websocket.send(json.dumps(client.build_connect_frame()))
+                await websocket.send(
+                    json.dumps(client.build_capability_announce_frame())
+                )
+                await websocket.send(
+                    json.dumps(client.build_text_event("check runtime status"))
+                )
+                await websocket.recv()
+                await websocket.recv()
+            action_result = await asyncio.wait_for(daemon_task, timeout=1)
+
+        self.assertEqual(action_result["result"]["status"], "ok")
+        self.assertEqual(action_result["result"]["capability"], "runtime.status")
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["proposal_type"],
+            "action",
+        )
+
+    async def test_terminal_daemon_runtime_status_request_completes_without_local_action_request(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        class RuntimeStatusAdapter:
+            def execute(self, action: dict) -> dict:
+                return {
+                    "status": "ok",
+                    "capability": action["capability"],
+                    "details": {"state": "running", "pid": 42137},
+                }
+
+        host_daemon = HostEdgeDaemon(
+            device_id="host-edge-1",
+            token="dev-token",
+            runtime_control_adapter=RuntimeStatusAdapter(),
+            host_metrics_provider=lambda: {
+                "cpu_load_ratio": 0.31,
+                "memory_used_bytes": 400,
+                "memory_available_bytes": 600,
+                "memory_pressure": "normal",
+                "net_rx_bytes": 10,
+                "net_tx_bytes": 12,
+            },
+            runtime_health_provider=lambda: {
+                "health_state": "healthy",
+                "process_pid": 42137,
+                "process_present": True,
+                "process_started_at": "2026-06-19T09:00:00Z",
+                "process_memory_rss_bytes": 28114944,
+            },
+        )
+        ready = asyncio.Event()
+        terminal_stdout = io.StringIO()
+        terminal_daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=terminal_stdout,
+        )
+
+        async with gateway.run_test_server() as server_info:
+            daemon_task = asyncio.create_task(
+                host_daemon.run_websocket_control_session(
+                    url=server_info["url"],
+                    observed_at="2026-06-21T10:08:00Z",
+                    ready_event=ready,
+                )
+            )
+            await ready.wait()
+            async with websockets.connect(server_info["url"]) as websocket:
+                results = await terminal_daemon.run_scripted_session(
+                    websocket=websocket,
+                    scripted_inputs=[
+                        {
+                            "text": "check runtime status",
+                            "observed_at": "2026-06-21T10:09:30Z",
+                        }
+                    ],
+                    startup_observed_at="2026-06-21T10:09:00Z",
+                    idle_after_inputs=True,
+                    max_idle_cycles=1,
+                    idle_timeout_s=0.05,
+                )
+            action_result = await asyncio.wait_for(daemon_task, timeout=1)
+
+        self.assertEqual(results, [])
+        self.assertFalse(terminal_daemon.pending_runtime_reply)
+        self.assertEqual(action_result["result"]["capability"], "runtime.status")
+        self.assertIn("Runtime status: running (pid 42137).", terminal_stdout.getvalue())
 
 
 class HostEdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):

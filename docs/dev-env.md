@@ -49,10 +49,10 @@ If a dependency experiment succeeds, commit the source-of-truth file changes suc
 CLI device validation is acceptable for early module testing.
 
 Use the existing desktop/CLI edge loop for the first pass when you want to confirm that a new runtime path, protocol shape, or state transition basically works.
-Preferred command shape: `python -m device_edge.cli.cli_edge`
+Preferred command shape: `.venv/bin/python -m device_edge.cli.cli_edge`
 
 When you need to inspect the full M5 hot path as one human-readable chain, use:
-Preferred command shape: `python -m device_edge.cli.cli_edge --inspect-chain --text "hello runtime"`
+Preferred command shape: `.venv/bin/python -m device_edge.cli.cli_edge --inspect-chain --text "hello runtime"`
 
 That inspection mode runs one local interaction and prints the chain in this order:
 
@@ -75,16 +75,16 @@ For the first `M9` slice, inspect the `Proposal` section and confirm it contains
 - `llm_model`
 - `used_deterministic_fallback`
 
-Default local behavior should still work even without external credentials. In that case the proposal metadata should show deterministic fallback and the final user-facing message should remain the current local `"Runtime heard: ..."` reply style.
+Default tracked behavior now comes from `config/llm-config.toml`. Real-use profiles in that file surface provider failures explicitly, while bounded test fixtures may still opt into deterministic fallback for offline verification.
 
 The repository now keeps a tracked default provider baseline in `config/llm-config.toml`.
 
-When you want a machine-local override, create `.runtime/llm-config.toml`. The runtime prefers that local override when it exists and otherwise falls back to the tracked repository baseline.
+When you want to use a non-default provider config, pass it explicitly with `--llm-config-path` instead of relying on an implicit local override file.
 
 When you want to test a real `openai_compatible` provider path later, keep the same command shape but provide:
 
-- either `config/llm-config.toml` or a local `.runtime/llm-config.toml` override
-- the provider auth env var referenced by that config, such as `OPENAI_API_KEY`
+- either the tracked `config/llm-config.toml` baseline or an explicit `--llm-config-path /abs/path/to/llm-config.toml`
+- the provider auth env var referenced by that config, such as `CRS_OAI_KEY`
 
 The acceptance command stays the same; only the provider result and fallback metadata should change.
 
@@ -109,7 +109,7 @@ The current local `--inspect-chain` flow now exercises grounding through runtime
 That same inspection path is now also the first bounded local `M12` acceptance surface for prompt/context engineering and behavior-contract verification.
 
 Use:
-Preferred command shape: `python -m device_edge.cli.cli_edge --inspect-prompt-contract --text "hello runtime"`
+Preferred command shape: `.venv/bin/python -m device_edge.cli.cli_edge --inspect-prompt-contract --text "hello runtime"`
 
 For the first `M12` slice, inspect these sections in the printed report:
 
@@ -139,8 +139,38 @@ Use `bin/verify-prompt-contract` for the default bounded M12 prompt/context acce
 
 Use `bin/verify-prompt-contract --dry-run` first when you want to inspect the exact inspect-chain, prompt/context, behavior contract, replay/eval, and state-summary commands without running the acceptance pass.
 
+That same local inspection surface is now also the bounded `M13` acceptance path for proposal-formation maturity.
+
+Use:
+Preferred command shape: `.venv/bin/python -m device_edge.cli.cli_edge --inspect-chain --text "hello runtime"`
+
+For the first `M13` slice, inspect the `Proposal` section and confirm it now exposes:
+
+- `proposal_type`
+- `proposal_rationale`
+- grounded metadata such as prompt/context and runtime memory carry-through
+- the final action capability or intentional lack of action when the result is `no_intervention`
+
+The accepted M13 taxonomy is:
+
+- `reply`
+- `action`
+- `clarification`
+- `no_intervention`
+
+Use `bin/verify-proposal-formation` for the default bounded M13 proposal-formation acceptance path.
+
+Use `bin/verify-proposal-formation --dry-run` first when you want to inspect the four scenario commands behind that acceptance run:
+
+- one `reply`
+- one `action`
+- one `clarification`
+- one `no_intervention`
+
+The M13 acceptance expectation is that each scenario prints readable proposal rationale and that `no_intervention` records a proposal on the live chain without dispatching a user-facing action.
+
 When you need to inspect the M6 initiative path as one human-readable chain, use:
-Preferred command shape: `python -m device_edge.cli.cli_edge --inspect-agent-initiative`
+Preferred command shape: `.venv/bin/python -m device_edge.cli.cli_edge --inspect-agent-initiative`
 
 That inspection mode runs one local initiative-triggered interaction and prints the chain in this order:
 
@@ -158,7 +188,7 @@ This is the fastest local way to confirm that a runtime-originated initiative no
 Host edge verification is required before documenting a module as implemented and operationally ready.
 
 If a change is going to be described in project documentation as a completed module that is ready to run in the intended runtime environment, it must be verified through the host edge path we already built, not only through the CLI device path.
-Preferred command shape: `python -m device_edge.host.host_daemon`
+Preferred command shape: `.venv/bin/python -m device_edge.host.host_daemon`
 
 Use `bin/verify-host-edge` for the default bounded local host-edge verification run.
 
@@ -199,13 +229,13 @@ For a true live terminal session, start the runtime first and then run the resid
 Preferred command shape:
 
 ```bash
-python -m personal_runtime.main --host 127.0.0.1 --port 8765 --token dev-token
+.venv/bin/python -m personal_runtime.main --host 127.0.0.1 --port 8765 --token dev-token
 ```
 
 Preferred full-screen TUI mode:
 
 ```bash
-python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token --tui
+.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token --tui
 ```
 
 The new `--tui` mode uses a Textual full-screen UI as the preferred resident terminal surface. The first MVP intentionally keeps the same daemon/runtime protocol path while replacing the plain log stream with a fixed layout:
@@ -219,28 +249,26 @@ See `docs/terminal-tui.md` for the dedicated TUI guide covering layout, status-b
 Use the older non-TUI foreground command as the compatibility fallback when you need a plain line-oriented terminal session or when diagnosing UI-specific problems:
 
 ```bash
-python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token
+.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token
 ```
 
 Type a line and press Enter to send a normal `text.input` event. Leave the terminal idle to let the daemon emit an idle observation. The bounded `bin/verify-terminal-edge` flow remains the preferred acceptance script when you want a repeatable proof run instead of manual `stdin` interaction.
 
 For manual live-terminal acceptance, repeated explicit user input should continue to receive repeated replies in the same resident session. The current presence cooldown is intended to suppress repeated runtime-initiated user-facing interruption, not to suppress a user's own back-to-back terminal requests.
 
-For the first manual `M11` acceptance pass, confirm all of these in one foreground session:
+For the current manual `M11` acceptance bar, prefer one real user-scenario foreground session instead of isolated command pokes:
 
-- startup prints readable `[system]` status lines instead of silent blocking
-- typing normal text still produces normal runtime replies
-- typing `/help` prints local command guidance without creating a runtime request
-- typing `/status` prints a readable `Session status` line
-- typing `/history` prints recent `[system]`, `[user]`, and `[runtime]` lines
-- typing `/quit` exits the terminal edge cleanly
+1. Start the runtime with `.venv/bin/python -m personal_runtime.main --host 127.0.0.1 --port 8765 --token dev-token`.
+2. Start the terminal surface with `.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token --tui`.
+3. Send `hello runtime`.
+   Expectation: the session shows both `[user] hello runtime` and one real `[runtime] ...` reply line on the same resident session.
+4. Send `check runtime status`.
+   Expectation: the session shows a readable runtime-delivered status response rather than suppressing delivery after the user text arrives.
+5. Send `/status` and `/history`.
+   Expectation: both stay edge-local, the transcript remains readable, and no extra runtime request is created for those slash commands.
+6. Send `/quit`.
+   Expectation: the TUI exits cleanly without a reconnect loop.
 
-For the first manual full-screen Textual acceptance pass, confirm all of these in one `--tui` session:
-
-- the app opens in a full-screen terminal layout instead of scrolling plain startup logs
-- the status bar stays visible while connection, activity, and pending-reply state change
-- the transcript pane grows without overwriting the input box
-- the input box accepts both normal text and local slash commands
-- `/quit` closes the session cleanly and exits the TUI without reconnect looping
+If you need the plain compatibility path instead of the TUI, run `.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token` and apply the same user-scenario expectations to the line-oriented transcript.
 
 For the current live-terminal baseline, a single `Ctrl+C` in the foreground terminal-daemon session should now terminate the CLI device cleanly during normal TTY use. If manual acceptance still requires repeated interrupt signals, treat that as a terminal-edge interaction regression rather than expected behavior.

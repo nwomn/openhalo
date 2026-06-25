@@ -364,6 +364,13 @@ Interpretation:
 - `intensity` decides how strongly the runtime should surface itself
 - `cooldown_or_suppression` prevents repeated or badly timed intervention
 
+The preferred division of labor is:
+
+- `Agent Runtime` proposal formation may suggest interaction semantics and candidate surface participation based on multi-device evidence
+- `Presence Router` should then govern which of those candidates are actually allowed, narrowed, delayed, redirected, or suppressed at runtime
+
+This means the model may suggest "where this interaction seems relevant", but it should not own the final user-visible surface decision by itself.
+
 This structure keeps policy review, testing, and later compression work tractable.
 
 Agent-initiated requests should receive meaningful weight inside this policy system.

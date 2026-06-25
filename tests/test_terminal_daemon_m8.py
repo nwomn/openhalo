@@ -127,6 +127,55 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
         self.assertEqual(daemon.runtime_message_count, 1)
         self.assertFalse(daemon.pending_runtime_reply)
 
+    def test_interaction_update_clears_waiting_without_local_action_request(self) -> None:
+        stdout = io.StringIO()
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=stdout,
+        )
+        daemon.pending_runtime_reply = True
+
+        daemon.handle_interaction_frame(
+            {
+                "type": "interaction_update",
+                "device_id": "terminal-edge-1",
+                "interaction": {
+                    "interaction_id": "interaction-1",
+                    "status": "completed",
+                    "summary": "Runtime status is healthy.",
+                },
+            }
+        )
+
+        self.assertFalse(daemon.pending_runtime_reply)
+        self.assertIn("Runtime status is healthy.", stdout.getvalue())
+
+    def test_silent_interaction_update_clears_waiting_without_rendering_summary(self) -> None:
+        stdout = io.StringIO()
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=stdout,
+        )
+        daemon.pending_runtime_reply = True
+
+        daemon.handle_interaction_frame(
+            {
+                "type": "interaction_update",
+                "device_id": "terminal-edge-1",
+                "interaction": {
+                    "interaction_id": "interaction-1",
+                    "status": "completed",
+                    "summary": "Hello! Runtime here.",
+                    "visibility": "silent",
+                },
+            }
+        )
+
+        self.assertFalse(daemon.pending_runtime_reply)
+        self.assertNotIn("Hello! Runtime here.", stdout.getvalue())
+
     def test_render_status_line_records_recent_transcript_entries(self) -> None:
         stdout = io.StringIO()
         daemon = TerminalEdgeDaemon(
@@ -250,6 +299,9 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
         self.assertIsNotNone(app.start_session)
 
     def test_main_dispatches_to_textual_mode_when_tui_flag_is_set(self) -> None:
+        def close_coroutine(coro) -> None:
+            coro.close()
+
         with (
             mock.patch(
                 "sys.argv",
@@ -260,7 +312,8 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
                     "--tui",
                 ],
             ),
-            mock.patch("asyncio.run") as asyncio_run,
+            mock.patch.dict("os.environ", {"TERM": "xterm-256color"}, clear=False),
+            mock.patch("asyncio.run", side_effect=close_coroutine) as asyncio_run,
             mock.patch(
                 "device_edge.cli.terminal_tui.run_textual_terminal_daemon"
             ) as run_tui,
@@ -269,6 +322,38 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
 
         asyncio_run.assert_not_called()
         run_tui.assert_called_once()
+
+    def test_main_falls_back_to_line_mode_when_tui_requested_in_dumb_terminal(self) -> None:
+        def close_coroutine(coro) -> None:
+            coro.close()
+
+        with (
+            mock.patch(
+                "sys.argv",
+                [
+                    "terminal_daemon",
+                    "--url",
+                    "ws://127.0.0.1:8765",
+                    "--tui",
+                ],
+            ),
+            mock.patch.dict("os.environ", {"TERM": "dumb"}, clear=False),
+            mock.patch("asyncio.run", side_effect=close_coroutine) as asyncio_run,
+            mock.patch(
+                "device_edge.cli.terminal_tui.run_textual_terminal_daemon"
+            ) as run_tui,
+            mock.patch("builtins.print") as print_mock,
+        ):
+            main()
+
+        run_tui.assert_not_called()
+        asyncio_run.assert_called_once()
+        printed = "\n".join(
+            " ".join(str(arg) for arg in call.args)
+            for call in print_mock.call_args_list
+        )
+        self.assertIn("TERM=dumb", printed)
+        self.assertIn("falling back to line mode", printed)
 
 
 class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
@@ -340,6 +425,32 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             transcript_log = app.query_one("#transcript-log", RichLog)
             self.assertGreaterEqual(len(transcript_log.lines), 1)
+
+    async def test_textual_terminal_app_exits_after_quit_once_daemon_disconnects_even_if_thread_lingers(
+        self,
+    ) -> None:
+        from device_edge.cli.terminal_tui import TerminalEdgeApp
+
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+        )
+        daemon.quit_requested = True
+        daemon.connection_state = "disconnected"
+        app = TerminalEdgeApp(
+            daemon=daemon,
+            input_queue=queue.Queue(),
+            transcript_queue=queue.Queue(),
+        )
+        lingering_thread = mock.Mock()
+        lingering_thread.is_alive.return_value = True
+
+        async with app.run_test() as pilot:
+            app.session_thread = lingering_thread
+            app.exit = mock.Mock()
+            await pilot.pause()
+            app._refresh_status_bar()
+            app.exit.assert_called_once()
 
     def test_builds_bootstrap_frames_for_terminal_edge(self) -> None:
         daemon = TerminalEdgeDaemon(
@@ -962,6 +1073,56 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sent_frames[1]["type"], "capability_announce")
         self.assertEqual(sent_frames[2]["capability"], "terminal.context")
         self.assertEqual(sent_frames[-1]["type"], "action_result")
+
+    async def test_daemon_session_accepts_interaction_completion_without_action_request(
+        self,
+    ) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+        )
+        sent_frames: list[dict] = []
+        recv_frames = iter(
+            [
+                {"type": "connect_ok"},
+                {"type": "event_ack"},
+                {"type": "event_ack"},
+                {"type": "event_ack"},
+                {
+                    "type": "interaction_update",
+                    "device_id": "terminal-edge-1",
+                    "interaction": {
+                        "interaction_id": "interaction-1",
+                        "status": "completed",
+                        "summary": "Runtime status is healthy.",
+                    },
+                },
+            ]
+        )
+
+        class FakeWebSocket:
+            async def send(self, payload: str) -> None:
+                sent_frames.append(json.loads(payload))
+
+            async def recv(self) -> str:
+                return json.dumps(next(recv_frames))
+
+        results = await daemon.run_scripted_session(
+            websocket=FakeWebSocket(),
+            scripted_inputs=[
+                {
+                    "text": "check runtime status",
+                    "observed_at": "2026-06-22T10:10:00Z",
+                }
+            ],
+            startup_observed_at="2026-06-22T10:09:00Z",
+            idle_after_inputs=True,
+            max_action_requests=1,
+        )
+
+        self.assertEqual(results, [])
+        self.assertFalse(daemon.pending_runtime_reply)
+        self.assertEqual(sent_frames[-1]["capability"], "text.input")
 
     async def test_daemon_session_emits_idle_activity_after_timeout(
         self,

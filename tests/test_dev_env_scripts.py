@@ -53,6 +53,14 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("input box", contents)
         self.assertIn("fallback", contents)
         self.assertIn("docs/terminal-tui.md", contents)
+        self.assertIn(".venv/bin/python -m personal_runtime.main", contents)
+        self.assertIn(
+            ".venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token --tui",
+            contents,
+        )
+        self.assertIn("hello runtime", contents)
+        self.assertIn("check runtime status", contents)
+        self.assertIn("real user-scenario foreground session", contents)
 
     def test_terminal_tui_guide_exists_and_describes_layout_controls_and_limits(self) -> None:
         document_path = ROOT / "docs" / "terminal-tui.md"
@@ -70,6 +78,13 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("/quit", contents)
         self.assertIn("Ctrl+C", contents)
         self.assertIn("Current Limits", contents)
+        self.assertIn(".venv/bin/python -m personal_runtime.main", contents)
+        self.assertIn(
+            ".venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token --tui",
+            contents,
+        )
+        self.assertIn("real user scenario", contents)
+        self.assertIn("check runtime status", contents)
 
     def test_shared_test_script_runs_using_root_venv(self) -> None:
         script_path = ROOT / "bin" / "test"
@@ -207,6 +222,44 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("prompt/context", contents)
         self.assertIn("behavior contract", contents)
         self.assertIn("replay/eval", contents)
+
+    def test_proposal_formation_verification_script_exists_and_is_executable(self) -> None:
+        script_path = ROOT / "bin" / "verify-proposal-formation"
+
+        self.assertTrue(script_path.exists())
+        self.assertTrue(os.access(script_path, os.X_OK))
+        contents = script_path.read_text(encoding="utf-8")
+        self.assertIn("device_edge.cli.cli_edge", contents)
+        self.assertIn("reply", contents)
+        self.assertIn("action", contents)
+        self.assertIn("clarification", contents)
+        self.assertIn("no_intervention", contents)
+
+    def test_proposal_formation_verification_script_supports_dry_run(self) -> None:
+        script_path = ROOT / "bin" / "verify-proposal-formation"
+
+        result = subprocess.run(
+            [str(script_path), "--dry-run"],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+        )
+
+        self.assertIn("reply-scenario", result.stdout)
+        self.assertIn("action-scenario", result.stdout)
+        self.assertIn("clarification-scenario", result.stdout)
+        self.assertIn("no-intervention-scenario", result.stdout)
+        self.assertIn("proposal-rationale-check", result.stdout)
+
+    def test_dev_env_document_mentions_proposal_formation_acceptance_path(self) -> None:
+        document_path = ROOT / "docs" / "dev-env.md"
+
+        contents = document_path.read_text(encoding="utf-8")
+        self.assertIn("verify-proposal-formation", contents)
+        self.assertIn("reply", contents)
+        self.assertIn("clarification", contents)
+        self.assertIn("no_intervention", contents)
 
 
 if __name__ == "__main__":

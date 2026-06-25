@@ -8,10 +8,31 @@ from device_edge.shared.session_client import SessionClient
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.runtime_state import RuntimeState
 
+ROOT = Path(__file__).resolve().parents[1]
+TEST_LLM_CONFIG = ROOT / "tests" / "fixtures" / "llm-config-test.toml"
+
+
+def _last_action_request(replies: list[dict]) -> dict | None:
+    return next(
+        (item for item in reversed(replies) if item["type"] == "action_request"),
+        None,
+    )
+
+
+def _last_interaction_update(replies: list[dict]) -> dict | None:
+    return next(
+        (item for item in reversed(replies) if item["type"] == "interaction_update"),
+        None,
+    )
+
 
 class GatewayTests(unittest.IsolatedAsyncioTestCase):
     async def test_connect_event_and_action_roundtrip(self) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token")
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         gateway.state.upsert_goal(
             goal_id="goal-1",
             title="Keep runtime healthy",
@@ -43,11 +64,16 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        self.assertEqual(reply[-1]["type"], "action_request")
-        self.assertEqual(reply[-1]["action"]["capability"], "notification.show")
+        action_request = next(
+            (item for item in reversed(reply) if item["type"] == "action_request"),
+            None,
+        )
+
+        self.assertIsNotNone(action_request)
+        self.assertEqual(action_request["action"]["capability"], "notification.show")
         self.assertEqual(
             gateway.state.interventions[-1]["proposal"]["metadata"]["llm_profile"],
-            "interactive_reply",
+            "proposal_formation",
         )
         self.assertIn(
             gateway.state.interventions[-1]["proposal"]["metadata"][
@@ -71,9 +97,21 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             "grounding_recent_user_inputs",
             gateway.state.interventions[-1]["proposal"]["metadata"],
         )
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["proposal_type"],
+            "reply",
+        )
+        self.assertIn(
+            "proposal_rationale",
+            gateway.state.interventions[-1]["proposal"]["metadata"],
+        )
 
     async def test_sync_roundtrip_wrapper_returns_replies(self) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token")
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         replies = gateway.run_roundtrip(
             [
                 {
@@ -98,13 +136,17 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        self.assertEqual(replies[-1]["type"], "action_request")
+        self.assertIsNotNone(_last_action_request(replies))
 
     async def test_persists_state_after_connect_event_and_action_result(self) -> None:
         state_path = Path(
             "/root/personal-runtime-agent/.worktrees/v0-single-edge-loop/.runtime-test/gateway-state.json"
         )
-        gateway = RuntimeGateway(shared_token="dev-token", state_path=state_path)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            state_path=state_path,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         replies = await gateway.handle_test_frames(
             [
                 {
@@ -136,7 +178,8 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
 
         persisted = json.loads(state_path.read_text(encoding="utf-8"))
 
-        self.assertEqual(replies[-1]["type"], "action_request")
+        action_request = _last_action_request(replies)
+        self.assertIsNotNone(action_request)
         self.assertEqual(
             persisted["devices"]["desktop-dev-1"]["capabilities"],
             ["notification.show", "text.input"],
@@ -145,7 +188,11 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(persisted["action_results"][-1]["status"], "ok")
 
     async def test_websocket_server_emits_connect_ack_and_action_request(self) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token")
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         async with gateway.run_test_server() as server_info:
             async with websockets.connect(server_info["url"]) as websocket:
                 await websocket.send(
@@ -188,11 +235,46 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(event_ack["type"], "event_ack")
         self.assertEqual(action_request["type"], "action_request")
 
+    async def test_protocol_accepts_interaction_update_frame_type(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "terminal-edge-1",
+                        "device_type": "desktop-cli",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "interaction_update",
+                    "device_id": "terminal-edge-1",
+                    "interaction": {
+                        "interaction_id": "interaction-1",
+                        "status": "completed",
+                        "summary": "Runtime status is healthy.",
+                    },
+                },
+            ]
+        )
+
+        self.assertEqual(replies[-1]["type"], "connect_ok")
+
     async def test_direct_action_event_bypasses_router_but_is_still_persisted(self) -> None:
         state_path = Path(
             "/root/personal-runtime-agent/.worktrees/v0-single-edge-loop/.runtime-test/direct-action-state.json"
         )
-        gateway = RuntimeGateway(shared_token="dev-token", state_path=state_path)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            state_path=state_path,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         replies = await gateway.handle_test_frames(
             [
                 {
@@ -225,16 +307,22 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
 
         persisted = json.loads(state_path.read_text(encoding="utf-8"))
 
+        action_request = _last_action_request(replies)
+
         self.assertEqual(replies[-2]["type"], "event_ack")
-        self.assertEqual(replies[-1]["type"], "action_request")
-        self.assertEqual(replies[-1]["action"]["payload"]["message"], "urgent ping")
+        self.assertIsNotNone(action_request)
+        self.assertEqual(action_request["action"]["payload"]["message"], "urgent ping")
         self.assertEqual(
             persisted["events"][-1]["payload"]["direct_action"]["payload"]["message"],
             "urgent ping",
         )
 
     async def test_normal_path_can_target_other_registered_device(self) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token")
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         replies = await gateway.handle_test_frames(
             [
                 {
@@ -272,20 +360,250 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        self.assertEqual(replies[-1]["type"], "action_request")
-        self.assertEqual(replies[-1]["device_id"], "desktop-dev-2")
-        self.assertEqual(replies[-1]["action"]["capability"], "notification.show")
+        action_request = _last_action_request(replies)
+
+        self.assertIsNotNone(action_request)
+        self.assertEqual(action_request["device_id"], "desktop-dev-2")
+        self.assertEqual(action_request["action"]["capability"], "notification.show")
         self.assertEqual(gateway.state.interventions[-1]["decision"], "allow")
         self.assertEqual(gateway.state.interventions[-1]["target_device_id"], "desktop-dev-2")
         self.assertEqual(gateway.state.interventions[-1]["proposal"]["action_capability"], "notification.show")
         self.assertEqual(gateway.state.interventions[-1]["proposal"]["kind"], "notify")
+        self.assertEqual(gateway.state.interventions[-1]["proposal"]["proposal_type"], "reply")
+
+    async def test_normal_text_can_form_runtime_status_action_proposal(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        source = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+        host = SessionClient(
+            device_id="host-edge-1",
+            device_type="server",
+            token="dev-token",
+            capabilities=["host.metrics", "runtime.health", "runtime.control"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                source.build_connect_frame(),
+                source.build_capability_announce_frame(),
+                host.build_connect_frame(),
+                host.build_capability_announce_frame(),
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {"text": "check runtime status"},
+                },
+            ]
+        )
+
+        proposal = gateway.state.interventions[-1]["proposal"]
+        action_request = _last_action_request(replies)
+
+        self.assertIsNotNone(action_request)
+        self.assertEqual(action_request["device_id"], "host-edge-1")
+        self.assertEqual(action_request["action"]["capability"], "runtime.status")
+        self.assertEqual(proposal["proposal_type"], "action")
+        self.assertEqual(proposal["action_capability"], "runtime.status")
+        self.assertIn("proposal_rationale", proposal["metadata"])
+
+    async def test_local_reply_interaction_completion_is_silent_after_visible_notification(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        client = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {"text": "hello runtime"},
+                },
+            ]
+        )
+        action_request = _last_action_request(replies)
+        self.assertIsNotNone(action_request)
+
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "type": "action_result",
+                    "device_id": "desktop-dev-1",
+                    "interaction_id": action_request["interaction_id"],
+                    "result": {
+                        "status": "ok",
+                        "details": {
+                            "delivered_via": "terminal.stdout",
+                            "message": "Hello! Runtime here.",
+                        },
+                    },
+                },
+            ]
+        )
+
+        interaction_update = _last_interaction_update(replies)
+        self.assertIsNotNone(interaction_update)
+        self.assertEqual(interaction_update["interaction"]["visibility"], "silent")
+        self.assertEqual(interaction_update["interaction"]["summary"], "Hello! Runtime here.")
+
+    async def test_runtime_status_completion_records_visible_summary(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        source = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+        host = SessionClient(
+            device_id="host-edge-1",
+            device_type="server",
+            token="dev-token",
+            capabilities=["host.metrics", "runtime.health", "runtime.control"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                source.build_connect_frame(),
+                source.build_capability_announce_frame(),
+                host.build_connect_frame(),
+                host.build_capability_announce_frame(),
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {"text": "check runtime status"},
+                },
+            ]
+        )
+        action_request = _last_action_request(replies)
+        self.assertIsNotNone(action_request)
+
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "type": "action_result",
+                    "device_id": "host-edge-1",
+                    "interaction_id": action_request["interaction_id"],
+                    "result": {
+                        "status": "ok",
+                        "capability": "runtime.status",
+                        "details": {"state": "running", "pid": 42137},
+                    },
+                }
+            ]
+        )
+
+        interaction_update = _last_interaction_update(replies)
+        self.assertIsNotNone(interaction_update)
+        self.assertEqual(
+            interaction_update["interaction"]["summary"],
+            "Runtime status: running (pid 42137).",
+        )
+
+    async def test_normal_text_can_form_clarification_proposal(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        client = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {"text": "help"},
+                },
+            ]
+        )
+
+        proposal = gateway.state.interventions[-1]["proposal"]
+        action_request = _last_action_request(replies)
+
+        self.assertIsNotNone(action_request)
+        self.assertEqual(action_request["action"]["capability"], "notification.show")
+        self.assertEqual(proposal["proposal_type"], "clarification")
+        self.assertEqual(proposal["action_capability"], "notification.show")
+        self.assertIn("proposal_rationale", proposal["metadata"])
+
+    async def test_normal_text_can_form_no_intervention_proposal(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        client = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {"text": "thanks"},
+                },
+            ]
+        )
+
+        proposal = gateway.state.interventions[-1]["proposal"]
+        interaction_update = _last_interaction_update(replies)
+        self.assertIsNotNone(interaction_update)
+        self.assertEqual(proposal["proposal_type"], "no_intervention")
+        self.assertIsNone(proposal["action_capability"])
+        self.assertEqual(gateway.state.interventions[-1]["decision"], "allow")
+        self.assertIn("proposal_rationale", proposal["metadata"])
 
     async def test_normal_path_falls_back_to_source_when_peer_is_not_online(self) -> None:
         state = RuntimeState()
         state.register_device("desktop-dev-2", "desktop-cli")
         state.register_capability("desktop-dev-2", "notification.show")
         state.register_capability("desktop-dev-2", "text.input")
-        gateway = RuntimeGateway(shared_token="dev-token", state=state)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            state=state,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
 
         replies = await gateway.handle_test_frames(
             [
@@ -311,11 +629,17 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        self.assertEqual(replies[-1]["type"], "action_request")
-        self.assertEqual(replies[-1]["device_id"], "desktop-dev-1")
+        action_request = _last_action_request(replies)
+
+        self.assertIsNotNone(action_request)
+        self.assertEqual(action_request["device_id"], "desktop-dev-1")
 
     async def test_normal_path_suppresses_user_facing_action_when_location_context_is_ambiguous(self) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         client = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
@@ -363,7 +687,8 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        self.assertEqual(replies[-1]["type"], "event_ack")
+        interaction_update = _last_interaction_update(replies)
+        self.assertIsNotNone(interaction_update)
         self.assertEqual(len([reply for reply in replies if reply["type"] == "action_request"]), 0)
         self.assertEqual(gateway.state.interventions[-1]["decision"], "suppress")
         self.assertEqual(gateway.state.interventions[-1]["reason"], "context_ambiguous")
@@ -371,7 +696,11 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
     async def test_normal_path_uses_latest_known_observation_time_when_event_timestamp_is_missing(
         self,
     ) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         client = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
@@ -419,7 +748,8 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        self.assertEqual(replies[-1]["type"], "event_ack")
+        interaction_update = _last_interaction_update(replies)
+        self.assertIsNotNone(interaction_update)
         self.assertEqual(
             gateway.state.interventions[-1]["snapshot_contract"]["snapshot_time"],
             "2026-06-19T10:30:00Z",
@@ -428,7 +758,11 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(gateway.state.interventions[-1]["reason"], "context_ambiguous")
 
     async def test_normal_path_ignores_stale_conflicting_location_evidence(self) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         client = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
@@ -479,8 +813,10 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        self.assertEqual(replies[-1]["type"], "action_request")
-        self.assertEqual(replies[-1]["action"]["capability"], "notification.show")
+        action_request = _last_action_request(replies)
+
+        self.assertIsNotNone(action_request)
+        self.assertEqual(action_request["action"]["capability"], "notification.show")
         self.assertEqual(gateway.state.interventions[-1]["decision"], "allow")
         self.assertEqual(gateway.state.interventions[-1]["reason"], "context_clear")
         self.assertEqual(
@@ -493,7 +829,11 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
     async def test_normal_path_records_fresh_runtime_health_contract_for_intervention(
         self,
     ) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         source = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
@@ -542,7 +882,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        self.assertEqual(replies[-1]["type"], "action_request")
+        self.assertIsNotNone(_last_action_request(replies))
         snapshot_contract = gateway.state.interventions[-1]["snapshot_contract"]
         self.assertEqual(snapshot_contract["snapshot_time"], "2026-06-21T10:10:00Z")
         self.assertEqual(
@@ -565,7 +905,11 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
     async def test_normal_path_records_stale_runtime_health_contract_for_intervention(
         self,
     ) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         source = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
@@ -608,7 +952,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        self.assertEqual(replies[-1]["type"], "action_request")
+        self.assertIsNotNone(_last_action_request(replies))
         snapshot_contract = gateway.state.interventions[-1]["snapshot_contract"]
         self.assertEqual(
             snapshot_contract["fields"]["runtime.current_health_state"]["value"],
@@ -628,7 +972,11 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
     async def test_agent_initiative_path_routes_runtime_status_through_presence_and_records_source(
         self,
     ) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         source = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
@@ -676,9 +1024,11 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        self.assertEqual(replies[-1]["type"], "action_request")
-        self.assertEqual(replies[-1]["device_id"], "host-edge-1")
-        self.assertEqual(replies[-1]["action"]["capability"], "runtime.status")
+        action_request = _last_action_request(replies)
+
+        self.assertIsNotNone(action_request)
+        self.assertEqual(action_request["device_id"], "host-edge-1")
+        self.assertEqual(action_request["action"]["capability"], "runtime.status")
         self.assertEqual(
             gateway.state.interventions[-1]["proposal"]["source"],
             "agent_initiative",
@@ -711,7 +1061,12 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                 "recorded_at": "2026-06-21T10:06:00Z",
             }
         )
-        gateway = RuntimeGateway(shared_token="dev-token", state=state, persist_state=False)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            state=state,
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         source = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
@@ -748,7 +1103,8 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        self.assertEqual(replies[-1]["type"], "event_ack")
+        interaction_update = _last_interaction_update(replies)
+        self.assertIsNotNone(interaction_update)
         self.assertEqual(
             len([reply for reply in replies if reply["type"] == "action_request"]),
             0,
@@ -761,7 +1117,11 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_runtime_can_trigger_agent_initiative_without_edge_text_event(self) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         source = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
@@ -806,7 +1166,11 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
     async def test_agent_initiative_notification_to_terminal_edge_is_suppressed_when_terminal_is_idle(
         self,
     ) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         source = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
@@ -854,7 +1218,8 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        self.assertEqual(replies[-1]["type"], "event_ack")
+        interaction_update = _last_interaction_update(replies)
+        self.assertIsNotNone(interaction_update)
         self.assertEqual(
             len([reply for reply in replies if reply["type"] == "action_request"]),
             0,
@@ -868,7 +1233,11 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
     async def test_agent_initiative_notification_to_terminal_edge_is_allowed_when_terminal_is_active(
         self,
     ) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         source = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
@@ -916,15 +1285,21 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        self.assertEqual(replies[-1]["type"], "action_request")
-        self.assertEqual(replies[-1]["device_id"], "terminal-edge-1")
-        self.assertEqual(replies[-1]["action"]["capability"], "notification.show")
+        action_request = _last_action_request(replies)
+
+        self.assertIsNotNone(action_request)
+        self.assertEqual(action_request["device_id"], "terminal-edge-1")
+        self.assertEqual(action_request["action"]["capability"], "notification.show")
         self.assertEqual(gateway.state.interventions[-1]["decision"], "allow")
 
     async def test_agent_initiative_notification_to_offline_idle_terminal_is_suppressed_instead_of_falling_back(
         self,
     ) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         source = SessionClient(
             device_id="desktop-dev-verify",
             device_type="desktop-cli",
@@ -988,7 +1363,8 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        self.assertEqual(replies[-1]["type"], "event_ack")
+        interaction_update = _last_interaction_update(replies)
+        self.assertIsNotNone(interaction_update)
         self.assertEqual(
             len([reply for reply in replies if reply["type"] == "action_request"]),
             0,
@@ -1010,7 +1386,12 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                 "recorded_at": "2026-06-19T10:30:00Z",
             }
         )
-        gateway = RuntimeGateway(shared_token="dev-token", state=state, persist_state=False)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            state=state,
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
 
         replies = await gateway.handle_test_frames(
             [
@@ -1057,7 +1438,8 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        self.assertEqual(replies[-1]["type"], "event_ack")
+        interaction_update = _last_interaction_update(replies)
+        self.assertIsNotNone(interaction_update)
         self.assertEqual(len([reply for reply in replies if reply["type"] == "action_request"]), 0)
         self.assertEqual(gateway.state.interventions[-1]["decision"], "suppress")
         self.assertEqual(gateway.state.interventions[-1]["reason"], "cooldown_active")
@@ -1077,7 +1459,12 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                 },
             }
         )
-        gateway = RuntimeGateway(shared_token="dev-token", state=state, persist_state=False)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            state=state,
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
 
         replies = await gateway.handle_test_frames(
             [
@@ -1106,13 +1493,19 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        self.assertEqual(replies[-1]["type"], "action_request")
-        self.assertEqual(replies[-1]["action"]["capability"], "notification.show")
         self.assertEqual(gateway.state.interventions[-1]["decision"], "allow")
         self.assertEqual(gateway.state.interventions[-1]["reason"], "context_clear")
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["proposal_type"],
+            "reply",
+        )
 
     async def test_records_host_observations_with_runtime_provenance(self) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         client = SessionClient(
             device_id="host-edge-1",
             device_type="server",

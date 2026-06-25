@@ -14,7 +14,6 @@ from personal_runtime.prompt_context import build_prompt_context_package
 
 
 DEFAULT_CONFIG_PATH = Path("config/llm-config.toml")
-LOCAL_OVERRIDE_CONFIG_PATH = Path(".runtime/llm-config.toml")
 
 
 @dataclass(slots=True)
@@ -43,6 +42,7 @@ class ProfileConfig:
     model_ref: str
     reasoning_effort: str = "medium"
     verbosity: str = "low"
+    provider_failure_behavior: str = "deterministic"
 
 
 @dataclass(slots=True)
@@ -58,13 +58,17 @@ class DeterministicReplyPlan:
     metadata: dict
 
 
+@dataclass(slots=True)
+class ProposalPlan:
+    proposal_type: str
+    response_text: str
+    action_capability: str | None
+    action_payload: dict
+    metadata: dict
+
+
 def load_runtime_model_config(path: Path | None = None) -> RuntimeModelConfig:
-    config_path = path
-    if config_path is None:
-        if LOCAL_OVERRIDE_CONFIG_PATH.exists():
-            config_path = LOCAL_OVERRIDE_CONFIG_PATH
-        else:
-            config_path = DEFAULT_CONFIG_PATH
+    config_path = path or DEFAULT_CONFIG_PATH
     payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
     llm_payload = payload["llm"]
 
@@ -98,6 +102,10 @@ def load_runtime_model_config(path: Path | None = None) -> RuntimeModelConfig:
             model_ref=profile_payload["model_ref"],
             reasoning_effort=profile_payload.get("reasoning_effort", "medium"),
             verbosity=profile_payload.get("verbosity", "low"),
+            provider_failure_behavior=profile_payload.get(
+                "provider_failure_behavior",
+                "deterministic",
+            ),
         )
         for name, profile_payload in llm_payload.get("profiles", {}).items()
     }
@@ -163,12 +171,82 @@ def build_openai_compatible_request(
     }
 
 
+def build_openai_compatible_proposal_request(
+    model_id: str,
+    user_text: str,
+    snapshot: dict | None,
+    grounding: dict | None,
+    reasoning_effort: str,
+    verbosity: str,
+) -> dict:
+    prompt_context_package = build_prompt_context_package(
+        user_text=user_text,
+        snapshot=snapshot,
+        grounding_bundle=grounding,
+    )
+    return {
+        "model": model_id,
+        "reasoning": {"effort": reasoning_effort},
+        "text": {"verbosity": verbosity},
+        "input": [
+            {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": (
+                            "You are the proposal formation planner for a personal runtime. "
+                            "Return exactly one JSON object and no surrounding prose. "
+                            "The object must include proposal_type, response_text, action, and rationale. "
+                            "proposal_type must be one of: reply, action, clarification, no_intervention. "
+                            "Use action when the user explicitly asks the runtime to do something, "
+                            "including runtime control such as runtime.status. "
+                            "Use reply for conversational responses, clarification when the request is underspecified, "
+                            "and no_intervention for acknowledgements or closures that should stay silent."
+                        ),
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": (
+                            f"User text: {user_text}\n"
+                            f"Prompt context version: {prompt_context_package['version']}\n"
+                            f"Prompt context package: {json.dumps(prompt_context_package, sort_keys=True)}\n"
+                            f"Grounding bundle: {json.dumps(grounding or {}, sort_keys=True)}\n"
+                            "Return exactly one JSON object in this shape:\n"
+                            '{'
+                            '"proposal_type":"reply|action|clarification|no_intervention",'
+                            '"response_text":"...",'
+                            '"action":{"capability":"notification.show|runtime.status|...","payload":{}}'
+                            ' or null,'
+                            '"rationale":{"summary":"...",'
+                            '"intent_signals":["..."],'
+                            '"grounding_signals":["..."]}'
+                            '}\n'
+                            "If the request is to check runtime status, prefer "
+                            '{"proposal_type":"action","action":{"capability":"runtime.status","payload":{}}}.'
+                        ),
+                    }
+                ],
+            },
+        ],
+    }
+
+
 def parse_openai_compatible_response(
     response_payload: dict,
     profile_name: str,
     provider_name: str,
     model_id: str,
 ) -> DeterministicReplyPlan:
+    if _looks_like_codex_agent_envelope(response_payload):
+        raise ValueError(
+            "Codex agent envelope with empty output; configured responses route is incompatible with plain runtime reply parsing"
+        )
     for item in response_payload.get("output", []):
         if item.get("type") != "message":
             continue
@@ -186,6 +264,131 @@ def parse_openai_compatible_response(
                         },
                     )
     raise ValueError("openai_compatible response did not contain output_text")
+
+
+def parse_openai_compatible_proposal_response(
+    response_payload: dict,
+    profile_name: str,
+    provider_name: str,
+    model_id: str,
+) -> ProposalPlan:
+    if _looks_like_codex_agent_envelope(response_payload):
+        raise ValueError(
+            "Codex agent envelope with empty output; configured responses route is incompatible with plain runtime proposal parsing"
+        )
+    for item in response_payload.get("output", []):
+        if item.get("type") != "message":
+            continue
+        for content_item in item.get("content", []):
+            if content_item.get("type") != "output_text":
+                continue
+            text = content_item.get("text", "").strip()
+            if not text:
+                continue
+            payload = json.loads(text)
+            provider_proposal_type = payload["proposal_type"]
+            proposal_type = _normalize_proposal_type(provider_proposal_type)
+            response_text = _extract_provider_response_text(payload)
+            action_capability, action_payload = _normalize_provider_action(
+                proposal_type=proposal_type,
+                action=payload.get("action"),
+                response_text=response_text,
+            )
+            return ProposalPlan(
+                proposal_type=proposal_type,
+                response_text=response_text,
+                action_capability=action_capability,
+                action_payload=action_payload,
+                metadata={
+                    "llm_profile": profile_name,
+                    "llm_provider": provider_name,
+                    "llm_model": model_id,
+                    "used_deterministic_fallback": False,
+                    "provider_proposal_type": provider_proposal_type,
+                    "proposal_rationale": _normalize_provider_rationale(
+                        payload.get("rationale", {})
+                    ),
+                },
+            )
+    raise ValueError(
+        "openai_compatible response did not contain structured proposal output_text"
+    )
+
+
+def _looks_like_codex_agent_envelope(response_payload: dict) -> bool:
+    if response_payload.get("output"):
+        return False
+    if response_payload.get("status") != "completed":
+        return False
+    instructions = response_payload.get("instructions")
+    if not isinstance(instructions, str):
+        return False
+    return "coding agent running in the Codex CLI" in instructions
+
+
+def _normalize_proposal_type(raw_value: str) -> str:
+    normalized = raw_value.strip().lower()
+    if normalized in {
+        "reply",
+        "response",
+        "message",
+        "notify",
+        "direct_response",
+        "assistant_message",
+    }:
+        return "reply"
+    if normalized in {"action", "runtime_control", "control"}:
+        return "action"
+    if normalized in {"clarification", "clarify", "question"}:
+        return "clarification"
+    if normalized in {"no_intervention", "none", "ignore", "no_action"}:
+        return "no_intervention"
+    return "reply"
+
+
+def _extract_provider_response_text(payload: dict) -> str:
+    for field_name in ("response_text", "response", "message", "reply", "text"):
+        value = payload.get(field_name)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _normalize_provider_action(
+    proposal_type: str,
+    action,
+    response_text: str,
+) -> tuple[str | None, dict]:
+    if action is None and proposal_type == "action":
+        normalized_text = response_text.strip().lower()
+        if "runtime status" in normalized_text or "checking runtime status" in normalized_text:
+            return "runtime.status", {}
+
+    if isinstance(action, dict):
+        return action.get("capability"), dict(action.get("payload", {}))
+
+    if isinstance(action, str):
+        normalized = action.strip().lower()
+        if normalized in {"respond", "reply", "message", "notify", "notification.show"}:
+            return "notification.show", {}
+        if normalized in {"runtime_status", "status"}:
+            return "runtime.status", {}
+        if normalized.startswith("runtime."):
+            return normalized, {}
+        if normalized in {"none", "no_action", "no_intervention", "ignore", ""}:
+            return None, {}
+
+    if proposal_type in {"reply", "clarification"} and response_text:
+        return "notification.show", {}
+    return None, {}
+
+
+def _normalize_provider_rationale(rationale) -> dict:
+    if isinstance(rationale, dict):
+        return dict(rationale)
+    if isinstance(rationale, str):
+        return {"summary": rationale}
+    return {}
 
 
 def build_deterministic_reply_plan(
@@ -207,6 +410,161 @@ def build_deterministic_reply_plan(
     )
 
 
+def build_deterministic_proposal_plan(
+    user_text: str,
+    profile_name: str,
+    fallback_reason: str,
+    snapshot: dict | None = None,
+    grounding: dict | None = None,
+    provider_name: str | None = None,
+    model_id: str | None = None,
+) -> ProposalPlan:
+    normalized = user_text.strip().lower()
+    snapshot_fields = sorted((snapshot or {}).keys())
+    grounding_goals = grounding.get("active_goals", []) if grounding else []
+    rationale = {
+        "summary": "",
+        "intent_signals": [signal for signal in normalized.split() if signal],
+        "grounding_signals": snapshot_fields,
+        "active_goal_count": len(grounding_goals),
+    }
+
+    if (
+        normalized in {"thanks", "thank you", "ok thanks", "cool thanks"}
+        or normalized.endswith("thanks")
+        or normalized.endswith("thank you")
+    ):
+        rationale["summary"] = (
+            "No intervention needed because the user message looks like a closure or acknowledgement."
+        )
+        return ProposalPlan(
+            proposal_type="no_intervention",
+            response_text="",
+            action_capability=None,
+            action_payload={},
+            metadata={
+                "llm_profile": profile_name,
+                "llm_provider": provider_name or "local_deterministic",
+                "llm_model": model_id or "local_deterministic",
+                "used_deterministic_fallback": True,
+                "fallback_reason": fallback_reason,
+                "proposal_rationale": rationale,
+            },
+        )
+
+    if normalized in {"help", "what can you do", "what now", "?"}:
+        rationale["summary"] = (
+            "Clarify the request because it is underspecified and needs disambiguation."
+        )
+        return ProposalPlan(
+            proposal_type="clarification",
+            response_text=(
+                "Please clarify what you want me to do. You can ask for a reply or a runtime action such as status."
+            ),
+            action_capability="notification.show",
+            action_payload={},
+            metadata={
+                "llm_profile": profile_name,
+                "llm_provider": provider_name or "local_deterministic",
+                "llm_model": model_id or "local_deterministic",
+                "used_deterministic_fallback": True,
+                "fallback_reason": fallback_reason,
+                "proposal_rationale": rationale,
+            },
+        )
+
+    if "runtime" in normalized and "status" in normalized:
+        rationale["summary"] = (
+            "Action proposal selected because the user explicitly requested runtime status."
+        )
+        return ProposalPlan(
+            proposal_type="action",
+            response_text="Checking runtime status.",
+            action_capability="runtime.status",
+            action_payload={},
+            metadata={
+                "llm_profile": profile_name,
+                "llm_provider": provider_name or "local_deterministic",
+                "llm_model": model_id or "local_deterministic",
+                "used_deterministic_fallback": True,
+                "fallback_reason": fallback_reason,
+                "proposal_rationale": rationale,
+            },
+        )
+
+    rationale["summary"] = (
+        "Reply proposal selected because the user text looks like a normal conversational request."
+    )
+    return ProposalPlan(
+        proposal_type="reply",
+        response_text=f"Runtime heard: {user_text}",
+        action_capability="notification.show",
+        action_payload={},
+        metadata={
+            "llm_profile": profile_name,
+            "llm_provider": provider_name or "local_deterministic",
+            "llm_model": model_id or "local_deterministic",
+            "used_deterministic_fallback": True,
+            "fallback_reason": fallback_reason,
+            "proposal_rationale": rationale,
+        },
+    )
+
+
+def _summarize_provider_failure(error: Exception) -> str:
+    if isinstance(error, urllib.error.URLError):
+        reason = getattr(error, "reason", None)
+        if reason:
+            return str(reason)
+    if isinstance(error, json.JSONDecodeError):
+        return "provider returned invalid structured proposal JSON"
+    if isinstance(error, KeyError):
+        return f"missing config field: {error.args[0]}"
+    message = str(error).strip()
+    if message:
+        return message
+    return error.__class__.__name__
+
+
+def build_provider_failure_proposal_plan(
+    user_text: str,
+    profile_name: str,
+    error: Exception,
+    snapshot: dict | None = None,
+    grounding: dict | None = None,
+    provider_name: str | None = None,
+    model_id: str | None = None,
+) -> ProposalPlan:
+    failure_reason = _summarize_provider_failure(error)
+    snapshot_fields = sorted((snapshot or {}).keys())
+    grounding_goals = grounding.get("active_goals", []) if grounding else []
+    return ProposalPlan(
+        proposal_type="reply",
+        response_text=f"Real model reply unavailable: {failure_reason}",
+        action_capability="notification.show",
+        action_payload={},
+        metadata={
+            "llm_profile": profile_name,
+            "llm_provider": provider_name or "local_deterministic",
+            "llm_model": model_id or "local_deterministic",
+            "used_deterministic_fallback": False,
+            "provider_failure_behavior": "user_visible_error",
+            "provider_failure_reason": failure_reason,
+            "provider_failure_type": error.__class__.__name__,
+            "model_unavailable": True,
+            "proposal_rationale": {
+                "summary": (
+                    "The configured model provider was unavailable, so the runtime "
+                    "surfaced the real provider failure instead of fabricating a deterministic reply."
+                ),
+                "intent_signals": [signal for signal in user_text.strip().lower().split() if signal],
+                "grounding_signals": snapshot_fields,
+                "active_goal_count": len(grounding_goals),
+            },
+        },
+    )
+
+
 def generate_text_reply_plan(
     user_text: str,
     snapshot: dict | None = None,
@@ -221,6 +579,21 @@ def generate_text_reply_plan(
     provider = config.providers[model.provider]
 
     if provider.adapter_type != "openai_compatible":
+        failure_reason = f"unsupported adapter: {provider.adapter_type}"
+        if profile.provider_failure_behavior == "user_visible_error":
+            return DeterministicReplyPlan(
+                message=f"Real model reply unavailable: {failure_reason}",
+                metadata={
+                    "llm_profile": profile_name,
+                    "llm_provider": provider.name,
+                    "llm_model": model.model_id,
+                    "used_deterministic_fallback": False,
+                    "provider_failure_behavior": "user_visible_error",
+                    "provider_failure_reason": failure_reason,
+                    "provider_failure_type": "UnsupportedAdapter",
+                    "model_unavailable": True,
+                },
+            )
         return build_deterministic_reply_plan(
             user_text=user_text,
             profile_name=profile_name,
@@ -245,11 +618,107 @@ def generate_text_reply_plan(
             provider_name=provider.name,
             model_id=model.model_id,
         )
-    except (KeyError, OSError, ValueError, urllib.error.URLError):
+    except (KeyError, OSError, ValueError, urllib.error.URLError) as exc:
+        if profile.provider_failure_behavior == "user_visible_error":
+            return DeterministicReplyPlan(
+                message=f"Real model reply unavailable: {_summarize_provider_failure(exc)}",
+                metadata={
+                    "llm_profile": profile.name,
+                    "llm_provider": provider.name,
+                    "llm_model": model.model_id,
+                    "used_deterministic_fallback": False,
+                    "provider_failure_behavior": "user_visible_error",
+                    "provider_failure_reason": _summarize_provider_failure(exc),
+                    "provider_failure_type": exc.__class__.__name__,
+                    "model_unavailable": True,
+                },
+            )
         return build_deterministic_reply_plan(
             user_text=user_text,
             profile_name=profile_name,
             fallback_reason="provider_unavailable",
+            provider_name=provider.name,
+            model_id=model.model_id,
+        )
+
+
+def generate_text_proposal_plan(
+    user_text: str,
+    snapshot: dict | None = None,
+    grounding: dict | None = None,
+    profile_name: str = "proposal_formation",
+    config_path: Path | None = None,
+    transport=None,
+) -> ProposalPlan:
+    config = load_runtime_model_config(config_path)
+    fallback_profile_name = (
+        profile_name if profile_name in config.profiles else "interactive_reply"
+    )
+    profile = resolve_profile_config(config, fallback_profile_name)
+    model = config.models[profile.model_ref]
+    provider = config.providers[model.provider]
+
+    if provider.adapter_type != "openai_compatible":
+        if profile.provider_failure_behavior == "user_visible_error":
+            return build_provider_failure_proposal_plan(
+                user_text=user_text,
+                profile_name=fallback_profile_name,
+                error=ValueError(f"unsupported adapter: {provider.adapter_type}"),
+                snapshot=snapshot,
+                grounding=grounding,
+                provider_name=provider.name,
+                model_id=model.model_id,
+            )
+        return build_deterministic_proposal_plan(
+            user_text=user_text,
+            profile_name=fallback_profile_name,
+            fallback_reason="unsupported_adapter",
+            snapshot=snapshot,
+            grounding=grounding,
+            provider_name=provider.name,
+            model_id=model.model_id,
+        )
+
+    try:
+        response_payload = execute_openai_compatible_request(
+            provider=provider,
+            model=model,
+            profile=profile,
+            user_text=user_text,
+            snapshot=snapshot,
+            grounding=grounding,
+            request_builder=build_openai_compatible_proposal_request,
+            transport=transport,
+        )
+        return parse_openai_compatible_proposal_response(
+            response_payload=response_payload,
+            profile_name=profile.name,
+            provider_name=provider.name,
+            model_id=model.model_id,
+        )
+    except (
+        KeyError,
+        OSError,
+        ValueError,
+        json.JSONDecodeError,
+        urllib.error.URLError,
+    ) as exc:
+        if profile.provider_failure_behavior == "user_visible_error":
+            return build_provider_failure_proposal_plan(
+                user_text=user_text,
+                profile_name=fallback_profile_name,
+                error=exc,
+                snapshot=snapshot,
+                grounding=grounding,
+                provider_name=provider.name,
+                model_id=model.model_id,
+            )
+        return build_deterministic_proposal_plan(
+            user_text=user_text,
+            profile_name=fallback_profile_name,
+            fallback_reason="provider_unavailable",
+            snapshot=snapshot,
+            grounding=grounding,
             provider_name=provider.name,
             model_id=model.model_id,
         )
@@ -262,9 +731,10 @@ def execute_openai_compatible_request(
     user_text: str,
     snapshot: dict | None = None,
     grounding: dict | None = None,
+    request_builder=build_openai_compatible_request,
     transport=None,
 ) -> dict:
-    request_payload = build_openai_compatible_request(
+    request_payload = request_builder(
         model_id=model.model_id,
         user_text=user_text,
         snapshot=snapshot,
@@ -303,16 +773,21 @@ def execute_openai_compatible_request(
 __all__ = [
     "DEFAULT_CONFIG_PATH",
     "DeterministicReplyPlan",
-    "LOCAL_OVERRIDE_CONFIG_PATH",
     "ModelConfig",
+    "ProposalPlan",
     "ProfileConfig",
     "ProviderConfig",
     "RuntimeModelConfig",
     "build_deterministic_reply_plan",
+    "build_deterministic_proposal_plan",
+    "build_provider_failure_proposal_plan",
+    "build_openai_compatible_proposal_request",
     "build_openai_compatible_request",
     "execute_openai_compatible_request",
+    "generate_text_proposal_plan",
     "generate_text_reply_plan",
     "load_runtime_model_config",
+    "parse_openai_compatible_proposal_response",
     "parse_openai_compatible_response",
     "resolve_profile_config",
 ]

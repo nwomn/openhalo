@@ -19,6 +19,11 @@ from device_edge.shared.local_actions import execute_action
 from device_edge.shared.session_client import SessionClient
 
 
+def terminal_supports_textual_fullscreen() -> bool:
+    term = os.environ.get("TERM", "").strip().lower()
+    return term not in {"", "dumb"}
+
+
 class TerminalEdgeDaemon:
     transcript_limit = 12
 
@@ -38,6 +43,7 @@ class TerminalEdgeDaemon:
         self.connection_state = "disconnected"
         self.terminal_activity_state = "unknown"
         self.pending_runtime_reply = False
+        self.pending_interaction_id: str | None = None
         self.user_request_count = 0
         self.runtime_message_count = 0
         self.local_command_count = 0
@@ -221,6 +227,7 @@ class TerminalEdgeDaemon:
         event_timestamp = self._next_observed_at(observed_at)
         self.user_request_count += 1
         self.pending_runtime_reply = True
+        self.pending_interaction_id = None
         self.render_user_line(normalized_text)
         for frame in self.build_user_input_frames(
             text=normalized_text,
@@ -265,6 +272,7 @@ class TerminalEdgeDaemon:
     def handle_action_request(self, frame: dict) -> dict:
         self.runtime_message_count += 1
         self.pending_runtime_reply = False
+        self.pending_interaction_id = None
         result = execute_action(
             frame["action"],
             output_stream=self.output_stream,
@@ -276,11 +284,25 @@ class TerminalEdgeDaemon:
                 "runtime",
                 frame["action"]["payload"]["message"],
             )
-        return {
+        action_result = {
             "type": "action_result",
             "device_id": self.client.device_id,
             "result": result,
         }
+        if frame.get("interaction_id"):
+            action_result["interaction_id"] = frame["interaction_id"]
+        return action_result
+
+    def handle_interaction_frame(self, frame: dict) -> None:
+        interaction = frame["interaction"]
+        self.pending_interaction_id = interaction.get("interaction_id")
+        if interaction.get("status") == "completed":
+            self.pending_runtime_reply = False
+            self.pending_interaction_id = None
+        visibility = interaction.get("visibility", "visible")
+        summary = interaction.get("summary", "").strip()
+        if summary and visibility != "silent":
+            self.render_runtime_line(summary)
 
     async def _send_frame(self, websocket, frame: dict) -> None:
         await websocket.send(json.dumps(frame))
@@ -455,6 +477,23 @@ class TerminalEdgeDaemon:
                         ),
                         None,
                     )
+                    interaction_frame = next(
+                        (
+                            pending_frames.pop(index)
+                            for index, candidate in enumerate(pending_frames)
+                            if candidate.get("type") == "interaction_update"
+                        ),
+                        None,
+                    )
+                    if interaction_frame is not None:
+                        self.handle_interaction_frame(interaction_frame)
+                        if (
+                            self.pending_runtime_reply is False
+                            and max_action_requests is not None
+                            and len(results) >= max_action_requests
+                        ):
+                            return results
+                        continue
                     if action_frame is None:
                         continue
                     idle_cycles = 0
@@ -568,7 +607,13 @@ def main() -> None:
                 "observed_at": scripted_observed_at,
             }
         )
-    if args.tui:
+    if args.tui and not terminal_supports_textual_fullscreen():
+        print(
+            "TERM="
+            f"{os.environ.get('TERM', '') or '(unset)'} does not support reliable "
+            "Textual full-screen mode; falling back to line mode."
+        )
+    elif args.tui:
         from device_edge.cli.terminal_tui import run_textual_terminal_daemon
 
         run_textual_terminal_daemon(

@@ -13,6 +13,7 @@ from rich.text import Text
 from textual.app import App
 from textual.app import ComposeResult
 from textual.containers import Vertical
+from textual.css.query import NoMatches
 from textual.widgets import Input
 from textual.widgets import RichLog
 from textual.widgets import Static
@@ -172,7 +173,14 @@ class TerminalEdgeApp(App[None]):
         )
 
     def _refresh_status_bar(self) -> None:
-        self.query_one("#status-bar", Static).update(self.build_status_text())
+        try:
+            status_bar = self.query_one("#status-bar", Static)
+        except NoMatches:
+            return
+        status_bar.update(self.build_status_text())
+        if self.daemon.quit_requested and self.daemon.connection_state == "disconnected":
+            self.exit()
+            return
         if (
             self.session_thread is not None
             and not self.session_thread.is_alive()
@@ -181,7 +189,10 @@ class TerminalEdgeApp(App[None]):
             self.exit()
 
     def _drain_transcript_queue(self) -> None:
-        transcript = self.query_one("#transcript-log", RichLog)
+        try:
+            transcript = self.query_one("#transcript-log", RichLog)
+        except NoMatches:
+            return
         while True:
             try:
                 line = self.transcript_queue.get_nowait()

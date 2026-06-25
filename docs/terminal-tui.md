@@ -13,13 +13,13 @@ The TUI is a presentation layer only. It does not introduce a second backend pat
 Start the runtime first:
 
 ```bash
-python -m personal_runtime.main --host 127.0.0.1 --port 8765 --token dev-token
+.venv/bin/python -m personal_runtime.main --host 127.0.0.1 --port 8765 --token dev-token
 ```
 
 Then start the full-screen terminal edge:
 
 ```bash
-python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token --tui
+.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token --tui
 ```
 
 If you need the older compatibility path, omit `--tui` and use the line-oriented foreground daemon.
@@ -93,19 +93,39 @@ Expected behavior:
 
 ## Manual Acceptance
 
-Run one foreground session and validate:
+Use one foreground session and validate a real user scenario instead of isolated control checks.
 
-- the app opens in a full-screen layout
-- the status bar stays visible while the transcript grows
-- a normal message produces both `[user]` and `[runtime]` lines
-- `/help`, `/status`, and `/history` update the transcript locally
-- `/quit` exits the TUI cleanly
+### User-scenario acceptance run
 
-Suggested input sequence:
+1. Start the runtime with:
+
+```bash
+.venv/bin/python -m personal_runtime.main --host 127.0.0.1 --port 8765 --token dev-token
+```
+
+2. In a second terminal, start the TUI with:
+
+```bash
+.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token --tui
+```
+
+3. Wait for the TUI to connect and confirm the full-screen layout appears with a visible status bar, transcript pane, input box, and help bar.
+4. Type `hello runtime` and press Enter.
+   Expectation: the transcript shows a `[user] hello runtime` line followed by one real `[runtime] ...` reply line rather than only echoing the user text or going silent.
+5. Type `check runtime status` and press Enter.
+   Expectation: the transcript shows the user line and then a runtime-delivered status response on the same resident session.
+6. Type `/status`.
+   Expectation: the transcript updates locally with a readable session summary and no extra runtime request is created.
+7. Type `/history`.
+   Expectation: the transcript reprints recent `[system]`, `[user]`, and `[runtime]` lines from the same session.
+8. Type `/quit`.
+   Expectation: the TUI exits cleanly back to the shell without a reconnect loop.
+
+### Compact input sequence
 
 ```text
 hello runtime
-/help
+check runtime status
 /status
 /history
 /quit

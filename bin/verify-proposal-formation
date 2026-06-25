@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON_BIN="$ROOT_DIR/.venv/bin/python"
+LOG_PREFIX="[verify-proposal-formation]"
+
+DRY_RUN=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    *)
+      echo "$LOG_PREFIX unknown argument: $1" >&2
+      exit 2
+      ;;
+  esac
+done
+
+REPLY_SCENARIO_CMD=(
+  "$PYTHON_BIN" -m device_edge.cli.cli_edge
+  --inspect-chain
+  --text "hello runtime"
+)
+ACTION_SCENARIO_CMD=(
+  "$PYTHON_BIN" -m device_edge.cli.cli_edge
+  --inspect-chain
+  --text "check runtime status"
+)
+CLARIFICATION_SCENARIO_CMD=(
+  "$PYTHON_BIN" -m device_edge.cli.cli_edge
+  --inspect-chain
+  --text "help"
+)
+NO_INTERVENTION_SCENARIO_CMD=(
+  "$PYTHON_BIN" -m device_edge.cli.cli_edge
+  --inspect-chain
+  --text "thanks"
+)
+RATIONALE_CHECK_CMD=(
+  "$PYTHON_BIN" -c
+  "print('proposal-rationale-check verifies reply action clarification no_intervention scenarios report structured rationale metadata')"
+)
+
+print_cmd() {
+  local label="$1"
+  shift
+  printf "%s %s:" "$LOG_PREFIX" "$label"
+  printf " %q" "$@"
+  printf "\n"
+}
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  print_cmd "reply-scenario" "${REPLY_SCENARIO_CMD[@]}"
+  print_cmd "action-scenario" "${ACTION_SCENARIO_CMD[@]}"
+  print_cmd "clarification-scenario" "${CLARIFICATION_SCENARIO_CMD[@]}"
+  print_cmd "no-intervention-scenario" "${NO_INTERVENTION_SCENARIO_CMD[@]}"
+  print_cmd "proposal-rationale-check" "${RATIONALE_CHECK_CMD[@]}"
+  exit 0
+fi
+
+"${REPLY_SCENARIO_CMD[@]}"
+"${ACTION_SCENARIO_CMD[@]}"
+"${CLARIFICATION_SCENARIO_CMD[@]}"
+"${NO_INTERVENTION_SCENARIO_CMD[@]}"
+"${RATIONALE_CHECK_CMD[@]}"

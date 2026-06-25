@@ -9,6 +9,7 @@ class RuntimeState:
         self.events = []
         self.tasks = []
         self.action_results = []
+        self.interactions = []
         self.observations = []
         self.interventions = []
 
@@ -23,6 +24,23 @@ class RuntimeState:
 
     def record_action_result(self, result: dict) -> None:
         self.action_results.append(result)
+
+    def record_interaction(self, interaction: dict) -> None:
+        self.interactions.append(interaction)
+
+    def update_interaction(
+        self,
+        interaction_id: str,
+        **changes,
+    ) -> dict:
+        for index, existing in enumerate(self.interactions):
+            if existing.get("interaction_id") == interaction_id:
+                updated = {**existing, **changes}
+                self.interactions[index] = updated
+                return updated
+        created = {"interaction_id": interaction_id, **changes}
+        self.interactions.append(created)
+        return created
 
     def record_observation(self, observation: RuntimeObservation) -> None:
         self.observations.append(observation)
@@ -66,6 +84,7 @@ class RuntimeState:
             "events": self.events,
             "tasks": self.tasks,
             "action_results": self.action_results,
+            "interactions": self.interactions,
             "observations": [
                 observation.to_dict() for observation in self.observations
             ],
@@ -83,6 +102,7 @@ class RuntimeState:
         state.events = list(payload.get("events", []))
         state.tasks = list(payload.get("tasks", []))
         state.action_results = list(payload.get("action_results", []))
+        state.interactions = list(payload.get("interactions", []))
         state.observations = [
             RuntimeObservation.from_dict(observation_payload)
             for observation_payload in payload.get("observations", [])

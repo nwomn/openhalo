@@ -40,11 +40,13 @@ class ChainInspectionTests(unittest.TestCase):
         )
         self.assertEqual(report["proposal"]["kind"], "notify")
         self.assertEqual(report["proposal"]["source"], "sense_first")
+        self.assertEqual(report["proposal"]["proposal_type"], "reply")
         self.assertEqual(
             report["proposal"]["metadata"]["llm_profile"],
-            "interactive_reply",
+            "proposal_formation",
         )
         self.assertTrue(report["proposal"]["metadata"]["used_deterministic_fallback"])
+        self.assertIn("proposal_rationale", report["proposal"]["metadata"])
         self.assertEqual(report["grounding"]["bundle_version"], "m10.v1")
         self.assertIn("active_goals", report["grounding"])
         self.assertIn("recent_memory", report["grounding"])
@@ -80,8 +82,10 @@ class ChainInspectionTests(unittest.TestCase):
         self.assertIn("Presence Decision:", rendered)
         self.assertIn("Recorded Intervention:", rendered)
         self.assertIn("Replay Eval:", rendered)
-        self.assertIn('"llm_profile": "interactive_reply"', rendered)
+        self.assertIn('"llm_profile": "proposal_formation"', rendered)
         self.assertIn('"used_deterministic_fallback": true', rendered)
+        self.assertIn('"proposal_type": "reply"', rendered)
+        self.assertIn('"proposal_rationale"', rendered)
         self.assertIn('"bundle_version": "m10.v1"', rendered)
         self.assertIn('"prompt_context_version"', rendered)
         self.assertIn('"history_kind": "observation_window"', rendered)
@@ -122,6 +126,31 @@ class ChainInspectionTests(unittest.TestCase):
         self.assertEqual(report["proposal"]["source"], "agent_initiative")
         self.assertEqual(report["proposal"]["action_capability"], "runtime.status")
         self.assertEqual(report["presence_decision"]["target_device_id"], "host-edge-1")
+
+    def test_inspect_cli_once_can_report_clarification_proposal(self) -> None:
+        report = inspect_cli_once("help", config_path=TEST_LLM_CONFIG)
+
+        self.assertEqual(report["proposal"]["proposal_type"], "clarification")
+        self.assertEqual(report["proposal"]["action_capability"], "notification.show")
+        self.assertIn("proposal_rationale", report["proposal"]["metadata"])
+
+    def test_inspect_cli_once_can_report_no_intervention_proposal(self) -> None:
+        report = inspect_cli_once("thanks", config_path=TEST_LLM_CONFIG)
+
+        self.assertEqual(report["proposal"]["proposal_type"], "no_intervention")
+        self.assertIsNone(report["proposal"]["action_capability"])
+        self.assertEqual(report["action_result"]["result"]["status"], "completed")
+
+    def test_inspect_cli_once_can_report_runtime_action_proposal(self) -> None:
+        report = inspect_cli_once("check runtime status", config_path=TEST_LLM_CONFIG)
+
+        self.assertEqual(report["proposal"]["proposal_type"], "action")
+        self.assertEqual(report["proposal"]["action_capability"], "runtime.status")
+        self.assertEqual(report["action_result"]["result"]["capability"], "runtime.status")
+        self.assertEqual(
+            report["interaction"]["summary"],
+            "Runtime status: running (pid 4242).",
+        )
 
     def test_cli_module_prints_chain_report_in_inspect_mode(self) -> None:
         result = subprocess.run(

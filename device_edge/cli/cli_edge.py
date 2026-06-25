@@ -49,8 +49,67 @@ class LocalCliSession:
                 self.client.build_text_event(text),
             ]
         )
-        action_request = replies[-1]
-        return self.client.handle_action_request(action_request)
+        action_request = next(
+            (reply for reply in reversed(replies) if reply["type"] == "action_request"),
+            None,
+        )
+        interaction_update = next(
+            (
+                reply
+                for reply in reversed(replies)
+                if reply["type"] == "interaction_update"
+            ),
+            None,
+        )
+        if action_request is None:
+            if interaction_update is not None:
+                return {
+                    "type": "action_result",
+                    "device_id": self.client.device_id,
+                    "result": {
+                        "status": "completed",
+                        "details": {
+                            "message": interaction_update["interaction"].get(
+                                "summary", ""
+                            )
+                        },
+                    },
+                }
+            return {
+                "type": "action_result",
+                "device_id": self.client.device_id,
+                "result": {"status": "suppressed"},
+            }
+        if action_request["action"]["capability"].startswith("runtime."):
+            result = _InspectionRuntimeStatusAdapter().execute_action_request(
+                action_request,
+                self.client.device_id,
+            )
+            follow_up = self.gateway.run_roundtrip([result])
+            interaction_update = next(
+                (
+                    reply
+                    for reply in reversed(follow_up)
+                    if reply["type"] == "interaction_update"
+                ),
+                None,
+            )
+            if interaction_update is not None:
+                result["interaction"] = interaction_update["interaction"]
+            return result
+        result = self.client.handle_action_request(action_request)
+        follow_up = self.gateway.run_roundtrip([result])
+        interaction_update = next(
+            (
+                reply
+                for reply in reversed(follow_up)
+                if reply["type"] == "interaction_update"
+            ),
+            interaction_update,
+        )
+        if interaction_update is not None:
+            result["interaction"] = interaction_update["interaction"]
+        return result
 
     def trigger_agent_initiative(
         self,
@@ -86,8 +145,22 @@ class LocalCliSession:
         if action_request is None:
             return {"type": "action_result", "device_id": self.client.device_id, "result": {"status": "suppressed"}}
         if action_handler is not None:
-            return action_handler(action_request)
-        return self.client.handle_action_request(action_request)
+            result = action_handler(action_request)
+        else:
+            result = self.client.handle_action_request(action_request)
+        if result.get("interaction_id"):
+            follow_up = self.gateway.run_roundtrip([result])
+            interaction_update = next(
+                (
+                    reply
+                    for reply in reversed(follow_up)
+                    if reply["type"] == "interaction_update"
+                ),
+                None,
+            )
+            if interaction_update is not None:
+                result["interaction"] = interaction_update["interaction"]
+        return result
 
     def drain_trace_lines(self) -> list[str]:
         if self.trace_recorder is None:
@@ -295,6 +368,16 @@ __all__ = [
 
 
 class _InspectionRuntimeStatusAdapter:
+    def execute_action_request(self, frame: dict, device_id: str) -> dict:
+        result = {
+            "type": "action_result",
+            "device_id": device_id,
+            "result": self.execute(frame["action"]),
+        }
+        if frame.get("interaction_id"):
+            result["interaction_id"] = frame["interaction_id"]
+        return result
+
     def execute(self, action: dict) -> dict:
         if action["capability"] == "runtime.edge_history":
             details = action["payload"]["history_supplier"](

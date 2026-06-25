@@ -2,6 +2,7 @@
 
 from dataclasses import asdict
 from dataclasses import dataclass
+from datetime import datetime
 
 
 COOLDOWN_MINUTES = 5
@@ -222,7 +223,6 @@ def _is_explicit_user_text_proposal(proposal: dict) -> bool:
 
 
 def _to_epoch_minutes(timestamp: str) -> int:
-    date_part, time_part = timestamp.rstrip("Z").split("T", maxsplit=1)
-    year, month, day = (int(part) for part in date_part.split("-"))
-    hour, minute, _second = (int(part) for part in time_part.split(":"))
-    return (((year * 12 + month) * 31 + day) * 24 + hour) * 60 + minute
+    normalized = timestamp.replace("Z", "+00:00")
+    parsed = datetime.fromisoformat(normalized)
+    return (((parsed.year * 12 + parsed.month) * 31 + parsed.day) * 24 + parsed.hour) * 60 + parsed.minute

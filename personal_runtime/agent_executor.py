@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from personal_runtime.model_provider import generate_text_reply_plan
+from personal_runtime.model_provider import generate_text_proposal_plan
 from personal_runtime.prompt_context import build_behavior_contract
 from personal_runtime.prompt_context import build_prompt_context_package
 from personal_runtime.prompt_context import prompt_context_metadata_from_package
@@ -15,13 +16,17 @@ from personal_runtime.action_layer import required_device_capability_for_action
 @dataclass(slots=True)
 class InterventionProposal:
     kind: str
+    proposal_type: str
     source: str
-    action_capability: str
-    required_capability: str
+    action_capability: str | None
+    required_capability: str | None
     action_payload: dict
     message: str
     metadata: dict
     target_device_hint: str | None = None
+    interaction_type: str = "pull"
+    visibility_intent: str = "visible"
+    candidate_surface_hints: list[str] | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -44,21 +49,34 @@ def build_intervention_proposal(
         prompt_context_package=prompt_context_package,
         grounding_bundle=grounding_bundle,
     )
-    reply_plan = generate_text_reply_plan(
+    proposal_plan = generate_text_proposal_plan(
         user_text=user_text,
         snapshot=_snapshot,
         grounding=grounding_bundle,
-        profile_name="interactive_reply",
+        profile_name="proposal_formation",
         config_path=config_path,
     )
+    action_capability = proposal_plan.action_capability
+    if proposal_plan.proposal_type == "no_intervention":
+        kind = "no_intervention"
+    elif action_capability and action_capability.startswith("runtime."):
+        kind = "runtime_control"
+    else:
+        kind = "notify"
+    action_payload = dict(proposal_plan.action_payload)
+    if action_capability == "notification.show":
+        action_payload.setdefault("message", proposal_plan.response_text)
     proposal = InterventionProposal(
-        kind="notify",
+        kind=kind,
+        proposal_type=proposal_plan.proposal_type,
         source="sense_first",
-        action_capability="notification.show",
+        action_capability=action_capability,
         required_capability=required_device_capability_for_action(
-            "notification.show"
-        ),
-        action_payload={"message": reply_plan.message},
+            action_capability
+        )
+        if action_capability is not None
+        else None,
+        action_payload=action_payload,
         message=user_text,
         metadata={
             "trigger": "text.input",
@@ -68,8 +86,15 @@ def build_intervention_proposal(
                 prompt_context_package,
                 behavior_contract,
             ),
-            **reply_plan.metadata,
+            **proposal_plan.metadata,
         },
+        interaction_type="pull",
+        visibility_intent="visible"
+        if proposal_plan.proposal_type != "no_intervention"
+        else "silent",
+        candidate_surface_hints=["source_device", "terminal"]
+        if proposal_plan.proposal_type != "no_intervention"
+        else ["background"],
     )
     if trace_recorder is not None:
         trace_recorder.record(
@@ -77,7 +102,8 @@ def build_intervention_proposal(
             "built intervention proposal",
             source=proposal.source,
             kind=proposal.kind,
-            action_capability=proposal.action_capability,
+            proposal_type=proposal.proposal_type,
+            action_capability=proposal.action_capability or "none",
         )
     return proposal
 
@@ -110,6 +136,9 @@ def build_agent_initiative_proposal(
         kind="runtime_control"
         if action_capability.startswith("runtime.")
         else "notify",
+        proposal_type="action"
+        if action_capability.startswith("runtime.")
+        else "reply",
         source="agent_initiative",
         action_capability=action_capability,
         required_capability=required_device_capability_for_action(
@@ -127,6 +156,11 @@ def build_agent_initiative_proposal(
             ),
         },
         target_device_hint=initiative_request.get("target_device_hint"),
+        interaction_type="push",
+        visibility_intent="visible",
+        candidate_surface_hints=[
+            initiative_request.get("target_device_hint", "preferred_target")
+        ],
     )
     if trace_recorder is not None:
         trace_recorder.record(
@@ -134,6 +168,7 @@ def build_agent_initiative_proposal(
             "built intervention proposal",
             source=proposal.source,
             kind=proposal.kind,
+            proposal_type=proposal.proposal_type,
             action_capability=proposal.action_capability,
         )
     return proposal

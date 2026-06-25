@@ -16,3 +16,10 @@ supports_tools = true
 model_ref = "openai_gpt55"
 reasoning_effort = "medium"
 verbosity = "low"
+provider_failure_behavior = "deterministic"
+
+[llm.profiles.proposal_formation]
+model_ref = "openai_gpt55"
+reasoning_effort = "medium"
+verbosity = "low"
+provider_failure_behavior = "deterministic"

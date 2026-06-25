@@ -143,11 +143,14 @@ class HostEdgeDaemon:
                 capability=action["capability"],
                 status=result["status"],
             )
-        return {
+        action_result = {
             "type": "action_result",
             "device_id": self.client.device_id,
             "result": result,
         }
+        if frame.get("interaction_id"):
+            action_result["interaction_id"] = frame["interaction_id"]
+        return action_result
 
     async def _send_frame(self, websocket, frame: dict) -> None:
         await websocket.send(json.dumps(frame))

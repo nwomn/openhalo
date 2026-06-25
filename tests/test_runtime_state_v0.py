@@ -128,6 +128,37 @@ class RuntimeStateTests(unittest.TestCase):
         self.assertEqual(restored.tasks[1]["goal_id"], "goal-2")
         self.assertEqual(restored.tasks[1]["status"], "done")
 
+    def test_roundtrips_interaction_history(self) -> None:
+        state = RuntimeState()
+        state.record_interaction(
+            {
+                "interaction_id": "interaction-1",
+                "status": "completed",
+                "source_device_id": "terminal-edge-1",
+                "participant_device_ids": ["terminal-edge-1", "host-edge-1"],
+                "primary_action": {
+                    "capability": "runtime.status",
+                    "target_device_id": "host-edge-1",
+                },
+                "completion": {
+                    "visibility": "visible",
+                    "summary": "Runtime status is healthy.",
+                },
+            }
+        )
+
+        restored = RuntimeState.from_dict(state.to_dict())
+
+        self.assertEqual(len(restored.interactions), 1)
+        self.assertEqual(
+            restored.interactions[0]["interaction_id"],
+            "interaction-1",
+        )
+        self.assertEqual(
+            restored.interactions[0]["participant_device_ids"],
+            ["terminal-edge-1", "host-edge-1"],
+        )
+
 
 class JsonStateStoreTests(unittest.TestCase):
     def test_saves_and_loads_runtime_state(self) -> None:

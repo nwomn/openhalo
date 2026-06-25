@@ -11,6 +11,14 @@ from personal_runtime.prompt_replay import build_replay_eval
 
 def build_chain_report(session, action_result: dict) -> dict:
     intervention = session.gateway.state.interventions[-1]
+    interaction = next(
+        (
+            item
+            for item in reversed(session.gateway.state.interactions)
+            if item.get("interaction_id") == intervention.get("interaction_id")
+        ),
+        None,
+    )
     snapshot_contract = intervention["snapshot_contract"]
     prompt_context = build_prompt_context_package(
         user_text=intervention["proposal"].get("message", ""),
@@ -42,6 +50,7 @@ def build_chain_report(session, action_result: dict) -> dict:
         "prompt_context": prompt_context,
         "behavior_contract": behavior_contract,
         "proposal": intervention["proposal"],
+        "interaction": interaction,
         "presence_decision": {
             "decision": intervention["decision"],
             "reason": intervention["reason"],
@@ -63,6 +72,7 @@ def format_chain_report(report: dict) -> str:
         ("Behavior Contract", report.get("behavior_contract", {})),
         ("Snapshot Contract", report["snapshot_contract"]),
         ("Proposal", report["proposal"]),
+        ("Interaction", report.get("interaction", {})),
         ("Presence Decision", report["presence_decision"]),
         ("Recorded Intervention", report["intervention"]),
         ("Replay Eval", report.get("replay_eval", {})),

@@ -3,11 +3,14 @@
 import json
 from contextlib import asynccontextmanager
 from datetime import datetime
+from itertools import count
 from pathlib import Path
 
 import websockets
+from websockets.exceptions import ConnectionClosedOK
 
 from personal_runtime.action_layer import build_action_request
+from personal_runtime.action_layer import build_interaction_update
 from personal_runtime.action_layer import build_planned_action
 from personal_runtime.agent_executor import build_intervention_proposal
 from personal_runtime.agent_executor import build_agent_initiative_proposal
@@ -22,6 +25,8 @@ from personal_runtime.trace_recorder import TraceRecorder
 
 
 class RuntimeGateway:
+    _interaction_counter = count(1)
+
     def __init__(
         self,
         shared_token: str,
@@ -37,7 +42,12 @@ class RuntimeGateway:
         self.state_store = JsonStateStore(
             state_path or Path(".runtime/state.json")
         )
-        self.state = state or self.state_store.load()
+        if state is not None:
+            self.state = state
+        elif not persist_state and state_path is None:
+            self.state = RuntimeState()
+        else:
+            self.state = self.state_store.load()
         self.online_device_ids: set[str] = set()
         self.live_connections: dict[str, object] = {}
         self.trace_recorder = trace_recorder
@@ -50,6 +60,129 @@ class RuntimeGateway:
         if not self.persist_state:
             return
         self.state_store.save(self.state)
+
+    def _next_interaction_id(self) -> str:
+        return f"interaction-{next(self._interaction_counter)}"
+
+    def _build_interaction_record(
+        self,
+        interaction_id: str,
+        frame: dict,
+        proposal,
+        decision,
+    ) -> dict:
+        participant_device_ids = [frame["device_id"]]
+        if (
+            decision.target_device_id is not None
+            and decision.target_device_id not in participant_device_ids
+        ):
+            participant_device_ids.append(decision.target_device_id)
+        return {
+            "interaction_id": interaction_id,
+            "status": "planned",
+            "source_device_id": frame["device_id"],
+            "participant_device_ids": participant_device_ids,
+            "proposal_type": proposal.proposal_type,
+            "interaction_type": proposal.interaction_type,
+            "visibility_intent": proposal.visibility_intent,
+            "candidate_surface_hints": proposal.candidate_surface_hints or [],
+            "primary_action": {
+                "capability": proposal.action_capability,
+                "target_device_id": decision.target_device_id,
+            }
+            if proposal.action_capability is not None
+            else None,
+        }
+
+    def _build_interaction_summary(
+        self,
+        proposal: dict,
+        result: dict | None = None,
+    ) -> str:
+        if result is not None:
+            delivered_message = result.get("details", {}).get("message")
+            if isinstance(delivered_message, str) and delivered_message.strip():
+                return delivered_message.strip()
+        proposal_type = proposal.get("proposal_type")
+        if proposal_type in {"reply", "clarification"}:
+            return proposal.get("action_payload", {}).get("message", "")
+        if proposal_type == "no_intervention":
+            rationale = proposal.get("metadata", {}).get("proposal_rationale", {})
+            return rationale.get("summary", "")
+        if result is not None and result.get("capability") == "runtime.status":
+            details = result.get("details", {})
+            state = details.get("state", "unknown")
+            pid = details.get("pid")
+            if pid is not None:
+                return f"Runtime status: {state} (pid {pid})."
+            return f"Runtime status: {state}."
+        if result is not None and result.get("capability"):
+            return (
+                f"{result['capability']} completed with "
+                f"status {result.get('status', 'unknown')}."
+            )
+        return ""
+
+    def _complete_interaction(
+        self,
+        interaction_id: str,
+        summary: str,
+        visibility: str,
+        result_status: str | None = None,
+    ) -> dict:
+        return self.state.update_interaction(
+            interaction_id,
+            status="completed",
+            summary=summary,
+            completion={
+                "visibility": visibility,
+                "summary": summary,
+                "result_status": result_status,
+            },
+        )
+
+    def _completion_visibility_for_action_result(
+        self,
+        interaction: dict,
+        proposal: dict,
+        result: dict,
+    ) -> str:
+        proposal_type = proposal.get("proposal_type")
+        target_device_id = interaction.get("primary_action", {}).get("target_device_id")
+        source_device_id = interaction.get("source_device_id")
+        capability = proposal.get("action_capability")
+        delivered_message = result.get("details", {}).get("message")
+
+        if (
+            proposal_type in {"reply", "clarification"}
+            and capability == "notification.show"
+            and delivered_message
+            and target_device_id is not None
+            and target_device_id == source_device_id
+        ):
+            return "silent"
+        return interaction.get("visibility_intent", "visible")
+
+    def _build_interaction_update_replies(
+        self,
+        interaction: dict,
+    ) -> list[dict]:
+        visibility = interaction.get("completion", {}).get("visibility", "visible")
+        summary = interaction.get("completion", {}).get("summary", "")
+        replies = [
+            build_interaction_update(
+                interaction["source_device_id"],
+                {
+                    "interaction_id": interaction["interaction_id"],
+                    "status": interaction["status"],
+                    "summary": summary,
+                    "visibility": visibility,
+                    "completion": interaction.get("completion", {}),
+                },
+                trace_recorder=self.trace_recorder,
+            )
+        ]
+        return replies
 
     def _build_event_replies(self, frame: dict) -> list[dict]:
         replies = [{"type": "event_ack"}]
@@ -102,8 +235,19 @@ class RuntimeGateway:
             now_timestamp=decision_time,
             trace_recorder=self.trace_recorder,
         )
+        interaction_id = self._next_interaction_id()
+        self.state.record_interaction(
+            self._build_interaction_record(
+                interaction_id=interaction_id,
+                frame=frame,
+                proposal=proposal,
+                decision=decision,
+            )
+        )
         self.state.record_intervention(
             {
+                "interaction_id": interaction_id,
+                "source_device_id": frame["device_id"],
                 "target_device_id": decision.target_device_id,
                 "action_capability": proposal.action_capability,
                 "decision": decision.decision,
@@ -116,15 +260,33 @@ class RuntimeGateway:
         )
         self._persist_state()
         if decision.decision != "allow":
+            proposal_dict = proposal.to_dict()
+            summary = self._build_interaction_summary(proposal_dict)
+            completed = self._complete_interaction(
+                interaction_id=interaction_id,
+                summary=summary,
+                visibility=proposal.visibility_intent,
+            )
+            replies.extend(self._build_interaction_update_replies(completed))
+            return replies
+        if proposal.action_capability is None:
+            proposal_dict = proposal.to_dict()
+            summary = self._build_interaction_summary(proposal_dict)
+            completed = self._complete_interaction(
+                interaction_id=interaction_id,
+                summary=summary,
+                visibility=proposal.visibility_intent,
+            )
+            replies.extend(self._build_interaction_update_replies(completed))
             return replies
 
-        replies.append(
-            build_planned_action(
-                decision.target_device_id or frame["device_id"],
-                proposal.to_dict(),
-                trace_recorder=self.trace_recorder,
-            )
+        planned_action = build_planned_action(
+            decision.target_device_id or frame["device_id"],
+            proposal.to_dict(),
+            trace_recorder=self.trace_recorder,
         )
+        planned_action["interaction_id"] = interaction_id
+        replies.append(planned_action)
         return replies
 
     def trigger_agent_initiative(
@@ -197,6 +359,45 @@ class RuntimeGateway:
             return None
         return self.grounding_edge_history_fetcher()
 
+    def _build_action_result_replies(self, frame: dict) -> list[dict]:
+        interaction_id = frame.get("interaction_id")
+        if not interaction_id:
+            return []
+        interaction = next(
+            (
+                item
+                for item in reversed(self.state.interactions)
+                if item.get("interaction_id") == interaction_id
+            ),
+            None,
+        )
+        intervention = next(
+            (
+                item
+                for item in reversed(self.state.interventions)
+                if item.get("interaction_id") == interaction_id
+            ),
+            None,
+        )
+        if interaction is None or intervention is None:
+            return []
+        visibility = self._completion_visibility_for_action_result(
+            interaction=interaction,
+            proposal=intervention["proposal"],
+            result=frame["result"],
+        )
+        completed = self._complete_interaction(
+            interaction_id=interaction_id,
+            summary=self._build_interaction_summary(
+                intervention["proposal"],
+                result=frame["result"],
+            ),
+            visibility=visibility,
+            result_status=frame["result"].get("status"),
+        )
+        self._persist_state()
+        return self._build_interaction_update_replies(completed)
+
     def _handle_frames_sync(self, frames: list[dict]) -> list[dict]:
         replies = []
         for frame in frames:
@@ -264,6 +465,10 @@ class RuntimeGateway:
                     status=frame["result"]["status"],
                 )
                 self._persist_state()
+                replies.extend(self._build_action_result_replies(frame))
+            elif frame["type"] == "interaction_update":
+                self.state.record_interaction(frame["interaction"])
+                self._persist_state()
         return replies
 
     def _extract_runtime_observations(self, frame: dict) -> list[RuntimeObservation]:
@@ -323,12 +528,21 @@ class RuntimeGateway:
     async def _dispatch_websocket_replies(self, source_device_id: str, websocket, replies: list[dict]) -> None:
         for reply in replies:
             target_device_id = reply.get("device_id")
-            if reply["type"] == "action_request" and target_device_id != source_device_id:
+            if (
+                reply["type"] in {"action_request", "interaction_update"}
+                and target_device_id != source_device_id
+            ):
                 target_websocket = self.live_connections.get(target_device_id)
                 if target_websocket is not None:
-                    await self._send_frame(target_websocket, reply)
+                    try:
+                        await self._send_frame(target_websocket, reply)
+                    except ConnectionClosedOK:
+                        pass
                     continue
-            await self._send_frame(websocket, reply)
+            try:
+                await self._send_frame(websocket, reply)
+            except ConnectionClosedOK:
+                pass
 
     async def _websocket_handler(self, websocket) -> None:
         registered_device_id = None

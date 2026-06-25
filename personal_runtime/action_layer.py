@@ -1,6 +1,26 @@
 """Minimal action construction for the v0 runtime."""
 
 
+def build_interaction_update(
+    target_device_id: str,
+    interaction: dict,
+    trace_recorder=None,
+) -> dict:
+    if trace_recorder is not None:
+        trace_recorder.record(
+            "ACTION",
+            "built interaction update",
+            target_device_id=target_device_id,
+            interaction_id=interaction.get("interaction_id", ""),
+            status=interaction.get("status", ""),
+        )
+    return {
+        "type": "interaction_update",
+        "device_id": target_device_id,
+        "interaction": interaction,
+    }
+
+
 def build_action_request(target_device_id: str, action: dict, trace_recorder=None) -> dict:
     if trace_recorder is not None:
         trace_recorder.record(
@@ -17,6 +37,8 @@ def build_action_request(target_device_id: str, action: dict, trace_recorder=Non
 
 
 def required_device_capability_for_action(action_capability: str) -> str:
+    if action_capability is None:
+        return ""
     if action_capability.startswith("runtime."):
         return "runtime.control"
     return action_capability
@@ -49,15 +71,10 @@ def build_planned_action(
     trace_recorder=None,
 ) -> dict:
     action_capability = proposal["action_capability"]
+    if action_capability is None:
+        raise ValueError("cannot build action request for no_intervention proposal")
     if action_capability == "notification.show":
-        from personal_runtime.agent_executor import generate_reply
-
         message = proposal["action_payload"].get("message")
-        if message is None:
-            message = generate_reply(
-                proposal["message"],
-                trace_recorder=trace_recorder,
-            )
         return build_notification_action(
             target_device_id,
             message,

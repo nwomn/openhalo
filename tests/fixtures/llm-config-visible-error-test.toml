@@ -1,29 +1,24 @@
-[llm.providers.crs_main]
+[llm.providers.openai_main]
 adapter_type = "openai_compatible"
-base_url = "https://api-cf.cubence.com/v1"
+base_url = "https://api.openai.com/v1"
 wire_api = "responses"
-auth_env = "CRS_OAI_KEY"
+auth_env = "TEST_REAL_MODEL_REQUIRED_KEY_MISSING"
 timeout_seconds = 30
 
-[llm.models.crs_gpt54]
-provider = "crs_main"
-model_id = "gpt-5.4"
+[llm.models.openai_gpt55]
+provider = "openai_main"
+model_id = "gpt-5.5"
 supports_structured_output = true
 supports_tools = true
 
 [llm.profiles.interactive_reply]
-model_ref = "crs_gpt54"
+model_ref = "openai_gpt55"
 reasoning_effort = "medium"
 verbosity = "low"
 provider_failure_behavior = "user_visible_error"
 
 [llm.profiles.proposal_formation]
-model_ref = "crs_gpt54"
+model_ref = "openai_gpt55"
 reasoning_effort = "medium"
 verbosity = "low"
 provider_failure_behavior = "user_visible_error"
-
-[llm.profiles.initiative_proposal]
-model_ref = "crs_gpt54"
-reasoning_effort = "low"
-verbosity = "low"
