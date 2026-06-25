@@ -378,6 +378,69 @@ class HostDaemonTests(unittest.TestCase):
         )
         self.assertEqual(websocket.send.await_count, 10)
 
+    def test_daemon_session_handles_action_request_interleaved_while_waiting_for_observation_ack(
+        self,
+    ) -> None:
+        daemon = HostEdgeDaemon(
+            device_id="host-edge-1",
+            token="dev-token",
+            runtime_control_adapter=FakeRuntimeControlAdapter(),
+            host_metrics_provider=lambda: {
+                "cpu_load_ratio": 0.31,
+                "memory_used_bytes": 400,
+                "memory_available_bytes": 600,
+                "memory_pressure": "normal",
+                "net_rx_bytes": 10,
+                "net_tx_bytes": 12,
+            },
+            runtime_health_provider=lambda: {
+                "health_state": "healthy",
+                "process_pid": 42137,
+                "process_present": True,
+                "process_started_at": "2026-06-19T09:00:00Z",
+                "process_memory_rss_bytes": 28114944,
+            },
+        )
+
+        websocket = AsyncMock()
+        websocket.recv = AsyncMock(
+            side_effect=[
+                '{"type": "connect_ok"}',
+                '{"type": "event_ack"}',
+                '{"type": "event_ack"}',
+                asyncio.TimeoutError(),
+                '{"type": "action_request", "device_id": "host-edge-1", "action": {"capability": "runtime.status", "payload": {}}}',
+                '{"type": "event_ack"}',
+                '{"type": "event_ack"}',
+            ]
+        )
+        connect_cm = AsyncMock()
+        connect_cm.__aenter__.return_value = websocket
+        connect_cm.__aexit__.return_value = False
+
+        with patch("device_edge.host.host_daemon.websockets.connect", return_value=connect_cm):
+            results = asyncio.run(
+                daemon.run_websocket_daemon_session(
+                    url="ws://127.0.0.1:8765",
+                    observation_schedule=[
+                        "2026-06-19T09:30:00Z",
+                        "2026-06-19T09:31:00Z",
+                    ],
+                    idle_timeout_s=0.01,
+                    max_action_requests=1,
+                    send_follow_up_after_action=False,
+                )
+            )
+
+        self.assertEqual(results[0]["result"]["capability"], "runtime.status")
+        sent_frames = [
+            __import__("json").loads(call.args[0])
+            for call in websocket.send.await_args_list
+        ]
+        self.assertTrue(
+            any(frame.get("type") == "action_result" for frame in sent_frames)
+        )
+
     def test_run_forever_retries_after_connection_failure(self) -> None:
         trace = TraceRecorder()
         daemon = HostEdgeDaemon(

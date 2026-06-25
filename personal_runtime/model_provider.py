@@ -285,7 +285,28 @@ def parse_openai_compatible_proposal_response(
             text = content_item.get("text", "").strip()
             if not text:
                 continue
-            payload = json.loads(text)
+            try:
+                payload = json.loads(text)
+            except json.JSONDecodeError:
+                return ProposalPlan(
+                    proposal_type="reply",
+                    response_text=text,
+                    action_capability="notification.show",
+                    action_payload={},
+                    metadata={
+                        "llm_profile": profile_name,
+                        "llm_provider": provider_name,
+                        "llm_model": model_id,
+                        "used_deterministic_fallback": False,
+                        "provider_proposal_type": "plain_output_text",
+                        "proposal_rationale": {
+                            "summary": (
+                                "Provider returned plain reply text instead of a "
+                                "structured proposal object."
+                            )
+                        },
+                    },
+                )
             provider_proposal_type = payload["proposal_type"]
             proposal_type = _normalize_proposal_type(provider_proposal_type)
             response_text = _extract_provider_response_text(payload)

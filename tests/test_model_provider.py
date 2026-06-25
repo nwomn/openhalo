@@ -341,6 +341,33 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertEqual(plan.response_text, "Hello! How can I help?")
         self.assertEqual(plan.action_capability, "notification.show")
 
+    def test_parse_openai_compatible_proposal_response_treats_plain_output_text_as_reply(
+        self,
+    ) -> None:
+        plan = parse_openai_compatible_proposal_response(
+            {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": "你好！我在，有什么我可以帮你的吗？",
+                            }
+                        ],
+                    }
+                ]
+            },
+            profile_name="proposal_formation",
+            provider_name="crs_main",
+            model_id="gpt-5.4",
+        )
+
+        self.assertEqual(plan.proposal_type, "reply")
+        self.assertEqual(plan.response_text, "你好！我在，有什么我可以帮你的吗？")
+        self.assertEqual(plan.action_capability, "notification.show")
+        self.assertFalse(plan.metadata["used_deterministic_fallback"])
+
     def test_parse_openai_compatible_proposal_response_surfaces_codex_agent_envelope_error(
         self,
     ) -> None:

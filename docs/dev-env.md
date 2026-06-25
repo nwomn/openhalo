@@ -206,6 +206,51 @@ The terminal-edge verification path is intended to prove three user-facing termi
 
 Use `bin/verify-terminal-edge --dry-run` first when you want to inspect the exact runtime, terminal-daemon, push, and state-check commands without starting the acceptance run.
 
+For a formal live acceptance scenario that matches current intended use, run all three long-lived participants together:
+
+1. Start the runtime:
+
+   ```bash
+   .venv/bin/python -m personal_runtime.main \
+     --host 127.0.0.1 \
+     --port 8765 \
+     --token dev-token \
+     --state-path .runtime/manual-acceptance-state.json
+   ```
+
+2. Start the host edge in a second terminal:
+
+   ```bash
+   .venv/bin/python -m device_edge.host.host_daemon \
+     --url ws://127.0.0.1:8765 \
+     --token dev-token \
+     --device-id host-edge-1 \
+     --runtime-process-match personal_runtime.main \
+     --runtime-start-command ".venv/bin/python -m personal_runtime.main" \
+     --idle-timeout 5 \
+     --trace
+   ```
+
+3. Start the terminal edge in a third terminal:
+
+   ```bash
+   .venv/bin/python -m device_edge.cli.terminal_daemon \
+     --url ws://127.0.0.1:8765 \
+     --token dev-token \
+     --device-id terminal-edge-1
+   ```
+
+4. In the terminal edge, send normal user text such as `你好`, `你是谁？`, and `check runtime status`.
+
+Acceptance expectations:
+
+- normal dialogue returns natural user-facing text instead of provider/parser errors such as `Real model reply unavailable`
+- `check runtime status` forms a `runtime.status` action, routes it to `host-edge-1`, and returns a readable status summary to the terminal edge
+- host-edge trace shows handling and completing the `runtime.status` action request
+- persisted runtime state contains both `terminal-edge-1` and `host-edge-1`, host observations, and at least one `runtime.status` action result
+
+The host edge receive loop must preserve action requests that arrive while it is waiting for observation acknowledgements. If `check runtime status` remains planned in state but never completes while host observations continue, treat that as a host-edge receive-loop regression.
+
 The current `M11` terminal/CLI maturity pass adds a thin edge-local UX layer on top of that same runtime path. The resident terminal daemon now keeps a bounded readable session transcript, prints explicit system/runtime/user line prefixes, and exposes a small local command set for human-friendly control without inventing a second backend path.
 
 The first local command affordances are:
@@ -259,14 +304,15 @@ For manual live-terminal acceptance, repeated explicit user input should continu
 For the current manual `M11` acceptance bar, prefer one real user-scenario foreground session instead of isolated command pokes:
 
 1. Start the runtime with `.venv/bin/python -m personal_runtime.main --host 127.0.0.1 --port 8765 --token dev-token`.
-2. Start the terminal surface with `.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token --tui`.
-3. Send `hello runtime`.
+2. Start the host edge with `.venv/bin/python -m device_edge.host.host_daemon --url ws://127.0.0.1:8765 --token dev-token --device-id host-edge-1 --runtime-process-match personal_runtime.main --runtime-start-command ".venv/bin/python -m personal_runtime.main" --idle-timeout 5 --trace`.
+3. Start the terminal surface with `.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token --tui`.
+4. Send `hello runtime`.
    Expectation: the session shows both `[user] hello runtime` and one real `[runtime] ...` reply line on the same resident session.
-4. Send `check runtime status`.
-   Expectation: the session shows a readable runtime-delivered status response rather than suppressing delivery after the user text arrives.
-5. Send `/status` and `/history`.
+5. Send `check runtime status`.
+   Expectation: the session shows a readable runtime-delivered status response from the host edge rather than suppressing delivery after the user text arrives.
+6. Send `/status` and `/history`.
    Expectation: both stay edge-local, the transcript remains readable, and no extra runtime request is created for those slash commands.
-6. Send `/quit`.
+7. Send `/quit`.
    Expectation: the TUI exits cleanly without a reconnect loop.
 
 If you need the plain compatibility path instead of the TUI, run `.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token` and apply the same user-scenario expectations to the line-oriented transcript.

@@ -8,6 +8,7 @@ import json
 import shlex
 import sys
 from collections import deque
+from collections.abc import MutableSequence
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -169,6 +170,31 @@ class HostEdgeDaemon:
             await self._send_frame(websocket, frame)
 
     async def _send_observation_cycle(self, websocket, observed_at: str) -> None:
+        await self._send_observation_cycle_with_pending(
+            websocket,
+            observed_at,
+            pending_frames=None,
+        )
+
+    async def _recv_expected_frame(
+        self,
+        websocket,
+        expected_type: str,
+        pending_frames: MutableSequence[dict] | None = None,
+    ) -> dict:
+        while True:
+            frame = await self._recv_frame(websocket)
+            if frame.get("type") == expected_type:
+                return frame
+            if pending_frames is not None:
+                pending_frames.append(frame)
+
+    async def _send_observation_cycle_with_pending(
+        self,
+        websocket,
+        observed_at: str,
+        pending_frames: MutableSequence[dict] | None,
+    ) -> None:
         if self.trace_recorder is not None:
             self.trace_recorder.record(
                 "HOST",
@@ -177,18 +203,27 @@ class HostEdgeDaemon:
             )
         for frame in self.build_observation_frames(observed_at=observed_at):
             await self._send_frame(websocket, frame)
-            await self._recv_frame(websocket)
+            await self._recv_expected_frame(
+                websocket,
+                expected_type="event_ack",
+                pending_frames=pending_frames,
+            )
 
     async def _send_runtime_health_follow_up(
         self,
         websocket,
         observed_at: str,
+        pending_frames: MutableSequence[dict] | None = None,
     ) -> None:
         for frame in self.build_observation_frames(observed_at=observed_at):
             if frame["capability"] != "runtime.health":
                 continue
             await self._send_frame(websocket, frame)
-            await self._recv_frame(websocket)
+            await self._recv_expected_frame(
+                websocket,
+                expected_type="event_ack",
+                pending_frames=pending_frames,
+            )
             return
 
     async def run_websocket_daemon_session(
@@ -203,6 +238,7 @@ class HostEdgeDaemon:
         send_follow_up_after_action: bool = True,
     ) -> list[dict]:
         action_results: list[dict] = []
+        pending_frames: deque[dict] = deque()
         observation_index = 0
         idle_cycles = 0
 
@@ -215,18 +251,22 @@ class HostEdgeDaemon:
             await self._recv_frame(websocket)
 
             if observation_index < len(observation_schedule):
-                await self._send_observation_cycle(
+                await self._send_observation_cycle_with_pending(
                     websocket,
-                    observed_at=observation_schedule[observation_index],
+                    observation_schedule[observation_index],
+                    pending_frames=pending_frames,
                 )
                 observation_index += 1
 
             while max_action_requests is None or len(action_results) < max_action_requests:
                 try:
-                    frame = await asyncio.wait_for(
-                        self._recv_frame(websocket),
-                        timeout=idle_timeout_s,
-                    )
+                    if pending_frames:
+                        frame = pending_frames.popleft()
+                    else:
+                        frame = await asyncio.wait_for(
+                            self._recv_frame(websocket),
+                            timeout=idle_timeout_s,
+                        )
                 except asyncio.TimeoutError:
                     if observation_index < len(observation_schedule):
                         observed_at = observation_schedule[observation_index]
@@ -235,9 +275,10 @@ class HostEdgeDaemon:
                         observed_at = observation_timestamp_provider()
                     else:
                         continue
-                    await self._send_observation_cycle(
+                    await self._send_observation_cycle_with_pending(
                         websocket,
-                        observed_at=observed_at,
+                        observed_at,
+                        pending_frames=pending_frames,
                     )
                     idle_cycles += 1
                     if max_idle_cycles is not None and idle_cycles >= max_idle_cycles:
@@ -259,6 +300,7 @@ class HostEdgeDaemon:
                     await self._send_runtime_health_follow_up(
                         websocket,
                         observed_at=observation_schedule[observation_index],
+                        pending_frames=pending_frames,
                     )
                     observation_index += 1
 
