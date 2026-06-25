@@ -239,17 +239,18 @@ Sub-goals:
 - 4.12. Define milestone M11: terminal/CLI interaction maturity pass, so the first terminal edge grows from a minimal resident daemon into a substantially more complete agent CLI surface with stronger interaction ergonomics, session readability, streaming/status visibility, input affordances, and human-usable command-line UX that can better stand beside tools such as Lobster, Codex, and Claude Code without changing the core presence-governed runtime architecture
 - 4.13. Define milestone M12: prompt/context engineering and behavior-contract pass, so grounded model-backed proposal and reply generation advance from first runtime-memory wiring into explicit prompt/context assembly, prompt versioning, replay/eval harnesses, and inspectable behavior contracts that verify the runtime actually uses compact snapshot state, active goals, bounded memory, and edge evidence reliably
 - 4.14. Define milestone M13: proposal-formation maturity pass, so the runtime advances from the current narrow reply-shaped proposal slice into a sufficiently capable proposal-formation system that can interpret edge-delivered signals and grounded runtime context into inspectable `reply`, `action`, `clarification`, and `no_intervention` proposals on the normal live chain
-- 4.15. Define milestone M14: post-action deliberation and interaction action loop, so action results or fresh observations can re-enter `Agent Runtime` inside the same interaction lifecycle and yield a new inspectable `reply`, `action`, `clarification`, or `no_intervention` outcome instead of terminating at a fixed completion formatter
-- 4.16. Define milestone M15: policy learning and review loop, so intervention feedback, ignored interactions, explicit user responses, and runtime replays can produce review-gated policy updates rather than remaining as ad hoc one-off heuristics
-- 4.17. Define milestone M16: multi-edge interaction expansion after the first terminal/model baseline, so additional device surfaces can join the same presence-governed interaction model without re-centering the system on any single frontend
-- 4.18. Define milestone M17: bounded-growth and storage-hygiene hardening pass after the first mature product slice, covering unbounded state growth, high-frequency persistence pressure, duplicated long-term storage, and other operational accumulation risks across the system
+- 4.15. Define milestone M14: model-provider connection reliability and diagnostics, so real cloud-model usage becomes stable, observable, and protocol-aware before deeper action-loop behavior depends on it
+- 4.16. Define milestone M15: post-action deliberation and interaction action loop, so action results or fresh observations can re-enter `Agent Runtime` inside the same interaction lifecycle and yield a new inspectable `reply`, `action`, `clarification`, or `no_intervention` outcome instead of terminating at a fixed completion formatter
+- 4.17. Define milestone M16: policy learning and review loop, so intervention feedback, ignored interactions, explicit user responses, and runtime replays can produce review-gated policy updates rather than remaining as ad hoc one-off heuristics
+- 4.18. Define milestone M17: multi-edge interaction expansion after the first terminal/model baseline, so additional device surfaces can join the same presence-governed interaction model without re-centering the system on any single frontend
+- 4.19. Define milestone M18: bounded-growth and storage-hygiene hardening pass after the first mature product slice, covering unbounded state growth, high-frequency persistence pressure, duplicated long-term storage, and other operational accumulation risks across the system
 
 Milestone ownership clarification:
 
 - The structural home for richer proposal formation from edge-delivered signals, including proposal classes such as `reply`, `action`, `clarification`, and `no_intervention`, belongs primarily to the `M6` `Agent Runtime` proposal-formation surface.
 - The accepted `M6` implementation should not be read as full semantic completion of proposal formation; before model integration it establishes the correct live-chain location and a narrow deterministic slice, but not yet sufficiently capable open-ended intent interpretation.
 - `M13` is now the explicit maturity milestone for this surface: it owns turning that narrow slice into a reliable multi-type proposal-formation capability on the live chain.
-- Adjacent milestones deepen that behavior from other angles without changing the ownership boundary: `M9` supplies provider-backed generation, `M10` supplies runtime grounding and memory, `M12` supplies prompt/context and behavior-contract hardening, `M14` supplies post-action deliberation and same-interaction action-loop re-entry, and `M15` supplies review-gated policy learning once both proposal typing and post-action behavior are mature enough to evaluate.
+- Adjacent milestones deepen that behavior from other angles without changing the ownership boundary: `M9` supplies provider-backed generation, `M10` supplies runtime grounding and memory, `M12` supplies prompt/context and behavior-contract hardening, `M14` supplies model-provider reliability and diagnostics, `M15` supplies post-action deliberation and same-interaction action-loop re-entry, and `M16` supplies review-gated policy learning once both proposal typing and post-action behavior are mature enough to evaluate.
 
 Acceptance criteria for M13 proposal-formation maturity:
 
@@ -261,7 +262,18 @@ Acceptance criteria for M13 proposal-formation maturity:
 - Automated tests cover at least one accepted scenario for each proposal class plus failure-path or ambiguity handling where clarification or no-intervention is the correct outcome
 - Human acceptance demonstrates the feature in simulated real usage: a tester can drive representative terminal/device interactions through the live runtime and observe all four proposal classes appear in appropriate scenarios with readable inspection output
 
-Acceptance criteria for M14 post-action deliberation and interaction action loop:
+Acceptance criteria for M14 model-provider connection reliability and diagnostics:
+
+- The runtime has a bounded provider-probe entrypoint that can verify the configured profile, provider, model, endpoint, auth-env presence, HTTP result, latency, and top-level response shape without exposing secrets
+- The `openai_compatible` adapter respects configured wire API shape rather than hard-coding one endpoint path, and can distinguish supported `responses` behavior from incompatible response envelopes
+- Provider failures are classified into at least connection/auth/rate-limit/timeout, HTTP server/client, protocol-shape mismatch, and parser/structured-output errors so operators can tell whether the problem is network, credentials, route configuration, or model output
+- Retry and timeout behavior is bounded and type-aware: transient network, timeout, rate-limit, or 5xx failures may retry with backoff, while missing credentials and protocol/parser mismatches fail fast with clear metadata
+- Runtime model health is observable through stored metadata or status surfaces, including last success, last failure type/reason, model unavailable state, and recent latency where available
+- User-facing fallback behavior stays explicit: foreground terminal interactions may surface real provider failures, while deterministic fallback remains available for tests and deliberate offline verification without pretending the model succeeded
+- Automated tests cover provider probing, wire API selection, failure classification, bounded retry behavior, and visible versus deterministic fallback policy
+- Human acceptance demonstrates a real configured provider path and at least one controlled failure path with readable terminal/runtime diagnostics
+
+Acceptance criteria for M15 post-action deliberation and interaction action loop:
 
 - The same interaction lifecycle can re-enter `Agent Runtime` after an `action_result` or other relevant new observation instead of terminating at a fixed completion formatter
 - Post-action deliberation can emit inspectable `reply`, `action`, `clarification`, and `no_intervention` outcomes grounded in the prior interaction state, current compact snapshot, active goals, bounded memory, and the new result/evidence
@@ -276,7 +288,7 @@ Post-M13 extension direction:
 - The next design direction is for proposal formation to synthesize inspectable interaction hypotheses such as `pull`, `push`, `background`, or `silent`, potentially from multiple edge observations rather than only one visible source surface
 - Model-backed proposal formation may suggest candidate participant surfaces, visibility intent, and the current `primary action` for that interaction, while `Presence Router` remains the final governance authority for actual user-visible surface delivery
 - The current one-`primary action`-per-planning-turn execution shape is acceptable for early implementation, but the interaction model should remain compatible with future multi-turn `action loop` behavior where action results or fresh observations trigger reproposal inside the same interaction lifecycle
-- Temporary completion-formatting patches should not be treated as substitutes for `M14`: interaction completion may carry structural status and edge delivery updates, but semantic post-action deliberation belongs to the explicit action-loop milestone
+- Temporary completion-formatting patches should not be treated as substitutes for `M15`: interaction completion may carry structural status and edge delivery updates, but semantic post-action deliberation belongs to the explicit action-loop milestone
 
 Accepted execution breakdown for M5:
 
@@ -293,7 +305,7 @@ Acceptance criteria:
 
 Status:
 
-- In progress (`M7`, `M8`, `M9`, `M10`, `M11`, `M12`, and `M13` completed and accepted; active execution focus now moves to explicit `M14` action-loop work before `M15` policy learning/review and `M16` multi-edge interaction expansion, with storage hardening deferred to `M17`)
+- In progress (`M7`, `M8`, `M9`, `M10`, `M11`, `M12`, and `M13` completed and accepted; active execution focus now moves to `M14` model-provider connection reliability and diagnostics before explicit `M15` action-loop work, `M16` policy learning/review, and `M17` multi-edge interaction expansion, with storage hardening deferred to `M18`)
 
 ## Completed Sub-goals
 
@@ -1010,7 +1022,7 @@ Result:
 - The local inspection and acceptance ladder now includes bounded M13 tooling: `python -m device_edge.cli.cli_edge --inspect-chain` prints proposal type and rationale on the live chain, and `bin/verify-proposal-formation` exercises the accepted `reply`, `action`, `clarification`, and `no_intervention` scenarios end to end
 - Fresh targeted automated verification and bounded human acceptance now prove all four proposal classes on representative live terminal/runtime interactions, including the `no_intervention` path recording a proposal and ending with a suppressed action result instead of dispatch
 - The accepted first `M13` slice still executes at most one current `primary action` per planning turn; that is an intentional implementation bound for the slice, not a claim that future interaction handling should remain permanently single-step
-- The accepted `M13` boundary stops at first-turn proposal typing plus primary-action dispatch; post-action semantic handling remains intentionally out of scope here and is now promoted into explicit `M14` action-loop work rather than being represented by a completion-summary patch
+- The accepted `M13` boundary stops at first-turn proposal typing plus primary-action dispatch; post-action semantic handling remains intentionally out of scope here and is now promoted into explicit `M15` action-loop work rather than being represented by a completion-summary patch
 
 Acceptance criteria:
 
@@ -1078,7 +1090,7 @@ Current preference:
 - The first terminal edge should support both pull-style user requests and push-style runtime interventions, but push should depend on terminal presence or activity instead of blindly printing into unattended terminals
 - Model terminal-side user input, activity or idle evidence, runtime-originated message delivery, reply, and ignore or non-response as ordinary edge events and actions on the normal runtime path instead of inventing a chat-only side protocol
 - Keep terminal-edge intelligence thin: local UX control may exist on the edge, but proposal formation, intervention policy, and routing authority should remain in the backend runtime
-- Prefer the next post-M7 milestone sequence to stay narrow and layered: M8 formal terminal edge first, M9 cloud-model agent baseline second, M10 grounding and memory third, M11 terminal/CLI interaction maturity fourth, M12 prompt/context engineering fifth, M13 proposal-formation maturity sixth, M14 post-action deliberation/action loop seventh, M15 policy learning/review eighth, and bounded-growth hardening later at M17
+- Prefer the next post-M7 milestone sequence to stay narrow and layered: M8 formal terminal edge first, M9 cloud-model agent baseline second, M10 grounding and memory third, M11 terminal/CLI interaction maturity fourth, M12 prompt/context engineering fifth, M13 proposal-formation maturity sixth, M14 model-provider connection reliability and diagnostics seventh, M15 post-action deliberation/action loop eighth, M16 policy learning/review ninth, and bounded-growth hardening later at M18
 - Prefer cloud-model proposal and reply generation to stay behind a provider boundary inside `Agent Runtime`, with explicit presence governance and normal edge routing still deciding whether and where anything surfaces
 - Prefer a hybrid model-provider architecture for `M9`: keep a shared provider registry, model catalog, and runtime-facing profile-selection layer, while implementing only the `openai_compatible` adapter branch in the first accepted slice
 - Prefer runtime call sites to select named model profiles rather than hard-coding provider/model pairs directly in business logic, so later provider swaps and model-routing changes stay configuration-driven
@@ -1127,7 +1139,7 @@ Current M3 slice direction:
 
 Current phase:
 
-- Post-M13 architecture expansion is now focused on explicit `M14` post-action deliberation and interaction action-loop work before `M15` policy learning/review and broader `M16` multi-edge interaction expansion, while bounded-growth and storage-hygiene hardening remains intentionally deferred to `M17`
+- Post-M13 architecture expansion is now focused on `M14` model-provider connection reliability and diagnostics before explicit `M15` post-action deliberation and interaction action-loop work, `M16` policy learning/review, and broader `M17` multi-edge interaction expansion, while bounded-growth and storage-hygiene hardening remains intentionally deferred to `M18`
 
 Current progress summary:
 
@@ -1174,7 +1186,7 @@ Current progress summary:
 - We now treat `agent` as a primary runtime abstraction and `Presence Router` as an explicit governance module inside the broader agent runtime, completing the current Goal 2 abstraction baseline
 - The live runtime now has an explicit interaction-lifecycle surface on the normal chain: proposal/presence outcomes are recorded under an `interaction_id`, remote action results can complete that interaction later, and user-facing edges can consume a generic `interaction_update` instead of inferring completion only from a locally executed action
 - The terminal edge no longer depends on the old narrow “wait until this device receives an action_request” path for pull-style requests; remote runtime actions, `no_intervention`, and suppressed outcomes now all resolve through the same interaction-completion mechanism
-- Interaction completion currently remains a structural live-chain surface only: it can mark an interaction finished and notify user-facing edges about delivery or remote action completion, but semantic post-action deliberation is now explicitly deferred to `M14` rather than hidden behind a formatter patch
+- Interaction completion currently remains a structural live-chain surface only: it can mark an interaction finished and notify user-facing edges about delivery or remote action completion, but semantic post-action deliberation is now explicitly deferred to `M15` rather than hidden behind a formatter patch
 - The accepted first interaction-lifecycle slice still keeps at most one `primary action` per planning turn, but the state/protocol shape now preserves a cleaner path toward later multi-turn `action loop` re-entry through the normal runtime chain
 - We have selected the first v0 device surface as a desktop/CLI edge and the first capability loop as `text.input -> notification.show`
 - We have also defined the immediate follow-up slice after v0: minimal persistence, a second surface or device, and one non-text capability
@@ -1268,8 +1280,8 @@ Current progress summary:
 - The host-edge daemon verification surface now includes an explicit bounded `max_action_requests` control so local readiness runs can exit after handling the intended number of action requests rather than relying only on idle-time timing
 - Refreshed M7 verification evidence now passed across both targeted automated suites and a bounded real `bin/verify-host-edge` run: the repository can now gate stronger “implemented and ready to run” claims on both the direct-action host-control path and the normal runtime-initiative host-control path, each validated against a separate real host-edge daemon
 - We now consider M7 complete: host-edge-path operational-readiness verification is no longer only a documentation rule, but a concrete bounded acceptance gate with real runtime, host-daemon, websocket, persisted-state, and dual-path action evidence
-- We now reorder the post-M7 roadmap so storage hardening is no longer the immediate next step: M8 formal terminal edge, M9 cloud-model-backed agent baseline, M10 model grounding/runtime memory, M11 terminal/CLI interaction maturity, M12 prompt/context engineering, M13 proposal-formation maturity, M14 post-action deliberation/action loop, M15 policy learning/review, M16 multi-edge interaction expansion, and M17 bounded-growth/storage-hygiene hardening
-- We now intentionally defer bounded-growth and storage-hygiene hardening to M17, after the first formal terminal/model interaction surfaces plus explicit proposal-formation maturity, action-loop, and policy-learning design have been validated more concretely
+- We now reorder the post-M7 roadmap so storage hardening is no longer the immediate next step: M8 formal terminal edge, M9 cloud-model-backed agent baseline, M10 model grounding/runtime memory, M11 terminal/CLI interaction maturity, M12 prompt/context engineering, M13 proposal-formation maturity, M14 model-provider connection reliability and diagnostics, M15 post-action deliberation/action loop, M16 policy learning/review, M17 multi-edge interaction expansion, and M18 bounded-growth/storage-hygiene hardening
+- We now intentionally defer bounded-growth and storage-hygiene hardening to M18, after the first formal terminal/model interaction surfaces plus explicit proposal-formation maturity, model-provider reliability, action-loop, and policy-learning design have been validated more concretely
 - We now prefer the desktop/CLI edge to evolve from a verification harness into the first formal long-running terminal `Device Edge` for product-facing interaction
 - We now explicitly treat terminal interaction as ordinary environment sensing plus runtime action on a `Device Edge`, not as a special chat-centered system mode
 - We now want the first formal terminal edge to support both user-initiated pull requests and presence-gated runtime-initiated push interactions on the same normal runtime chain
@@ -1284,7 +1296,8 @@ Current progress summary:
 - We now want the first model-backed stage after that to focus on grounding rather than only provider wiring, so runtime memory, snapshot context, goals, and bounded edge evidence meaningfully shape model behavior
 - We now want prompt/context engineering to become its own explicit milestone after terminal/CLI maturity, so grounded runtime-native state can be turned into a durable and inspectable agent behavior contract instead of remaining as thin prompt wiring
 - We now want proposal-formation maturity to become its own explicit milestone after prompt/context engineering, so the runtime can reliably distinguish reply, action, clarification, and no-intervention outcomes on the live chain before post-action deliberation and policy learning start adapting that behavior
-- We now want post-action deliberation and same-interaction action-loop handling to remain its own explicit milestone after proposal-formation maturity, rather than being approximated by a completion-summary patch on the gateway path
+- We now want model-provider connection reliability and diagnostics to become the immediate milestone after proposal-formation maturity, because deeper action-loop behavior should not depend on a model path that still hides protocol mismatches, timeouts, fallback policy, or health status
+- We now want post-action deliberation and same-interaction action-loop handling to remain its own explicit milestone after model-provider reliability, rather than being approximated by a completion-summary patch on the gateway path
 - We now want policy learning and review to remain its own later milestone after proposal formation and post-action behavior both mature, rather than being hidden inside the first provider-integration batch
 - We now have the first working `M9` provider/configuration implementation slice: runtime model config is split into provider, model, and profile layers; the first accepted adapter path is `openai_compatible`; normal text replies now carry inspectable provider/profile/fallback metadata through the existing proposal and chain-inspection surfaces
 - The repository now includes a tracked default `config/llm-config.toml`, targeted provider-unit coverage, gateway coverage, human-readable local inspection guidance for the first `M9` profile-driven text-reply path, and an explicit `--llm-config-path` runtime escape hatch for intentional non-default provider runs
@@ -1304,10 +1317,11 @@ Current progress summary:
 - The proposal-formation provider parser now also tolerates plain `output_text` replies from an OpenAI-compatible `/responses` route, mapping them back into normal `reply` proposals instead of surfacing parser/provider errors as user-facing dialogue
 - Host-edge daemon receive handling now preserves action requests that arrive while the daemon is waiting for observation acknowledgements, so continuous host observation traffic no longer swallows `runtime.status` requests planned by the normal terminal-to-runtime-to-host chain
 - The repository now has a bounded M13 acceptance ladder: `bin/verify-proposal-formation --dry-run` lists the accepted scenario checks, and the real `bin/verify-proposal-formation` run exercises `reply`, `action`, `clarification`, and `no_intervention` with readable rationale on the live chain
-- Fresh targeted automated verification and bounded human acceptance now pass for M13, so active execution focus can move from proposal-formation maturity to explicit `M14` action-loop work
+- Fresh targeted automated verification and bounded human acceptance now pass for M13, so active execution focus can move from proposal-formation maturity to `M14` model-provider connection reliability and diagnostics
 - Post-acceptance hardening now also covers the resident terminal TUI lifecycle edge case: status/transcript refresh timers tolerate shutdown/unmount boundaries without raising Textual query errors, and the terminal/TUI manual acceptance docs now use explicit `.venv/bin/python` commands plus a user-scenario sequence centered on `hello runtime`, `check runtime status`, local slash commands, and clean exit
 - Terminal TUI quit-path hardening now also treats `quit_requested + connection_state=disconnected` as sufficient to leave the full-screen UI, so `/quit` no longer leaves the final rendered frame stuck on screen while a lingering session thread finishes unwinding
 - Terminal TUI environment hardening now detects `TERM=dumb` and falls back to the line-oriented resident terminal mode instead of forcing a Textual full-screen session into an unsupported shell surface that can leave inline render residue after exit
+- Terminal TUI input sensing now records draft-empty versus draft-nonempty changes and sends them through the normal `terminal.context` observation path as `terminal.input_state` and `terminal.input_draft_length`, establishing a first real-time input-state signal without treating it as full IME composition semantics yet
 - We have our own tested minimal protocol, edge session client, and gateway baseline, reducing the value of deeper OpenClaw gateway extraction work
 - We may still borrow ideas from OpenClaw protocol/client layers later, but that is now optional follow-on work rather than an open prerequisite
 
