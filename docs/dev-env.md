@@ -269,7 +269,7 @@ Use them only for edge-local ergonomics:
 
 Those commands must stay local to the terminal edge. They should not be forwarded as normal `text.input` runtime events.
 
-For a true live terminal session, start the runtime first and then run the resident terminal daemon in the foreground. In that mode the daemon keeps one websocket edge session open, reads user requests from `stdin`, emits fresh `terminal.activity_state` observations on the normal runtime path, and still handles runtime-pushed `notification.show` actions in the same session.
+For a true live terminal session, start the runtime first and then run the resident terminal daemon in the foreground. In that mode the daemon keeps one websocket edge session open, reads user requests from `stdin`, emits fresh `terminal.activity_state` observations on the normal runtime path, and still handles runtime-pushed `notification.show` actions in the same session. In Textual TUI mode, draft input changes are also sent as `terminal.input_state` and `terminal.input_draft_length` observations so foreground typing can be observed before a line is submitted.
 
 Preferred command shape:
 
@@ -290,6 +290,8 @@ The new `--tui` mode uses a Textual full-screen UI as the preferred resident ter
 - a bottom input box for normal user text and local slash commands
 
 See `docs/terminal-tui.md` for the dedicated TUI guide covering layout, status-bar semantics, local commands, exit behavior, and current limits.
+
+The TUI draft-input signal is also part of the idle-sensing behavior: a nonempty draft should wake the daemon's idle wait and be sent before a fresh `terminal.activity_state=idle` observation, so active typing is not immediately reported as terminal idle.
 
 Use the older non-TUI foreground command as the compatibility fallback when you need a plain line-oriented terminal session or when diagnosing UI-specific problems:
 

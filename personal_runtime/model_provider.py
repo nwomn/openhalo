@@ -348,6 +348,8 @@ def _looks_like_codex_agent_envelope(response_payload: dict) -> bool:
 
 
 def _normalize_proposal_type(raw_value: str) -> str:
+    if not isinstance(raw_value, str):
+        raise ValueError("provider proposal_type must be a string")
     normalized = raw_value.strip().lower()
     if normalized in {
         "reply",

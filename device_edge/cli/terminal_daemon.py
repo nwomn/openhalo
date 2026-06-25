@@ -9,6 +9,7 @@ import json
 import os
 import sys
 import io
+from queue import Empty
 from datetime import datetime
 from datetime import timezone
 from contextlib import suppress
@@ -33,11 +34,13 @@ class TerminalEdgeDaemon:
         token: str,
         output_stream=None,
         input_stream=None,
+        input_state_stream=None,
         timestamp_provider=None,
         stdin_observed_at: str | None = None,
     ) -> None:
         self.output_stream = output_stream or sys.stdout
         self.input_stream = input_stream or sys.stdin
+        self.input_state_stream = input_state_stream
         self.timestamp_provider = timestamp_provider or self._default_timestamp_provider
         self.stdin_observed_at = stdin_observed_at
         self.connection_state = "disconnected"
@@ -80,6 +83,63 @@ class TerminalEdgeDaemon:
             activity_state=activity_state,
             observed_at=observed_at,
         )
+
+    def _drain_input_state_frames(self) -> list[dict]:
+        if self.input_state_stream is None:
+            return []
+        frames: list[dict] = []
+        while True:
+            try:
+                state_payload = self.input_state_stream.get_nowait()
+            except Empty:
+                break
+            if not isinstance(state_payload, dict):
+                continue
+            observed_at = state_payload.get("observed_at") or self._next_observed_at()
+            observations = [
+                {
+                    "name": "terminal.input_state",
+                    "value": state_payload.get("state", "draft_empty"),
+                    "observed_at": observed_at,
+                    "confidence": 1.0,
+                }
+            ]
+            if "draft_length" in state_payload:
+                observations.append(
+                    {
+                        "name": "terminal.input_draft_length",
+                        "value": state_payload["draft_length"],
+                        "observed_at": observed_at,
+                        "confidence": 1.0,
+                    }
+                )
+            frames.append(
+                {
+                    "type": "event_push",
+                    "device_id": self.client.device_id,
+                    "capability": "terminal.context",
+                    "payload": {"observations": observations},
+                }
+            )
+        return frames
+
+    async def _wait_for_input_state_frames(self) -> list[dict]:
+        while True:
+            frames = self._drain_input_state_frames()
+            if frames:
+                return frames
+            await asyncio.sleep(0.01)
+
+    @staticmethod
+    def _input_state_frames_include_nonempty_draft(frames: list[dict]) -> bool:
+        for frame in frames:
+            for observation in frame.get("payload", {}).get("observations", []):
+                if (
+                    observation.get("name") == "terminal.input_state"
+                    and observation.get("value") == "draft_nonempty"
+                ):
+                    return True
+        return False
 
     def build_user_input_frames(
         self,
@@ -364,6 +424,9 @@ class TerminalEdgeDaemon:
 
             if idle_after_inputs:
                 while max_action_requests is None or len(results) < max_action_requests:
+                    for frame in self._drain_input_state_frames():
+                        await self._send_frame(websocket, frame)
+                        pending_frames.append(await self._recv_frame(websocket))
                     if self.quit_requested:
                         break
                     recv_task = asyncio.create_task(self._recv_frame(websocket))
@@ -371,59 +434,36 @@ class TerminalEdgeDaemon:
                         live_input_task = asyncio.create_task(
                             self._read_live_input_line()
                         )
-                    try:
-                        wait_set = {recv_task}
-                        if live_input_task is not None:
-                            wait_set.add(live_input_task)
-                        done, pending = await asyncio.wait(
-                            wait_set,
-                            timeout=idle_timeout_s,
-                            return_when=asyncio.FIRST_COMPLETED,
+                    idle_task = asyncio.create_task(asyncio.sleep(idle_timeout_s))
+                    input_state_task = None
+                    if self.input_state_stream is not None:
+                        input_state_task = asyncio.create_task(
+                            self._wait_for_input_state_frames()
                         )
-                    except asyncio.TimeoutError:
-                        done = set()
-                        pending = {recv_task}
-                        if live_input_task is not None:
-                            pending.add(live_input_task)
+                    wait_set = {recv_task, idle_task}
+                    if live_input_task is not None:
+                        wait_set.add(live_input_task)
+                    if input_state_task is not None:
+                        wait_set.add(input_state_task)
+                    done, pending = await asyncio.wait(
+                        wait_set,
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
 
                     if recv_task in pending:
                         recv_task.cancel()
                         with suppress(asyncio.CancelledError):
                             await recv_task
+                    if idle_task in pending:
+                        idle_task.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await idle_task
+                    if input_state_task is not None and input_state_task in pending:
+                        input_state_task.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await input_state_task
 
-                    if not done:
-                        if terminal_activity_state == "idle":
-                            if max_idle_cycles is not None:
-                                idle_cycles += 1
-                                if idle_cycles >= max_idle_cycles:
-                                    return results
-                            continue
-                        idle_timestamp = self._next_observed_at(idle_observed_at)
-                        await self._send_frame(
-                            websocket,
-                            self.build_terminal_activity_frame(
-                                activity_state="idle",
-                                observed_at=idle_timestamp,
-                            ),
-                        )
-                        try:
-                            await self._recv_expected_frame(
-                                websocket,
-                                pending_frames,
-                                expected_type="event_ack",
-                            )
-                        except RuntimeError as exc:
-                            if "StopIteration" not in str(exc):
-                                raise
-                            return results
-                        terminal_activity_state = "idle"
-                        self.terminal_activity_state = "idle"
-                        self.render_status_line("Terminal idle.")
-                        idle_cycles += 1
-                        if max_idle_cycles is not None and idle_cycles >= max_idle_cycles:
-                            return results
-                        continue
-
+                    activity_observed = False
                     recv_closed = False
                     if recv_task in done:
                         try:
@@ -466,8 +506,56 @@ class TerminalEdgeDaemon:
                                 terminal_activity_state = "active"
                                 self.terminal_activity_state = "active"
                                 idle_cycles = 0
+                                activity_observed = True
                             if self.quit_requested:
                                 break
+
+                    if input_state_task is not None and input_state_task in done:
+                        input_state_frames = input_state_task.result()
+                        for frame in input_state_frames:
+                            await self._send_frame(websocket, frame)
+                            pending_frames.append(await self._recv_frame(websocket))
+                        if self._input_state_frames_include_nonempty_draft(
+                            input_state_frames
+                        ):
+                            terminal_activity_state = "active"
+                            self.terminal_activity_state = "active"
+                            idle_cycles = 0
+                            activity_observed = True
+                        continue
+
+                    if idle_task in done and not activity_observed:
+                        if terminal_activity_state == "idle":
+                            if max_idle_cycles is not None:
+                                idle_cycles += 1
+                                if idle_cycles >= max_idle_cycles:
+                                    return results
+                            continue
+                        idle_timestamp = self._next_observed_at(idle_observed_at)
+                        await self._send_frame(
+                            websocket,
+                            self.build_terminal_activity_frame(
+                                activity_state="idle",
+                                observed_at=idle_timestamp,
+                            ),
+                        )
+                        try:
+                            await self._recv_expected_frame(
+                                websocket,
+                                pending_frames,
+                                expected_type="event_ack",
+                            )
+                        except RuntimeError as exc:
+                            if "StopIteration" not in str(exc):
+                                raise
+                            return results
+                        terminal_activity_state = "idle"
+                        self.terminal_activity_state = "idle"
+                        self.render_status_line("Terminal idle.")
+                        idle_cycles += 1
+                        if max_idle_cycles is not None and idle_cycles >= max_idle_cycles:
+                            return results
+                        continue
 
                     action_frame = next(
                         (

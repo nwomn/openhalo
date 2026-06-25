@@ -75,6 +75,14 @@ Current behavior:
 - Repeated explicit user input should continue working in one resident session.
 - Presence cooldown logic is for runtime-initiated interruption, not for suppressing the user's own back-to-back requests.
 
+## Input Sensing
+
+The TUI reports draft-empty versus draft-nonempty changes through the normal `terminal.context` path as `terminal.input_state` and `terminal.input_draft_length` observations.
+
+This is intentionally a lightweight foreground-input signal, not full IME composition semantics. Its current job is to let the resident daemon observe that the user is actively drafting text before the next submitted line exists.
+
+When a nonempty draft arrives while the daemon is waiting to mark the terminal idle, the draft-state observation should wake that wait and be sent before a new `terminal.activity_state=idle` observation. That keeps `Terminal idle` from winning the race while the user is actively typing.
+
 ## Exit Behavior
 
 Preferred exit path:

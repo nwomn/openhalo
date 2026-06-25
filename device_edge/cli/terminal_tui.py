@@ -109,12 +109,14 @@ class TerminalEdgeApp(App[None]):
         *,
         daemon,
         input_queue: queue.Queue[str | None],
+        input_state_queue: queue.Queue[dict],
         transcript_queue: queue.Queue[str],
         start_session: Callable[[], None] | None = None,
     ) -> None:
         super().__init__()
         self.daemon = daemon
         self.input_queue = input_queue
+        self.input_state_queue = input_state_queue
         self.transcript_queue = transcript_queue
         self.start_session = start_session
         self.session_thread: threading.Thread | None = None
@@ -156,6 +158,15 @@ class TerminalEdgeApp(App[None]):
             return
         self.input_queue.put(text)
         event.input.value = ""
+
+    async def on_input_changed(self, event: Input.Changed) -> None:
+        draft = event.value
+        self.input_state_queue.put(
+            {
+                "state": "draft_nonempty" if draft else "draft_empty",
+                "draft_length": len(draft),
+            }
+        )
 
     def action_quit(self) -> None:
         self.input_queue.put("/quit")
@@ -228,12 +239,14 @@ def create_textual_terminal_app(
     from device_edge.cli.terminal_daemon import TerminalEdgeDaemon
 
     input_queue: queue.Queue[str | None] = queue.Queue()
+    input_state_queue: queue.Queue[dict] = queue.Queue()
     transcript_queue: queue.Queue[str] = queue.Queue()
     daemon = TerminalEdgeDaemon(
         device_id=device_id,
         token=token,
         output_stream=QueueLineOutput(transcript_queue),
         input_stream=QueueLineInput(input_queue),
+        input_state_stream=input_state_queue,
         stdin_observed_at=stdin_observed_at,
     )
 
@@ -255,6 +268,7 @@ def create_textual_terminal_app(
     return TerminalEdgeApp(
         daemon=daemon,
         input_queue=input_queue,
+        input_state_queue=input_state_queue,
         transcript_queue=transcript_queue,
         start_session=start_session,
     )

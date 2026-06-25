@@ -368,6 +368,43 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertEqual(plan.action_capability, "notification.show")
         self.assertFalse(plan.metadata["used_deterministic_fallback"])
 
+    def test_generate_text_proposal_plan_surfaces_malformed_structured_payload_as_provider_failure(
+        self,
+    ) -> None:
+        self.addCleanup(
+            __import__("os").environ.pop,
+            "TEST_REAL_MODEL_REQUIRED_KEY_MISSING",
+            None,
+        )
+        __import__("os").environ["TEST_REAL_MODEL_REQUIRED_KEY_MISSING"] = "test-key"
+
+        plan = generate_text_proposal_plan(
+            user_text="hello runtime",
+            snapshot={"runtime.current_health_state": "healthy"},
+            grounding={"active_goals": [{"goal_id": "goal-1"}]},
+            profile_name="proposal_formation",
+            config_path=Path("tests/fixtures/llm-config-visible-error-test.toml"),
+            transport=lambda *_args: {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": '{"proposal_type": 42, "response_text": "hello"}',
+                            }
+                        ],
+                    }
+                ]
+            },
+        )
+
+        self.assertEqual(plan.proposal_type, "reply")
+        self.assertEqual(plan.action_capability, "notification.show")
+        self.assertIn("Real model reply unavailable", plan.response_text)
+        self.assertEqual(plan.metadata["provider_failure_type"], "ValueError")
+        self.assertFalse(plan.metadata["used_deterministic_fallback"])
+
     def test_parse_openai_compatible_proposal_response_surfaces_codex_agent_envelope_error(
         self,
     ) -> None:

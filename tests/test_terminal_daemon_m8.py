@@ -296,6 +296,7 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
 
         self.assertIsInstance(app.daemon.input_stream, QueueLineInput)
         self.assertIsInstance(app.daemon.output_stream, QueueLineOutput)
+        self.assertIs(app.daemon.input_state_stream, app.input_state_queue)
         self.assertIsNotNone(app.start_session)
 
     def test_main_dispatches_to_textual_mode_when_tui_flag_is_set(self) -> None:
@@ -369,6 +370,7 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
         app = TerminalEdgeApp(
             daemon=daemon,
             input_queue=queue.Queue(),
+            input_state_queue=queue.Queue(),
             transcript_queue=queue.Queue(),
         )
 
@@ -396,6 +398,7 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
         app = TerminalEdgeApp(
             daemon=daemon,
             input_queue=queue.Queue(),
+            input_state_queue=queue.Queue(),
             transcript_queue=queue.Queue(),
         )
 
@@ -417,6 +420,7 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
         app = TerminalEdgeApp(
             daemon=daemon,
             input_queue=queue.Queue(),
+            input_state_queue=queue.Queue(),
             transcript_queue=transcript_queue,
         )
 
@@ -425,6 +429,35 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             transcript_log = app.query_one("#transcript-log", RichLog)
             self.assertGreaterEqual(len(transcript_log.lines), 1)
+
+    async def test_textual_terminal_app_records_draft_input_state_changes(self) -> None:
+        from device_edge.cli.terminal_tui import TerminalEdgeApp
+
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+        )
+        input_state_queue: queue.Queue[dict] = queue.Queue()
+        app = TerminalEdgeApp(
+            daemon=daemon,
+            input_queue=queue.Queue(),
+            input_state_queue=input_state_queue,
+            transcript_queue=queue.Queue(),
+        )
+
+        async with app.run_test() as pilot:
+            input_widget = app.query_one("#command-input", Input)
+            input_widget.value = "现在runtime运行状态如何？"
+            await pilot.pause()
+            input_widget.value = ""
+            await pilot.pause()
+
+        nonempty = input_state_queue.get_nowait()
+        empty = input_state_queue.get_nowait()
+        self.assertEqual(nonempty["state"], "draft_nonempty")
+        self.assertEqual(nonempty["draft_length"], 16)
+        self.assertEqual(empty["state"], "draft_empty")
+        self.assertEqual(empty["draft_length"], 0)
 
     async def test_textual_terminal_app_exits_after_quit_once_daemon_disconnects_even_if_thread_lingers(
         self,
@@ -440,6 +473,7 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
         app = TerminalEdgeApp(
             daemon=daemon,
             input_queue=queue.Queue(),
+            input_state_queue=queue.Queue(),
             transcript_queue=queue.Queue(),
         )
         lingering_thread = mock.Mock()
@@ -599,6 +633,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
             [
                 "2026-06-22T10:09:00Z",
                 "2026-06-22T10:10:00Z",
+                "2026-06-22T10:11:00Z",
             ]
         )
         daemon = TerminalEdgeDaemon(
@@ -669,6 +704,151 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             text_frames[0]["payload"]["observed_at"],
             "2026-06-22T10:10:00Z",
+        )
+
+    async def test_daemon_session_sends_tui_input_state_observations(
+        self,
+    ) -> None:
+        observed_at_values = iter(
+            [
+                "2026-06-22T10:09:00Z",
+                "2026-06-22T10:10:00Z",
+                "2026-06-22T10:11:00Z",
+            ]
+        )
+        input_state_queue: queue.Queue[dict] = queue.Queue()
+        input_state_queue.put(
+            {
+                "state": "draft_nonempty",
+                "draft_length": 16,
+            }
+        )
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            input_state_stream=input_state_queue,
+            timestamp_provider=lambda: next(observed_at_values),
+        )
+        sent_frames: list[dict] = []
+
+        class FakeWebSocket:
+            def __init__(self) -> None:
+                self.recv_count = 0
+
+            async def send(self, payload: str) -> None:
+                sent_frames.append(json.loads(payload))
+
+            async def recv(self) -> str:
+                self.recv_count += 1
+                if self.recv_count == 1:
+                    return json.dumps({"type": "connect_ok"})
+                if self.recv_count in {2, 3}:
+                    return json.dumps({"type": "event_ack"})
+                if self.recv_count == 4:
+                    await asyncio.sleep(0.05)
+                    raise RuntimeError("StopIteration")
+                return json.dumps({"type": "event_ack"})
+
+        await daemon.run_scripted_session(
+            websocket=FakeWebSocket(),
+            scripted_inputs=[],
+            startup_observed_at=None,
+            idle_after_inputs=True,
+            idle_timeout_s=0.01,
+            max_idle_cycles=1,
+        )
+
+        input_state_frames = [
+            frame
+            for frame in sent_frames
+            if frame.get("capability") == "terminal.context"
+            and any(
+                observation["name"] == "terminal.input_state"
+                for observation in frame["payload"]["observations"]
+            )
+        ]
+        self.assertEqual(len(input_state_frames), 1)
+        observations = input_state_frames[0]["payload"]["observations"]
+        self.assertEqual(observations[0]["value"], "draft_nonempty")
+        self.assertEqual(observations[1]["name"], "terminal.input_draft_length")
+        self.assertEqual(observations[1]["value"], 16)
+
+    async def test_daemon_session_sends_tui_input_state_before_idle_when_draft_arrives_during_wait(
+        self,
+    ) -> None:
+        observed_at_values = iter(
+            [
+                "2026-06-22T10:09:00Z",
+                "2026-06-22T10:10:00Z",
+                "2026-06-22T10:11:00Z",
+            ]
+        )
+        input_state_queue: queue.Queue[dict] = queue.Queue()
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            input_state_stream=input_state_queue,
+            timestamp_provider=lambda: next(observed_at_values),
+        )
+        sent_frames: list[dict] = []
+
+        class FakeWebSocket:
+            def __init__(self) -> None:
+                self.recv_count = 0
+
+            async def send(self, payload: str) -> None:
+                sent_frames.append(json.loads(payload))
+
+            async def recv(self) -> str:
+                self.recv_count += 1
+                if self.recv_count == 1:
+                    return json.dumps({"type": "connect_ok"})
+                if self.recv_count == 2:
+                    return json.dumps({"type": "event_ack"})
+                if self.recv_count == 3:
+                    await asyncio.sleep(0.02)
+                    return json.dumps({"type": "event_ack"})
+                if self.recv_count == 4:
+                    await asyncio.sleep(0.02)
+                    return json.dumps({"type": "event_ack"})
+                await asyncio.sleep(0.05)
+                raise RuntimeError("StopIteration")
+
+        async def inject_draft_state() -> None:
+            await asyncio.sleep(0.005)
+            input_state_queue.put(
+                {
+                    "state": "draft_nonempty",
+                    "draft_length": 16,
+                }
+            )
+
+        await asyncio.gather(
+            daemon.run_scripted_session(
+                websocket=FakeWebSocket(),
+                scripted_inputs=[],
+                startup_observed_at=None,
+                idle_after_inputs=True,
+                idle_timeout_s=0.01,
+                max_idle_cycles=1,
+            ),
+            inject_draft_state(),
+        )
+
+        terminal_context_frames = [
+            frame
+            for frame in sent_frames
+            if frame.get("capability") == "terminal.context"
+        ]
+        observed_names = [
+            observation["name"]
+            for frame in terminal_context_frames
+            for observation in frame["payload"]["observations"]
+        ]
+        self.assertIn("terminal.input_state", observed_names)
+        self.assertLess(
+            observed_names.index("terminal.input_state"),
+            observed_names.index("terminal.activity_state", 1),
         )
 
     async def test_daemon_session_reads_multiple_live_terminal_inputs_from_stdin(
