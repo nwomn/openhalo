@@ -251,6 +251,38 @@ Acceptance expectations:
 
 The host edge receive loop must preserve action requests that arrive while it is waiting for observation acknowledgements. If `check runtime status` remains planned in state but never completes while host observations continue, treat that as a host-edge receive-loop regression.
 
+## Model-provider bad-shape recurrence workflow
+
+If the terminal/model path starts returning provider-shape failures again, preserve evidence before cleaning state or restarting into a fresh acceptance run.
+
+Do not delete `.runtime` first. Stop the runtime and terminal edge, then back up the current state:
+
+```bash
+cp .runtime/state.json .runtime/state.bad.$(date +%s).json
+```
+
+Capture the provider metadata already recorded in runtime state:
+
+```bash
+rg -n "provider_failure_shape|provider_retried_shapes|provider_attempt_count|provider_retry_count|provider_failure_reason|llm_profile|llm_provider|llm_model|grounding_recent" .runtime/state.json
+```
+
+Capture recent persisted runtime memory separately so the investigation can tell whether the request was influenced by old user input, interventions, or action results:
+
+```bash
+rg -n "Real model reply unavailable|recent_memory|action_results|interventions|text.input" .runtime/state.json
+```
+
+Only after that evidence is preserved, run a clean-state comparison. Either move `.runtime` aside or delete it intentionally:
+
+```bash
+mv .runtime .runtime.bad-preserved
+```
+
+Then restart the runtime on the default state path and repeat the same terminal prompts. If the clean run succeeds, keep both the bad-state backup and clean-state result. If the clean run also fails, treat the provider route or model contract as the primary suspect rather than persisted-state pollution.
+
+The current unresolved M14 diagnosis is that clearing `.runtime` restored stable natural-language replies, but a minimal reconstructed pollution state did not reproduce the bad response shape. The next recurrence needs request/response shape evidence before cleanup.
+
 The current `M11` terminal/CLI maturity pass adds a thin edge-local UX layer on top of that same runtime path. The resident terminal daemon now keeps a bounded readable session transcript, prints explicit system/runtime/user line prefixes, and exposes a small local command set for human-friendly control without inventing a second backend path.
 
 The first local command affordances are:

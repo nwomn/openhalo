@@ -15,6 +15,7 @@ from personal_runtime.model_provider import (
     generate_text_proposal_plan,
     parse_openai_compatible_response,
     parse_openai_compatible_proposal_response,
+    classify_openai_compatible_response_shape,
     load_runtime_model_config,
     resolve_profile_config,
 )
@@ -426,6 +427,189 @@ class ModelProviderConfigTests(unittest.TestCase):
                 provider_name="crs_main",
                 model_id="gpt-5.4",
             )
+
+    def test_classify_openai_compatible_response_shape_names_codex_envelope(
+        self,
+    ) -> None:
+        shape = classify_openai_compatible_response_shape(
+            {
+                "status": "completed",
+                "output": [],
+                "output_text": None,
+                "instructions": (
+                    "You are a coding agent running in the Codex CLI, "
+                    "a terminal-based coding assistant."
+                ),
+            }
+        )
+
+        self.assertEqual(shape, "codex_agent_envelope_empty_output")
+
+    def test_classify_openai_compatible_response_shape_names_completed_empty_output(
+        self,
+    ) -> None:
+        shape = classify_openai_compatible_response_shape(
+            {
+                "status": "completed",
+                "output": [],
+                "instructions": "Return exactly one JSON object.",
+            }
+        )
+
+        self.assertEqual(shape, "completed_empty_output")
+
+    def test_generate_text_proposal_plan_retries_transient_bad_response_shape(
+        self,
+    ) -> None:
+        self.addCleanup(
+            __import__("os").environ.pop,
+            "TEST_REAL_MODEL_REQUIRED_KEY_MISSING",
+            None,
+        )
+        __import__("os").environ["TEST_REAL_MODEL_REQUIRED_KEY_MISSING"] = "test-key"
+        calls = []
+
+        def transport(provider, request_payload, api_key, headers):
+            calls.append(request_payload)
+            if len(calls) == 1:
+                return {
+                    "status": "completed",
+                    "output": [],
+                    "output_text": None,
+                    "instructions": (
+                        "You are a coding agent running in the Codex CLI, "
+                        "a terminal-based coding assistant."
+                    ),
+                }
+            return {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": (
+                                    '{"proposal_type":"reply",'
+                                    '"response_text":"Hello after retry.",'
+                                    '"action":null,'
+                                    '"rationale":{"summary":"Retry recovered."}}'
+                                ),
+                            }
+                        ],
+                    }
+                ]
+            }
+
+        plan = generate_text_proposal_plan(
+            user_text="hello runtime",
+            snapshot={"runtime.current_health_state": "healthy"},
+            grounding={"active_goals": [{"goal_id": "goal-1"}]},
+            profile_name="proposal_formation",
+            config_path=Path("tests/fixtures/llm-config-visible-error-test.toml"),
+            transport=transport,
+        )
+
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(plan.response_text, "Hello after retry.")
+        self.assertEqual(plan.metadata["provider_attempt_count"], 2)
+        self.assertEqual(plan.metadata["provider_retry_count"], 1)
+        self.assertEqual(
+            plan.metadata["provider_retried_shapes"],
+            ["codex_agent_envelope_empty_output"],
+        )
+
+    def test_generate_text_proposal_plan_retries_completed_empty_output_shape(
+        self,
+    ) -> None:
+        self.addCleanup(
+            __import__("os").environ.pop,
+            "TEST_REAL_MODEL_REQUIRED_KEY_MISSING",
+            None,
+        )
+        __import__("os").environ["TEST_REAL_MODEL_REQUIRED_KEY_MISSING"] = "test-key"
+        calls = []
+
+        def transport(provider, request_payload, api_key, headers):
+            calls.append(request_payload)
+            if len(calls) == 1:
+                return {
+                    "status": "completed",
+                    "output": [],
+                    "instructions": "Return exactly one JSON object.",
+                }
+            return {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": (
+                                    '{"proposal_type":"reply",'
+                                    '"response_text":"Recovered from empty output.",'
+                                    '"action":null,'
+                                    '"rationale":{"summary":"Retry recovered."}}'
+                                ),
+                            }
+                        ],
+                    }
+                ]
+            }
+
+        plan = generate_text_proposal_plan(
+            user_text="hello runtime",
+            snapshot={"runtime.current_health_state": "healthy"},
+            grounding={"active_goals": [{"goal_id": "goal-1"}]},
+            profile_name="proposal_formation",
+            config_path=Path("tests/fixtures/llm-config-visible-error-test.toml"),
+            transport=transport,
+        )
+
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(plan.response_text, "Recovered from empty output.")
+        self.assertEqual(
+            plan.metadata["provider_retried_shapes"],
+            ["completed_empty_output"],
+        )
+
+    def test_generate_text_proposal_plan_sanitizes_exhausted_bad_shape_for_user(
+        self,
+    ) -> None:
+        self.addCleanup(
+            __import__("os").environ.pop,
+            "TEST_REAL_MODEL_REQUIRED_KEY_MISSING",
+            None,
+        )
+        __import__("os").environ["TEST_REAL_MODEL_REQUIRED_KEY_MISSING"] = "test-key"
+
+        def transport(provider, request_payload, api_key, headers):
+            return {
+                "status": "completed",
+                "output": [],
+                "output_text": None,
+                "instructions": (
+                    "You are a coding agent running in the Codex CLI, "
+                    "a terminal-based coding assistant."
+                ),
+            }
+
+        plan = generate_text_proposal_plan(
+            user_text="hello runtime",
+            snapshot={"runtime.current_health_state": "healthy"},
+            grounding={"active_goals": [{"goal_id": "goal-1"}]},
+            profile_name="proposal_formation",
+            config_path=Path("tests/fixtures/llm-config-visible-error-test.toml"),
+            transport=transport,
+        )
+
+        self.assertIn("provider returned an incompatible response shape", plan.response_text)
+        self.assertNotIn("Codex agent envelope", plan.response_text)
+        self.assertEqual(
+            plan.metadata["provider_failure_shape"],
+            "codex_agent_envelope_empty_output",
+        )
+        self.assertIn("Codex agent envelope", plan.metadata["provider_failure_reason"])
+        self.assertEqual(plan.metadata["provider_attempt_count"], 2)
 
     def test_build_deterministic_proposal_plan_supports_all_m13_proposal_classes(self) -> None:
         clarification = build_deterministic_proposal_plan(

@@ -67,6 +67,13 @@ class ProposalPlan:
     metadata: dict
 
 
+class ProviderResponseShapeError(ValueError):
+    def __init__(self, message: str, shape: str, retryable: bool = True) -> None:
+        super().__init__(message)
+        self.shape = shape
+        self.retryable = retryable
+
+
 def load_runtime_model_config(path: Path | None = None) -> RuntimeModelConfig:
     config_path = path or DEFAULT_CONFIG_PATH
     payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
@@ -243,9 +250,17 @@ def parse_openai_compatible_response(
     provider_name: str,
     model_id: str,
 ) -> DeterministicReplyPlan:
-    if _looks_like_codex_agent_envelope(response_payload):
-        raise ValueError(
-            "Codex agent envelope with empty output; configured responses route is incompatible with plain runtime reply parsing"
+    response_shape = classify_openai_compatible_response_shape(response_payload)
+    if response_shape in {
+        "codex_agent_envelope_empty_output",
+        "completed_empty_output",
+    }:
+        raise ProviderResponseShapeError(
+            _provider_response_shape_error_message(
+                response_shape,
+                parser_name="plain runtime reply parsing",
+            ),
+            shape=response_shape,
         )
     for item in response_payload.get("output", []):
         if item.get("type") != "message":
@@ -272,9 +287,17 @@ def parse_openai_compatible_proposal_response(
     provider_name: str,
     model_id: str,
 ) -> ProposalPlan:
-    if _looks_like_codex_agent_envelope(response_payload):
-        raise ValueError(
-            "Codex agent envelope with empty output; configured responses route is incompatible with plain runtime proposal parsing"
+    response_shape = classify_openai_compatible_response_shape(response_payload)
+    if response_shape in {
+        "codex_agent_envelope_empty_output",
+        "completed_empty_output",
+    }:
+        raise ProviderResponseShapeError(
+            _provider_response_shape_error_message(
+                response_shape,
+                parser_name="plain runtime proposal parsing",
+            ),
+            shape=response_shape,
         )
     for item in response_payload.get("output", []):
         if item.get("type") != "message":
@@ -334,6 +357,38 @@ def parse_openai_compatible_proposal_response(
     raise ValueError(
         "openai_compatible response did not contain structured proposal output_text"
     )
+
+
+def classify_openai_compatible_response_shape(response_payload: dict) -> str:
+    if _looks_like_codex_agent_envelope(response_payload):
+        return "codex_agent_envelope_empty_output"
+    for item in response_payload.get("output", []) or []:
+        if item.get("type") != "message":
+            continue
+        for content_item in item.get("content", []) or []:
+            if content_item.get("type") == "output_text" and content_item.get(
+                "text", ""
+            ).strip():
+                return "message_output_text"
+    if response_payload.get("status") == "completed" and not response_payload.get(
+        "output"
+    ):
+        return "completed_empty_output"
+    return "unknown"
+
+
+def _provider_response_shape_error_message(shape: str, parser_name: str) -> str:
+    if shape == "codex_agent_envelope_empty_output":
+        return (
+            "Codex agent envelope with empty output; configured responses route "
+            f"is incompatible with {parser_name}"
+        )
+    if shape == "completed_empty_output":
+        return (
+            "Completed response with empty output; configured responses route "
+            f"returned no content for {parser_name}"
+        )
+    return f"Unsupported provider response shape: {shape}"
 
 
 def _looks_like_codex_agent_envelope(response_payload: dict) -> bool:
@@ -549,6 +604,12 @@ def _summarize_provider_failure(error: Exception) -> str:
     return error.__class__.__name__
 
 
+def _user_visible_provider_failure_reason(error: Exception) -> str:
+    if isinstance(error, ProviderResponseShapeError):
+        return "provider returned an incompatible response shape; please retry shortly"
+    return _summarize_provider_failure(error)
+
+
 def build_provider_failure_proposal_plan(
     user_text: str,
     profile_name: str,
@@ -557,34 +618,44 @@ def build_provider_failure_proposal_plan(
     grounding: dict | None = None,
     provider_name: str | None = None,
     model_id: str | None = None,
+    attempt_count: int = 1,
+    retried_shapes: list[str] | None = None,
 ) -> ProposalPlan:
     failure_reason = _summarize_provider_failure(error)
+    user_visible_reason = _user_visible_provider_failure_reason(error)
     snapshot_fields = sorted((snapshot or {}).keys())
     grounding_goals = grounding.get("active_goals", []) if grounding else []
+    metadata = {
+        "llm_profile": profile_name,
+        "llm_provider": provider_name or "local_deterministic",
+        "llm_model": model_id or "local_deterministic",
+        "used_deterministic_fallback": False,
+        "provider_failure_behavior": "user_visible_error",
+        "provider_failure_reason": failure_reason,
+        "provider_failure_type": error.__class__.__name__,
+        "provider_attempt_count": attempt_count,
+        "provider_retry_count": max(attempt_count - 1, 0),
+        "model_unavailable": True,
+        "proposal_rationale": {
+            "summary": (
+                "The configured model provider was unavailable, so the runtime "
+                "surfaced the real provider failure instead of fabricating a deterministic reply."
+            ),
+            "intent_signals": [signal for signal in user_text.strip().lower().split() if signal],
+            "grounding_signals": snapshot_fields,
+            "active_goal_count": len(grounding_goals),
+        },
+    }
+    if isinstance(error, ProviderResponseShapeError):
+        metadata["provider_failure_shape"] = error.shape
+    if retried_shapes:
+        metadata["provider_retried_shapes"] = list(retried_shapes)
     return ProposalPlan(
         proposal_type="reply",
-        response_text=f"Real model reply unavailable: {failure_reason}",
+        response_text=f"Real model reply unavailable: {user_visible_reason}",
         action_capability="notification.show",
         action_payload={},
-        metadata={
-            "llm_profile": profile_name,
-            "llm_provider": provider_name or "local_deterministic",
-            "llm_model": model_id or "local_deterministic",
-            "used_deterministic_fallback": False,
-            "provider_failure_behavior": "user_visible_error",
-            "provider_failure_reason": failure_reason,
-            "provider_failure_type": error.__class__.__name__,
-            "model_unavailable": True,
-            "proposal_rationale": {
-                "summary": (
-                    "The configured model provider was unavailable, so the runtime "
-                    "surfaced the real provider failure instead of fabricating a deterministic reply."
-                ),
-                "intent_signals": [signal for signal in user_text.strip().lower().split() if signal],
-                "grounding_signals": snapshot_fields,
-                "active_goal_count": len(grounding_goals),
-            },
-        },
+        metadata=metadata,
     )
 
 
@@ -702,23 +773,39 @@ def generate_text_proposal_plan(
             model_id=model.model_id,
         )
 
+    attempt_count = 0
+    retried_shapes: list[str] = []
+    max_attempts = 2
     try:
-        response_payload = execute_openai_compatible_request(
-            provider=provider,
-            model=model,
-            profile=profile,
-            user_text=user_text,
-            snapshot=snapshot,
-            grounding=grounding,
-            request_builder=build_openai_compatible_proposal_request,
-            transport=transport,
-        )
-        return parse_openai_compatible_proposal_response(
-            response_payload=response_payload,
-            profile_name=profile.name,
-            provider_name=provider.name,
-            model_id=model.model_id,
-        )
+        for attempt_index in range(max_attempts):
+            attempt_count = attempt_index + 1
+            try:
+                response_payload = execute_openai_compatible_request(
+                    provider=provider,
+                    model=model,
+                    profile=profile,
+                    user_text=user_text,
+                    snapshot=snapshot,
+                    grounding=grounding,
+                    request_builder=build_openai_compatible_proposal_request,
+                    transport=transport,
+                )
+                plan = parse_openai_compatible_proposal_response(
+                    response_payload=response_payload,
+                    profile_name=profile.name,
+                    provider_name=provider.name,
+                    model_id=model.model_id,
+                )
+                if attempt_count > 1:
+                    plan.metadata["provider_attempt_count"] = attempt_count
+                    plan.metadata["provider_retry_count"] = attempt_count - 1
+                    plan.metadata["provider_retried_shapes"] = list(retried_shapes)
+                return plan
+            except ProviderResponseShapeError as exc:
+                if exc.retryable and attempt_index + 1 < max_attempts:
+                    retried_shapes.append(exc.shape)
+                    continue
+                raise
     except (
         KeyError,
         OSError,
@@ -735,6 +822,8 @@ def generate_text_proposal_plan(
                 grounding=grounding,
                 provider_name=provider.name,
                 model_id=model.model_id,
+                attempt_count=attempt_count,
+                retried_shapes=retried_shapes,
             )
         return build_deterministic_proposal_plan(
             user_text=user_text,
@@ -806,6 +895,7 @@ __all__ = [
     "build_provider_failure_proposal_plan",
     "build_openai_compatible_proposal_request",
     "build_openai_compatible_request",
+    "classify_openai_compatible_response_shape",
     "execute_openai_compatible_request",
     "generate_text_proposal_plan",
     "generate_text_reply_plan",
