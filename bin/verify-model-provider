@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+if [[ "${1:-}" == "--dry-run" ]]; then
+  cat <<'STEPS'
+provider-probe:
+  .venv/bin/python -m personal_runtime.model_provider_probe --profile proposal_formation
+controlled-failure:
+  .venv/bin/python -m unittest tests.test_model_provider.ModelProviderConfigTests.test_probe_model_provider_reports_controlled_failure_classification
+model-health:
+  .venv/bin/python -m unittest tests.test_runtime_state_v0.RuntimeStateTests.test_records_and_roundtrips_runtime_model_health
+STEPS
+  exit 0
+fi
+
+.venv/bin/python -m personal_runtime.model_provider_probe --profile proposal_formation
+.venv/bin/python -m unittest \
+  tests.test_model_provider.ModelProviderConfigTests.test_probe_model_provider_reports_controlled_failure_classification \
+  tests.test_runtime_state_v0.RuntimeStateTests.test_records_and_roundtrips_runtime_model_health

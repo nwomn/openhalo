@@ -159,6 +159,35 @@ class RuntimeStateTests(unittest.TestCase):
             ["terminal-edge-1", "host-edge-1"],
         )
 
+    def test_records_and_roundtrips_runtime_model_health(self) -> None:
+        state = RuntimeState()
+        state.record_model_health(
+            {
+                "llm_profile": "proposal_formation",
+                "llm_provider": "crs_main",
+                "llm_model": "gpt-5.4",
+                "model_unavailable": True,
+                "provider_failure_class": "protocol_shape",
+                "provider_failure_reason": "bad response shape",
+                "provider_wire_api": "responses",
+                "provider_request_format": "json_schema",
+                "provider_latency_ms": 42,
+            },
+            observed_at="2026-06-26T10:00:00Z",
+        )
+
+        restored = RuntimeState.from_dict(state.to_dict())
+        health = restored.model_health["proposal_formation"]
+
+        self.assertEqual(health["status"], "unavailable")
+        self.assertEqual(health["provider"], "crs_main")
+        self.assertEqual(health["model"], "gpt-5.4")
+        self.assertEqual(health["last_failure_class"], "protocol_shape")
+        self.assertEqual(health["last_failure_reason"], "bad response shape")
+        self.assertEqual(health["provider_wire_api"], "responses")
+        self.assertEqual(health["provider_request_format"], "json_schema")
+        self.assertEqual(health["last_latency_ms"], 42)
+
 
 class JsonStateStoreTests(unittest.TestCase):
     def test_saves_and_loads_runtime_state(self) -> None:

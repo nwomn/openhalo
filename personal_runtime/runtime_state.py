@@ -12,6 +12,7 @@ class RuntimeState:
         self.interactions = []
         self.observations = []
         self.interventions = []
+        self.model_health = {}
 
     def register_device(self, device_id: str, device_type: str) -> None:
         self.devices.setdefault(
@@ -51,6 +52,48 @@ class RuntimeState:
     def record_intervention(self, intervention: dict) -> None:
         self.interventions.append(intervention)
 
+    def record_model_health(
+        self,
+        metadata: dict,
+        observed_at: str = "",
+    ) -> None:
+        profile = metadata.get("llm_profile")
+        if not profile:
+            return
+        unavailable = bool(metadata.get("model_unavailable"))
+        existing = dict(self.model_health.get(profile, {}))
+        updated = {
+            **existing,
+            "profile": profile,
+            "provider": metadata.get("llm_provider", ""),
+            "model": metadata.get("llm_model", ""),
+            "status": "unavailable" if unavailable else "ok",
+            "model_unavailable": unavailable,
+            "provider_wire_api": metadata.get("provider_wire_api", ""),
+            "provider_request_format": metadata.get(
+                "provider_request_format",
+                "",
+            ),
+            "last_latency_ms": metadata.get("provider_latency_ms"),
+            "updated_at": observed_at,
+        }
+        if unavailable:
+            updated["last_failure_class"] = metadata.get(
+                "provider_failure_class",
+                "",
+            )
+            updated["last_failure_reason"] = metadata.get(
+                "provider_failure_reason",
+                "",
+            )
+            updated["last_failure_type"] = metadata.get(
+                "provider_failure_type",
+                "",
+            )
+        else:
+            updated["last_success_at"] = observed_at
+        self.model_health[profile] = updated
+
     def upsert_goal(
         self,
         goal_id: str,
@@ -89,6 +132,7 @@ class RuntimeState:
                 observation.to_dict() for observation in self.observations
             ],
             "interventions": self.interventions,
+            "model_health": self.model_health,
         }
 
     @classmethod
@@ -108,4 +152,5 @@ class RuntimeState:
             for observation_payload in payload.get("observations", [])
         ]
         state.interventions = list(payload.get("interventions", []))
+        state.model_health = dict(payload.get("model_health", {}))
         return state

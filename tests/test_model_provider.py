@@ -8,6 +8,7 @@ from personal_runtime.model_provider import (
     ProposalPlan,
     ProviderConfig,
     build_deterministic_reply_plan,
+    classify_provider_failure,
     build_openai_compatible_proposal_request,
     build_openai_compatible_request,
     build_deterministic_proposal_plan,
@@ -15,6 +16,7 @@ from personal_runtime.model_provider import (
     generate_text_proposal_plan,
     parse_openai_compatible_response,
     parse_openai_compatible_proposal_response,
+    probe_model_provider,
     classify_openai_compatible_response_shape,
     load_runtime_model_config,
     resolve_profile_config,
@@ -909,6 +911,125 @@ class ModelProviderConfigTests(unittest.TestCase):
                 user_text="hello runtime",
                 transport=lambda *_args: {"output": []},
             )
+
+    def test_classify_provider_failure_covers_auth_rate_limit_timeout_http_protocol_and_parser(
+        self,
+    ) -> None:
+        self.assertEqual(
+            classify_provider_failure(OSError("missing auth env: CRS_OAI_KEY")),
+            "auth",
+        )
+        self.assertEqual(
+            classify_provider_failure(TimeoutError("timed out")),
+            "timeout",
+        )
+        self.assertEqual(
+            classify_provider_failure(
+                __import__("urllib.error").error.HTTPError(
+                    url="https://example.test",
+                    code=429,
+                    msg="rate limited",
+                    hdrs={},
+                    fp=None,
+                )
+            ),
+            "rate_limit",
+        )
+        self.assertEqual(
+            classify_provider_failure(
+                __import__("urllib.error").error.HTTPError(
+                    url="https://example.test",
+                    code=500,
+                    msg="server error",
+                    hdrs={},
+                    fp=None,
+                )
+            ),
+            "http_server",
+        )
+        self.assertEqual(
+            classify_provider_failure(
+                __import__("urllib.error").error.HTTPError(
+                    url="https://example.test",
+                    code=400,
+                    msg="bad request",
+                    hdrs={},
+                    fp=None,
+                )
+            ),
+            "http_client",
+        )
+        self.assertEqual(
+            classify_provider_failure(ValueError("unsupported wire_api for openai_compatible: chat")),
+            "protocol_shape",
+        )
+        self.assertEqual(
+            classify_provider_failure(__import__("json").JSONDecodeError("bad", "x", 0)),
+            "parser",
+        )
+
+    def test_probe_model_provider_reports_success_without_exposing_secret(self) -> None:
+        self.addCleanup(__import__("os").environ.pop, "OPENAI_API_KEY", None)
+        __import__("os").environ["OPENAI_API_KEY"] = "secret-test-key"
+
+        result = probe_model_provider(
+            profile_name="proposal_formation",
+            config_path=Path("tests/fixtures/llm-config-test.toml"),
+            transport=lambda *_args: {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": (
+                                    '{"proposal_type":"reply",'
+                                    '"response_text":"probe ok",'
+                                    '"action":null,'
+                                    '"rationale":{"summary":"probe",'
+                                    '"intent_signals":["probe"],'
+                                    '"grounding_signals":[]}}'
+                                ),
+                            }
+                        ],
+                    }
+                ]
+            },
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["profile"], "proposal_formation")
+        self.assertEqual(result["provider"], "openai_main")
+        self.assertEqual(result["model"], "gpt-5.5")
+        self.assertEqual(result["wire_api"], "responses")
+        self.assertTrue(result["auth_env_present"])
+        self.assertNotIn("secret-test-key", str(result))
+        self.assertEqual(result["response_shape"], "message_output_text")
+        self.assertGreaterEqual(result["latency_ms"], 0)
+
+    def test_probe_model_provider_reports_controlled_failure_classification(
+        self,
+    ) -> None:
+        self.addCleanup(__import__("os").environ.pop, "TEST_REAL_MODEL_REQUIRED_KEY_MISSING", None)
+        __import__("os").environ["TEST_REAL_MODEL_REQUIRED_KEY_MISSING"] = "test-key"
+
+        result = probe_model_provider(
+            profile_name="proposal_formation",
+            config_path=Path("tests/fixtures/llm-config-visible-error-test.toml"),
+            transport=lambda *_args: {
+                "status": "completed",
+                "output": [],
+                "instructions": (
+                    "You are a coding agent running in the Codex CLI, "
+                    "a terminal-based coding assistant."
+                ),
+            },
+        )
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["failure_class"], "protocol_shape")
+        self.assertEqual(result["response_shape"], "codex_agent_envelope_empty_output")
+        self.assertIn("provider returned an incompatible response shape", result["user_visible_reason"])
 
 
 if __name__ == "__main__":

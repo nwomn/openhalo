@@ -224,6 +224,10 @@ class RuntimeGateway:
             snapshot=snapshot,
             grounding_bundle=grounding_bundle,
         )
+        self.state.record_model_health(
+            proposal.metadata,
+            observed_at=decision_time,
+        )
         decision = choose_presence_decision(
             source_device_id=frame["device_id"],
             snapshot=snapshot,

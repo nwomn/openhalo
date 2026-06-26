@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import tomllib
 import urllib.error
 import urllib.request
@@ -661,6 +662,49 @@ def _summarize_provider_failure(error: Exception) -> str:
     return error.__class__.__name__
 
 
+def classify_provider_failure(error: Exception) -> str:
+    if isinstance(error, ProviderResponseShapeError):
+        return "protocol_shape"
+    if isinstance(error, json.JSONDecodeError):
+        return "parser"
+    if isinstance(error, TimeoutError):
+        return "timeout"
+    if isinstance(error, urllib.error.HTTPError):
+        if error.code == 429:
+            return "rate_limit"
+        if 500 <= error.code <= 599:
+            return "http_server"
+        return "http_client"
+    if isinstance(error, urllib.error.URLError):
+        reason = getattr(error, "reason", None)
+        if isinstance(reason, TimeoutError):
+            return "timeout"
+        return "connection"
+    if isinstance(error, OSError):
+        message = str(error).lower()
+        if "missing auth env" in message:
+            return "auth"
+        if "timed out" in message or "timeout" in message:
+            return "timeout"
+        return "connection"
+    if isinstance(error, ValueError):
+        message = str(error).lower()
+        if "unsupported wire_api" in message or "response shape" in message:
+            return "protocol_shape"
+        return "parser"
+    return "unknown"
+
+
+def _provider_failure_is_retryable(error: Exception) -> bool:
+    return classify_provider_failure(error) in {
+        "connection",
+        "timeout",
+        "rate_limit",
+        "http_server",
+        "protocol_shape",
+    }
+
+
 def _user_visible_provider_failure_reason(error: Exception) -> str:
     if isinstance(error, ProviderResponseShapeError):
         return "provider returned an incompatible response shape; please retry shortly"
@@ -682,6 +726,7 @@ def build_provider_failure_proposal_plan(
 ) -> ProposalPlan:
     failure_reason = _summarize_provider_failure(error)
     user_visible_reason = _user_visible_provider_failure_reason(error)
+    failure_class = classify_provider_failure(error)
     snapshot_fields = sorted((snapshot or {}).keys())
     grounding_goals = grounding.get("active_goals", []) if grounding else []
     metadata = {
@@ -692,6 +737,7 @@ def build_provider_failure_proposal_plan(
         "provider_request_format": provider_request_format or "unknown",
         "used_deterministic_fallback": False,
         "provider_failure_behavior": "user_visible_error",
+        "provider_failure_class": failure_class,
         "provider_failure_reason": failure_reason,
         "provider_failure_type": error.__class__.__name__,
         "provider_attempt_count": attempt_count,
@@ -745,6 +791,7 @@ def generate_text_reply_plan(
                     "used_deterministic_fallback": False,
                     "provider_failure_behavior": "user_visible_error",
                     "provider_failure_reason": failure_reason,
+                    "provider_failure_class": "protocol_shape",
                     "provider_failure_type": "UnsupportedAdapter",
                     "model_unavailable": True,
                 },
@@ -784,6 +831,7 @@ def generate_text_reply_plan(
                     "used_deterministic_fallback": False,
                     "provider_failure_behavior": "user_visible_error",
                     "provider_failure_reason": _summarize_provider_failure(exc),
+                    "provider_failure_class": classify_provider_failure(exc),
                     "provider_failure_type": exc.__class__.__name__,
                     "model_unavailable": True,
                 },
@@ -841,6 +889,7 @@ def generate_text_proposal_plan(
 
     attempt_count = 0
     retried_shapes: list[str] = []
+    started_at = time.monotonic()
     max_attempts = 2
     try:
         for attempt_index in range(max_attempts):
@@ -868,10 +917,17 @@ def generate_text_proposal_plan(
                     plan.metadata["provider_retried_shapes"] = list(retried_shapes)
                 plan.metadata["provider_wire_api"] = provider.wire_api
                 plan.metadata["provider_request_format"] = provider_request_format
+                plan.metadata["provider_latency_ms"] = int(
+                    (time.monotonic() - started_at) * 1000
+                )
                 return plan
             except ProviderResponseShapeError as exc:
                 if exc.retryable and attempt_index + 1 < max_attempts:
                     retried_shapes.append(exc.shape)
+                    continue
+                raise
+            except (OSError, urllib.error.URLError, TimeoutError) as exc:
+                if _provider_failure_is_retryable(exc) and attempt_index + 1 < max_attempts:
                     continue
                 raise
     except (
@@ -882,7 +938,7 @@ def generate_text_proposal_plan(
         urllib.error.URLError,
     ) as exc:
         if profile.provider_failure_behavior == "user_visible_error":
-            return build_provider_failure_proposal_plan(
+            plan = build_provider_failure_proposal_plan(
                 user_text=user_text,
                 profile_name=fallback_profile_name,
                 error=exc,
@@ -895,6 +951,10 @@ def generate_text_proposal_plan(
                 provider_wire_api=provider.wire_api,
                 provider_request_format=provider_request_format,
             )
+            plan.metadata["provider_latency_ms"] = int(
+                (time.monotonic() - started_at) * 1000
+            )
+            return plan
         return build_deterministic_proposal_plan(
             user_text=user_text,
             profile_name=fallback_profile_name,
@@ -958,6 +1018,70 @@ def execute_openai_compatible_request(
         return json.loads(response.read().decode("utf-8"))
 
 
+def probe_model_provider(
+    profile_name: str = "proposal_formation",
+    config_path: Path | None = None,
+    transport=None,
+) -> dict:
+    config = load_runtime_model_config(config_path)
+    profile = resolve_profile_config(config, profile_name)
+    model = config.models[profile.model_ref]
+    provider = config.providers[model.provider]
+    endpoint = f"{provider.base_url.rstrip('/')}/{provider.wire_api}"
+    auth_env_present = bool(os.environ.get(provider.auth_env))
+    result = {
+        "ok": False,
+        "profile": profile.name,
+        "provider": provider.name,
+        "model": model.model_id,
+        "endpoint": endpoint,
+        "wire_api": provider.wire_api,
+        "auth_env": provider.auth_env,
+        "auth_env_present": auth_env_present,
+        "adapter_type": provider.adapter_type,
+        "supports_structured_output": model.supports_structured_output,
+        "response_shape": "not_called",
+        "failure_class": None,
+        "failure_reason": None,
+        "user_visible_reason": None,
+        "latency_ms": 0,
+    }
+    started_at = time.monotonic()
+    try:
+        response_payload = execute_openai_compatible_request(
+            provider=provider,
+            model=model,
+            profile=profile,
+            user_text="provider readiness probe",
+            snapshot={"runtime.current_health_state": "probe"},
+            grounding={"active_goals": [], "recent_memory": {}, "edge_history": {}},
+            request_builder=build_openai_compatible_proposal_request,
+            transport=transport,
+        )
+        result["response_shape"] = classify_openai_compatible_response_shape(
+            response_payload
+        )
+        parse_openai_compatible_proposal_response(
+            response_payload=response_payload,
+            profile_name=profile.name,
+            provider_name=provider.name,
+            model_id=model.model_id,
+        )
+        result["ok"] = True
+        result["http_result"] = "ok"
+    except Exception as exc:
+        result["failure_class"] = classify_provider_failure(exc)
+        result["failure_reason"] = _summarize_provider_failure(exc)
+        result["user_visible_reason"] = _user_visible_provider_failure_reason(exc)
+        if isinstance(exc, ProviderResponseShapeError):
+            result["response_shape"] = exc.shape
+        if isinstance(exc, urllib.error.HTTPError):
+            result["http_status"] = exc.code
+        result["http_result"] = "error"
+    result["latency_ms"] = int((time.monotonic() - started_at) * 1000)
+    return result
+
+
 __all__ = [
     "DEFAULT_CONFIG_PATH",
     "DeterministicReplyPlan",
@@ -973,11 +1097,13 @@ __all__ = [
     "build_openai_compatible_proposal_request",
     "build_openai_compatible_request",
     "classify_openai_compatible_response_shape",
+    "classify_provider_failure",
     "execute_openai_compatible_request",
     "generate_text_proposal_plan",
     "generate_text_reply_plan",
     "load_runtime_model_config",
     "parse_openai_compatible_proposal_response",
     "parse_openai_compatible_response",
+    "probe_model_provider",
     "resolve_profile_config",
 ]

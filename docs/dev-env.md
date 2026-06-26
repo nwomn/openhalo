@@ -169,6 +169,10 @@ Use `bin/verify-proposal-formation --dry-run` first when you want to inspect the
 
 The M13 acceptance expectation is that each scenario prints readable proposal rationale and that `no_intervention` records a proposal on the live chain without dispatching a user-facing action.
 
+Use `bin/verify-model-provider` for the bounded M14 model-provider acceptance path.
+
+Use `bin/verify-model-provider --dry-run` first when you want to inspect the provider-probe, controlled failure, and model-health checks without calling the configured provider. The provider-probe prints a non-secret JSON report covering the selected profile, provider, model, endpoint, auth-env presence, wire API, response shape, latency, and failure class when applicable. The controlled failure check exercises a bad response-shape path, and the model-health check verifies that provider status can be persisted into runtime state.
+
 When you need to inspect the M6 initiative path as one human-readable chain, use:
 Preferred command shape: `.venv/bin/python -m device_edge.cli.cli_edge --inspect-agent-initiative`
 
@@ -281,7 +285,7 @@ mv .runtime .runtime.bad-preserved
 
 Then restart the runtime on the default state path and repeat the same terminal prompts. If the clean run succeeds, keep both the bad-state backup and clean-state result. If the clean run also fails, treat the provider route or model contract as the primary suspect rather than persisted-state pollution.
 
-The current unresolved M14 diagnosis is that clearing `.runtime` restored stable natural-language replies, but a minimal reconstructed pollution state did not reproduce the bad response shape. After the proposal path moved to Responses `json_schema` structured output, manual host-edge acceptance was broadly stable: normal dialogue recovered, `check runtime status` and a later Chinese runtime-status request formed `runtime.status` actions, and later turns did not remain polluted. One prompt still returned a single `codex_agent_envelope_empty_output` under `provider_wire_api=responses` and `provider_request_format=json_schema`, so future work should treat this as an occasional provider bad-shape failure unless new evidence shows persistent state corruption.
+The current provider follow-up diagnosis is that clearing `.runtime` restored stable natural-language replies, but a minimal reconstructed pollution state did not reproduce the bad response shape. After the proposal path moved to Responses `json_schema` structured output, manual host-edge acceptance was broadly stable: normal dialogue recovered, `check runtime status` and a later Chinese runtime-status request formed `runtime.status` actions, and later turns did not remain polluted. One prompt still returned a single `codex_agent_envelope_empty_output` under `provider_wire_api=responses` and `provider_request_format=json_schema`, so future work should treat this as an occasional provider bad-shape failure unless new evidence shows persistent state corruption.
 
 The current `M11` terminal/CLI maturity pass adds a thin edge-local UX layer on top of that same runtime path. The resident terminal daemon now keeps a bounded readable session transcript, prints explicit system/runtime/user line prefixes, and exposes a small local command set for human-friendly control without inventing a second backend path.
 

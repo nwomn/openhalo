@@ -261,6 +261,32 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("clarification", contents)
         self.assertIn("no_intervention", contents)
 
+    def test_model_provider_verification_script_exists_and_supports_dry_run(self) -> None:
+        script_path = ROOT / "bin" / "verify-model-provider"
+
+        self.assertTrue(script_path.exists())
+        self.assertTrue(os.access(script_path, os.X_OK))
+
+        result = subprocess.run(
+            [str(script_path), "--dry-run"],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+        )
+
+        self.assertIn("provider-probe", result.stdout)
+        self.assertIn("controlled-failure", result.stdout)
+        self.assertIn("model-health", result.stdout)
+
+    def test_dev_env_document_mentions_model_provider_acceptance_path(self) -> None:
+        document_path = ROOT / "docs" / "dev-env.md"
+
+        contents = document_path.read_text(encoding="utf-8")
+        self.assertIn("verify-model-provider", contents)
+        self.assertIn("provider-probe", contents)
+        self.assertIn("controlled failure", contents)
+
 
 if __name__ == "__main__":
     unittest.main()
