@@ -281,7 +281,7 @@ mv .runtime .runtime.bad-preserved
 
 Then restart the runtime on the default state path and repeat the same terminal prompts. If the clean run succeeds, keep both the bad-state backup and clean-state result. If the clean run also fails, treat the provider route or model contract as the primary suspect rather than persisted-state pollution.
 
-The current unresolved M14 diagnosis is that clearing `.runtime` restored stable natural-language replies, but a minimal reconstructed pollution state did not reproduce the bad response shape. The next recurrence needs request/response shape evidence before cleanup.
+The current unresolved M14 diagnosis is that clearing `.runtime` restored stable natural-language replies, but a minimal reconstructed pollution state did not reproduce the bad response shape. After the proposal path moved to Responses `json_schema` structured output, manual host-edge acceptance was broadly stable: normal dialogue recovered, `check runtime status` and a later Chinese runtime-status request formed `runtime.status` actions, and later turns did not remain polluted. One prompt still returned a single `codex_agent_envelope_empty_output` under `provider_wire_api=responses` and `provider_request_format=json_schema`, so future work should treat this as an occasional provider bad-shape failure unless new evidence shows persistent state corruption.
 
 The current `M11` terminal/CLI maturity pass adds a thin edge-local UX layer on top of that same runtime path. The resident terminal daemon now keeps a bounded readable session transcript, prints explicit system/runtime/user line prefixes, and exposes a small local command set for human-friendly control without inventing a second backend path.
 

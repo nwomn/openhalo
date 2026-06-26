@@ -117,6 +117,80 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertIn("runtime.status", rendered)
         self.assertIn(PROMPT_CONTEXT_VERSION, rendered)
 
+    def test_execute_openai_compatible_proposal_request_uses_json_schema_format_when_supported(
+        self,
+    ) -> None:
+        observed = {}
+
+        def transport(provider, request_payload, api_key, headers):
+            observed["request_payload"] = request_payload
+            return {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": (
+                                    '{"proposal_type":"action",'
+                                    '"response_text":"Checking runtime status.",'
+                                    '"action":{"capability":"runtime.status","payload":{}},'
+                                    '"rationale":{"summary":"User asked for runtime status.",'
+                                    '"intent_signals":["runtime"],'
+                                    '"grounding_signals":["runtime.current_health_state"]}}'
+                                ),
+                            }
+                        ],
+                    }
+                ]
+            }
+
+        provider = ProviderConfig(
+            name="openai_main",
+            adapter_type="openai_compatible",
+            base_url="https://api.openai.com/v1",
+            wire_api="responses",
+            auth_env="OPENAI_API_KEY",
+            timeout_seconds=30,
+        )
+        model = ModelConfig(
+            name="openai_gpt55",
+            provider="openai_main",
+            model_id="gpt-5.5",
+            supports_structured_output=True,
+        )
+        profile = ProfileConfig(
+            name="proposal_formation",
+            model_ref="openai_gpt55",
+            reasoning_effort="medium",
+            verbosity="low",
+        )
+
+        self.addCleanup(__import__("os").environ.pop, "OPENAI_API_KEY", None)
+        __import__("os").environ["OPENAI_API_KEY"] = "test-key"
+
+        execute_openai_compatible_request(
+            provider=provider,
+            model=model,
+            profile=profile,
+            user_text="check runtime status",
+            snapshot={"runtime.current_health_state": "healthy"},
+            request_builder=build_openai_compatible_proposal_request,
+            transport=transport,
+        )
+
+        text_config = observed["request_payload"]["text"]
+        self.assertEqual(text_config["verbosity"], "low")
+        self.assertEqual(text_config["format"]["type"], "json_schema")
+        self.assertEqual(text_config["format"]["name"], "runtime_proposal")
+        self.assertTrue(text_config["format"]["strict"])
+        schema = text_config["format"]["schema"]
+        self.assertEqual(
+            schema["properties"]["proposal_type"]["enum"],
+            ["reply", "action", "clarification", "no_intervention"],
+        )
+        self.assertIn("action", schema["required"])
+
     def test_parse_openai_compatible_response_returns_bounded_reply_text(self) -> None:
         plan = parse_openai_compatible_response(
             {
@@ -581,8 +655,10 @@ class ModelProviderConfigTests(unittest.TestCase):
             None,
         )
         __import__("os").environ["TEST_REAL_MODEL_REQUIRED_KEY_MISSING"] = "test-key"
+        calls = []
 
         def transport(provider, request_payload, api_key, headers):
+            calls.append(request_payload)
             return {
                 "status": "completed",
                 "output": [],
@@ -604,6 +680,9 @@ class ModelProviderConfigTests(unittest.TestCase):
 
         self.assertIn("provider returned an incompatible response shape", plan.response_text)
         self.assertNotIn("Codex agent envelope", plan.response_text)
+        self.assertEqual(calls[0]["text"]["format"]["type"], "json_schema")
+        self.assertEqual(plan.metadata["provider_wire_api"], "responses")
+        self.assertEqual(plan.metadata["provider_request_format"], "json_schema")
         self.assertEqual(
             plan.metadata["provider_failure_shape"],
             "codex_agent_envelope_empty_output",
@@ -795,6 +874,41 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertIn("User-Agent", observed["headers"])
         self.assertTrue(observed["headers"]["User-Agent"])
         self.assertEqual(observed["headers"]["Content-Type"], "application/json")
+
+    def test_execute_openai_compatible_request_rejects_unsupported_wire_api(
+        self,
+    ) -> None:
+        provider = ProviderConfig(
+            name="openai_main",
+            adapter_type="openai_compatible",
+            base_url="https://api.openai.com/v1",
+            wire_api="chat_completions",
+            auth_env="OPENAI_API_KEY",
+            timeout_seconds=30,
+        )
+        model = ModelConfig(
+            name="openai_gpt55",
+            provider="openai_main",
+            model_id="gpt-5.5",
+        )
+        profile = ProfileConfig(
+            name="interactive_reply",
+            model_ref="openai_gpt55",
+            reasoning_effort="medium",
+            verbosity="low",
+        )
+
+        self.addCleanup(__import__("os").environ.pop, "OPENAI_API_KEY", None)
+        __import__("os").environ["OPENAI_API_KEY"] = "test-key"
+
+        with self.assertRaisesRegex(ValueError, "unsupported wire_api"):
+            execute_openai_compatible_request(
+                provider=provider,
+                model=model,
+                profile=profile,
+                user_text="hello runtime",
+                transport=lambda *_args: {"output": []},
+            )
 
 
 if __name__ == "__main__":

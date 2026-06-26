@@ -14,6 +14,53 @@ from personal_runtime.prompt_context import build_prompt_context_package
 
 
 DEFAULT_CONFIG_PATH = Path("config/llm-config.toml")
+PROPOSAL_OUTPUT_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["proposal_type", "response_text", "action", "rationale"],
+    "properties": {
+        "proposal_type": {
+            "type": "string",
+            "enum": ["reply", "action", "clarification", "no_intervention"],
+        },
+        "response_text": {"type": "string"},
+        "action": {
+            "anyOf": [
+                {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["capability", "payload"],
+                    "properties": {
+                        "capability": {"type": "string"},
+                        "payload": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "properties": {},
+                            "required": [],
+                        },
+                    },
+                },
+                {"type": "null"},
+            ]
+        },
+        "rationale": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["summary", "intent_signals", "grounding_signals"],
+            "properties": {
+                "summary": {"type": "string"},
+                "intent_signals": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+                "grounding_signals": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+            },
+        },
+    },
+}
 
 
 @dataclass(slots=True)
@@ -137,6 +184,7 @@ def build_openai_compatible_request(
     grounding: dict | None,
     reasoning_effort: str,
     verbosity: str,
+    supports_structured_output: bool = False,
 ) -> dict:
     prompt_context_package = build_prompt_context_package(
         user_text=user_text,
@@ -185,16 +233,25 @@ def build_openai_compatible_proposal_request(
     grounding: dict | None,
     reasoning_effort: str,
     verbosity: str,
+    supports_structured_output: bool = False,
 ) -> dict:
     prompt_context_package = build_prompt_context_package(
         user_text=user_text,
         snapshot=snapshot,
         grounding_bundle=grounding,
     )
+    text_config = {"verbosity": verbosity}
+    if supports_structured_output:
+        text_config["format"] = {
+            "type": "json_schema",
+            "name": "runtime_proposal",
+            "strict": True,
+            "schema": PROPOSAL_OUTPUT_SCHEMA,
+        }
     return {
         "model": model_id,
         "reasoning": {"effort": reasoning_effort},
-        "text": {"verbosity": verbosity},
+        "text": text_config,
         "input": [
             {
                 "role": "system",
@@ -620,6 +677,8 @@ def build_provider_failure_proposal_plan(
     model_id: str | None = None,
     attempt_count: int = 1,
     retried_shapes: list[str] | None = None,
+    provider_wire_api: str | None = None,
+    provider_request_format: str | None = None,
 ) -> ProposalPlan:
     failure_reason = _summarize_provider_failure(error)
     user_visible_reason = _user_visible_provider_failure_reason(error)
@@ -629,6 +688,8 @@ def build_provider_failure_proposal_plan(
         "llm_profile": profile_name,
         "llm_provider": provider_name or "local_deterministic",
         "llm_model": model_id or "local_deterministic",
+        "provider_wire_api": provider_wire_api or "unknown",
+        "provider_request_format": provider_request_format or "unknown",
         "used_deterministic_fallback": False,
         "provider_failure_behavior": "user_visible_error",
         "provider_failure_reason": failure_reason,
@@ -751,6 +812,9 @@ def generate_text_proposal_plan(
     profile = resolve_profile_config(config, fallback_profile_name)
     model = config.models[profile.model_ref]
     provider = config.providers[model.provider]
+    provider_request_format = (
+        "json_schema" if model.supports_structured_output else "prompt_json"
+    )
 
     if provider.adapter_type != "openai_compatible":
         if profile.provider_failure_behavior == "user_visible_error":
@@ -762,6 +826,8 @@ def generate_text_proposal_plan(
                 grounding=grounding,
                 provider_name=provider.name,
                 model_id=model.model_id,
+                provider_wire_api=provider.wire_api,
+                provider_request_format=provider_request_format,
             )
         return build_deterministic_proposal_plan(
             user_text=user_text,
@@ -800,6 +866,8 @@ def generate_text_proposal_plan(
                     plan.metadata["provider_attempt_count"] = attempt_count
                     plan.metadata["provider_retry_count"] = attempt_count - 1
                     plan.metadata["provider_retried_shapes"] = list(retried_shapes)
+                plan.metadata["provider_wire_api"] = provider.wire_api
+                plan.metadata["provider_request_format"] = provider_request_format
                 return plan
             except ProviderResponseShapeError as exc:
                 if exc.retryable and attempt_index + 1 < max_attempts:
@@ -824,6 +892,8 @@ def generate_text_proposal_plan(
                 model_id=model.model_id,
                 attempt_count=attempt_count,
                 retried_shapes=retried_shapes,
+                provider_wire_api=provider.wire_api,
+                provider_request_format=provider_request_format,
             )
         return build_deterministic_proposal_plan(
             user_text=user_text,
@@ -846,6 +916,11 @@ def execute_openai_compatible_request(
     request_builder=build_openai_compatible_request,
     transport=None,
 ) -> dict:
+    if provider.wire_api != "responses":
+        raise ValueError(
+            f"unsupported wire_api for openai_compatible: {provider.wire_api}"
+        )
+
     request_payload = request_builder(
         model_id=model.model_id,
         user_text=user_text,
@@ -853,6 +928,7 @@ def execute_openai_compatible_request(
         grounding=grounding,
         reasoning_effort=profile.reasoning_effort,
         verbosity=profile.verbosity,
+        supports_structured_output=model.supports_structured_output,
     )
 
     api_key = os.environ.get(provider.auth_env)
@@ -888,6 +964,7 @@ __all__ = [
     "ModelConfig",
     "ProposalPlan",
     "ProfileConfig",
+    "PROPOSAL_OUTPUT_SCHEMA",
     "ProviderConfig",
     "RuntimeModelConfig",
     "build_deterministic_reply_plan",
