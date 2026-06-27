@@ -1,8 +1,8 @@
-# M16 Runtime-Native Credential/Runtime-Config Implementation Plan
+# M15 Runtime-Native Credential/Runtime-Config Implementation Plan
 
 ## Goal
 
-M16 establishes a small runtime-owned credential baseline so OpenHalo can authenticate model-provider access through one inspectable runtime config instead of relying on ad hoc shell environment variables or a separate auth store.
+M15 establishes a small runtime-owned credential baseline so OpenHalo can authenticate model-provider access through one inspectable runtime config instead of relying on ad hoc shell environment variables or a separate auth store.
 
 ## First Slice Scope
 
