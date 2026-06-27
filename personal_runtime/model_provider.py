@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import time
 import tomllib
 import urllib.error
@@ -14,7 +13,7 @@ from pathlib import Path
 from personal_runtime.prompt_context import build_prompt_context_package
 
 
-DEFAULT_CONFIG_PATH = Path("config/llm-config.toml")
+DEFAULT_CONFIG_PATH = Path("config/runtime-config.toml")
 PROPOSAL_OUTPUT_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
@@ -70,7 +69,7 @@ class ProviderConfig:
     adapter_type: str
     base_url: str
     wire_api: str
-    auth_env: str
+    api_key: str
     timeout_seconds: int = 30
     default_headers: dict[str, str] | None = None
 
@@ -133,7 +132,7 @@ def load_runtime_model_config(path: Path | None = None) -> RuntimeModelConfig:
             adapter_type=provider_payload["adapter_type"],
             base_url=provider_payload["base_url"],
             wire_api=provider_payload["wire_api"],
-            auth_env=provider_payload["auth_env"],
+            api_key=provider_payload.get("api_key", ""),
             timeout_seconds=provider_payload.get("timeout_seconds", 30),
             default_headers=provider_payload.get("default_headers"),
         )
@@ -682,7 +681,7 @@ def classify_provider_failure(error: Exception) -> str:
         return "connection"
     if isinstance(error, OSError):
         message = str(error).lower()
-        if "missing auth env" in message:
+        if "missing auth env" in message or "missing provider credential" in message:
             return "auth"
         if "timed out" in message or "timeout" in message:
             return "timeout"
@@ -991,12 +990,11 @@ def execute_openai_compatible_request(
         supports_structured_output=model.supports_structured_output,
     )
 
-    api_key = os.environ.get(provider.auth_env)
-    if not api_key:
-        raise OSError(f"missing auth env: {provider.auth_env}")
+    if not provider.api_key:
+        raise OSError(f"missing provider credential: {provider.name}")
 
     headers = {
-        "Authorization": f"Bearer {api_key}",
+        "Authorization": f"Bearer {provider.api_key}",
         "Content-Type": "application/json",
         # Some OpenAI-compatible gateways reject library-default requests unless
         # the client sends an explicit user agent.
@@ -1006,7 +1004,7 @@ def execute_openai_compatible_request(
         headers.update(provider.default_headers)
 
     if transport is not None:
-        return transport(provider, request_payload, api_key, headers)
+        return transport(provider, request_payload, provider.api_key, headers)
 
     request = urllib.request.Request(
         url=f"{provider.base_url.rstrip('/')}/responses",
@@ -1028,7 +1026,6 @@ def probe_model_provider(
     model = config.models[profile.model_ref]
     provider = config.providers[model.provider]
     endpoint = f"{provider.base_url.rstrip('/')}/{provider.wire_api}"
-    auth_env_present = bool(os.environ.get(provider.auth_env))
     result = {
         "ok": False,
         "profile": profile.name,
@@ -1036,8 +1033,9 @@ def probe_model_provider(
         "model": model.model_id,
         "endpoint": endpoint,
         "wire_api": provider.wire_api,
-        "auth_env": provider.auth_env,
-        "auth_env_present": auth_env_present,
+        "auth_source": "runtime_config",
+        "auth_reference": f"llm.providers.{provider.name}.api_key",
+        "auth_present": bool(provider.api_key),
         "adapter_type": provider.adapter_type,
         "supports_structured_output": model.supports_structured_output,
         "response_shape": "not_called",

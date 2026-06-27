@@ -1,6 +1,7 @@
 """Minimal in-memory gateway loop for the v0 runtime."""
 
 import json
+import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime
 from itertools import count
@@ -55,6 +56,7 @@ class RuntimeGateway:
         self.runtime_event_emitter = runtime_event_emitter
         self.llm_config_path = llm_config_path
         self.grounding_edge_history_fetcher = grounding_edge_history_fetcher
+        self._websocket_frame_lock = asyncio.Lock()
 
     def _persist_state(self) -> None:
         if not self.persist_state:
@@ -518,6 +520,10 @@ class RuntimeGateway:
     def run_roundtrip(self, frames: list[dict]) -> list[dict]:
         return self._handle_frames_sync(frames)
 
+    async def _handle_websocket_frame(self, frame: dict) -> list[dict]:
+        async with self._websocket_frame_lock:
+            return await asyncio.to_thread(self._handle_frames_sync, [frame])
+
     async def _send_frame(self, websocket, frame: dict) -> None:
         await websocket.send(json.dumps(frame))
 
@@ -557,7 +563,7 @@ class RuntimeGateway:
                     registered_device_id = frame["device"]["device_id"]
                     self.online_device_ids.add(registered_device_id)
                     self.live_connections[registered_device_id] = websocket
-                replies = self._handle_frames_sync([frame])
+                replies = await self._handle_websocket_frame(frame)
                 await self._dispatch_websocket_replies(
                     frame.get("device_id", registered_device_id),
                     websocket,

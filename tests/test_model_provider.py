@@ -36,29 +36,35 @@ class ModelProviderConfigTests(unittest.TestCase):
             config.providers["openai_main"].default_headers,
             {"User-Agent": "fixture-agent/0.1"},
         )
+        self.assertEqual(config.providers["openai_main"].api_key, "")
         self.assertEqual(config.models["openai_gpt55"].provider, "openai_main")
         self.assertEqual(profile.model_ref, "openai_gpt55")
         self.assertEqual(profile.reasoning_effort, "medium")
         self.assertEqual(profile.verbosity, "low")
 
-    def test_load_runtime_model_config_uses_tracked_default_when_no_path_is_provided(
+    def test_load_runtime_model_config_uses_runtime_config_when_no_path_is_provided(
         self,
     ) -> None:
-        config = load_runtime_model_config()
+        config = load_runtime_model_config(
+            Path("config/runtime-config.example.toml")
+        )
         profile = resolve_profile_config(config, "interactive_reply")
 
         self.assertEqual(
             config.providers["openai_main"].base_url,
             "https://api-dmit.cubence.com/v1",
         )
-        self.assertEqual(config.providers["openai_main"].auth_env, "OPENAI_API_KEY")
+        self.assertEqual(
+            config.providers["openai_main"].api_key,
+            "replace-with-provider-api-key",
+        )
         self.assertEqual(
             config.providers["openai_main"].default_headers,
             {"User-Agent": "openhalo-runtime/0.1"},
         )
         self.assertEqual(config.models["openai_gpt55"].provider, "openai_main")
         self.assertEqual(profile.model_ref, "openai_gpt55")
-        self.assertEqual(config.models["openai_gpt55"].model_id, "gpt-5.4")
+        self.assertEqual(config.models["openai_gpt55"].model_id, "gpt-5.5")
         self.assertEqual(profile.provider_failure_behavior, "user_visible_error")
 
     def test_build_openai_compatible_request_uses_profile_and_snapshot_context(self) -> None:
@@ -160,7 +166,7 @@ class ModelProviderConfigTests(unittest.TestCase):
             adapter_type="openai_compatible",
             base_url="https://api.openai.com/v1",
             wire_api="responses",
-            auth_env="OPENAI_API_KEY",
+            api_key="test-key",
             timeout_seconds=30,
         )
         model = ModelConfig(
@@ -175,9 +181,6 @@ class ModelProviderConfigTests(unittest.TestCase):
             reasoning_effort="medium",
             verbosity="low",
         )
-
-        self.addCleanup(__import__("os").environ.pop, "OPENAI_API_KEY", None)
-        __import__("os").environ["OPENAI_API_KEY"] = "test-key"
 
         execute_openai_compatible_request(
             provider=provider,
@@ -456,13 +459,6 @@ class ModelProviderConfigTests(unittest.TestCase):
     def test_generate_text_proposal_plan_surfaces_malformed_structured_payload_as_provider_failure(
         self,
     ) -> None:
-        self.addCleanup(
-            __import__("os").environ.pop,
-            "TEST_REAL_MODEL_REQUIRED_KEY_MISSING",
-            None,
-        )
-        __import__("os").environ["TEST_REAL_MODEL_REQUIRED_KEY_MISSING"] = "test-key"
-
         plan = generate_text_proposal_plan(
             user_text="hello runtime",
             snapshot={"runtime.current_health_state": "healthy"},
@@ -545,12 +541,6 @@ class ModelProviderConfigTests(unittest.TestCase):
     def test_generate_text_proposal_plan_retries_transient_bad_response_shape(
         self,
     ) -> None:
-        self.addCleanup(
-            __import__("os").environ.pop,
-            "TEST_REAL_MODEL_REQUIRED_KEY_MISSING",
-            None,
-        )
-        __import__("os").environ["TEST_REAL_MODEL_REQUIRED_KEY_MISSING"] = "test-key"
         calls = []
 
         def transport(provider, request_payload, api_key, headers):
@@ -605,12 +595,6 @@ class ModelProviderConfigTests(unittest.TestCase):
     def test_generate_text_proposal_plan_retries_completed_empty_output_shape(
         self,
     ) -> None:
-        self.addCleanup(
-            __import__("os").environ.pop,
-            "TEST_REAL_MODEL_REQUIRED_KEY_MISSING",
-            None,
-        )
-        __import__("os").environ["TEST_REAL_MODEL_REQUIRED_KEY_MISSING"] = "test-key"
         calls = []
 
         def transport(provider, request_payload, api_key, headers):
@@ -659,12 +643,6 @@ class ModelProviderConfigTests(unittest.TestCase):
     def test_generate_text_proposal_plan_sanitizes_exhausted_bad_shape_for_user(
         self,
     ) -> None:
-        self.addCleanup(
-            __import__("os").environ.pop,
-            "TEST_REAL_MODEL_REQUIRED_KEY_MISSING",
-            None,
-        )
-        __import__("os").environ["TEST_REAL_MODEL_REQUIRED_KEY_MISSING"] = "test-key"
         calls = []
 
         def transport(provider, request_payload, api_key, headers):
@@ -769,14 +747,14 @@ class ModelProviderConfigTests(unittest.TestCase):
             snapshot={"runtime.current_health_state": "healthy"},
             grounding={"active_goals": [{"goal_id": "goal-1"}]},
             profile_name="proposal_formation",
-            config_path=Path("tests/fixtures/llm-config-visible-error-test.toml"),
+            config_path=Path("tests/fixtures/llm-config-missing-key-test.toml"),
         )
 
         self.assertEqual(plan.proposal_type, "reply")
         self.assertEqual(plan.action_capability, "notification.show")
         self.assertIn("Real model reply unavailable", plan.response_text)
         self.assertIn(
-            "TEST_REAL_MODEL_REQUIRED_KEY_MISSING",
+            "missing provider credential: openai_main",
             plan.response_text,
         )
         self.assertEqual(
@@ -812,15 +790,12 @@ class ModelProviderConfigTests(unittest.TestCase):
                 ]
             }
 
-        self.addCleanup(__import__("os").environ.pop, "OPENAI_API_KEY", None)
-        __import__("os").environ["OPENAI_API_KEY"] = "test-key"
-
         plan = generate_text_proposal_plan(
             user_text="check runtime status",
             snapshot={"runtime.current_health_state": "healthy"},
             grounding={"active_goals": [{"goal_id": "goal-1"}]},
             profile_name="proposal_formation",
-            config_path=Path("tests/fixtures/llm-config-test.toml"),
+            config_path=Path("tests/fixtures/llm-config-visible-error-test.toml"),
             transport=transport,
         )
 
@@ -853,7 +828,7 @@ class ModelProviderConfigTests(unittest.TestCase):
             adapter_type="openai_compatible",
             base_url="https://api.openai.com/v1",
             wire_api="responses",
-            auth_env="OPENAI_API_KEY",
+            api_key="test-key",
             timeout_seconds=30,
         )
         model = ModelConfig(
@@ -867,9 +842,6 @@ class ModelProviderConfigTests(unittest.TestCase):
             reasoning_effort="medium",
             verbosity="low",
         )
-
-        self.addCleanup(__import__("os").environ.pop, "OPENAI_API_KEY", None)
-        __import__("os").environ["OPENAI_API_KEY"] = "test-key"
 
         execute_openai_compatible_request(
             provider=provider,
@@ -885,15 +857,29 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertTrue(observed["headers"]["User-Agent"])
         self.assertEqual(observed["headers"]["Content-Type"], "application/json")
 
-    def test_execute_openai_compatible_request_rejects_unsupported_wire_api(
+    def test_execute_openai_compatible_request_uses_runtime_config_api_key(
         self,
     ) -> None:
+        observed = {}
+
+        def transport(provider, request_payload, api_key, headers):
+            observed["api_key"] = api_key
+            observed["authorization"] = headers["Authorization"]
+            return {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [{"type": "output_text", "text": "ok"}],
+                    }
+                ]
+            }
+
         provider = ProviderConfig(
             name="openai_main",
             adapter_type="openai_compatible",
             base_url="https://api.openai.com/v1",
-            wire_api="chat_completions",
-            auth_env="OPENAI_API_KEY",
+            wire_api="responses",
+            api_key="config-test-key",
             timeout_seconds=30,
         )
         model = ModelConfig(
@@ -908,8 +894,39 @@ class ModelProviderConfigTests(unittest.TestCase):
             verbosity="low",
         )
 
-        self.addCleanup(__import__("os").environ.pop, "OPENAI_API_KEY", None)
-        __import__("os").environ["OPENAI_API_KEY"] = "test-key"
+        execute_openai_compatible_request(
+            provider=provider,
+            model=model,
+            profile=profile,
+            user_text="hello runtime",
+            transport=transport,
+        )
+
+        self.assertEqual(observed["api_key"], "config-test-key")
+        self.assertEqual(observed["authorization"], "Bearer config-test-key")
+
+    def test_execute_openai_compatible_request_rejects_unsupported_wire_api(
+        self,
+    ) -> None:
+        provider = ProviderConfig(
+            name="openai_main",
+            adapter_type="openai_compatible",
+            base_url="https://api.openai.com/v1",
+            wire_api="chat_completions",
+            api_key="test-key",
+            timeout_seconds=30,
+        )
+        model = ModelConfig(
+            name="openai_gpt55",
+            provider="openai_main",
+            model_id="gpt-5.5",
+        )
+        profile = ProfileConfig(
+            name="interactive_reply",
+            model_ref="openai_gpt55",
+            reasoning_effort="medium",
+            verbosity="low",
+        )
 
         with self.assertRaisesRegex(ValueError, "unsupported wire_api"):
             execute_openai_compatible_request(
@@ -925,6 +942,12 @@ class ModelProviderConfigTests(unittest.TestCase):
     ) -> None:
         self.assertEqual(
             classify_provider_failure(OSError("missing auth env: CRS_OAI_KEY")),
+            "auth",
+        )
+        self.assertEqual(
+            classify_provider_failure(
+                OSError("missing provider credential: openai_main")
+            ),
             "auth",
         )
         self.assertEqual(
@@ -977,12 +1000,9 @@ class ModelProviderConfigTests(unittest.TestCase):
         )
 
     def test_probe_model_provider_reports_success_without_exposing_secret(self) -> None:
-        self.addCleanup(__import__("os").environ.pop, "OPENAI_API_KEY", None)
-        __import__("os").environ["OPENAI_API_KEY"] = "secret-test-key"
-
         result = probe_model_provider(
             profile_name="proposal_formation",
-            config_path=Path("tests/fixtures/llm-config-test.toml"),
+            config_path=Path("tests/fixtures/llm-config-visible-error-test.toml"),
             transport=lambda *_args: {
                 "output": [
                     {
@@ -1010,17 +1030,19 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertEqual(result["provider"], "openai_main")
         self.assertEqual(result["model"], "gpt-5.5")
         self.assertEqual(result["wire_api"], "responses")
-        self.assertTrue(result["auth_env_present"])
-        self.assertNotIn("secret-test-key", str(result))
+        self.assertEqual(result["auth_source"], "runtime_config")
+        self.assertEqual(
+            result["auth_reference"],
+            "llm.providers.openai_main.api_key",
+        )
+        self.assertTrue(result["auth_present"])
+        self.assertNotIn("test-key", str(result))
         self.assertEqual(result["response_shape"], "message_output_text")
         self.assertGreaterEqual(result["latency_ms"], 0)
 
     def test_probe_model_provider_reports_controlled_failure_classification(
         self,
     ) -> None:
-        self.addCleanup(__import__("os").environ.pop, "TEST_REAL_MODEL_REQUIRED_KEY_MISSING", None)
-        __import__("os").environ["TEST_REAL_MODEL_REQUIRED_KEY_MISSING"] = "test-key"
-
         result = probe_model_provider(
             profile_name="proposal_formation",
             config_path=Path("tests/fixtures/llm-config-visible-error-test.toml"),

@@ -1,8 +1,10 @@
 import asyncio
 import json
 import io
+import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import websockets
 
@@ -14,11 +16,12 @@ from device_edge.shared.session_client import SessionClient
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.main import build_runtime_server_message
 from personal_runtime.main import build_runtime_server_parser
+from personal_runtime.model_provider import ProposalPlan
 
 ROOT = Path(__file__).resolve().parents[1]
 TEST_LLM_CONFIG = ROOT / "tests" / "fixtures" / "llm-config-test.toml"
 VISIBLE_ERROR_LLM_CONFIG = (
-    ROOT / "tests" / "fixtures" / "llm-config-visible-error-test.toml"
+    ROOT / "tests" / "fixtures" / "llm-config-missing-key-test.toml"
 )
 
 
@@ -255,7 +258,7 @@ class CliEntryTests(unittest.TestCase):
             proposal["action_payload"]["message"],
         )
         self.assertIn(
-            "TEST_REAL_MODEL_REQUIRED_KEY_MISSING",
+            "missing provider credential: openai_main",
             proposal["action_payload"]["message"],
         )
         self.assertEqual(
@@ -361,6 +364,77 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["type"], "action_result")
         self.assertEqual(result["result"]["status"], "ok")
         self.assertEqual(gateway.state.action_results[-1]["status"], "ok")
+
+    async def test_websocket_ping_stays_responsive_during_slow_proposal_generation(
+        self,
+    ) -> None:
+        def slow_generate_text_proposal_plan(*_args, **_kwargs):
+            time.sleep(0.5)
+            return ProposalPlan(
+                proposal_type="reply",
+                response_text="Slow model reply.",
+                action_capability="notification.show",
+                action_payload={},
+                metadata={
+                    "llm_profile": "proposal_formation",
+                    "llm_provider": "test_provider",
+                    "llm_model": "test_model",
+                    "used_deterministic_fallback": False,
+                },
+            )
+
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        client = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+
+        with patch(
+            "personal_runtime.agent_executor.generate_text_proposal_plan",
+            side_effect=slow_generate_text_proposal_plan,
+        ):
+            async with gateway.run_test_server() as server_info:
+                async with websockets.connect(
+                    server_info["url"],
+                    ping_timeout=0.2,
+                ) as websocket:
+                    await websocket.send(json.dumps(client.build_connect_frame()))
+                    connect_ok = json.loads(await websocket.recv())
+                    await websocket.send(
+                        json.dumps(client.build_capability_announce_frame())
+                    )
+                    await websocket.send(
+                        json.dumps(client.build_text_event("slow provider check"))
+                    )
+
+                    pong_waiter = await asyncio.wait_for(
+                        websocket.ping(),
+                        timeout=0.2,
+                    )
+                    pong_latency = await asyncio.wait_for(
+                        pong_waiter,
+                        timeout=0.2,
+                    )
+                    event_ack = json.loads(
+                        await asyncio.wait_for(websocket.recv(), timeout=1)
+                    )
+                    action_request = json.loads(
+                        await asyncio.wait_for(websocket.recv(), timeout=1)
+                    )
+
+        self.assertEqual(connect_ok["type"], "connect_ok")
+        self.assertIsInstance(pong_latency, float)
+        self.assertEqual(event_ack["type"], "event_ack")
+        self.assertEqual(action_request["type"], "action_request")
+        self.assertEqual(
+            action_request["action"]["payload"]["message"],
+            "Slow model reply.",
+        )
 
     async def test_websocket_roundtrip_routes_action_to_other_connected_edge(self) -> None:
         gateway = RuntimeGateway(

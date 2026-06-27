@@ -6,12 +6,17 @@ from personal_runtime.main import build_gateway
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_TEST_DIR = REPO_ROOT / ".worktrees" / "v0-single-edge-loop" / ".runtime-test"
+TEST_LLM_CONFIG = REPO_ROOT / "tests" / "fixtures" / "llm-config-test.toml"
 
 
 class RuntimePersistenceTests(unittest.IsolatedAsyncioTestCase):
     async def test_build_gateway_restores_state_from_disk(self) -> None:
         state_path = RUNTIME_TEST_DIR / "restored-state.json"
-        first_gateway = RuntimeGateway(shared_token="dev-token", state_path=state_path)
+        first_gateway = RuntimeGateway(
+            shared_token="dev-token",
+            state_path=state_path,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         first_gateway.state.upsert_goal(
             goal_id="goal-1",
             title="Keep runtime healthy",
@@ -48,7 +53,11 @@ class RuntimePersistenceTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        restored_gateway = build_gateway(token="dev-token", state_path=state_path)
+        restored_gateway = build_gateway(
+            token="dev-token",
+            state_path=state_path,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
 
         self.assertIn("desktop-dev-1", restored_gateway.state.devices)
         self.assertEqual(

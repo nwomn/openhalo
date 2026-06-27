@@ -65,8 +65,8 @@ def build_runtime_server_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--llm-config-path",
         help=(
-            "Optional explicit LLM config path. Defaults to the tracked "
-            "config/llm-config.toml baseline."
+            "Optional explicit runtime model config path. Defaults to "
+            "config/runtime-config.toml."
         ),
     )
     return parser

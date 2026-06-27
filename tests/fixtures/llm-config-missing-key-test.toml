@@ -4,7 +4,6 @@ base_url = "https://api.openai.com/v1"
 wire_api = "responses"
 api_key = ""
 timeout_seconds = 30
-default_headers = { "User-Agent" = "fixture-agent/0.1" }
 
 [llm.models.openai_gpt55]
 provider = "openai_main"
@@ -16,10 +15,10 @@ supports_tools = true
 model_ref = "openai_gpt55"
 reasoning_effort = "medium"
 verbosity = "low"
-provider_failure_behavior = "deterministic"
+provider_failure_behavior = "user_visible_error"
 
 [llm.profiles.proposal_formation]
 model_ref = "openai_gpt55"
 reasoning_effort = "medium"
 verbosity = "low"
-provider_failure_behavior = "deterministic"
+provider_failure_behavior = "user_visible_error"

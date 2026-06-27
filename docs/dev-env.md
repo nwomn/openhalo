@@ -75,18 +75,69 @@ For the first `M9` slice, inspect the `Proposal` section and confirm it contains
 - `llm_model`
 - `used_deterministic_fallback`
 
-Default tracked behavior now comes from `config/llm-config.toml`. Real-use profiles in that file surface provider failures explicitly, while bounded test fixtures may still opt into deterministic fallback for offline verification.
+Default runtime model behavior now comes from the local `config/runtime-config.toml` file. Real-use profiles in that file surface provider failures explicitly, while bounded test fixtures may still opt into deterministic fallback for offline verification.
 
-The repository now keeps a tracked default provider baseline in `config/llm-config.toml`.
+The repository keeps a tracked template in `config/runtime-config.example.toml`; copy that shape to the ignored local `config/runtime-config.toml` for real provider use.
 
 When you want to use a non-default provider config, pass it explicitly with `--llm-config-path` instead of relying on an implicit local override file.
 
 When you want to test a real `openai_compatible` provider path later, keep the same command shape but provide:
 
-- either the tracked `config/llm-config.toml` baseline or an explicit `--llm-config-path /abs/path/to/llm-config.toml`
-- the provider auth env var referenced by that config, such as `OPENAI_API_KEY`
+- either the local `config/runtime-config.toml` or an explicit `--llm-config-path /abs/path/to/runtime-config.toml`
+- the provider `api_key` inside that runtime config
 
 The acceptance command stays the same; only the provider result and fallback metadata should change.
+
+For real-use terminal acceptance with the current runtime-config baseline, use
+three long-running processes:
+
+```bash
+.venv/bin/python -m personal_runtime.main \
+  --host 127.0.0.1 \
+  --port 8765 \
+  --token dev-token \
+  --state-path .runtime/state.json
+```
+
+```bash
+.venv/bin/python -u -m device_edge.host.host_daemon \
+  --url ws://127.0.0.1:8765 \
+  --token dev-token \
+  --device-id host-edge-1 \
+  --idle-timeout 10 \
+  --max-idle-cycles 999999
+```
+
+```bash
+.venv/bin/python -m device_edge.cli.terminal_daemon \
+  --url ws://127.0.0.1:8765 \
+  --token dev-token \
+  --device-id terminal-edge-1
+```
+
+Use `--idle-timeout 30` for the host daemon if the host observation refresh is
+too noisy for manual inspection.
+
+Expected real-use smoke path:
+
+- `你好？` should produce a normal model-backed Chinese reply
+- `check runtime status` should route to the host edge and return runtime status
+- a follow-up context question should not crash the terminal edge with WebSocket
+  `1011` keepalive timeout
+
+Known residual real-provider behavior:
+
+- Occasional provider/relay errors may still surface as explicit runtime replies
+  such as `Real model reply unavailable: ...`
+- A single surfaced provider error is not a credential failure when
+  `bin/verify-model-provider` still reports `ok: true` and
+  `auth_source: runtime_config`
+- Repeated `codex_agent_envelope_empty_output`, HTTP 5xx, timeout, or parser
+  failures should be treated as provider/relay stability evidence and captured
+  with the provider metadata from the latest recorded intervention
+- The current accepted relay model baseline is `gpt-5.5`; `gpt-5.4` is not the
+  terminal live-path baseline because it can return a Codex-agent envelope once
+  compact snapshot fields are present
 
 That same inspection path is now also the first bounded local `M10` acceptance surface for grounding and runtime memory.
 

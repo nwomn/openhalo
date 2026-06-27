@@ -285,6 +285,10 @@ def main() -> None:
     parser.add_argument("--token", default="dev-token", help="Shared development token.")
     parser.add_argument("--text", help="Optional text input to send without prompting.")
     parser.add_argument(
+        "--llm-config-path",
+        help="Optional explicit runtime model config path for local inspection mode.",
+    )
+    parser.add_argument(
         "--trace",
         action="store_true",
         help="Print a human-readable execution trace in local roundtrip mode.",
@@ -328,25 +332,34 @@ def main() -> None:
             run_cli_once_over_websocket(text=text, url=args.url, token=args.token)
         )
     else:
+        config_path = Path(args.llm_config_path) if args.llm_config_path else None
         if args.inspect_agent_initiative:
-            report = inspect_agent_initiative_once(token=args.token)
+            report = inspect_agent_initiative_once(
+                token=args.token,
+                config_path=config_path,
+            )
             print(format_chain_report(report))
             result = report["action_result"]
             print(f"Action result: {result['result']['status']}")
             return
         if args.inspect_prompt_contract:
-            report = inspect_cli_once(text, token=args.token)
+            report = inspect_cli_once(text, token=args.token, config_path=config_path)
             print(format_chain_report(report))
             result = report["action_result"]
             print(f"Action result: {result['result']['status']}")
             return
         if args.inspect_chain:
-            report = inspect_cli_once(text, token=args.token)
+            report = inspect_cli_once(text, token=args.token, config_path=config_path)
             print(format_chain_report(report))
             result = report["action_result"]
             print(f"Action result: {result['result']['status']}")
             return
-        local_result = run_cli_once(text, token=args.token, trace=args.trace)
+        local_result = run_cli_once(
+            text,
+            token=args.token,
+            trace=args.trace,
+            config_path=config_path,
+        )
         if args.trace:
             result, trace_lines = local_result
             print("Trace:")

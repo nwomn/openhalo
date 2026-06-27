@@ -1,6 +1,7 @@
 import json
 import importlib
 import unittest
+from pathlib import Path
 
 import websockets
 
@@ -9,6 +10,8 @@ from device_edge.shared.local_actions import execute_action
 from device_edge.shared.session_client import SessionClient
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.trace_recorder import TraceRecorder
+
+TEST_LLM_CONFIG = Path("tests/fixtures/llm-config-test.toml")
 
 
 class EdgeClientTests(unittest.TestCase):
@@ -243,7 +246,10 @@ class EdgeClientTests(unittest.TestCase):
 
 class EdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
     async def test_websocket_client_receives_action_and_returns_action_result(self) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token")
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         client = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
@@ -266,7 +272,10 @@ class EdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(action_result["result"]["status"], "ok")
 
     async def test_websocket_client_helper_uses_explicit_url(self) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token")
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            llm_config_path=TEST_LLM_CONFIG,
+        )
         client = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",

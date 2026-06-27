@@ -88,5 +88,5 @@ python3 -m venv .venv
 ## 说明
 
 - 真实 model-provider 链路目前还在持续硬化中。
-- 路线图里，runtime-native credential / auth-store 工作当前位于 `M16`。
+- 路线图里，runtime-native credential / runtime-config 工作当前位于 `M16`。
 - 这个仓库还在快速演化，当前方向请始终以 `Project.md` 为准。

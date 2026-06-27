@@ -2,13 +2,13 @@
 adapter_type = "openai_compatible"
 base_url = "https://api-dmit.cubence.com/v1"
 wire_api = "responses"
-auth_env = "OPENAI_API_KEY"
+api_key = "replace-with-provider-api-key"
 timeout_seconds = 30
 default_headers = { "User-Agent" = "openhalo-runtime/0.1" }
 
 [llm.models.openai_gpt55]
 provider = "openai_main"
-model_id = "gpt-5.4"
+model_id = "gpt-5.5"
 supports_structured_output = true
 supports_tools = true
 

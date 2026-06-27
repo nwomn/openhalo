@@ -2,7 +2,7 @@
 adapter_type = "openai_compatible"
 base_url = "https://api.openai.com/v1"
 wire_api = "responses"
-auth_env = "TEST_REAL_MODEL_REQUIRED_KEY_MISSING"
+api_key = "test-key"
 timeout_seconds = 30
 
 [llm.models.openai_gpt55]
