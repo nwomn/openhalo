@@ -84,7 +84,7 @@ When you want to use a non-default provider config, pass it explicitly with `--l
 When you want to test a real `openai_compatible` provider path later, keep the same command shape but provide:
 
 - either the tracked `config/llm-config.toml` baseline or an explicit `--llm-config-path /abs/path/to/llm-config.toml`
-- the provider auth env var referenced by that config, such as `CRS_OAI_KEY`
+- the provider auth env var referenced by that config, such as `OPENAI_API_KEY`
 
 The acceptance command stays the same; only the provider result and fallback metadata should change.
 

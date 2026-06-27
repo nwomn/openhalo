@@ -1,29 +1,30 @@
-[llm.providers.crs_main]
+[llm.providers.openai_main]
 adapter_type = "openai_compatible"
-base_url = "https://api-cf.cubence.com/v1"
+base_url = "https://api-dmit.cubence.com/v1"
 wire_api = "responses"
-auth_env = "CRS_OAI_KEY"
+auth_env = "OPENAI_API_KEY"
 timeout_seconds = 30
+default_headers = { "User-Agent" = "openhalo-runtime/0.1" }
 
-[llm.models.crs_gpt54]
-provider = "crs_main"
+[llm.models.openai_gpt55]
+provider = "openai_main"
 model_id = "gpt-5.4"
 supports_structured_output = true
 supports_tools = true
 
 [llm.profiles.interactive_reply]
-model_ref = "crs_gpt54"
+model_ref = "openai_gpt55"
 reasoning_effort = "medium"
 verbosity = "low"
 provider_failure_behavior = "user_visible_error"
 
 [llm.profiles.proposal_formation]
-model_ref = "crs_gpt54"
+model_ref = "openai_gpt55"
 reasoning_effort = "medium"
 verbosity = "low"
 provider_failure_behavior = "user_visible_error"
 
 [llm.profiles.initiative_proposal]
-model_ref = "crs_gpt54"
+model_ref = "openai_gpt55"
 reasoning_effort = "low"
 verbosity = "low"

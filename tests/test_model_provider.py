@@ -47,10 +47,18 @@ class ModelProviderConfigTests(unittest.TestCase):
         config = load_runtime_model_config()
         profile = resolve_profile_config(config, "interactive_reply")
 
-        self.assertEqual(config.providers["crs_main"].base_url, "https://api-cf.cubence.com/v1")
-        self.assertEqual(config.providers["crs_main"].auth_env, "CRS_OAI_KEY")
-        self.assertEqual(config.models["crs_gpt54"].provider, "crs_main")
-        self.assertEqual(profile.model_ref, "crs_gpt54")
+        self.assertEqual(
+            config.providers["openai_main"].base_url,
+            "https://api-dmit.cubence.com/v1",
+        )
+        self.assertEqual(config.providers["openai_main"].auth_env, "OPENAI_API_KEY")
+        self.assertEqual(
+            config.providers["openai_main"].default_headers,
+            {"User-Agent": "openhalo-runtime/0.1"},
+        )
+        self.assertEqual(config.models["openai_gpt55"].provider, "openai_main")
+        self.assertEqual(profile.model_ref, "openai_gpt55")
+        self.assertEqual(config.models["openai_gpt55"].model_id, "gpt-5.4")
         self.assertEqual(profile.provider_failure_behavior, "user_visible_error")
 
     def test_build_openai_compatible_request_uses_profile_and_snapshot_context(self) -> None:
