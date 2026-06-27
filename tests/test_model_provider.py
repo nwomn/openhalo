@@ -584,6 +584,8 @@ class ModelProviderConfigTests(unittest.TestCase):
         )
 
         self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0]["text"]["format"]["type"], "json_schema")
+        self.assertNotIn("format", calls[1]["text"])
         self.assertEqual(plan.response_text, "Hello after retry.")
         self.assertEqual(plan.metadata["provider_attempt_count"], 2)
         self.assertEqual(plan.metadata["provider_retry_count"], 1)
@@ -591,6 +593,7 @@ class ModelProviderConfigTests(unittest.TestCase):
             plan.metadata["provider_retried_shapes"],
             ["codex_agent_envelope_empty_output"],
         )
+        self.assertEqual(plan.metadata["provider_request_format"], "prompt_json")
 
     def test_generate_text_proposal_plan_retries_completed_empty_output_shape(
         self,
@@ -1060,6 +1063,63 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertEqual(result["failure_class"], "protocol_shape")
         self.assertEqual(result["response_shape"], "codex_agent_envelope_empty_output")
         self.assertIn("provider returned an incompatible response shape", result["user_visible_reason"])
+
+    def test_probe_model_provider_retries_transient_bad_response_shape(
+        self,
+    ) -> None:
+        calls = []
+
+        def transport(_provider, request_payload, *_args):
+            calls.append(request_payload)
+            if len(calls) == 1:
+                return {
+                    "status": "completed",
+                    "output": [],
+                    "output_text": None,
+                    "instructions": (
+                        "You are a coding agent running in the Codex CLI, "
+                        "a terminal-based coding assistant."
+                    ),
+                }
+            return {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": (
+                                    '{"proposal_type":"reply",'
+                                    '"response_text":"probe recovered",'
+                                    '"action":null,'
+                                    '"rationale":{"summary":"probe retry",'
+                                    '"intent_signals":["probe"],'
+                                    '"grounding_signals":[]}}'
+                                ),
+                            }
+                        ],
+                    }
+                ]
+            }
+
+        result = probe_model_provider(
+            profile_name="proposal_formation",
+            config_path=Path("tests/fixtures/llm-config-visible-error-test.toml"),
+            transport=transport,
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0]["text"]["format"]["type"], "json_schema")
+        self.assertNotIn("format", calls[1]["text"])
+        self.assertEqual(result["attempt_count"], 2)
+        self.assertEqual(result["retry_count"], 1)
+        self.assertEqual(
+            result["retried_shapes"],
+            ["codex_agent_envelope_empty_output"],
+        )
+        self.assertEqual(result["request_format"], "prompt_json")
+        self.assertEqual(result["response_shape"], "message_output_text")
 
 
 if __name__ == "__main__":

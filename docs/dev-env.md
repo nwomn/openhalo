@@ -88,6 +88,19 @@ When you want to test a real `openai_compatible` provider path later, keep the s
 
 The acceptance command stays the same; only the provider result and fallback metadata should change.
 
+Before starting the full live path, run the provider probe:
+
+```bash
+bin/verify-model-provider
+```
+
+Acceptance requires `ok: true`. If the first structured-output request hits a
+`codex_agent_envelope_empty_output` shape and the probe recovers with
+`request_format: "prompt_json"`, that is an accepted recovery path. If the
+probe reports `ok: false`, keep the `failure_class`, `response_shape`,
+`request_format`, `retried_shapes`, and `latency_ms` fields for diagnosis before
+continuing.
+
 For real-use terminal acceptance with the current runtime-config baseline, use
 three long-running processes:
 
@@ -124,6 +137,20 @@ Expected real-use smoke path:
 - `check runtime status` should route to the host edge and return runtime status
 - a follow-up context question should not crash the terminal edge with WebSocket
   `1011` keepalive timeout
+- `谢谢` or another closing acknowledgement should either receive a natural
+  short reply or close quietly without disconnecting the session
+
+Acceptance passes when:
+
+- `bin/verify-model-provider` reports `ok: true`
+- the terminal edge connects to the runtime and stays connected through the
+  interaction sequence
+- the host edge receives and executes the `runtime.status` action
+- the Chinese dialogue path uses the configured model provider rather than the
+  local deterministic `Runtime heard: ...` fallback
+- any recovered `codex_agent_envelope_empty_output` is visible through
+  `retried_shapes` plus a final successful request format, rather than being
+  hidden or reported as a credential failure
 
 Known residual real-provider behavior:
 

@@ -301,6 +301,26 @@ def build_openai_compatible_proposal_request(
     }
 
 
+def build_openai_compatible_prompt_json_proposal_request(
+    model_id: str,
+    user_text: str,
+    snapshot: dict | None,
+    grounding: dict | None,
+    reasoning_effort: str,
+    verbosity: str,
+    supports_structured_output: bool = False,
+) -> dict:
+    return build_openai_compatible_proposal_request(
+        model_id=model_id,
+        user_text=user_text,
+        snapshot=snapshot,
+        grounding=grounding,
+        reasoning_effort=reasoning_effort,
+        verbosity=verbosity,
+        supports_structured_output=False,
+    )
+
+
 def parse_openai_compatible_response(
     response_payload: dict,
     profile_name: str,
@@ -893,6 +913,16 @@ def generate_text_proposal_plan(
     try:
         for attempt_index in range(max_attempts):
             attempt_count = attempt_index + 1
+            request_format = (
+                "prompt_json"
+                if retried_shapes and model.supports_structured_output
+                else provider_request_format
+            )
+            request_builder = (
+                build_openai_compatible_prompt_json_proposal_request
+                if request_format == "prompt_json"
+                else build_openai_compatible_proposal_request
+            )
             try:
                 response_payload = execute_openai_compatible_request(
                     provider=provider,
@@ -901,7 +931,7 @@ def generate_text_proposal_plan(
                     user_text=user_text,
                     snapshot=snapshot,
                     grounding=grounding,
-                    request_builder=build_openai_compatible_proposal_request,
+                    request_builder=request_builder,
                     transport=transport,
                 )
                 plan = parse_openai_compatible_proposal_response(
@@ -915,7 +945,7 @@ def generate_text_proposal_plan(
                     plan.metadata["provider_retry_count"] = attempt_count - 1
                     plan.metadata["provider_retried_shapes"] = list(retried_shapes)
                 plan.metadata["provider_wire_api"] = provider.wire_api
-                plan.metadata["provider_request_format"] = provider_request_format
+                plan.metadata["provider_request_format"] = request_format
                 plan.metadata["provider_latency_ms"] = int(
                     (time.monotonic() - started_at) * 1000
                 )
@@ -1043,28 +1073,60 @@ def probe_model_provider(
         "failure_reason": None,
         "user_visible_reason": None,
         "latency_ms": 0,
+        "attempt_count": 0,
+        "retry_count": 0,
+        "retried_shapes": [],
+        "request_format": (
+            "json_schema" if model.supports_structured_output else "prompt_json"
+        ),
     }
     started_at = time.monotonic()
+    max_attempts = 2
+    retried_shapes: list[str] = []
     try:
-        response_payload = execute_openai_compatible_request(
-            provider=provider,
-            model=model,
-            profile=profile,
-            user_text="provider readiness probe",
-            snapshot={"runtime.current_health_state": "probe"},
-            grounding={"active_goals": [], "recent_memory": {}, "edge_history": {}},
-            request_builder=build_openai_compatible_proposal_request,
-            transport=transport,
-        )
-        result["response_shape"] = classify_openai_compatible_response_shape(
-            response_payload
-        )
-        parse_openai_compatible_proposal_response(
-            response_payload=response_payload,
-            profile_name=profile.name,
-            provider_name=provider.name,
-            model_id=model.model_id,
-        )
+        for attempt_index in range(max_attempts):
+            result["attempt_count"] = attempt_index + 1
+            request_format = (
+                "prompt_json"
+                if retried_shapes and model.supports_structured_output
+                else result["request_format"]
+            )
+            request_builder = (
+                build_openai_compatible_prompt_json_proposal_request
+                if request_format == "prompt_json"
+                else build_openai_compatible_proposal_request
+            )
+            try:
+                response_payload = execute_openai_compatible_request(
+                    provider=provider,
+                    model=model,
+                    profile=profile,
+                    user_text="provider readiness probe",
+                    snapshot={"runtime.current_health_state": "probe"},
+                    grounding={
+                        "active_goals": [],
+                        "recent_memory": {},
+                        "edge_history": {},
+                    },
+                    request_builder=request_builder,
+                    transport=transport,
+                )
+                result["request_format"] = request_format
+                result["response_shape"] = classify_openai_compatible_response_shape(
+                    response_payload
+                )
+                parse_openai_compatible_proposal_response(
+                    response_payload=response_payload,
+                    profile_name=profile.name,
+                    provider_name=provider.name,
+                    model_id=model.model_id,
+                )
+                break
+            except ProviderResponseShapeError as exc:
+                if exc.retryable and attempt_index + 1 < max_attempts:
+                    retried_shapes.append(exc.shape)
+                    continue
+                raise
         result["ok"] = True
         result["http_result"] = "ok"
     except Exception as exc:
@@ -1076,6 +1138,9 @@ def probe_model_provider(
         if isinstance(exc, urllib.error.HTTPError):
             result["http_status"] = exc.code
         result["http_result"] = "error"
+    result["retry_count"] = max(result["attempt_count"] - 1, 0)
+    if retried_shapes:
+        result["retried_shapes"] = list(retried_shapes)
     result["latency_ms"] = int((time.monotonic() - started_at) * 1000)
     return result
 
