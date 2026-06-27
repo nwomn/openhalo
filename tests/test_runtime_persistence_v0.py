@@ -4,12 +4,13 @@ from pathlib import Path
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.main import build_gateway
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+RUNTIME_TEST_DIR = REPO_ROOT / ".worktrees" / "v0-single-edge-loop" / ".runtime-test"
+
 
 class RuntimePersistenceTests(unittest.IsolatedAsyncioTestCase):
     async def test_build_gateway_restores_state_from_disk(self) -> None:
-        state_path = Path(
-            "/root/personal-runtime-agent/.worktrees/v0-single-edge-loop/.runtime-test/restored-state.json"
-        )
+        state_path = RUNTIME_TEST_DIR / "restored-state.json"
         first_gateway = RuntimeGateway(shared_token="dev-token", state_path=state_path)
         first_gateway.state.upsert_goal(
             goal_id="goal-1",

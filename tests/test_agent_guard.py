@@ -13,6 +13,8 @@ from agent_guard.codex_hooks import (
     validate_turn_audit,
 )
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
 
 VALID_MESSAGE = """Implemented the requested change.
 
@@ -227,7 +229,7 @@ Current phase:
         )
 
     def test_hash_file_is_stable(self) -> None:
-        path = Path("/root/personal-runtime-agent/Project.md")
+        path = REPO_ROOT / "Project.md"
 
         self.assertEqual(hash_file(path), hash_file(path))
 

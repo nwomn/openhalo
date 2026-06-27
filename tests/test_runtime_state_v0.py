@@ -6,6 +6,9 @@ from personal_runtime.presence_router import choose_response_device
 from personal_runtime.runtime_state import RuntimeState
 from personal_runtime.state_store import JsonStateStore
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+RUNTIME_TEST_DIR = REPO_ROOT / ".worktrees" / "v0-single-edge-loop" / ".runtime-test"
+
 
 class RuntimeStateTests(unittest.TestCase):
     def test_registers_device_and_capability(self) -> None:
@@ -191,7 +194,7 @@ class RuntimeStateTests(unittest.TestCase):
 
 class JsonStateStoreTests(unittest.TestCase):
     def test_saves_and_loads_runtime_state(self) -> None:
-        path = Path("/root/personal-runtime-agent/.worktrees/v0-single-edge-loop/.runtime-test/state.json")
+        path = RUNTIME_TEST_DIR / "state.json"
         store = JsonStateStore(path)
         state = RuntimeState()
         state.register_device("desktop-dev-1", "desktop-cli")

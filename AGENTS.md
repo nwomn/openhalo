@@ -2,7 +2,7 @@
 
 ## Project Context
 
-This project uses [Project.md](/root/personal-runtime-agent/Project.md) as the primary source of truth for project background, goals, milestones, current status, and completed progress.
+This project uses [Project.md](Project.md) as the primary source of truth for project background, goals, milestones, current status, and completed progress.
 
 Before doing any substantive work in this project, you must read `Project.md` first.
 

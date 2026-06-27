@@ -5,10 +5,12 @@ from unittest.mock import patch
 
 from agent_guard import codex_hooks
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
 
 class HookCliTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.root = Path("/root/personal-runtime-agent")
+        self.root = REPO_ROOT
 
     def run_main(self, event: str, payload: dict) -> int:
         with patch("sys.stdin.read", return_value=json.dumps(payload)):
@@ -20,6 +22,20 @@ class HookCliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         save_state.assert_called_once()
+
+    def test_hook_config_uses_repo_relative_wrapper(self) -> None:
+        hooks_config = json.loads((REPO_ROOT / ".codex" / "hooks.json").read_text())
+
+        commands = [
+            hook["command"]
+            for hooks in hooks_config["hooks"].values()
+            for hook in hooks
+        ]
+
+        self.assertTrue(commands)
+        for command in commands:
+            self.assertIn(".codex/run_hook.py", command)
+            self.assertNotIn("/root/personal-runtime-agent", command)
 
     def test_post_tool_use_marks_edit_activity_for_apply_patch(self) -> None:
         state = codex_hooks.SessionState(

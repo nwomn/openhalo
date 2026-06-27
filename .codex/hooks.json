@@ -3,31 +3,31 @@
     "SessionStart": [
       {
         "type": "command",
-        "command": "python3 /root/personal-runtime-agent/agent_guard/codex_hooks.py SessionStart /root/personal-runtime-agent"
+        "command": "python3 .codex/run_hook.py SessionStart"
       }
     ],
     "UserPromptSubmit": [
       {
         "type": "command",
-        "command": "python3 /root/personal-runtime-agent/agent_guard/codex_hooks.py UserPromptSubmit /root/personal-runtime-agent"
+        "command": "python3 .codex/run_hook.py UserPromptSubmit"
       }
     ],
     "PreToolUse": [
       {
         "type": "command",
-        "command": "python3 /root/personal-runtime-agent/agent_guard/codex_hooks.py PreToolUse /root/personal-runtime-agent"
+        "command": "python3 .codex/run_hook.py PreToolUse"
       }
     ],
     "PostToolUse": [
       {
         "type": "command",
-        "command": "python3 /root/personal-runtime-agent/agent_guard/codex_hooks.py PostToolUse /root/personal-runtime-agent"
+        "command": "python3 .codex/run_hook.py PostToolUse"
       }
     ],
     "Stop": [
       {
         "type": "command",
-        "command": "python3 /root/personal-runtime-agent/agent_guard/codex_hooks.py Stop /root/personal-runtime-agent"
+        "command": "python3 .codex/run_hook.py Stop"
       }
     ]
   }

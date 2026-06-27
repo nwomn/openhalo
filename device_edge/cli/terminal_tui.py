@@ -123,7 +123,7 @@ class TerminalEdgeApp(App[None]):
 
     def compose(self) -> ComposeResult:
         yield Vertical(
-            Static(" Personal Runtime  Terminal Edge", id="title-bar"),
+            Static(" OpenHalo  Terminal Edge", id="title-bar"),
             Static("", id="status-bar"),
             RichLog(id="transcript-log", wrap=True, markup=True, auto_scroll=True),
             Input(

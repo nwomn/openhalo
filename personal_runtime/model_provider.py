@@ -1000,7 +1000,7 @@ def execute_openai_compatible_request(
         "Content-Type": "application/json",
         # Some OpenAI-compatible gateways reject library-default requests unless
         # the client sends an explicit user agent.
-        "User-Agent": "personal-runtime-agent/0.1",
+        "User-Agent": "openhalo/0.1",
     }
     if provider.default_headers:
         headers.update(provider.default_headers)

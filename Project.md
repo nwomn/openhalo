@@ -1,12 +1,19 @@
-# Personal Runtime Agent Project
+# OpenHalo Project
 
 ## Project Summary
 
-This project aims to build a new personal agent system oriented around `device -> context -> presence -> action`, rather than the traditional `channel -> session -> agent` product shape.
+OpenHalo is a new personal agent runtime system oriented around `device -> context -> presence -> action`, rather than the traditional `channel -> session -> agent` product shape.
 
-The intended product is not "another chat agent entry point". It is a personal runtime that can exist across multiple devices, maintain continuity across contexts, and decide how to surface itself through the most appropriate device or interaction surface. The current product direction is increasingly `presence-first`: the runtime should proactively infer user situation across input channels, decide whether to intervene, and learn intervention policy over time rather than waiting only for explicit user requests.
+The intended product is not "another chat agent entry point". OpenHalo is a personal runtime that can exist across multiple devices, maintain continuity across contexts, and decide how to surface itself through the most appropriate device or interaction surface. The current product direction is increasingly `presence-first`: the runtime should proactively infer user situation across input channels, decide whether to intervene, and learn intervention policy over time rather than waiting only for explicit user requests.
 
 At the current stage, the project has moved from pure architecture-definition into an implemented and testable runtime baseline that now spans both the completed v0 single-edge WebSocket loop and the first same-template multi-edge routing slice. The architecture baseline and early milestone framing are in place, the first end-to-end desktop/CLI closed loop can be executed both in-process and across two real local processes, and the runtime can now route a normal action from one connected edge instance to another while preserving core state across restarts. The desktop/CLI surface has now been promoted into the first formal long-running terminal edge, with both user-initiated and runtime-initiated interaction still expressed through the normal `device -> context -> presence -> action` architecture rather than a chat-centered exception path. The current frontend baseline now includes both bounded scripted acceptance for repeatable verification and a true foreground live terminal session that reads user input from `stdin` on the same resident edge session.
+
+## Naming Decision
+
+- The project name is now `OpenHalo`.
+- `OpenHalo` is the public/open-source project name for the presence-first personal runtime.
+- `Personal Runtime` remains the backend architecture concept for the long-lived cross-device runtime core.
+- Avoid expanding the name to `Halo OS` for now; keep `OpenHalo` as the project/repository-level name while the product shape remains open and exploratory.
 
 ## Background
 
@@ -319,6 +326,7 @@ Result:
 - Project progress updates are now also hook-enforced: when the user asks for a progress report, the response must include separate `Goal 1` through `Goal 4` sections with explicit architecture-aware labels for `状态`, `架构位置`, `本批完成`, `对整体链路的作用`, and `还缺什么`
 - Edited turns are now also hook-enforced: when a turn uses `apply_patch`, the final response must include a `架构实现小结` block with explicit `架构位置`, `本步完成`, and `影响链路` labels
 - A minimal automated test suite validates audit parsing and enforcement rules
+- The hook entrypoint is now path-portable through `.codex/run_hook.py`, so `.codex/hooks.json` no longer hard-codes the repository checkout path
 
 Acceptance criteria:
 
@@ -328,6 +336,7 @@ Acceptance criteria:
 - The enforced workflow validates the required `Goal 1` through `Goal 4` architecture-aware structure for project progress updates
 - The enforced workflow validates the required `架构实现小结` structure for edited turns
 - The enforced workflow blocks inconsistent `Project.md` update claims while keeping normal responses free of mandatory visible audit output
+- The hook configuration can survive repository folder renames by deriving the repository root from the checked-out project path
 
 Status:
 

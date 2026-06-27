@@ -10,6 +10,7 @@ from personal_runtime.runtime_state import RuntimeState
 
 ROOT = Path(__file__).resolve().parents[1]
 TEST_LLM_CONFIG = ROOT / "tests" / "fixtures" / "llm-config-test.toml"
+RUNTIME_TEST_DIR = ROOT / ".worktrees" / "v0-single-edge-loop" / ".runtime-test"
 
 
 def _last_action_request(replies: list[dict]) -> dict | None:
@@ -139,9 +140,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(_last_action_request(replies))
 
     async def test_persists_state_after_connect_event_and_action_result(self) -> None:
-        state_path = Path(
-            "/root/personal-runtime-agent/.worktrees/v0-single-edge-loop/.runtime-test/gateway-state.json"
-        )
+        state_path = RUNTIME_TEST_DIR / "gateway-state.json"
         gateway = RuntimeGateway(
             shared_token="dev-token",
             state_path=state_path,
@@ -267,9 +266,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(replies[-1]["type"], "connect_ok")
 
     async def test_direct_action_event_bypasses_router_but_is_still_persisted(self) -> None:
-        state_path = Path(
-            "/root/personal-runtime-agent/.worktrees/v0-single-edge-loop/.runtime-test/direct-action-state.json"
-        )
+        state_path = RUNTIME_TEST_DIR / "direct-action-state.json"
         gateway = RuntimeGateway(
             shared_token="dev-token",
             state_path=state_path,

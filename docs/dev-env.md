@@ -9,7 +9,7 @@ That is the normal path for day-to-day coding in this repository. Create or swit
 Examples:
 
 ```bash
-/root/personal-runtime-agent/.venv/bin/python -m unittest discover -s tests -v
+.venv/bin/python -m unittest discover -s tests -v
 ```
 
 ```bash
