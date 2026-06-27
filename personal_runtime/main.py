@@ -8,12 +8,15 @@ from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.model_provider import DEFAULT_CONFIG_PATH
 
 
-def build_runtime_server_message(url: str, llm_config_path: Path | None = None) -> str:
-    config_path = llm_config_path or DEFAULT_CONFIG_PATH
+def build_runtime_server_message(
+    url: str,
+    runtime_config_path: Path | None = None,
+) -> str:
+    config_path = runtime_config_path or DEFAULT_CONFIG_PATH
     return (
         "Personal runtime WebSocket server is ready.\n"
         f"WebSocket URL: {url}\n"
-        f"LLM config: {config_path}"
+        f"Runtime config: {config_path}"
     )
 
 
@@ -46,7 +49,7 @@ async def run_server(
         print(
             build_runtime_server_message(
                 server_info["url"],
-                llm_config_path=llm_config_path,
+                runtime_config_path=llm_config_path,
             )
         )
         await asyncio.Future()
@@ -63,9 +66,11 @@ def build_runtime_server_parser() -> argparse.ArgumentParser:
         help="Path to the persisted runtime state file.",
     )
     parser.add_argument(
+        "--runtime-config-path",
         "--llm-config-path",
+        dest="runtime_config_path",
         help=(
-            "Optional explicit runtime model config path. Defaults to "
+            "Optional explicit OpenHalo runtime config path. Defaults to "
             "config/runtime-config.toml."
         ),
     )
@@ -82,8 +87,8 @@ def main() -> None:
             port=args.port,
             token=args.token,
             state_path=Path(args.state_path),
-            llm_config_path=Path(args.llm_config_path)
-            if args.llm_config_path
+            llm_config_path=Path(args.runtime_config_path)
+            if args.runtime_config_path
             else None,
         )
     )

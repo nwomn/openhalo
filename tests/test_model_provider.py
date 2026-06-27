@@ -21,10 +21,43 @@ from personal_runtime.model_provider import (
     load_runtime_model_config,
     resolve_profile_config,
 )
+from personal_runtime.model_provider_probe import build_model_provider_probe_parser
 from personal_runtime.prompt_context import PROMPT_CONTEXT_VERSION
 
 
 class ModelProviderConfigTests(unittest.TestCase):
+    def test_model_provider_probe_parser_accepts_runtime_config_path(self) -> None:
+        parser = build_model_provider_probe_parser()
+
+        args = parser.parse_args(
+            [
+                "--runtime-config-path",
+                "tests/fixtures/llm-config-test.toml",
+            ]
+        )
+
+        self.assertEqual(
+            args.runtime_config_path,
+            "tests/fixtures/llm-config-test.toml",
+        )
+
+    def test_model_provider_probe_parser_keeps_llm_config_path_compatibility(
+        self,
+    ) -> None:
+        parser = build_model_provider_probe_parser()
+
+        args = parser.parse_args(
+            [
+                "--llm-config-path",
+                "tests/fixtures/llm-config-test.toml",
+            ]
+        )
+
+        self.assertEqual(
+            args.runtime_config_path,
+            "tests/fixtures/llm-config-test.toml",
+        )
+
     def test_load_runtime_model_config_reads_provider_model_and_profile_layers(self) -> None:
         config = load_runtime_model_config(
             Path("tests/fixtures/llm-config-test.toml")

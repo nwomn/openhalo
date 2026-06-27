@@ -16,6 +16,7 @@ from device_edge.shared.session_client import SessionClient
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.main import build_runtime_server_message
 from personal_runtime.main import build_runtime_server_parser
+from personal_runtime.main import run_server
 from personal_runtime.model_provider import ProposalPlan
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,6 +51,56 @@ class RoundtripTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(result["type"], "action_result")
         self.assertEqual(result["result"]["status"], "ok")
+
+    async def test_runtime_server_entrypoint_passes_runtime_config_to_ready_message(
+        self,
+    ) -> None:
+        captured = {}
+
+        class FakeGateway:
+            def __init__(self, token, state_path, llm_config_path):
+                self.token = token
+                self.state_path = state_path
+                self.llm_config_path = llm_config_path
+
+            def run_server(self, host, port):
+                captured["host"] = host
+                captured["port"] = port
+
+                class FakeServerContext:
+                    async def __aenter__(self):
+                        return {"url": f"ws://{host}:{port}"}
+
+                    async def __aexit__(self, exc_type, exc, tb):
+                        return False
+
+                return FakeServerContext()
+
+        async def stop_after_ready():
+            await asyncio.sleep(0)
+            raise RuntimeError("stop after ready")
+
+        with patch("personal_runtime.main.build_gateway", FakeGateway), patch(
+            "personal_runtime.main.asyncio.Future",
+            side_effect=stop_after_ready,
+        ), patch("builtins.print") as mocked_print:
+            with self.assertRaisesRegex(RuntimeError, "stop after ready"):
+                await run_server(
+                    host="127.0.0.1",
+                    port=8765,
+                    token="dev-token",
+                    state_path=Path(".runtime/test-state.json"),
+                    llm_config_path=Path("tests/fixtures/llm-config-test.toml"),
+                )
+
+        self.assertEqual(captured["host"], "127.0.0.1")
+        self.assertEqual(captured["port"], 8765)
+        printed_message = mocked_print.call_args.args[0]
+        self.assertIn(
+            "Runtime config: tests/fixtures/llm-config-test.toml",
+            printed_message,
+        )
+        self.assertNotIn("LLM config", printed_message)
 
 
 class CliEntryTests(unittest.TestCase):
@@ -165,7 +216,24 @@ class CliEntryTests(unittest.TestCase):
         message = build_runtime_server_message("ws://127.0.0.1:8765")
 
         self.assertIn("ws://127.0.0.1:8765", message)
+        self.assertIn("Runtime config: config/runtime-config.toml", message)
+        self.assertNotIn("LLM config", message)
         self.assertNotIn("Connect an edge client", message)
+
+    def test_runtime_server_parser_accepts_explicit_runtime_config_path(self) -> None:
+        parser = build_runtime_server_parser()
+
+        args = parser.parse_args(
+            [
+                "--runtime-config-path",
+                "tests/fixtures/llm-config-test.toml",
+            ]
+        )
+
+        self.assertEqual(
+            args.runtime_config_path,
+            "tests/fixtures/llm-config-test.toml",
+        )
 
     def test_runtime_server_parser_accepts_explicit_llm_config_path(self) -> None:
         parser = build_runtime_server_parser()
@@ -178,7 +246,7 @@ class CliEntryTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            args.llm_config_path,
+            args.runtime_config_path,
             "tests/fixtures/llm-config-test.toml",
         )
 

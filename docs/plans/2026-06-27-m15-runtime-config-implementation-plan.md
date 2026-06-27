@@ -35,8 +35,10 @@ The initial config is deliberately local and file-based. Encryption, login UI, p
 ## Current Manual Acceptance Notes
 
 - The current relay baseline is `https://api-dmit.cubence.com/v1` with `gpt-5.5`
+- The relay baseline remains in ignored local `config/runtime-config.toml`; official OpenAI comparison runs should use a separate ignored local file such as `config/runtime-config.openai-local.toml` and pass it with `--runtime-config-path`
 - `gpt-5.4` can pass a narrow provider probe but is not accepted for the terminal live path because it can return a Codex-agent envelope with empty output after compact snapshot fields are present
 - Host-plus-terminal acceptance should include one normal terminal reply, one `runtime.status` action routed through host edge, and one follow-up context question after that status result
 - The gateway now runs WebSocket frame handling in serialized background-thread execution so slow provider calls do not block WebSocket ping/pong keepalive handling
 - Occasional provider/relay errors may still surface explicitly to the user; those are acceptable as visible provider diagnostics when the terminal edge remains connected and `bin/verify-model-provider` still reports a healthy configured provider
 - Repeated provider shape, timeout, or HTTP failures should be captured as provider stability evidence rather than treated as runtime-config credential failure unless probe metadata reports missing auth or unauthorized status
+- Follow-up real-use comparison against official OpenAI `https://api.openai.com/v1` showed faster and more stable `gpt-5.5` responses than the relay baseline, supporting the conclusion that intermittent `codex_agent_envelope_empty_output` behavior is a relay/provider compatibility issue rather than a blocker for M15 credential/config acceptance

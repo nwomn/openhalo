@@ -88,5 +88,5 @@ Start the terminal edge in a third terminal:
 ## Notes
 
 - The real model-provider path is still under active hardening.
-- The roadmap currently places runtime-native credential/runtime-config work as milestone `M16`.
+- The roadmap currently places runtime-native credential/runtime-config work as milestone `M15`.
 - This repository is evolving quickly; treat `Project.md` as the source of truth for current direction.

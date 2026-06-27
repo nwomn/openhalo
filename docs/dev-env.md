@@ -79,11 +79,13 @@ Default runtime model behavior now comes from the local `config/runtime-config.t
 
 The repository keeps a tracked template in `config/runtime-config.example.toml`; copy that shape to the ignored local `config/runtime-config.toml` for real provider use.
 
-When you want to use a non-default provider config, pass it explicitly with `--llm-config-path` instead of relying on an implicit local override file.
+When you want to use a non-default provider config, pass it explicitly with `--runtime-config-path` instead of relying on an implicit local override file. The older `--llm-config-path` spelling remains a compatibility alias.
+
+For a side-by-side official OpenAI comparison without replacing the current relay baseline, use an ignored local file such as `config/runtime-config.openai-local.toml`. Keep the same provider/model/profile shape, set `base_url = "https://api.openai.com/v1"`, and place the rotated OpenAI API key only in that ignored local file.
 
 When you want to test a real `openai_compatible` provider path later, keep the same command shape but provide:
 
-- either the local `config/runtime-config.toml` or an explicit `--llm-config-path /abs/path/to/runtime-config.toml`
+- either the local `config/runtime-config.toml` or an explicit `--runtime-config-path /abs/path/to/runtime-config.toml`
 - the provider `api_key` inside that runtime config
 
 The acceptance command stays the same; only the provider result and fallback metadata should change.
@@ -92,6 +94,12 @@ Before starting the full live path, run the provider probe:
 
 ```bash
 bin/verify-model-provider
+```
+
+For an official OpenAI comparison config, pass the file explicitly:
+
+```bash
+bin/verify-model-provider --runtime-config-path config/runtime-config.openai-local.toml
 ```
 
 Acceptance requires `ok: true`. If the first structured-output request hits a
@@ -111,6 +119,12 @@ three long-running processes:
   --token dev-token \
   --state-path .runtime/state.json
 ```
+
+When validating a non-default provider such as the official OpenAI local config,
+add `--runtime-config-path config/runtime-config.openai-local.toml` to the
+runtime command and use a separate state file such as
+`.runtime/openai-manual-state.json` so relay and official-provider evidence do
+not overwrite each other.
 
 ```bash
 .venv/bin/python -u -m device_edge.host.host_daemon \
@@ -165,6 +179,11 @@ Known residual real-provider behavior:
 - The current accepted relay model baseline is `gpt-5.5`; `gpt-5.4` is not the
   terminal live-path baseline because it can return a Codex-agent envelope once
   compact snapshot fields are present
+- A real-use comparison with an ignored official OpenAI local config showed
+  faster and more stable `gpt-5.5` responses than the current relay baseline;
+  that supports treating intermittent `codex_agent_envelope_empty_output`
+  results as provider/relay compatibility evidence rather than an M15
+  runtime-config or credential-resolution blocker
 
 That same inspection path is now also the first bounded local `M10` acceptance surface for grounding and runtime memory.
 
