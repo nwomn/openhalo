@@ -313,6 +313,7 @@ class DevEnvWorkflowTests(unittest.TestCase):
         contents = script_path.read_text(encoding="utf-8")
         self.assertIn("RuntimeGateway", contents)
         self.assertIn("post_action", contents)
+        self.assertIn("post_observation", contents)
 
         result = subprocess.run(
             [str(script_path), "--dry-run"],
@@ -323,6 +324,7 @@ class DevEnvWorkflowTests(unittest.TestCase):
         )
 
         self.assertIn("runtime-status-reentry", result.stdout)
+        self.assertIn("fresh-observation-reentry", result.stdout)
         self.assertIn("follow-up-action", result.stdout)
         self.assertIn("silent-completion", result.stdout)
         self.assertIn("lineage-check", result.stdout)
@@ -350,6 +352,7 @@ class DevEnvWorkflowTests(unittest.TestCase):
         contents = document_path.read_text(encoding="utf-8")
         self.assertIn("verify-action-loop", contents)
         self.assertIn("post-action", contents)
+        self.assertIn("fresh observation", contents)
         self.assertIn("same interaction", contents)
         self.assertIn("require-model-backed", contents)
 

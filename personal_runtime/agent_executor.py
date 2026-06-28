@@ -8,6 +8,7 @@ from pathlib import Path
 from personal_runtime.model_provider import generate_text_reply_plan
 from personal_runtime.model_provider import generate_text_proposal_plan
 from personal_runtime.model_provider import generate_post_action_proposal_plan
+from personal_runtime.model_provider import generate_post_observation_proposal_plan
 from personal_runtime.prompt_context import build_behavior_contract
 from personal_runtime.prompt_context import build_prompt_context_package
 from personal_runtime.prompt_context import prompt_context_metadata_from_package
@@ -270,6 +271,115 @@ def build_post_action_proposal(
         trace_recorder.record(
             "AGENT",
             "built post-action proposal",
+            source=proposal.source,
+            kind=proposal.kind,
+            proposal_type=proposal.proposal_type,
+            action_capability=proposal.action_capability or "none",
+            interaction_id=interaction_id,
+        )
+    return proposal
+
+
+def build_post_observation_proposal(
+    interaction: dict,
+    prior_proposal: dict,
+    observations: list[dict],
+    turn_index: int,
+    snapshot: dict | None = None,
+    grounding_bundle: dict | None = None,
+    trace_recorder=None,
+    config_path: Path | None = None,
+) -> InterventionProposal:
+    _snapshot = snapshot or {}
+    interaction_id = interaction["interaction_id"]
+    observation_names = sorted(
+        {
+            observation.get("name", "")
+            for observation in observations
+            if observation.get("name")
+        }
+    )
+    post_observation_text = json.dumps(
+        {
+            "trigger": "observation",
+            "interaction_id": interaction_id,
+            "prior_proposal_type": prior_proposal.get("proposal_type"),
+            "prior_action_capability": prior_proposal.get("action_capability"),
+            "observations": observations,
+        },
+        sort_keys=True,
+    )
+    prompt_context_package = build_prompt_context_package(
+        user_text=post_observation_text,
+        snapshot=_snapshot,
+        grounding_bundle=grounding_bundle,
+    )
+    behavior_contract = build_behavior_contract(
+        prompt_context_package=prompt_context_package,
+        grounding_bundle=grounding_bundle,
+    )
+    proposal_plan = generate_post_observation_proposal_plan(
+        interaction_id=interaction_id,
+        prior_proposal=prior_proposal,
+        observations=observations,
+        snapshot=_snapshot,
+        grounding=grounding_bundle,
+        profile_name="proposal_formation",
+        config_path=config_path,
+    )
+    action_capability = proposal_plan.action_capability
+    if proposal_plan.proposal_type == "no_intervention":
+        kind = "no_intervention"
+    elif action_capability and action_capability.startswith("runtime."):
+        kind = "runtime_control"
+    else:
+        kind = "notify"
+    action_payload = dict(proposal_plan.action_payload)
+    if action_capability == "notification.show":
+        action_payload.setdefault("message", proposal_plan.response_text)
+    metadata = {
+        "trigger": "observation",
+        "interaction_id": interaction_id,
+        "turn_index": turn_index,
+        "parent_proposal_type": prior_proposal.get("proposal_type"),
+        "parent_action_capability": prior_proposal.get("action_capability"),
+        "observation_names": observation_names,
+        "snapshot_fields": sorted(_snapshot.keys()),
+        **grounding_metadata_from_bundle(grounding_bundle),
+        **prompt_context_metadata_from_package(
+            prompt_context_package,
+            behavior_contract,
+        ),
+        **proposal_plan.metadata,
+    }
+    proposal = InterventionProposal(
+        kind=kind,
+        proposal_type=proposal_plan.proposal_type,
+        source="post_observation",
+        action_capability=action_capability,
+        required_capability=required_device_capability_for_action(
+            action_capability
+        )
+        if action_capability is not None
+        else None,
+        action_payload=action_payload,
+        message=proposal_plan.response_text,
+        metadata=metadata,
+        target_device_hint=interaction.get("source_device_id")
+        if action_capability == "notification.show"
+        else None,
+        interaction_type=interaction.get("interaction_type", "pull"),
+        visibility_intent="silent"
+        if proposal_plan.proposal_type == "no_intervention"
+        else "visible",
+        candidate_surface_hints=["source_device"]
+        if proposal_plan.proposal_type != "no_intervention"
+        else ["background"],
+    )
+    if trace_recorder is not None:
+        trace_recorder.record(
+            "AGENT",
+            "built post-observation proposal",
             source=proposal.source,
             kind=proposal.kind,
             proposal_type=proposal.proposal_type,

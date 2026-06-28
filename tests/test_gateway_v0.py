@@ -703,6 +703,124 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             "runtime.status",
         )
 
+    async def test_relevant_observation_reenters_open_interaction_with_same_interaction(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        source = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+        host = SessionClient(
+            device_id="host-edge-1",
+            device_type="server",
+            token="dev-token",
+            capabilities=["host.metrics", "runtime.health", "runtime.control"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                source.build_connect_frame(),
+                source.build_capability_announce_frame(),
+                host.build_connect_frame(),
+                host.build_capability_announce_frame(),
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {
+                        "text": "check runtime status",
+                        "observed_at": "2026-06-21T10:10:00Z",
+                    },
+                },
+            ]
+        )
+        first_action = _last_action_request(replies)
+        self.assertIsNotNone(first_action)
+
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "type": "event_push",
+                    "device_id": "host-edge-1",
+                    "capability": "runtime.health",
+                    "event_id": "host-edge-1-health-1",
+                    "payload": {
+                        "observations": [
+                            {
+                                "name": "runtime.health_state",
+                                "value": "degraded",
+                                "observed_at": "2026-06-21T10:10:30Z",
+                                "confidence": 1.0,
+                            }
+                        ]
+                    },
+                }
+            ]
+        )
+
+        follow_up = _last_action_request(replies)
+        self.assertIsNotNone(follow_up)
+        self.assertEqual(follow_up["interaction_id"], first_action["interaction_id"])
+        self.assertEqual(follow_up["device_id"], "host-edge-1")
+        self.assertEqual(follow_up["action"]["capability"], "runtime.status")
+        proposal = gateway.state.interventions[-1]["proposal"]
+        self.assertEqual(proposal["source"], "post_observation")
+        self.assertEqual(proposal["metadata"]["trigger"], "observation")
+        self.assertEqual(proposal["metadata"]["turn_index"], 2)
+        self.assertEqual(
+            proposal["metadata"]["observation_names"],
+            ["runtime.health_state"],
+        )
+
+    async def test_observation_without_open_interaction_only_updates_context(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        host = SessionClient(
+            device_id="host-edge-1",
+            device_type="server",
+            token="dev-token",
+            capabilities=["host.metrics", "runtime.health", "runtime.control"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                host.build_connect_frame(),
+                host.build_capability_announce_frame(),
+                {
+                    "type": "event_push",
+                    "device_id": "host-edge-1",
+                    "capability": "runtime.health",
+                    "event_id": "host-edge-1-health-1",
+                    "payload": {
+                        "observations": [
+                            {
+                                "name": "runtime.health_state",
+                                "value": "degraded",
+                                "observed_at": "2026-06-21T10:10:30Z",
+                                "confidence": 1.0,
+                            }
+                        ]
+                    },
+                },
+            ]
+        )
+
+        self.assertEqual(replies, [{"type": "connect_ok"}, {"type": "event_ack"}])
+        self.assertEqual(gateway.state.interventions, [])
+        self.assertEqual(gateway.state.observations[-1].name, "runtime.health_state")
+
     async def test_action_result_reentry_can_finish_silently_after_visible_notification(
         self,
     ) -> None:

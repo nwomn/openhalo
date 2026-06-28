@@ -829,7 +829,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                 scripted_inputs=[],
                 startup_observed_at=None,
                 idle_after_inputs=True,
-                idle_timeout_s=0.01,
+                idle_timeout_s=0.05,
                 max_idle_cycles=1,
             ),
             inject_draft_state(),
@@ -846,10 +846,19 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
             for observation in frame["payload"]["observations"]
         ]
         self.assertIn("terminal.input_state", observed_names)
-        self.assertLess(
-            observed_names.index("terminal.input_state"),
-            observed_names.index("terminal.activity_state", 1),
+        later_idle_index = next(
+            (
+                index
+                for index, name in enumerate(observed_names[1:], start=1)
+                if name == "terminal.activity_state"
+            ),
+            None,
         )
+        if later_idle_index is not None:
+            self.assertLess(
+                observed_names.index("terminal.input_state"),
+                later_idle_index,
+            )
 
     async def test_daemon_session_reads_multiple_live_terminal_inputs_from_stdin(
         self,

@@ -205,7 +205,7 @@ def _cooldown_active(
     )
     if last_allowed is None:
         return False
-    if _is_same_interaction_post_action(proposal or {}, last_allowed):
+    if _is_same_interaction_reentry(proposal or {}, last_allowed):
         return False
     return (
         abs(
@@ -224,14 +224,18 @@ def _is_explicit_user_text_proposal(proposal: dict) -> bool:
     )
 
 
-def _is_same_interaction_post_action(
+def _is_same_interaction_reentry(
     proposal: dict,
     last_allowed: dict,
 ) -> bool:
     metadata = proposal.get("metadata", {})
+    source = proposal.get("source")
+    trigger = metadata.get("trigger")
     return (
-        proposal.get("source") == "post_action"
-        and metadata.get("trigger") == "action_result"
+        (
+            (source == "post_action" and trigger == "action_result")
+            or (source == "post_observation" and trigger == "observation")
+        )
         and metadata.get("interaction_id") is not None
         and metadata.get("interaction_id") == last_allowed.get("interaction_id")
     )

@@ -14,6 +14,7 @@ from personal_runtime.model_provider import (
     build_deterministic_post_action_proposal_plan,
     build_deterministic_proposal_plan,
     execute_openai_compatible_request,
+    generate_post_observation_proposal_plan,
     generate_post_action_proposal_plan,
     generate_text_proposal_plan,
     parse_openai_compatible_response,
@@ -310,6 +311,63 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertEqual(plan.metadata["post_action_trigger"], "action_result")
         rendered_request = str(calls[0]["input"])
         self.assertIn('"memory_rss_bytes": 28114944', rendered_request)
+        self.assertIn('"interaction_id": "interaction-1"', rendered_request)
+
+    def test_generate_post_observation_proposal_plan_uses_model_backed_observation_context(
+        self,
+    ) -> None:
+        calls = []
+
+        def transport(_provider, request_payload, *_args):
+            calls.append(request_payload)
+            return {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": (
+                                    '{"proposal_type":"action",'
+                                    '"response_text":"Checking runtime status after degraded health.",'
+                                    '"action":{"capability":"runtime.status","payload":{}},'
+                                    '"rationale":{"summary":"Fresh degraded runtime health changed the open interaction.",'
+                                    '"intent_signals":["runtime.health_state"],'
+                                    '"grounding_signals":["runtime.current_health_state"]}}'
+                                ),
+                            }
+                        ],
+                    }
+                ]
+            }
+
+        plan = generate_post_observation_proposal_plan(
+            interaction_id="interaction-1",
+            prior_proposal={
+                "proposal_type": "action",
+                "action_capability": "runtime.status",
+            },
+            observations=[
+                {
+                    "name": "runtime.health_state",
+                    "value": "degraded",
+                    "observed_at": "2026-06-21T10:10:30Z",
+                    "confidence": 1.0,
+                }
+            ],
+            snapshot={"runtime.current_health_state": "degraded"},
+            grounding={"active_goals": [{"goal_id": "goal-1"}]},
+            config_path=Path("config/runtime-config.example.toml"),
+            transport=transport,
+        )
+
+        self.assertEqual(plan.proposal_type, "action")
+        self.assertEqual(plan.action_capability, "runtime.status")
+        self.assertFalse(plan.metadata["used_deterministic_fallback"])
+        self.assertEqual(plan.metadata["post_observation_trigger"], "observation")
+        rendered_request = str(calls[0]["input"])
+        self.assertIn('"runtime.health_state"', rendered_request)
+        self.assertIn('"value": "degraded"', rendered_request)
         self.assertIn('"interaction_id": "interaction-1"', rendered_request)
 
     def test_execute_openai_compatible_proposal_request_uses_json_schema_format_when_supported(

@@ -35,7 +35,7 @@ ACTION_LOOP_CMD=(
   "OPENHALO_ACTION_LOOP_RUNTIME_CONFIG=$RUNTIME_CONFIG_PATH"
   "OPENHALO_ACTION_LOOP_REQUIRE_MODEL_BACKED=$REQUIRE_MODEL_BACKED"
   "$PYTHON_BIN" -c
-  "print('runtime-status-reentry follow-up-action silent-completion lineage-check')"
+  "print('runtime-status-reentry fresh-observation-reentry follow-up-action silent-completion lineage-check')"
 )
 
 print_cmd() {
@@ -49,6 +49,7 @@ print_cmd() {
 if [[ "$DRY_RUN" -eq 1 ]]; then
   print_cmd "runtime-config" printf "%s" "$RUNTIME_CONFIG_PATH"
   print_cmd "runtime-status-reentry" "${ACTION_LOOP_CMD[@]}"
+  print_cmd "fresh-observation-reentry" "${ACTION_LOOP_CMD[@]}"
   print_cmd "follow-up-action" "${ACTION_LOOP_CMD[@]}"
   print_cmd "silent-completion" "${ACTION_LOOP_CMD[@]}"
   print_cmd "lineage-check" "${ACTION_LOOP_CMD[@]}"
@@ -234,6 +235,51 @@ async def main() -> None:
                 "capability": "text.input",
                 "payload": {
                     "text": "check runtime status",
+                    "observed_at": "2026-06-21T10:15:00Z",
+                },
+            },
+        ]
+    )
+    observation_first_action = last_action(replies)
+    replies = await gateway.handle_test_frames(
+        [
+            {
+                "type": "event_push",
+                "device_id": "host-edge-verify",
+                "capability": "runtime.health",
+                "event_id": "host-edge-verify-health-1",
+                "payload": {
+                    "observations": [
+                        {
+                            "name": "runtime.health_state",
+                            "value": "degraded",
+                            "observed_at": "2026-06-21T10:15:30Z",
+                            "confidence": 1.0,
+                        }
+                    ]
+                },
+            }
+        ]
+    )
+    observation_follow_up = last_action(replies)
+    if (
+        observation_follow_up is None
+        or observation_follow_up["interaction_id"] != observation_first_action["interaction_id"]
+        or observation_follow_up["action"]["capability"] != "runtime.status"
+    ):
+        raise SystemExit("expected fresh-observation follow-up runtime.status action")
+    observation_proposal = gateway.state.interventions[-1]["proposal"]
+    if observation_proposal.get("source") != "post_observation":
+        raise SystemExit("expected post_observation intervention")
+
+    replies = await gateway.handle_test_frames(
+        [
+            {
+                "type": "event_push",
+                "device_id": "desktop-dev-verify",
+                "capability": "text.input",
+                "payload": {
+                    "text": "check runtime status",
                     "observed_at": "2026-06-21T10:20:00Z",
                 },
             },
@@ -270,11 +316,20 @@ async def main() -> None:
     ]
     if len(post_action_interventions) < 3:
         raise SystemExit("expected post_action interventions in lineage")
+    post_observation_interventions = [
+        item
+        for item in gateway.state.interventions
+        if item.get("proposal", {}).get("source") == "post_observation"
+    ]
+    if not post_observation_interventions:
+        raise SystemExit("expected post_observation interventions in lineage")
 
     print("runtime-status-reentry ok")
+    print("fresh-observation-reentry ok")
     print("follow-up-action ok")
     print("silent-completion ok")
     print("post-action-interventions", len(post_action_interventions))
+    print("post-observation-interventions", len(post_observation_interventions))
     if require_model_backed:
         print("model-backed-post-action ok")
         print("model", first_post_action_metadata.get("llm_model"))

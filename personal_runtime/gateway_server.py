@@ -16,6 +16,7 @@ from personal_runtime.action_layer import build_planned_action
 from personal_runtime.agent_executor import build_intervention_proposal
 from personal_runtime.agent_executor import build_agent_initiative_proposal
 from personal_runtime.agent_executor import build_post_action_proposal
+from personal_runtime.agent_executor import build_post_observation_proposal
 from personal_runtime.context_contracts import RuntimeObservation
 from personal_runtime.context_snapshot import build_context_snapshot
 from personal_runtime.context_snapshot import build_context_snapshot_contract
@@ -237,6 +238,7 @@ class RuntimeGateway:
             return replies
 
         if payload.get("observations"):
+            replies.extend(self._build_observation_reentry_replies(frame))
             return replies
 
         decision_time = self._event_timestamp(frame)
@@ -409,6 +411,168 @@ class RuntimeGateway:
         if self.grounding_edge_history_fetcher is None:
             return None
         return self.grounding_edge_history_fetcher()
+
+    def _latest_open_interaction_for_observations(
+        self,
+        frame: dict,
+    ) -> dict | None:
+        source_device_id = frame["device_id"]
+        for interaction in reversed(self.state.interactions):
+            if interaction.get("status") == "completed":
+                continue
+            participant_device_ids = interaction.get("participant_device_ids", [])
+            if source_device_id in participant_device_ids:
+                return interaction
+        return None
+
+    def _observations_relevant_to_open_interaction(
+        self,
+        interaction: dict,
+        observations: list[dict],
+    ) -> bool:
+        del interaction
+        for observation in observations:
+            name = observation.get("name")
+            value = str(observation.get("value", "")).lower()
+            # M16 keeps this as a deliberately narrow hard-coded re-entry gate.
+            # Later salience work should move this toward a configurable,
+            # learned, or model-assisted gate instead of sending every
+            # observation batch back through proposal formation.
+            if name == "runtime.health_state" and value in {
+                "degraded",
+                "unhealthy",
+                "down",
+                "failed",
+            }:
+                return True
+            if name == "runtime.process_present" and value == "false":
+                return True
+        return False
+
+    def _observation_timestamp(self, frame: dict) -> str:
+        observations = frame.get("payload", {}).get("observations", [])
+        observed_at_values = [
+            observation.get("observed_at")
+            for observation in observations
+            if observation.get("observed_at")
+        ]
+        if observed_at_values:
+            return max(
+                observed_at_values,
+                key=lambda timestamp: datetime.fromisoformat(
+                    timestamp.replace("Z", "+00:00")
+                ),
+            )
+        return self._event_timestamp(frame)
+
+    def _build_observation_reentry_replies(self, frame: dict) -> list[dict]:
+        observations = frame.get("payload", {}).get("observations", [])
+        if not observations:
+            return []
+        interaction = self._latest_open_interaction_for_observations(frame)
+        if interaction is None:
+            return []
+        if not self._observations_relevant_to_open_interaction(
+            interaction,
+            observations,
+        ):
+            return []
+        interaction_id = interaction["interaction_id"]
+        intervention = next(
+            (
+                item
+                for item in reversed(self.state.interventions)
+                if item.get("interaction_id") == interaction_id
+            ),
+            None,
+        )
+        if intervention is None:
+            return []
+
+        decision_time = self._observation_timestamp(frame)
+        snapshot = build_context_snapshot(
+            self.state.observations,
+            snapshot_time=decision_time or None,
+        )
+        edge_history = self._build_edge_history_for_grounding()
+        grounding_bundle = build_model_grounding_bundle(
+            state=self.state,
+            snapshot=snapshot,
+            edge_history=edge_history,
+        )
+        snapshot_contract = build_context_snapshot_contract(
+            self.state.observations,
+            snapshot_time=decision_time or None,
+        )
+        proposal = build_post_observation_proposal(
+            interaction=interaction,
+            prior_proposal=intervention["proposal"],
+            observations=observations,
+            turn_index=self._turn_index_for_interaction(interaction_id),
+            snapshot=snapshot,
+            grounding_bundle=grounding_bundle,
+            trace_recorder=self.trace_recorder,
+            config_path=self.llm_config_path,
+        )
+        self.state.record_model_health(
+            proposal.metadata,
+            observed_at=decision_time,
+        )
+        decision = choose_presence_decision(
+            source_device_id=interaction["source_device_id"],
+            snapshot=snapshot,
+            devices=self.state.devices,
+            online_device_ids=set(self.online_device_ids),
+            required_capability=proposal.required_capability,
+            proposal=proposal.to_dict(),
+            intervention_history=self.state.interventions,
+            now_timestamp=decision_time,
+            trace_recorder=self.trace_recorder,
+        )
+        self.state.update_interaction(
+            interaction_id,
+            **{
+                key: value
+                for key, value in self._build_interaction_turn_update(
+                    interaction=interaction,
+                    proposal=proposal,
+                    decision=decision,
+                ).items()
+                if key != "interaction_id"
+            },
+        )
+        self.state.record_intervention(
+            {
+                "interaction_id": interaction_id,
+                "source_device_id": interaction["source_device_id"],
+                "target_device_id": decision.target_device_id,
+                "action_capability": proposal.action_capability,
+                "decision": decision.decision,
+                "reason": decision.reason,
+                "proposal": proposal.to_dict(),
+                "grounding_bundle": grounding_bundle,
+                "snapshot_contract": snapshot_contract,
+                "recorded_at": decision_time,
+            }
+        )
+        self._persist_state()
+
+        if decision.decision == "allow" and proposal.action_capability is not None:
+            planned_action = build_planned_action(
+                decision.target_device_id or interaction["source_device_id"],
+                proposal.to_dict(),
+                trace_recorder=self.trace_recorder,
+            )
+            planned_action["interaction_id"] = interaction_id
+            return [planned_action]
+
+        completed = self._complete_interaction(
+            interaction_id=interaction_id,
+            summary=self._build_interaction_summary(proposal.to_dict()),
+            visibility=proposal.visibility_intent,
+        )
+        self._persist_state()
+        return self._build_interaction_update_replies(completed)
 
     def _build_action_result_replies(self, frame: dict) -> list[dict]:
         interaction_id = frame.get("interaction_id")

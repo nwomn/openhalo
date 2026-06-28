@@ -289,7 +289,7 @@ Use `bin/verify-model-provider --dry-run` first when you want to inspect the pro
 
 Use `bin/verify-action-loop` for the bounded M16 post-action action-loop acceptance path.
 
-Use `bin/verify-action-loop --dry-run` first when you want to inspect the scripted checks without running them. The acceptance run exercises a `runtime.status` result that re-enters `Agent Runtime` and produces a governed follow-up reply, a post-action result that plans a follow-up action in the same interaction, and a delivered notification result that completes silently while preserving `post_action` intervention lineage.
+Use `bin/verify-action-loop --dry-run` first when you want to inspect the scripted checks without running them. The acceptance run exercises a `runtime.status` result that re-enters `Agent Runtime` and produces a governed follow-up reply, a fresh observation that re-enters the same open interaction and plans a follow-up action, a post-action result that plans another follow-up action in the same interaction, and a delivered notification result that completes silently while preserving `post_action` and `post_observation` intervention lineage.
 
 For real model-backed M16 acceptance, first run `bin/verify-model-provider --runtime-config-path config/runtime-config.openai-local.toml`, then run `bin/verify-action-loop --runtime-config-path config/runtime-config.openai-local.toml --require-model-backed`. The model-backed run must show `model-backed-post-action ok`, proving the post-action proposal came from provider-backed proposal formation rather than deterministic formatting.
 

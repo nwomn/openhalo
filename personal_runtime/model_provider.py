@@ -778,6 +778,77 @@ def build_deterministic_post_action_proposal_plan(
     )
 
 
+def build_deterministic_post_observation_proposal_plan(
+    interaction_id: str,
+    prior_proposal: dict,
+    observations: list[dict],
+    profile_name: str,
+    fallback_reason: str,
+    snapshot: dict | None = None,
+    grounding: dict | None = None,
+    provider_name: str | None = None,
+    model_id: str | None = None,
+) -> ProposalPlan:
+    observation_names = sorted(
+        {
+            observation.get("name", "")
+            for observation in observations
+            if observation.get("name")
+        }
+    )
+    snapshot_fields = sorted((snapshot or {}).keys())
+    grounding_goals = grounding.get("active_goals", []) if grounding else []
+    rationale = {
+        "summary": "",
+        "trigger": "observation",
+        "interaction_id": interaction_id,
+        "parent_action_capability": prior_proposal.get("action_capability", ""),
+        "observation_names": observation_names,
+        "intent_signals": observation_names,
+        "grounding_signals": snapshot_fields,
+        "active_goal_count": len(grounding_goals),
+    }
+    metadata = {
+        "llm_profile": profile_name,
+        "llm_provider": provider_name or "local_deterministic",
+        "llm_model": model_id or "local_deterministic",
+        "used_deterministic_fallback": True,
+        "fallback_reason": fallback_reason,
+        "proposal_rationale": rationale,
+    }
+
+    degraded_runtime_health = any(
+        observation.get("name") == "runtime.health_state"
+        and str(observation.get("value", "")).lower()
+        in {"degraded", "unhealthy", "down", "failed"}
+        for observation in observations
+    )
+    if degraded_runtime_health:
+        rationale["summary"] = (
+            "Follow-up runtime status action selected because fresh runtime health "
+            "evidence changed during an open interaction."
+        )
+        return ProposalPlan(
+            proposal_type="action",
+            response_text="Checking runtime status after the health change.",
+            action_capability="runtime.status",
+            action_payload={},
+            metadata=metadata,
+        )
+
+    rationale["summary"] = (
+        "No intervention needed because the fresh observations did not materially "
+        "change the open interaction."
+    )
+    return ProposalPlan(
+        proposal_type="no_intervention",
+        response_text="",
+        action_capability=None,
+        action_payload={},
+        metadata=metadata,
+    )
+
+
 def generate_post_action_proposal_plan(
     interaction_id: str,
     prior_proposal: dict,
@@ -936,6 +1007,164 @@ def generate_post_action_proposal_plan(
         )
 
 
+def generate_post_observation_proposal_plan(
+    interaction_id: str,
+    prior_proposal: dict,
+    observations: list[dict],
+    snapshot: dict | None = None,
+    grounding: dict | None = None,
+    profile_name: str = "proposal_formation",
+    config_path: Path | None = None,
+    transport=None,
+) -> ProposalPlan:
+    user_text = _build_post_observation_user_text(
+        interaction_id=interaction_id,
+        prior_proposal=prior_proposal,
+        observations=observations,
+    )
+    config = load_runtime_model_config(config_path)
+    fallback_profile_name = (
+        profile_name if profile_name in config.profiles else "interactive_reply"
+    )
+    profile = resolve_profile_config(config, fallback_profile_name)
+    model = config.models[profile.model_ref]
+    provider = config.providers[model.provider]
+    provider_request_format = (
+        "json_schema" if model.supports_structured_output else "prompt_json"
+    )
+
+    if provider.adapter_type != "openai_compatible":
+        error = ValueError(f"unsupported adapter: {provider.adapter_type}")
+        if profile.provider_failure_behavior == "user_visible_error":
+            return _with_post_observation_metadata(
+                build_provider_failure_proposal_plan(
+                    user_text=user_text,
+                    profile_name=fallback_profile_name,
+                    error=error,
+                    snapshot=snapshot,
+                    grounding=grounding,
+                    provider_name=provider.name,
+                    model_id=model.model_id,
+                    provider_wire_api=provider.wire_api,
+                    provider_request_format=provider_request_format,
+                ),
+                interaction_id=interaction_id,
+                prior_proposal=prior_proposal,
+                observations=observations,
+            )
+        return build_deterministic_post_observation_proposal_plan(
+            interaction_id=interaction_id,
+            prior_proposal=prior_proposal,
+            observations=observations,
+            profile_name=fallback_profile_name,
+            fallback_reason="unsupported_adapter",
+            snapshot=snapshot,
+            grounding=grounding,
+            provider_name=provider.name,
+            model_id=model.model_id,
+        )
+
+    attempt_count = 0
+    retried_shapes: list[str] = []
+    started_at = time.monotonic()
+    max_attempts = 2
+    try:
+        for attempt_index in range(max_attempts):
+            attempt_count = attempt_index + 1
+            request_format = (
+                "prompt_json"
+                if retried_shapes and model.supports_structured_output
+                else provider_request_format
+            )
+            request_builder = (
+                build_openai_compatible_prompt_json_proposal_request
+                if request_format == "prompt_json"
+                else build_openai_compatible_proposal_request
+            )
+            try:
+                response_payload = execute_openai_compatible_request(
+                    provider=provider,
+                    model=model,
+                    profile=profile,
+                    user_text=user_text,
+                    snapshot=snapshot,
+                    grounding=grounding,
+                    request_builder=request_builder,
+                    transport=transport,
+                )
+                plan = parse_openai_compatible_proposal_response(
+                    response_payload=response_payload,
+                    profile_name=profile.name,
+                    provider_name=provider.name,
+                    model_id=model.model_id,
+                )
+                if attempt_count > 1:
+                    plan.metadata["provider_attempt_count"] = attempt_count
+                    plan.metadata["provider_retry_count"] = attempt_count - 1
+                    plan.metadata["provider_retried_shapes"] = list(retried_shapes)
+                plan.metadata["provider_wire_api"] = provider.wire_api
+                plan.metadata["provider_request_format"] = request_format
+                plan.metadata["provider_latency_ms"] = int(
+                    (time.monotonic() - started_at) * 1000
+                )
+                return _with_post_observation_metadata(
+                    plan,
+                    interaction_id=interaction_id,
+                    prior_proposal=prior_proposal,
+                    observations=observations,
+                )
+            except ProviderResponseShapeError as exc:
+                if exc.retryable and attempt_index + 1 < max_attempts:
+                    retried_shapes.append(exc.shape)
+                    continue
+                raise
+            except (OSError, urllib.error.URLError, TimeoutError) as exc:
+                if _provider_failure_is_retryable(exc) and attempt_index + 1 < max_attempts:
+                    continue
+                raise
+    except (
+        KeyError,
+        OSError,
+        ValueError,
+        json.JSONDecodeError,
+        urllib.error.URLError,
+    ) as exc:
+        if profile.provider_failure_behavior == "user_visible_error":
+            plan = build_provider_failure_proposal_plan(
+                user_text=user_text,
+                profile_name=fallback_profile_name,
+                error=exc,
+                snapshot=snapshot,
+                grounding=grounding,
+                provider_name=provider.name,
+                model_id=model.model_id,
+                attempt_count=attempt_count,
+                retried_shapes=retried_shapes,
+                provider_wire_api=provider.wire_api,
+                provider_request_format=provider_request_format,
+            )
+            plan.metadata["provider_latency_ms"] = int(
+                (time.monotonic() - started_at) * 1000
+            )
+            return _with_post_observation_metadata(
+                plan,
+                interaction_id=interaction_id,
+                prior_proposal=prior_proposal,
+                observations=observations,
+            )
+        return build_deterministic_post_observation_proposal_plan(
+            interaction_id=interaction_id,
+            prior_proposal=prior_proposal,
+            observations=observations,
+            profile_name=fallback_profile_name,
+            fallback_reason="provider_unavailable",
+            snapshot=snapshot,
+            grounding=grounding,
+            provider_name=provider.name,
+            model_id=model.model_id,
+        )
+
+
 def _build_post_action_user_text(
     interaction_id: str,
     prior_proposal: dict,
@@ -960,6 +1189,30 @@ def _build_post_action_user_text(
     )
 
 
+def _build_post_observation_user_text(
+    interaction_id: str,
+    prior_proposal: dict,
+    observations: list[dict],
+) -> str:
+    return json.dumps(
+        {
+            "instruction": (
+                "Post-observation deliberation: inspect the fresh observations in "
+                "the context of an open interaction and choose one proposal_type. "
+                "Prefer a follow-up action when the observation materially changes "
+                "the current interaction, a natural user-facing summary when useful, "
+                "clarification when user input is required, or no_intervention when "
+                "the observation should only update context."
+            ),
+            "trigger": "observation",
+            "interaction_id": interaction_id,
+            "prior_proposal": prior_proposal,
+            "observations": observations,
+        },
+        sort_keys=True,
+    )
+
+
 def _with_post_action_metadata(
     plan: ProposalPlan,
     interaction_id: str,
@@ -977,6 +1230,42 @@ def _with_post_action_metadata(
             )
             or result.get("capability"),
             "post_action_result_status": result.get("status"),
+        }
+    )
+    return ProposalPlan(
+        proposal_type=plan.proposal_type,
+        response_text=plan.response_text,
+        action_capability=plan.action_capability,
+        action_payload=dict(plan.action_payload),
+        metadata=metadata,
+    )
+
+
+def _with_post_observation_metadata(
+    plan: ProposalPlan,
+    interaction_id: str,
+    prior_proposal: dict,
+    observations: list[dict],
+) -> ProposalPlan:
+    observation_names = sorted(
+        {
+            observation.get("name", "")
+            for observation in observations
+            if observation.get("name")
+        }
+    )
+    metadata = dict(plan.metadata)
+    metadata.update(
+        {
+            "post_observation_trigger": "observation",
+            "post_observation_interaction_id": interaction_id,
+            "post_observation_parent_proposal_type": prior_proposal.get(
+                "proposal_type"
+            ),
+            "post_observation_parent_action_capability": prior_proposal.get(
+                "action_capability"
+            ),
+            "post_observation_names": observation_names,
         }
     )
     return ProposalPlan(
