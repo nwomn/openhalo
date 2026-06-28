@@ -18,6 +18,7 @@ import websockets
 
 from device_edge.shared.local_actions import execute_action
 from device_edge.shared.session_client import SessionClient
+from edge_api.protocol import with_api_version
 
 
 def terminal_supports_textual_fullscreen() -> bool:
@@ -344,11 +345,15 @@ class TerminalEdgeDaemon:
                 "runtime",
                 frame["action"]["payload"]["message"],
             )
-        action_result = {
-            "type": "action_result",
-            "device_id": self.client.device_id,
-            "result": result,
-        }
+        action_result = with_api_version(
+            {
+                "type": "action_result",
+                "device_id": self.client.device_id,
+                "result": result,
+            }
+        )
+        if frame.get("request_id"):
+            action_result["request_id"] = frame["request_id"]
         if frame.get("interaction_id"):
             action_result["interaction_id"] = frame["interaction_id"]
         return action_result

@@ -1,5 +1,12 @@
 """Minimal action construction for the v0 runtime."""
 
+from itertools import count
+
+from edge_api.protocol import with_api_version
+
+
+_action_request_counter = count(1)
+
 
 def build_interaction_update(
     target_device_id: str,
@@ -14,11 +21,13 @@ def build_interaction_update(
             interaction_id=interaction.get("interaction_id", ""),
             status=interaction.get("status", ""),
         )
-    return {
-        "type": "interaction_update",
-        "device_id": target_device_id,
-        "interaction": interaction,
-    }
+    return with_api_version(
+        {
+            "type": "interaction_update",
+            "device_id": target_device_id,
+            "interaction": interaction,
+        }
+    )
 
 
 def build_action_request(target_device_id: str, action: dict, trace_recorder=None) -> dict:
@@ -29,11 +38,14 @@ def build_action_request(target_device_id: str, action: dict, trace_recorder=Non
             target_device_id=target_device_id,
             capability=action["capability"],
         )
-    return {
-        "type": "action_request",
-        "device_id": target_device_id,
-        "action": action,
-    }
+    return with_api_version(
+        {
+            "type": "action_request",
+            "request_id": f"action-{next(_action_request_counter)}",
+            "device_id": target_device_id,
+            "action": action,
+        }
+    )
 
 
 def required_device_capability_for_action(action_capability: str) -> str:

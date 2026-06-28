@@ -71,6 +71,52 @@ flowchart LR
     FE4 -. "logical: action result / local execution status" .-> BE5
 ```
 
+## Edge API Interaction Flow
+
+This diagram makes the `M17.0` API boundary explicit. Device edges use the public Edge API to connect, announce capabilities, push user events or observations, receive runtime actions, return action results, and receive interaction status updates. Runtime internals stay behind `Gateway`.
+
+```mermaid
+sequenceDiagram
+    participant Edge as Device Edge<br/>terminal / host / external device
+    participant API as Edge API v1<br/>WebSocket session
+    participant GW as Gateway
+    participant State as State / Context
+    participant Agent as Agent Runtime<br/>Proposal + Presence + Planning
+    participant Action as Action Layer
+
+    Edge->>API: connect(device_id, device_type, role, auth)
+    API->>GW: validate version, auth, device envelope
+    GW->>State: register online device
+    GW-->>API: connect_ok
+
+    Edge->>API: capability_announce(capabilities)
+    API->>GW: validate public capability contract
+    GW->>State: persist device capability state
+
+    alt User intent
+        Edge->>API: event_push(text.input / voice.input / quick_reply)
+    else Context evidence
+        Edge->>API: observation_push(activity / health / location / sensors)
+    end
+
+    API->>GW: normalize public frame
+    GW->>State: record event or observations
+    State->>Agent: compact snapshot + grounding inputs
+    Agent->>Agent: proposal formation
+    Agent->>Agent: presence decision
+    Agent->>Action: execution plan if allowed
+    Action->>GW: action_request(target_device, capability, payload)
+    GW-->>API: action_request(request_id, interaction_id)
+    API-->>Edge: perform local action
+
+    Edge->>API: action_result(request_id, interaction_id, status, details)
+    API->>GW: validate result envelope
+    GW->>State: record result and interaction lineage
+    State->>Agent: post-action re-entry when relevant
+    GW-->>API: interaction_update(status, visibility, summary)
+    API-->>Edge: update local surface
+```
+
 ## Runtime Decision Flow
 
 This diagram complements the module diagram above. The module diagram shows ownership and boundaries. This flow diagram shows how the runtime enters proactive decision-making and how both proactive entry paths converge on the same explicit presence gate inside `Agent Runtime`.

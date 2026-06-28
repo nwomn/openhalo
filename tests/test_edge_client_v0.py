@@ -82,7 +82,7 @@ class EdgeClientTests(unittest.TestCase):
             ],
         )
 
-        self.assertEqual(frame["type"], "event_push")
+        self.assertEqual(frame["type"], "observation_push")
         self.assertEqual(frame["device_id"], "host-edge-1")
         self.assertEqual(frame["capability"], "host.metrics")
         self.assertIn("event_id", frame)
@@ -197,7 +197,7 @@ class EdgeClientTests(unittest.TestCase):
             observed_at="2026-06-22T10:10:00Z",
         )
 
-        self.assertEqual(frame["type"], "event_push")
+        self.assertEqual(frame["type"], "observation_push")
         self.assertEqual(frame["device_id"], "terminal-edge-1")
         self.assertEqual(frame["capability"], "terminal.context")
         self.assertEqual(

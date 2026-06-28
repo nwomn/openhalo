@@ -1,31 +1,10 @@
-"""Shared frame helpers for the v0 runtime protocol."""
+"""Compatibility imports for the public Edge API protocol."""
 
-REQUIRED_TYPES = {
-    "connect",
-    "connect_ok",
-    "capability_announce",
-    "event_push",
-    "event_ack",
-    "action_request",
-    "action_result",
-    "interaction_update",
-    "error",
-}
-
-
-def validate_frame(frame: dict) -> dict:
-    frame_type = frame.get("type")
-    if frame_type not in REQUIRED_TYPES:
-        raise ValueError(f"Unsupported frame type: {frame_type!r}")
-    return frame
-
-
-def build_connect_frame(device_id: str, device_type: str, token: str) -> dict:
-    return {
-        "type": "connect",
-        "device": {
-            "device_id": device_id,
-            "device_type": device_type,
-        },
-        "auth": {"token": token},
-    }
+from edge_api.protocol import API_VERSION
+from edge_api.protocol import REQUIRED_TYPES
+from edge_api.protocol import build_capability_announce_frame
+from edge_api.protocol import build_connect_frame
+from edge_api.protocol import build_event_push_frame
+from edge_api.protocol import build_observation_push_frame
+from edge_api.protocol import validate_frame
+from edge_api.protocol import with_api_version

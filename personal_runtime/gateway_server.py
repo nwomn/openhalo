@@ -10,6 +10,8 @@ from pathlib import Path
 import websockets
 from websockets.exceptions import ConnectionClosedOK
 
+from edge_api.protocol import validate_frame
+from edge_api.protocol import with_api_version
 from personal_runtime.action_layer import build_action_request
 from personal_runtime.action_layer import build_interaction_update
 from personal_runtime.action_layer import build_planned_action
@@ -221,7 +223,7 @@ class RuntimeGateway:
         return replies
 
     def _build_event_replies(self, frame: dict) -> list[dict]:
-        replies = [{"type": "event_ack"}]
+        replies = [with_api_version({"type": "event_ack"})]
         payload = frame["payload"]
         direct_action = payload.get("direct_action")
         if direct_action is not None:
@@ -693,7 +695,8 @@ class RuntimeGateway:
 
     def _handle_frames_sync(self, frames: list[dict]) -> list[dict]:
         replies = []
-        for frame in frames:
+        for raw_frame in frames:
+            frame = self._normalize_public_frame(validate_frame(raw_frame))
             if frame["type"] == "connect":
                 self._record_trace(
                     "GATEWAY",
@@ -701,7 +704,11 @@ class RuntimeGateway:
                     device_id=frame["device"]["device_id"],
                 )
                 if frame["auth"]["token"] != self.shared_token:
-                    replies.append({"type": "error", "message": "unauthorized"})
+                    replies.append(
+                        with_api_version(
+                            {"type": "error", "message": "unauthorized"}
+                        )
+                    )
                     continue
                 self.state.register_device(
                     frame["device"]["device_id"],
@@ -719,14 +726,15 @@ class RuntimeGateway:
                     f"{frame['device']['device_id']} "
                     f"({frame['device']['device_type']})"
                 )
-                replies.append({"type": "connect_ok"})
+                replies.append(with_api_version({"type": "connect_ok"}))
             elif frame["type"] == "capability_announce":
                 self._record_trace(
                     "GATEWAY",
                     "received capability_announce",
                     device_id=frame["device_id"],
                 )
-                for name in frame["capabilities"]:
+                for capability in frame["capabilities"]:
+                    name = self._capability_name(capability)
                     self.state.register_capability(frame["device_id"], name)
                 self._persist_state()
             elif frame["type"] == "event_push":
@@ -763,6 +771,22 @@ class RuntimeGateway:
                 self.state.record_interaction(frame["interaction"])
                 self._persist_state()
         return replies
+
+    @staticmethod
+    def _capability_name(capability: str | dict) -> str:
+        if isinstance(capability, dict):
+            return capability["name"]
+        return capability
+
+    @staticmethod
+    def _normalize_public_frame(frame: dict) -> dict:
+        if frame["type"] != "observation_push":
+            return frame
+        return {
+            **frame,
+            "type": "event_push",
+            "payload": {"observations": frame.get("observations", [])},
+        }
 
     def _extract_runtime_observations(self, frame: dict) -> list[RuntimeObservation]:
         observations = frame["payload"].get("observations", [])

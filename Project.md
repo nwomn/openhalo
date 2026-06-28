@@ -252,6 +252,7 @@ Sub-goals:
 - 4.16. Define milestone M15: runtime-native credential and runtime-config baseline, so OpenHalo can authenticate real model-provider access through its own inspectable local runtime configuration flow instead of depending on ad hoc shell environment variables or external tool-specific credential stores
 - 4.17. Define milestone M16: post-action deliberation and interaction action loop, so action results or fresh observations can re-enter `Agent Runtime` inside the same interaction lifecycle and yield a new inspectable `reply`, `action`, `clarification`, or `no_intervention` outcome instead of terminating at a fixed completion formatter
 - 4.18. Define milestone M17: multi-edge interaction expansion after the first terminal/model/action-loop baseline, so additional device surfaces can join the same presence-governed interaction model without re-centering the system on any single frontend
+- 4.18.1. Define milestone M17.0: public Edge API boundary and internal-runtime encapsulation baseline, so new device edges can integrate through stable external API contracts while `Personal Runtime` internals remain closed behind the `Edge Session Link <-> Gateway` boundary
 - 4.19. Define milestone M18: observation-driven intent sensing after multi-edge expansion, so the runtime can periodically evaluate the full current observation/context picture while otherwise idle, infer whether a user need or environmental condition warrants a proposal, and still route any intervention through model-backed proposal formation plus `Presence Router`
 - 4.20. Define milestone M19: agent behavior contracts and unified action/tool governance, so model-backed proposal formation, post-action deliberation, model-native tool calls, MCP/tool/skill calls, runtime-local tools, and external device actions are constrained by one inspectable runtime contract and capability registry after the system has enough real action/tool and multi-edge surface area to validate the governance model
 - 4.21. Define milestone M20: policy learning and review loop after the runtime is stable but not yet fully ergonomic, so intervention feedback, ignored interactions, explicit user responses, and runtime replays can produce model-backed, review-gated policy updates rather than remaining as ad hoc one-off heuristics
@@ -302,6 +303,16 @@ Acceptance criteria for M16 post-action deliberation and interaction action loop
 - The accepted implementation may still keep one current `primary action` per deliberation turn, but one interaction may span more than one deliberation turn with traceable lineage between turns
 - Automated tests cover at least one result-driven summary-only case, one follow-up action case, and one clarification or silent-completion case on the normal live chain
 - Human acceptance demonstrates a realistic terminal/device scenario where a remote action result causes either a natural-language follow-up or another planned action through the normal runtime path
+
+Acceptance criteria for M17.0 public Edge API boundary:
+
+- A written external Edge API contract defines device registration, authentication shape, capability announcement, event and observation push, action request delivery, action result return, interaction update delivery, error frames, versioning, and compatibility expectations
+- `Personal Runtime` backend internals are treated as closed implementation details for edge authors; external edges must not import or depend on `personal_runtime` internal modules, state objects, agent/presence implementation details, or repository-private helper contracts
+- The current terminal edge and host edge interact with the runtime only through the public Edge API contract or an explicitly documented official SDK/client wrapper over that contract, not through backend-internal shortcuts
+- The official Python edge client, if retained, is documented and tested as a convenience SDK over the public API rather than as the only valid integration path
+- Automated tests include at least one external-edge simulation that connects through the public API without importing backend internals, announces capabilities, pushes observations or user events, receives an action request, returns an action result, and preserves interaction lineage
+- Existing runtime, terminal-edge, host-edge, model-provider, prompt-contract, proposal-formation, and action-loop test suites pass after the API boundary refactor
+- Human acceptance demonstrates that a new edge can be added by following the documented API contract rather than modifying runtime internals or copying a built-in edge implementation
 
 Acceptance criteria for M17 multi-edge interaction expansion:
 
@@ -366,9 +377,38 @@ Acceptance criteria:
 
 Status:
 
-- In progress (`M7`, `M8`, `M9`, `M10`, `M11`, `M12`, `M13`, `M14`, `M15`, and `M16` completed and accepted; `M17` multi-edge interaction expansion is now the next milestone; `M18` observation-driven idle intent sensing and `M19` action/tool governance remain later work; `M20` policy learning/review is intentionally deferred until the system is stable but not fully ergonomic; storage hardening is deferred to `M21`)
+- In progress (`M7`, `M8`, `M9`, `M10`, `M11`, `M12`, `M13`, `M14`, `M15`, `M16`, and `M17.0` completed and accepted; broader `M17` multi-edge interaction expansion is now the next milestone on top of the accepted public Edge API boundary; `M18` observation-driven idle intent sensing and `M19` action/tool governance remain later work; `M20` policy learning/review is intentionally deferred until the system is stable but not fully ergonomic; storage hardening is deferred to `M21`)
 
 ## Completed Sub-goals
+
+### Completed: M17.0 public Edge API boundary and internal-runtime encapsulation baseline
+
+Result:
+
+- The public Edge API boundary is documented in `docs/edge-api.md`, covering device registration, authentication shape, capability announcement, user events, observations, action requests, action results, interaction updates, errors, versioning, and compatibility expectations
+- The runtime architecture baseline now includes an `M17.0` Edge API interaction flow diagram that shows terminal, host, and external edges using `Edge API v1` before traffic reaches `Gateway`
+- A public `edge_api` package defines dependency-free `edge.runtime.v1` frame helpers so external edge authors do not need to import `personal_runtime` internals
+- The official Python edge client now builds connect, capability, user-event, observation, and action-result frames through the public API wrapper
+- The current terminal edge and host edge preserve their normal runtime behavior while using the public API envelope for edge/runtime traffic
+- `Gateway` accepts versioned public frames, normalizes `observation_push` into the existing runtime observation path, supports capability object announcements, and emits versioned `connect_ok`, `event_ack`, `action_request`, `interaction_update`, and `error` frames
+- `action_request` frames now carry a public `request_id`, while `interaction_id` continues to preserve interaction lineage through action results and post-action re-entry
+- Automated tests include a raw external-edge simulation that connects through public API frames, announces capabilities, pushes an observation and user event, receives an action request, returns an action result, and preserves interaction lineage without importing runtime internals
+- Fresh full verification passed with `.venv/bin/python -m unittest discover -s tests -v`, reporting 294 tests OK
+- Human acceptance is recorded from real-use feedback that the actual M17.0 API path is stable enough for this milestone
+
+Acceptance criteria:
+
+- A written external Edge API contract exists
+- Runtime internals are closed to edge authors behind `Edge API v1 -> Gateway`
+- Terminal edge and host edge use the public API contract or official SDK wrapper
+- The Python edge client is documented and tested as a convenience wrapper rather than the only integration path
+- External-edge raw-frame automated coverage exists
+- Existing runtime, terminal-edge, host-edge, model-provider, prompt-contract, proposal-formation, and action-loop tests pass after the API boundary refactor
+- Human acceptance confirms the new edge API path is stable enough for the milestone
+
+Status:
+
+- Completed and accepted
 
 ### Completed: Project-level AGENTS enforcement baseline
 
@@ -1202,7 +1242,7 @@ Current M3 slice direction:
 
 Current phase:
 
-- Post-M16 architecture expansion is now ready to move into `M17` multi-edge interaction expansion; `M15` runtime-native credential/runtime-config baseline and `M16` post-action/active-observation interaction action-loop baseline are accepted as complete, while `M18` observation-driven idle intent sensing, `M19` behavior-contract/action-tool governance, and `M20` policy learning/review remain later work and bounded-growth/storage-hygiene hardening remains intentionally deferred to `M21`
+- Post-M16 architecture expansion has completed and accepted `M17.0` public Edge API boundary and internal-runtime encapsulation; active focus is now ready to move into broader `M17` multi-edge interaction expansion on top of that accepted API boundary, while `M18` observation-driven idle intent sensing, `M19` behavior-contract/action-tool governance, and `M20` policy learning/review remain later work and bounded-growth/storage-hygiene hardening remains intentionally deferred to `M21`
 
 Current progress summary:
 
@@ -1221,6 +1261,8 @@ Current progress summary:
 - The earlier OpenClaw source audit remains useful as reference, especially around protocol and client transport patterns, but no longer drives the main delivery path
 - We have explicitly defined that all physical frontend/backend communication must be funneled through `Edge Session Link <-> Gateway`
 - We have partially defined the frontend/backend contract around capability events, state sync, action commands, and execution results
+- We have now added an `M17.0` Edge API interaction flow diagram to the runtime architecture baseline, showing how external, terminal, and host edges connect, announce capabilities, push events or observations, receive action requests, return action results, and preserve interaction updates through the public API boundary
+- We have completed and accepted the `M17.0` implementation baseline: a public `edge_api` package now defines versioned Edge API frame helpers, terminal and host edges build frames through the public API wrapper, Gateway accepts versioned public frames including `observation_push`, action requests and interaction updates carry the public API envelope, and an external-edge raw-frame test validates a full connect/capability/observation/event/action-result turn without importing runtime internals
 - We now prefer an agent-centered but presence-governed product reading of the architecture: the runtime should let the agent form intervention proposals while requiring explicit presence decisions before surfacing itself
 - We now treat the current `Presence Router` concept as a broader intervention-governance layer inside the agent runtime rather than a narrow routing helper
 - We now prefer durable proactive behavior to live in explicit or inspectable policy that can be created and revised by agent/model loops instead of only in end-to-end opaque model behavior

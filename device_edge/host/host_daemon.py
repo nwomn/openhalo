@@ -15,6 +15,7 @@ from pathlib import Path
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+from edge_api.protocol import with_api_version
 from device_edge.host.host_observers import build_host_metric_observations
 from device_edge.host.host_observers import build_runtime_health_observations
 from device_edge.host.host_observers import read_host_metric_snapshot
@@ -144,11 +145,15 @@ class HostEdgeDaemon:
                 capability=action["capability"],
                 status=result["status"],
             )
-        action_result = {
-            "type": "action_result",
-            "device_id": self.client.device_id,
-            "result": result,
-        }
+        action_result = with_api_version(
+            {
+                "type": "action_result",
+                "device_id": self.client.device_id,
+                "result": result,
+            }
+        )
+        if frame.get("request_id"):
+            action_result["request_id"] = frame["request_id"]
         if frame.get("interaction_id"):
             action_result["interaction_id"] = frame["interaction_id"]
         return action_result

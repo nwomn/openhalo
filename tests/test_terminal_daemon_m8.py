@@ -512,7 +512,7 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
             observed_at="2026-06-22T10:10:00Z",
         )
 
-        self.assertEqual(frame["type"], "event_push")
+        self.assertEqual(frame["type"], "observation_push")
         self.assertEqual(frame["capability"], "terminal.context")
         self.assertEqual(
             frame["payload"]["observations"][0]["name"],
@@ -619,7 +619,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(results, [])
         self.assertEqual(
             [frame["type"] for frame in sent_frames],
-            ["connect", "capability_announce", "event_push"],
+            ["connect", "capability_announce", "observation_push"],
         )
         self.assertFalse(
             any(frame.get("capability") == "text.input" for frame in sent_frames)

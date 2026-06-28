@@ -5,6 +5,7 @@ from pathlib import Path
 import websockets
 
 from device_edge.shared.session_client import SessionClient
+from edge_api.protocol import API_VERSION
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.runtime_state import RuntimeState
 
@@ -28,6 +29,112 @@ def _last_interaction_update(replies: list[dict]) -> dict | None:
 
 
 class GatewayTests(unittest.IsolatedAsyncioTestCase):
+    async def test_external_edge_uses_public_api_frames_for_full_turn(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "api_version": API_VERSION,
+                    "type": "connect",
+                    "device": {
+                        "device_id": "external-display-1",
+                        "device_type": "external-display",
+                        "role": "interactive_surface",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "capability_announce",
+                    "device_id": "external-display-1",
+                    "capabilities": [
+                        {
+                            "name": "text.input",
+                            "direction": "edge_to_runtime",
+                        },
+                        {
+                            "name": "notification.show",
+                            "direction": "runtime_to_edge",
+                        },
+                        {
+                            "name": "surface.activity",
+                            "direction": "edge_to_runtime",
+                        },
+                    ],
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "observation_push",
+                    "device_id": "external-display-1",
+                    "capability": "surface.activity",
+                    "observations": [
+                        {
+                            "name": "surface.activity_state",
+                            "value": "active",
+                            "observed_at": "2026-06-29T10:00:00Z",
+                            "confidence": 1.0,
+                        }
+                    ],
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "event_push",
+                    "device_id": "external-display-1",
+                    "capability": "text.input",
+                    "payload": {
+                        "text": "hello from an external edge",
+                        "observed_at": "2026-06-29T10:00:01Z",
+                    },
+                },
+            ]
+        )
+
+        action_request = _last_action_request(replies)
+        self.assertIsNotNone(action_request)
+        self.assertEqual(action_request["api_version"], API_VERSION)
+        self.assertRegex(action_request["request_id"], r"^action-\d+$")
+        self.assertRegex(action_request["interaction_id"], r"^interaction-\d+$")
+        self.assertEqual(action_request["device_id"], "external-display-1")
+        self.assertEqual(
+            gateway.state.observations[-1].name,
+            "surface.activity_state",
+        )
+
+        result_replies = await gateway.handle_test_frames(
+            [
+                {
+                    "api_version": API_VERSION,
+                    "type": "action_result",
+                    "request_id": action_request["request_id"],
+                    "interaction_id": action_request["interaction_id"],
+                    "device_id": "external-display-1",
+                    "result": {
+                        "status": "ok",
+                        "capability": "notification.show",
+                        "observed_at": "2026-06-29T10:00:02Z",
+                        "details": {
+                            "message": action_request["action"]["payload"][
+                                "message"
+                            ],
+                        },
+                    },
+                }
+            ]
+        )
+
+        interaction_update = _last_interaction_update(result_replies)
+        self.assertIsNotNone(interaction_update)
+        self.assertEqual(interaction_update["api_version"], API_VERSION)
+        self.assertEqual(
+            interaction_update["interaction"]["interaction_id"],
+            action_request["interaction_id"],
+        )
+
     async def test_connect_event_and_action_roundtrip(self) -> None:
         gateway = RuntimeGateway(
             shared_token="dev-token",
@@ -817,7 +924,13 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        self.assertEqual(replies, [{"type": "connect_ok"}, {"type": "event_ack"}])
+        self.assertEqual(
+            replies,
+            [
+                {"api_version": API_VERSION, "type": "connect_ok"},
+                {"api_version": API_VERSION, "type": "event_ack"},
+            ],
+        )
         self.assertEqual(gateway.state.interventions, [])
         self.assertEqual(gateway.state.observations[-1].name, "runtime.health_state")
 

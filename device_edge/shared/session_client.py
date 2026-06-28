@@ -7,7 +7,11 @@ import websockets
 
 from device_edge.shared.capability_runtime import CapabilityRuntime
 from device_edge.shared.local_actions import execute_action
-from personal_runtime.protocol import build_connect_frame
+from edge_api.protocol import build_capability_announce_frame
+from edge_api.protocol import build_connect_frame
+from edge_api.protocol import build_event_push_frame
+from edge_api.protocol import build_observation_push_frame
+from edge_api.protocol import with_api_version
 from personal_runtime.trace_recorder import TraceRecorder
 
 
@@ -38,20 +42,18 @@ class SessionClient:
             "build capability_announce frame",
             capabilities=",".join(self.capability_runtime.capabilities),
         )
-        return {
-            "type": "capability_announce",
-            "device_id": self.device_id,
-            "capabilities": self.capability_runtime.capabilities,
-        }
+        return build_capability_announce_frame(
+            self.device_id,
+            self.capability_runtime.capabilities,
+        )
 
     def build_text_event(self, text: str) -> dict:
         self._record_trace("EDGE", "build text.input event", text=text)
-        return {
-            "type": "event_push",
-            "device_id": self.device_id,
-            "capability": "text.input",
-            "payload": {"text": text},
-        }
+        return build_event_push_frame(
+            device_id=self.device_id,
+            capability="text.input",
+            payload={"text": text},
+        )
 
     def build_direct_action_event(
         self,
@@ -70,15 +72,14 @@ class SessionClient:
         }
         if target_device_id is not None:
             direct_action["target_device_id"] = target_device_id
-        return {
-            "type": "event_push",
-            "device_id": self.device_id,
-            "capability": "text.input",
-            "payload": {
+        return build_event_push_frame(
+            device_id=self.device_id,
+            capability="text.input",
+            payload={
                 "text": "",
                 "direct_action": direct_action,
             },
-        }
+        )
 
     def build_agent_initiative_event(
         self,
@@ -103,15 +104,14 @@ class SessionClient:
             initiative["target_device_hint"] = target_device_hint
         if message is not None:
             initiative["message"] = message
-        return {
-            "type": "event_push",
-            "device_id": self.device_id,
-            "capability": "agent.initiative",
-            "payload": {
+        return build_event_push_frame(
+            device_id=self.device_id,
+            capability="agent.initiative",
+            payload={
                 "observed_at": observed_at,
                 "agent_initiative": initiative,
             },
-        }
+        )
 
     def build_observation_event(self, capability: str, observations: list[dict]) -> dict:
         event_id = f"{self.device_id}-evt-{next(self._event_counter)}"
@@ -121,13 +121,12 @@ class SessionClient:
             capability=capability,
             event_id=event_id,
         )
-        return {
-            "type": "event_push",
-            "device_id": self.device_id,
-            "capability": capability,
-            "event_id": event_id,
-            "payload": {"observations": observations},
-        }
+        return build_observation_push_frame(
+            device_id=self.device_id,
+            capability=capability,
+            event_id=event_id,
+            observations=observations,
+        )
 
     def build_terminal_activity_event(
         self,
@@ -153,11 +152,15 @@ class SessionClient:
             "executed notification.show",
             status=result["status"],
         )
-        action_result = {
-            "type": "action_result",
-            "device_id": self.device_id,
-            "result": result,
-        }
+        action_result = with_api_version(
+            {
+                "type": "action_result",
+                "device_id": self.device_id,
+                "result": result,
+            }
+        )
+        if frame.get("request_id"):
+            action_result["request_id"] = frame["request_id"]
         if frame.get("interaction_id"):
             action_result["interaction_id"] = frame["interaction_id"]
         return action_result
