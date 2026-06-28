@@ -3,6 +3,10 @@ __pycache__/
 .pytest_cache/
 *.pyc
 .venv/
+.coverage
+coverage.json
+coverage.xml
+htmlcov/
 .runtime/
 .runtime.*/
 .runtime-test/

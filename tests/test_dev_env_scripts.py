@@ -279,6 +279,24 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("controlled-failure", result.stdout)
         self.assertIn("model-health", result.stdout)
 
+        explicit_config_result = subprocess.run(
+            [
+                str(script_path),
+                "--dry-run",
+                "--runtime-config-path",
+                "config/runtime-config.openai-local.toml",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+        )
+
+        self.assertIn(
+            "--runtime-config-path config/runtime-config.openai-local.toml",
+            explicit_config_result.stdout,
+        )
+
     def test_dev_env_document_mentions_model_provider_acceptance_path(self) -> None:
         document_path = ROOT / "docs" / "dev-env.md"
 
@@ -286,6 +304,54 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("verify-model-provider", contents)
         self.assertIn("provider-probe", contents)
         self.assertIn("controlled failure", contents)
+
+    def test_action_loop_verification_script_exists_and_supports_dry_run(self) -> None:
+        script_path = ROOT / "bin" / "verify-action-loop"
+
+        self.assertTrue(script_path.exists())
+        self.assertTrue(os.access(script_path, os.X_OK))
+        contents = script_path.read_text(encoding="utf-8")
+        self.assertIn("RuntimeGateway", contents)
+        self.assertIn("post_action", contents)
+
+        result = subprocess.run(
+            [str(script_path), "--dry-run"],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+        )
+
+        self.assertIn("runtime-status-reentry", result.stdout)
+        self.assertIn("follow-up-action", result.stdout)
+        self.assertIn("silent-completion", result.stdout)
+        self.assertIn("lineage-check", result.stdout)
+
+        model_result = subprocess.run(
+            [
+                str(script_path),
+                "--dry-run",
+                "--runtime-config-path",
+                "config/runtime-config.openai-local.toml",
+                "--require-model-backed",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+        )
+
+        self.assertIn("config/runtime-config.openai-local.toml", model_result.stdout)
+        self.assertIn("model-backed-check", model_result.stdout)
+
+    def test_dev_env_document_mentions_action_loop_acceptance_path(self) -> None:
+        document_path = ROOT / "docs" / "dev-env.md"
+
+        contents = document_path.read_text(encoding="utf-8")
+        self.assertIn("verify-action-loop", contents)
+        self.assertIn("post-action", contents)
+        self.assertIn("same interaction", contents)
+        self.assertIn("require-model-backed", contents)
 
 
 if __name__ == "__main__":

@@ -11,8 +11,10 @@ from personal_runtime.model_provider import (
     classify_provider_failure,
     build_openai_compatible_proposal_request,
     build_openai_compatible_request,
+    build_deterministic_post_action_proposal_plan,
     build_deterministic_proposal_plan,
     execute_openai_compatible_request,
+    generate_post_action_proposal_plan,
     generate_text_proposal_plan,
     parse_openai_compatible_response,
     parse_openai_compatible_proposal_response,
@@ -165,6 +167,150 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertIn("check runtime status", rendered)
         self.assertIn("runtime.status", rendered)
         self.assertIn(PROMPT_CONTEXT_VERSION, rendered)
+
+    def test_build_deterministic_post_action_proposal_plan_summarizes_runtime_status_result(
+        self,
+    ) -> None:
+        plan = build_deterministic_post_action_proposal_plan(
+            interaction_id="interaction-1",
+            prior_proposal={
+                "proposal_type": "action",
+                "action_capability": "runtime.status",
+            },
+            result={
+                "status": "ok",
+                "capability": "runtime.status",
+                "details": {"state": "running", "pid": 42137},
+            },
+            profile_name="proposal_formation",
+            fallback_reason="deterministic_post_action",
+            snapshot={"runtime.current_health_state": "healthy"},
+            grounding={"active_goals": [{"goal_id": "goal-1"}]},
+        )
+
+        self.assertEqual(plan.proposal_type, "reply")
+        self.assertEqual(plan.action_capability, "notification.show")
+        self.assertEqual(
+            plan.action_payload["message"],
+            "Runtime status: running (pid 42137).",
+        )
+        self.assertEqual(
+            plan.metadata["proposal_rationale"]["trigger"],
+            "action_result",
+        )
+        self.assertEqual(
+            plan.metadata["proposal_rationale"]["parent_action_capability"],
+            "runtime.status",
+        )
+
+    def test_build_deterministic_post_action_proposal_plan_can_request_follow_up_action(
+        self,
+    ) -> None:
+        plan = build_deterministic_post_action_proposal_plan(
+            interaction_id="interaction-1",
+            prior_proposal={
+                "proposal_type": "action",
+                "action_capability": "runtime.status",
+            },
+            result={
+                "status": "ok",
+                "capability": "runtime.status",
+                "details": {"state": "degraded", "needs_follow_up": True},
+            },
+            profile_name="proposal_formation",
+            fallback_reason="deterministic_post_action",
+        )
+
+        self.assertEqual(plan.proposal_type, "action")
+        self.assertEqual(plan.action_capability, "runtime.status")
+        self.assertEqual(plan.action_payload, {})
+        self.assertEqual(
+            plan.metadata["proposal_rationale"]["summary"],
+            "Follow-up runtime status action selected because the prior result requested another check.",
+        )
+
+    def test_build_deterministic_post_action_proposal_plan_can_finish_silently(
+        self,
+    ) -> None:
+        plan = build_deterministic_post_action_proposal_plan(
+            interaction_id="interaction-1",
+            prior_proposal={
+                "proposal_type": "reply",
+                "action_capability": "notification.show",
+            },
+            result={
+                "status": "ok",
+                "capability": "notification.show",
+                "details": {"message": "Hello! Runtime here."},
+            },
+            profile_name="proposal_formation",
+            fallback_reason="deterministic_post_action",
+        )
+
+        self.assertEqual(plan.proposal_type, "no_intervention")
+        self.assertIsNone(plan.action_capability)
+        self.assertEqual(plan.action_payload, {})
+
+    def test_generate_post_action_proposal_plan_uses_model_backed_action_result_context(
+        self,
+    ) -> None:
+        calls = []
+
+        def transport(_provider, request_payload, *_args):
+            calls.append(request_payload)
+            return {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": (
+                                    '{"proposal_type":"reply",'
+                                    '"response_text":"The runtime is running and using about 27 MB RSS.",'
+                                    '"action":{"capability":"notification.show","payload":{"message":"The runtime is running and using about 27 MB RSS."}},'
+                                    '"rationale":{"summary":"Summarized runtime.status action_result including memory.",'
+                                    '"intent_signals":["runtime.status"],'
+                                    '"grounding_signals":["runtime.current_health_state"]}}'
+                                ),
+                            }
+                        ],
+                    }
+                ]
+            }
+
+        plan = generate_post_action_proposal_plan(
+            interaction_id="interaction-1",
+            prior_proposal={
+                "proposal_type": "action",
+                "action_capability": "runtime.status",
+            },
+            result={
+                "status": "ok",
+                "capability": "runtime.status",
+                "details": {
+                    "state": "running",
+                    "pid": 42137,
+                    "memory_rss_bytes": 28114944,
+                },
+            },
+            snapshot={"runtime.current_health_state": "healthy"},
+            grounding={"active_goals": [{"goal_id": "goal-1"}]},
+            config_path=Path("config/runtime-config.example.toml"),
+            transport=transport,
+        )
+
+        self.assertEqual(plan.proposal_type, "reply")
+        self.assertEqual(plan.action_capability, "notification.show")
+        self.assertEqual(
+            plan.response_text,
+            "The runtime is running and using about 27 MB RSS.",
+        )
+        self.assertFalse(plan.metadata["used_deterministic_fallback"])
+        self.assertEqual(plan.metadata["post_action_trigger"], "action_result")
+        rendered_request = str(calls[0]["input"])
+        self.assertIn('"memory_rss_bytes": 28114944', rendered_request)
+        self.assertIn('"interaction_id": "interaction-1"', rendered_request)
 
     def test_execute_openai_compatible_proposal_request_uses_json_schema_format_when_supported(
         self,

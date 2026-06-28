@@ -109,6 +109,23 @@ probe reports `ok: false`, keep the `failure_class`, `response_shape`,
 `request_format`, `retried_shapes`, and `latency_ms` fields for diagnosis before
 continuing.
 
+When running a full regression pass, also check line coverage with `coverage.py`
+and compare it against the current baseline. Install `coverage` into the shared
+root `.venv` if it is missing, then run:
+
+```bash
+.venv/bin/python -m coverage run --source=personal_runtime,device_edge,agent_guard -m unittest -v
+.venv/bin/python -m coverage report
+```
+
+The current formal line-coverage baseline is 87% over `personal_runtime`,
+`device_edge`, and `agent_guard` after 288 passing unittest cases. Treat that
+number as a watch baseline rather than a hard gate for now: meaningful drops,
+especially in `Gateway`, `Agent Runtime`, `Presence Router`, model-provider,
+host-edge, or terminal-edge paths, should be called out in the verification
+summary. Low-coverage modules should be listed when relevant so follow-up tests
+can be prioritized.
+
 For real-use terminal acceptance with the current runtime-config baseline, use
 three long-running processes:
 
@@ -269,6 +286,12 @@ The M13 acceptance expectation is that each scenario prints readable proposal ra
 Use `bin/verify-model-provider` for the bounded M14 model-provider acceptance path.
 
 Use `bin/verify-model-provider --dry-run` first when you want to inspect the provider-probe, controlled failure, and model-health checks without calling the configured provider. The provider-probe prints a non-secret JSON report covering the selected profile, provider, model, endpoint, auth-env presence, wire API, response shape, latency, and failure class when applicable. The controlled failure check exercises a bad response-shape path, and the model-health check verifies that provider status can be persisted into runtime state.
+
+Use `bin/verify-action-loop` for the bounded M16 post-action action-loop acceptance path.
+
+Use `bin/verify-action-loop --dry-run` first when you want to inspect the scripted checks without running them. The acceptance run exercises a `runtime.status` result that re-enters `Agent Runtime` and produces a governed follow-up reply, a post-action result that plans a follow-up action in the same interaction, and a delivered notification result that completes silently while preserving `post_action` intervention lineage.
+
+For real model-backed M16 acceptance, first run `bin/verify-model-provider --runtime-config-path config/runtime-config.openai-local.toml`, then run `bin/verify-action-loop --runtime-config-path config/runtime-config.openai-local.toml --require-model-backed`. The model-backed run must show `model-backed-post-action ok`, proving the post-action proposal came from provider-backed proposal formation rather than deterministic formatting.
 
 When you need to inspect the M6 initiative path as one human-readable chain, use:
 Preferred command shape: `.venv/bin/python -m device_edge.cli.cli_edge --inspect-agent-initiative`

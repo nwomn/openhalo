@@ -205,6 +205,8 @@ def _cooldown_active(
     )
     if last_allowed is None:
         return False
+    if _is_same_interaction_post_action(proposal or {}, last_allowed):
+        return False
     return (
         abs(
             _to_epoch_minutes(now_timestamp)
@@ -219,6 +221,19 @@ def _is_explicit_user_text_proposal(proposal: dict) -> bool:
     return (
         proposal.get("source") == "sense_first"
         and metadata.get("trigger") == "text.input"
+    )
+
+
+def _is_same_interaction_post_action(
+    proposal: dict,
+    last_allowed: dict,
+) -> bool:
+    metadata = proposal.get("metadata", {})
+    return (
+        proposal.get("source") == "post_action"
+        and metadata.get("trigger") == "action_result"
+        and metadata.get("interaction_id") is not None
+        and metadata.get("interaction_id") == last_allowed.get("interaction_id")
     )
 
 

@@ -464,7 +464,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(interaction_update["interaction"]["visibility"], "silent")
         self.assertEqual(interaction_update["interaction"]["summary"], "Hello! Runtime here.")
 
-    async def test_runtime_status_completion_records_visible_summary(self) -> None:
+    async def test_runtime_status_reentry_records_visible_summary_after_delivery(self) -> None:
         gateway = RuntimeGateway(
             shared_token="dev-token",
             persist_state=False,
@@ -515,11 +515,264 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
+        follow_up = _last_action_request(replies)
+        self.assertIsNotNone(follow_up)
+        self.assertEqual(
+            follow_up["action"]["payload"]["message"],
+            "Runtime status: running (pid 42137).",
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "type": "action_result",
+                    "device_id": "desktop-dev-1",
+                    "interaction_id": action_request["interaction_id"],
+                    "result": {
+                        "status": "ok",
+                        "capability": "notification.show",
+                        "details": {
+                            "delivered_via": "terminal.stdout",
+                            "message": "Runtime status: running (pid 42137).",
+                        },
+                    },
+                }
+            ]
+        )
+
         interaction_update = _last_interaction_update(replies)
         self.assertIsNotNone(interaction_update)
         self.assertEqual(
             interaction_update["interaction"]["summary"],
             "Runtime status: running (pid 42137).",
+        )
+
+    async def test_action_result_reenters_agent_runtime_for_runtime_status_reply(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        source = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+        host = SessionClient(
+            device_id="host-edge-1",
+            device_type="server",
+            token="dev-token",
+            capabilities=["host.metrics", "runtime.health", "runtime.control"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                source.build_connect_frame(),
+                source.build_capability_announce_frame(),
+                host.build_connect_frame(),
+                host.build_capability_announce_frame(),
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {
+                        "text": "check runtime status",
+                        "observed_at": "2026-06-21T10:10:00Z",
+                    },
+                },
+            ]
+        )
+        first_action = _last_action_request(replies)
+        self.assertIsNotNone(first_action)
+
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "type": "action_result",
+                    "device_id": "host-edge-1",
+                    "interaction_id": first_action["interaction_id"],
+                    "result": {
+                        "status": "ok",
+                        "capability": "runtime.status",
+                        "observed_at": "2026-06-21T10:11:00Z",
+                        "details": {"state": "running", "pid": 42137},
+                    },
+                }
+            ]
+        )
+
+        follow_up = _last_action_request(replies)
+        self.assertIsNotNone(follow_up)
+        self.assertEqual(follow_up["interaction_id"], first_action["interaction_id"])
+        self.assertEqual(follow_up["device_id"], "desktop-dev-1")
+        self.assertEqual(follow_up["action"]["capability"], "notification.show")
+        self.assertEqual(
+            follow_up["action"]["payload"]["message"],
+            "Runtime status: running (pid 42137).",
+        )
+        self.assertEqual(gateway.state.interventions[-1]["decision"], "allow")
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["source"],
+            "post_action",
+        )
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["metadata"]["interaction_id"],
+            first_action["interaction_id"],
+        )
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["metadata"]["turn_index"],
+            2,
+        )
+
+    async def test_action_result_reentry_can_emit_follow_up_action_with_same_interaction(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        source = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+        host = SessionClient(
+            device_id="host-edge-1",
+            device_type="server",
+            token="dev-token",
+            capabilities=["host.metrics", "runtime.health", "runtime.control"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                source.build_connect_frame(),
+                source.build_capability_announce_frame(),
+                host.build_connect_frame(),
+                host.build_capability_announce_frame(),
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {
+                        "text": "check runtime status",
+                        "observed_at": "2026-06-21T10:10:00Z",
+                    },
+                },
+            ]
+        )
+        first_action = _last_action_request(replies)
+        self.assertIsNotNone(first_action)
+
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "type": "action_result",
+                    "device_id": "host-edge-1",
+                    "interaction_id": first_action["interaction_id"],
+                    "result": {
+                        "status": "ok",
+                        "capability": "runtime.status",
+                        "observed_at": "2026-06-21T10:11:00Z",
+                        "details": {
+                            "state": "degraded",
+                            "needs_follow_up": True,
+                        },
+                    },
+                }
+            ]
+        )
+
+        follow_up = _last_action_request(replies)
+        self.assertIsNotNone(follow_up)
+        self.assertEqual(follow_up["interaction_id"], first_action["interaction_id"])
+        self.assertEqual(follow_up["device_id"], "host-edge-1")
+        self.assertEqual(follow_up["action"]["capability"], "runtime.status")
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["proposal_type"],
+            "action",
+        )
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["metadata"][
+                "parent_action_capability"
+            ],
+            "runtime.status",
+        )
+
+    async def test_action_result_reentry_can_finish_silently_after_visible_notification(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        client = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {
+                        "text": "hello runtime",
+                        "observed_at": "2026-06-21T10:10:00Z",
+                    },
+                },
+            ]
+        )
+        first_action = _last_action_request(replies)
+        self.assertIsNotNone(first_action)
+
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "type": "action_result",
+                    "device_id": "desktop-dev-1",
+                    "interaction_id": first_action["interaction_id"],
+                    "result": {
+                        "status": "ok",
+                        "capability": "notification.show",
+                        "observed_at": "2026-06-21T10:11:00Z",
+                        "details": {
+                            "delivered_via": "terminal.stdout",
+                            "message": "Hello! Runtime here.",
+                        },
+                    },
+                },
+            ]
+        )
+
+        interaction_update = _last_interaction_update(replies)
+        self.assertIsNotNone(interaction_update)
+        self.assertEqual(
+            len([reply for reply in replies if reply["type"] == "action_request"]),
+            0,
+        )
+        self.assertEqual(interaction_update["interaction"]["visibility"], "silent")
+        self.assertEqual(
+            interaction_update["interaction"]["summary"],
+            "Hello! Runtime here.",
+        )
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["source"],
+            "post_action",
+        )
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["proposal_type"],
+            "no_intervention",
         )
 
     async def test_normal_text_can_form_clarification_proposal(self) -> None:

@@ -4,10 +4,43 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-if [[ "${1:-}" == "--dry-run" ]]; then
+DRY_RUN=0
+RUNTIME_CONFIG_PATH=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    --runtime-config-path|--llm-config-path)
+      RUNTIME_CONFIG_PATH="$2"
+      shift 2
+      ;;
+    *)
+      echo "[verify-model-provider] unknown argument: $1" >&2
+      exit 2
+      ;;
+  esac
+done
+
+PROBE_CMD=(.venv/bin/python -m personal_runtime.model_provider_probe --profile proposal_formation)
+if [[ -n "$RUNTIME_CONFIG_PATH" ]]; then
+  PROBE_CMD+=(--runtime-config-path "$RUNTIME_CONFIG_PATH")
+fi
+
+print_cmd() {
+  printf "  "
+  printf "%q " "$@"
+  printf "\n"
+}
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
   cat <<'STEPS'
 provider-probe:
-  .venv/bin/python -m personal_runtime.model_provider_probe --profile proposal_formation
+STEPS
+  print_cmd "${PROBE_CMD[@]}"
+  cat <<'STEPS'
 controlled-failure:
   .venv/bin/python -m unittest tests.test_model_provider.ModelProviderConfigTests.test_probe_model_provider_reports_controlled_failure_classification
 model-health:
@@ -16,7 +49,7 @@ STEPS
   exit 0
 fi
 
-.venv/bin/python -m personal_runtime.model_provider_probe --profile proposal_formation
+"${PROBE_CMD[@]}"
 .venv/bin/python -m unittest \
   tests.test_model_provider.ModelProviderConfigTests.test_probe_model_provider_reports_controlled_failure_classification \
   tests.test_runtime_state_v0.RuntimeStateTests.test_records_and_roundtrips_runtime_model_health

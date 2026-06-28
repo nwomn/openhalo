@@ -86,6 +86,28 @@ class LocalCliSession:
                 self.client.device_id,
             )
             follow_up = self.gateway.run_roundtrip([result])
+            follow_up_action = next(
+                (
+                    reply
+                    for reply in reversed(follow_up)
+                    if reply["type"] == "action_request"
+                ),
+                None,
+            )
+            if follow_up_action is not None:
+                follow_up_result = self.client.handle_action_request(follow_up_action)
+                final_follow_up = self.gateway.run_roundtrip([follow_up_result])
+                interaction_update = next(
+                    (
+                        reply
+                        for reply in reversed(final_follow_up)
+                        if reply["type"] == "interaction_update"
+                    ),
+                    None,
+                )
+                if interaction_update is not None:
+                    result["interaction"] = interaction_update["interaction"]
+                return result
             interaction_update = next(
                 (
                     reply

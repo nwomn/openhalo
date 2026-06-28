@@ -15,6 +15,7 @@ from personal_runtime.action_layer import build_interaction_update
 from personal_runtime.action_layer import build_planned_action
 from personal_runtime.agent_executor import build_intervention_proposal
 from personal_runtime.agent_executor import build_agent_initiative_proposal
+from personal_runtime.agent_executor import build_post_action_proposal
 from personal_runtime.context_contracts import RuntimeObservation
 from personal_runtime.context_snapshot import build_context_snapshot
 from personal_runtime.context_snapshot import build_context_snapshot_contract
@@ -96,6 +97,35 @@ class RuntimeGateway:
             else None,
         }
 
+    def _build_interaction_turn_update(
+        self,
+        interaction: dict,
+        proposal,
+        decision,
+    ) -> dict:
+        participant_device_ids = list(interaction.get("participant_device_ids", []))
+        for device_id in (
+            interaction.get("source_device_id"),
+            decision.target_device_id,
+        ):
+            if device_id is not None and device_id not in participant_device_ids:
+                participant_device_ids.append(device_id)
+        return {
+            **interaction,
+            "status": "planned",
+            "participant_device_ids": participant_device_ids,
+            "proposal_type": proposal.proposal_type,
+            "interaction_type": proposal.interaction_type,
+            "visibility_intent": proposal.visibility_intent,
+            "candidate_surface_hints": proposal.candidate_surface_hints or [],
+            "primary_action": {
+                "capability": proposal.action_capability,
+                "target_device_id": decision.target_device_id,
+            }
+            if proposal.action_capability is not None
+            else None,
+        }
+
     def _build_interaction_summary(
         self,
         proposal: dict,
@@ -154,6 +184,9 @@ class RuntimeGateway:
         source_device_id = interaction.get("source_device_id")
         capability = proposal.get("action_capability")
         delivered_message = result.get("details", {}).get("message")
+
+        if proposal_type == "no_intervention":
+            return proposal.get("visibility_intent", "silent")
 
         if (
             proposal_type in {"reply", "clarification"}
@@ -295,6 +328,18 @@ class RuntimeGateway:
         replies.append(planned_action)
         return replies
 
+    def _turn_index_for_interaction(self, interaction_id: str) -> int:
+        return (
+            len(
+                [
+                    intervention
+                    for intervention in self.state.interventions
+                    if intervention.get("interaction_id") == interaction_id
+                ]
+            )
+            + 1
+        )
+
     def trigger_agent_initiative(
         self,
         source_device_id: str,
@@ -387,19 +432,97 @@ class RuntimeGateway:
         )
         if interaction is None or intervention is None:
             return []
+        result = frame["result"]
+        decision_time = self._action_result_timestamp(frame)
+        snapshot = build_context_snapshot(
+            self.state.observations,
+            snapshot_time=decision_time or None,
+        )
+        edge_history = self._build_edge_history_for_grounding()
+        grounding_bundle = build_model_grounding_bundle(
+            state=self.state,
+            snapshot=snapshot,
+            edge_history=edge_history,
+        )
+        snapshot_contract = build_context_snapshot_contract(
+            self.state.observations,
+            snapshot_time=decision_time or None,
+        )
+        proposal = build_post_action_proposal(
+            interaction=interaction,
+            prior_proposal=intervention["proposal"],
+            result=result,
+            turn_index=self._turn_index_for_interaction(interaction_id),
+            snapshot=snapshot,
+            grounding_bundle=grounding_bundle,
+            trace_recorder=self.trace_recorder,
+            config_path=self.llm_config_path,
+        )
+        self.state.record_model_health(
+            proposal.metadata,
+            observed_at=decision_time,
+        )
+        decision = choose_presence_decision(
+            source_device_id=interaction["source_device_id"],
+            snapshot=snapshot,
+            devices=self.state.devices,
+            online_device_ids=set(self.online_device_ids),
+            required_capability=proposal.required_capability,
+            proposal=proposal.to_dict(),
+            intervention_history=self.state.interventions,
+            now_timestamp=decision_time,
+            trace_recorder=self.trace_recorder,
+        )
+        self.state.update_interaction(
+            interaction_id,
+            **{
+                key: value
+                for key, value in self._build_interaction_turn_update(
+                    interaction=interaction,
+                    proposal=proposal,
+                    decision=decision,
+                ).items()
+                if key != "interaction_id"
+            },
+        )
+        self.state.record_intervention(
+            {
+                "interaction_id": interaction_id,
+                "source_device_id": interaction["source_device_id"],
+                "target_device_id": decision.target_device_id,
+                "action_capability": proposal.action_capability,
+                "decision": decision.decision,
+                "reason": decision.reason,
+                "proposal": proposal.to_dict(),
+                "grounding_bundle": grounding_bundle,
+                "snapshot_contract": snapshot_contract,
+                "recorded_at": decision_time,
+            }
+        )
+        self._persist_state()
+
+        if decision.decision == "allow" and proposal.action_capability is not None:
+            planned_action = build_planned_action(
+                decision.target_device_id or interaction["source_device_id"],
+                proposal.to_dict(),
+                trace_recorder=self.trace_recorder,
+            )
+            planned_action["interaction_id"] = interaction_id
+            return [planned_action]
+
         visibility = self._completion_visibility_for_action_result(
             interaction=interaction,
-            proposal=intervention["proposal"],
-            result=frame["result"],
+            proposal=proposal.to_dict(),
+            result=result,
         )
         completed = self._complete_interaction(
             interaction_id=interaction_id,
             summary=self._build_interaction_summary(
-                intervention["proposal"],
-                result=frame["result"],
+                proposal.to_dict(),
+                result=result,
             ),
             visibility=visibility,
-            result_status=frame["result"].get("status"),
+            result_status=result.get("status"),
         )
         self._persist_state()
         return self._build_interaction_update_replies(completed)
@@ -513,6 +636,14 @@ class RuntimeGateway:
                     ),
                 )
         return ""
+
+    def _action_result_timestamp(self, frame: dict) -> str:
+        result = frame.get("result", {})
+        if result.get("observed_at"):
+            return result["observed_at"]
+        if frame.get("observed_at"):
+            return frame["observed_at"]
+        return self._event_timestamp(frame)
 
     async def handle_test_frames(self, frames: list[dict]) -> list[dict]:
         return self._handle_frames_sync(frames)

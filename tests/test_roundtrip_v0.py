@@ -26,6 +26,17 @@ VISIBLE_ERROR_LLM_CONFIG = (
 )
 
 
+def _latest_non_post_action_proposal(interventions: list[dict]) -> dict:
+    return next(
+        (
+            intervention["proposal"]
+            for intervention in reversed(interventions)
+            if intervention.get("proposal", {}).get("source") != "post_action"
+        ),
+        interventions[-1]["proposal"],
+    )
+
+
 class RoundtripTests(unittest.IsolatedAsyncioTestCase):
     async def test_user_text_roundtrips_back_to_same_edge(self) -> None:
         gateway = RuntimeGateway(
@@ -258,7 +269,7 @@ class CliEntryTests(unittest.TestCase):
         )
 
         result = session.send_text("hello runtime")
-        proposal = session.gateway.state.interventions[-1]["proposal"]
+        proposal = _latest_non_post_action_proposal(session.gateway.state.interventions)
 
         self.assertEqual(result["result"]["status"], "ok")
         self.assertEqual(proposal["proposal_type"], "reply")
@@ -285,7 +296,7 @@ class CliEntryTests(unittest.TestCase):
         )
 
         result = session.send_text("help")
-        proposal = session.gateway.state.interventions[-1]["proposal"]
+        proposal = _latest_non_post_action_proposal(session.gateway.state.interventions)
 
         self.assertEqual(result["result"]["status"], "ok")
         self.assertEqual(proposal["proposal_type"], "clarification")
@@ -300,7 +311,7 @@ class CliEntryTests(unittest.TestCase):
         )
 
         result = session.send_text("thanks")
-        proposal = session.gateway.state.interventions[-1]["proposal"]
+        proposal = _latest_non_post_action_proposal(session.gateway.state.interventions)
 
         self.assertEqual(result["result"]["status"], "completed")
         self.assertEqual(proposal["proposal_type"], "no_intervention")
@@ -316,7 +327,7 @@ class CliEntryTests(unittest.TestCase):
         )
 
         result = session.send_text("hello runtime")
-        proposal = session.gateway.state.interventions[-1]["proposal"]
+        proposal = _latest_non_post_action_proposal(session.gateway.state.interventions)
 
         self.assertEqual(result["result"]["status"], "ok")
         self.assertEqual(proposal["proposal_type"], "reply")
@@ -643,7 +654,7 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(action_result["result"]["status"], "ok")
         self.assertEqual(action_result["result"]["capability"], "runtime.status")
         self.assertEqual(
-            gateway.state.interventions[-1]["proposal"]["source"],
+            _latest_non_post_action_proposal(gateway.state.interventions)["source"],
             "agent_initiative",
         )
         self.assertEqual(
@@ -718,7 +729,9 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(action_result["result"]["status"], "ok")
         self.assertEqual(action_result["result"]["capability"], "runtime.status")
         self.assertEqual(
-            gateway.state.interventions[-1]["proposal"]["proposal_type"],
+            _latest_non_post_action_proposal(gateway.state.interventions)[
+                "proposal_type"
+            ],
             "action",
         )
 
@@ -792,7 +805,8 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
                 )
             action_result = await asyncio.wait_for(daemon_task, timeout=1)
 
-        self.assertEqual(results, [])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["result"]["status"], "ok")
         self.assertFalse(terminal_daemon.pending_runtime_reply)
         self.assertEqual(action_result["result"]["capability"], "runtime.status")
         self.assertIn("Runtime status: running (pid 42137).", terminal_stdout.getvalue())

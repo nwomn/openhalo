@@ -1,0 +1,285 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON_BIN="$ROOT_DIR/.venv/bin/python"
+LOG_PREFIX="[verify-action-loop]"
+
+DRY_RUN=0
+REQUIRE_MODEL_BACKED=0
+RUNTIME_CONFIG_PATH="tests/fixtures/llm-config-test.toml"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    --require-model-backed)
+      REQUIRE_MODEL_BACKED=1
+      shift
+      ;;
+    --runtime-config-path)
+      RUNTIME_CONFIG_PATH="$2"
+      shift 2
+      ;;
+    *)
+      echo "$LOG_PREFIX unknown argument: $1" >&2
+      exit 2
+      ;;
+  esac
+done
+
+ACTION_LOOP_CMD=(
+  env
+  "OPENHALO_ACTION_LOOP_RUNTIME_CONFIG=$RUNTIME_CONFIG_PATH"
+  "OPENHALO_ACTION_LOOP_REQUIRE_MODEL_BACKED=$REQUIRE_MODEL_BACKED"
+  "$PYTHON_BIN" -c
+  "print('runtime-status-reentry follow-up-action silent-completion lineage-check')"
+)
+
+print_cmd() {
+  local label="$1"
+  shift
+  printf "%s %s:" "$LOG_PREFIX" "$label"
+  printf " %q" "$@"
+  printf "\n"
+}
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  print_cmd "runtime-config" printf "%s" "$RUNTIME_CONFIG_PATH"
+  print_cmd "runtime-status-reentry" "${ACTION_LOOP_CMD[@]}"
+  print_cmd "follow-up-action" "${ACTION_LOOP_CMD[@]}"
+  print_cmd "silent-completion" "${ACTION_LOOP_CMD[@]}"
+  print_cmd "lineage-check" "${ACTION_LOOP_CMD[@]}"
+  if [[ "$REQUIRE_MODEL_BACKED" -eq 1 ]]; then
+    print_cmd "model-backed-check" "${ACTION_LOOP_CMD[@]}"
+  fi
+  exit 0
+fi
+
+OPENHALO_ACTION_LOOP_RUNTIME_CONFIG="$RUNTIME_CONFIG_PATH" \
+OPENHALO_ACTION_LOOP_REQUIRE_MODEL_BACKED="$REQUIRE_MODEL_BACKED" \
+"$PYTHON_BIN" - <<'PY'
+import asyncio
+import json
+import os
+from pathlib import Path
+
+from device_edge.shared.session_client import SessionClient
+from personal_runtime.gateway_server import RuntimeGateway
+
+
+def last_action(replies):
+    return next((item for item in reversed(replies) if item["type"] == "action_request"), None)
+
+
+def last_update(replies):
+    return next((item for item in reversed(replies) if item["type"] == "interaction_update"), None)
+
+
+def fail_with_metadata(message, metadata):
+    interesting_keys = [
+        "used_deterministic_fallback",
+        "model_unavailable",
+        "llm_provider",
+        "llm_model",
+        "provider_wire_api",
+        "provider_request_format",
+        "provider_failure_class",
+        "provider_failure_reason",
+        "fallback_reason",
+        "post_action_trigger",
+        "post_action_parent_action_capability",
+        "post_action_result_status",
+    ]
+    details = {
+        key: metadata.get(key)
+        for key in interesting_keys
+        if key in metadata
+    }
+    raise SystemExit(f"{message}: {json.dumps(details, sort_keys=True)}")
+
+
+async def main() -> None:
+    runtime_config_path = Path(os.environ["OPENHALO_ACTION_LOOP_RUNTIME_CONFIG"])
+    require_model_backed = os.environ.get("OPENHALO_ACTION_LOOP_REQUIRE_MODEL_BACKED") == "1"
+    gateway = RuntimeGateway(
+        shared_token="dev-token",
+        persist_state=False,
+        llm_config_path=runtime_config_path,
+    )
+    source = SessionClient(
+        device_id="desktop-dev-verify",
+        device_type="desktop-cli",
+        token="dev-token",
+        capabilities=["text.input", "notification.show"],
+    )
+    host = SessionClient(
+        device_id="host-edge-verify",
+        device_type="server",
+        token="dev-token",
+        capabilities=["host.metrics", "runtime.health", "runtime.control"],
+    )
+
+    await gateway.handle_test_frames(
+        [
+            source.build_connect_frame(),
+            source.build_capability_announce_frame(),
+            host.build_connect_frame(),
+            host.build_capability_announce_frame(),
+        ]
+    )
+    if require_model_backed:
+        replies = gateway.trigger_agent_initiative(
+            source_device_id="desktop-dev-verify",
+            initiative_request={
+                "action_capability": "runtime.status",
+                "action_payload": {},
+                "reason": "m16_post_action_model_acceptance",
+                "target_device_hint": "host-edge-verify",
+            },
+            observed_at="2026-06-21T10:10:00Z",
+        )
+    else:
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-verify",
+                    "capability": "text.input",
+                    "payload": {
+                        "text": "check runtime status",
+                        "observed_at": "2026-06-21T10:10:00Z",
+                    },
+                },
+            ]
+        )
+    first_action = last_action(replies)
+    if first_action is None or first_action["action"]["capability"] != "runtime.status":
+        raise SystemExit("expected first runtime.status action")
+
+    replies = await gateway.handle_test_frames(
+        [
+            {
+                "type": "action_result",
+                "device_id": "host-edge-verify",
+                "interaction_id": first_action["interaction_id"],
+                "result": {
+                    "status": "ok",
+                    "capability": "runtime.status",
+                    "observed_at": "2026-06-21T10:11:00Z",
+                    "details": {
+                        "state": "running",
+                        "pid": 42137,
+                        "memory_rss_bytes": 28114944,
+                        "process_match_substring": "personal_runtime.main",
+                    },
+                },
+            }
+        ]
+    )
+    follow_up_reply = last_action(replies)
+    if (
+        follow_up_reply is None
+        or follow_up_reply["interaction_id"] != first_action["interaction_id"]
+        or follow_up_reply["action"]["capability"] != "notification.show"
+    ):
+        raise SystemExit("expected post-action notification follow-up")
+    first_post_action = gateway.state.interventions[-1]["proposal"]
+    first_post_action_metadata = first_post_action.get("metadata", {})
+    if require_model_backed and first_post_action_metadata.get("used_deterministic_fallback") is not False:
+        fail_with_metadata(
+            "expected model-backed post-action proposal",
+            first_post_action_metadata,
+        )
+    if require_model_backed and first_post_action_metadata.get("model_unavailable"):
+        fail_with_metadata(
+            "expected available model-backed post-action proposal",
+            first_post_action_metadata,
+        )
+    if require_model_backed and not first_post_action_metadata.get("llm_model"):
+        fail_with_metadata(
+            "expected model metadata on post-action proposal",
+            first_post_action_metadata,
+        )
+
+    replies = await gateway.handle_test_frames(
+        [
+            {
+                "type": "action_result",
+                "device_id": "desktop-dev-verify",
+                "interaction_id": first_action["interaction_id"],
+                "result": {
+                    "status": "ok",
+                    "capability": "notification.show",
+                    "observed_at": "2026-06-21T10:12:00Z",
+                    "details": {
+                        "delivered_via": "terminal.stdout",
+                        "message": follow_up_reply["action"]["payload"]["message"],
+                    },
+                },
+            }
+        ]
+    )
+    completion = last_update(replies)
+    if completion is None or completion["interaction"]["visibility"] != "silent":
+        raise SystemExit("expected silent completion after delivered notification")
+
+    replies = await gateway.handle_test_frames(
+        [
+            {
+                "type": "event_push",
+                "device_id": "desktop-dev-verify",
+                "capability": "text.input",
+                "payload": {
+                    "text": "check runtime status",
+                    "observed_at": "2026-06-21T10:20:00Z",
+                },
+            },
+        ]
+    )
+    second_first_action = last_action(replies)
+    replies = await gateway.handle_test_frames(
+        [
+            {
+                "type": "action_result",
+                "device_id": "host-edge-verify",
+                "interaction_id": second_first_action["interaction_id"],
+                "result": {
+                    "status": "ok",
+                    "capability": "runtime.status",
+                    "observed_at": "2026-06-21T10:21:00Z",
+                    "details": {"state": "degraded", "needs_follow_up": True},
+                },
+            }
+        ]
+    )
+    follow_up_action = last_action(replies)
+    if (
+        follow_up_action is None
+        or follow_up_action["interaction_id"] != second_first_action["interaction_id"]
+        or follow_up_action["action"]["capability"] != "runtime.status"
+    ):
+        raise SystemExit("expected post-action follow-up runtime.status action")
+
+    post_action_interventions = [
+        item
+        for item in gateway.state.interventions
+        if item.get("proposal", {}).get("source") == "post_action"
+    ]
+    if len(post_action_interventions) < 3:
+        raise SystemExit("expected post_action interventions in lineage")
+
+    print("runtime-status-reentry ok")
+    print("follow-up-action ok")
+    print("silent-completion ok")
+    print("post-action-interventions", len(post_action_interventions))
+    if require_model_backed:
+        print("model-backed-post-action ok")
+        print("model", first_post_action_metadata.get("llm_model"))
+        print("post-action-reply", follow_up_reply["action"]["payload"]["message"])
+
+
+asyncio.run(main())
+PY

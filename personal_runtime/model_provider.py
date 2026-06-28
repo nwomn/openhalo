@@ -666,6 +666,328 @@ def build_deterministic_proposal_plan(
     )
 
 
+def build_deterministic_post_action_proposal_plan(
+    interaction_id: str,
+    prior_proposal: dict,
+    result: dict,
+    profile_name: str,
+    fallback_reason: str,
+    snapshot: dict | None = None,
+    grounding: dict | None = None,
+    provider_name: str | None = None,
+    model_id: str | None = None,
+) -> ProposalPlan:
+    details = result.get("details", {})
+    if not isinstance(details, dict):
+        details = {}
+    parent_action_capability = (
+        result.get("capability") or prior_proposal.get("action_capability") or ""
+    )
+    snapshot_fields = sorted((snapshot or {}).keys())
+    grounding_goals = grounding.get("active_goals", []) if grounding else []
+    rationale = {
+        "summary": "",
+        "trigger": "action_result",
+        "interaction_id": interaction_id,
+        "parent_action_capability": parent_action_capability,
+        "result_status": result.get("status", ""),
+        "intent_signals": [
+            signal
+            for signal in str(parent_action_capability).replace(".", " ").split()
+            if signal
+        ],
+        "grounding_signals": snapshot_fields,
+        "active_goal_count": len(grounding_goals),
+    }
+    metadata = {
+        "llm_profile": profile_name,
+        "llm_provider": provider_name or "local_deterministic",
+        "llm_model": model_id or "local_deterministic",
+        "used_deterministic_fallback": True,
+        "fallback_reason": fallback_reason,
+        "proposal_rationale": rationale,
+    }
+
+    if parent_action_capability == "notification.show" and result.get("status") == "ok":
+        rationale["summary"] = (
+            "No intervention needed because the user-visible notification was already delivered."
+        )
+        return ProposalPlan(
+            proposal_type="no_intervention",
+            response_text="",
+            action_capability=None,
+            action_payload={},
+            metadata=metadata,
+        )
+
+    if details.get("needs_follow_up") is True:
+        rationale["summary"] = (
+            "Follow-up runtime status action selected because the prior result requested another check."
+        )
+        return ProposalPlan(
+            proposal_type="action",
+            response_text="Checking runtime status again.",
+            action_capability="runtime.status",
+            action_payload={},
+            metadata=metadata,
+        )
+
+    if parent_action_capability == "runtime.status":
+        state = details.get("state", "unknown")
+        pid = details.get("pid")
+        if pid is not None:
+            message = f"Runtime status: {state} (pid {pid})."
+        else:
+            message = f"Runtime status: {state}."
+        rationale["summary"] = (
+            "Reply proposal selected because the runtime status action returned user-relevant state."
+        )
+        return ProposalPlan(
+            proposal_type="reply",
+            response_text=message,
+            action_capability="notification.show",
+            action_payload={"message": message},
+            metadata=metadata,
+        )
+
+    if result.get("status") not in {"ok", "success", None}:
+        message = (
+            f"{parent_action_capability or 'Action'} completed with "
+            f"status {result.get('status', 'unknown')}."
+        )
+        rationale["summary"] = (
+            "Reply proposal selected because the action result reported a non-ok status."
+        )
+        return ProposalPlan(
+            proposal_type="reply",
+            response_text=message,
+            action_capability="notification.show",
+            action_payload={"message": message},
+            metadata=metadata,
+        )
+
+    rationale["summary"] = (
+        "No intervention needed because the action result did not require a user-visible follow-up."
+    )
+    return ProposalPlan(
+        proposal_type="no_intervention",
+        response_text="",
+        action_capability=None,
+        action_payload={},
+        metadata=metadata,
+    )
+
+
+def generate_post_action_proposal_plan(
+    interaction_id: str,
+    prior_proposal: dict,
+    result: dict,
+    snapshot: dict | None = None,
+    grounding: dict | None = None,
+    profile_name: str = "proposal_formation",
+    config_path: Path | None = None,
+    transport=None,
+) -> ProposalPlan:
+    user_text = _build_post_action_user_text(
+        interaction_id=interaction_id,
+        prior_proposal=prior_proposal,
+        result=result,
+    )
+    config = load_runtime_model_config(config_path)
+    fallback_profile_name = (
+        profile_name if profile_name in config.profiles else "interactive_reply"
+    )
+    profile = resolve_profile_config(config, fallback_profile_name)
+    model = config.models[profile.model_ref]
+    provider = config.providers[model.provider]
+    provider_request_format = (
+        "json_schema" if model.supports_structured_output else "prompt_json"
+    )
+
+    if provider.adapter_type != "openai_compatible":
+        error = ValueError(f"unsupported adapter: {provider.adapter_type}")
+        if profile.provider_failure_behavior == "user_visible_error":
+            return _with_post_action_metadata(
+                build_provider_failure_proposal_plan(
+                    user_text=user_text,
+                    profile_name=fallback_profile_name,
+                    error=error,
+                    snapshot=snapshot,
+                    grounding=grounding,
+                    provider_name=provider.name,
+                    model_id=model.model_id,
+                    provider_wire_api=provider.wire_api,
+                    provider_request_format=provider_request_format,
+                ),
+                interaction_id=interaction_id,
+                prior_proposal=prior_proposal,
+                result=result,
+            )
+        return build_deterministic_post_action_proposal_plan(
+            interaction_id=interaction_id,
+            prior_proposal=prior_proposal,
+            result=result,
+            profile_name=fallback_profile_name,
+            fallback_reason="unsupported_adapter",
+            snapshot=snapshot,
+            grounding=grounding,
+            provider_name=provider.name,
+            model_id=model.model_id,
+        )
+
+    attempt_count = 0
+    retried_shapes: list[str] = []
+    started_at = time.monotonic()
+    max_attempts = 2
+    try:
+        for attempt_index in range(max_attempts):
+            attempt_count = attempt_index + 1
+            request_format = (
+                "prompt_json"
+                if retried_shapes and model.supports_structured_output
+                else provider_request_format
+            )
+            request_builder = (
+                build_openai_compatible_prompt_json_proposal_request
+                if request_format == "prompt_json"
+                else build_openai_compatible_proposal_request
+            )
+            try:
+                response_payload = execute_openai_compatible_request(
+                    provider=provider,
+                    model=model,
+                    profile=profile,
+                    user_text=user_text,
+                    snapshot=snapshot,
+                    grounding=grounding,
+                    request_builder=request_builder,
+                    transport=transport,
+                )
+                plan = parse_openai_compatible_proposal_response(
+                    response_payload=response_payload,
+                    profile_name=profile.name,
+                    provider_name=provider.name,
+                    model_id=model.model_id,
+                )
+                if attempt_count > 1:
+                    plan.metadata["provider_attempt_count"] = attempt_count
+                    plan.metadata["provider_retry_count"] = attempt_count - 1
+                    plan.metadata["provider_retried_shapes"] = list(retried_shapes)
+                plan.metadata["provider_wire_api"] = provider.wire_api
+                plan.metadata["provider_request_format"] = request_format
+                plan.metadata["provider_latency_ms"] = int(
+                    (time.monotonic() - started_at) * 1000
+                )
+                return _with_post_action_metadata(
+                    plan,
+                    interaction_id=interaction_id,
+                    prior_proposal=prior_proposal,
+                    result=result,
+                )
+            except ProviderResponseShapeError as exc:
+                if exc.retryable and attempt_index + 1 < max_attempts:
+                    retried_shapes.append(exc.shape)
+                    continue
+                raise
+            except (OSError, urllib.error.URLError, TimeoutError) as exc:
+                if _provider_failure_is_retryable(exc) and attempt_index + 1 < max_attempts:
+                    continue
+                raise
+    except (
+        KeyError,
+        OSError,
+        ValueError,
+        json.JSONDecodeError,
+        urllib.error.URLError,
+    ) as exc:
+        if profile.provider_failure_behavior == "user_visible_error":
+            plan = build_provider_failure_proposal_plan(
+                user_text=user_text,
+                profile_name=fallback_profile_name,
+                error=exc,
+                snapshot=snapshot,
+                grounding=grounding,
+                provider_name=provider.name,
+                model_id=model.model_id,
+                attempt_count=attempt_count,
+                retried_shapes=retried_shapes,
+                provider_wire_api=provider.wire_api,
+                provider_request_format=provider_request_format,
+            )
+            plan.metadata["provider_latency_ms"] = int(
+                (time.monotonic() - started_at) * 1000
+            )
+            return _with_post_action_metadata(
+                plan,
+                interaction_id=interaction_id,
+                prior_proposal=prior_proposal,
+                result=result,
+            )
+        return build_deterministic_post_action_proposal_plan(
+            interaction_id=interaction_id,
+            prior_proposal=prior_proposal,
+            result=result,
+            profile_name=fallback_profile_name,
+            fallback_reason="provider_unavailable",
+            snapshot=snapshot,
+            grounding=grounding,
+            provider_name=provider.name,
+            model_id=model.model_id,
+        )
+
+
+def _build_post_action_user_text(
+    interaction_id: str,
+    prior_proposal: dict,
+    result: dict,
+) -> str:
+    return json.dumps(
+        {
+            "instruction": (
+                "Post-action deliberation: inspect the action_result and prior "
+                "interaction lineage, then choose one proposal_type. Prefer a "
+                "natural user-facing summary when the result is useful, a follow-up "
+                "action when the result explicitly requires another runtime action, "
+                "clarification when the next step needs user input, or no_intervention "
+                "when the action already completed visibly."
+            ),
+            "trigger": "action_result",
+            "interaction_id": interaction_id,
+            "prior_proposal": prior_proposal,
+            "action_result": result,
+        },
+        sort_keys=True,
+    )
+
+
+def _with_post_action_metadata(
+    plan: ProposalPlan,
+    interaction_id: str,
+    prior_proposal: dict,
+    result: dict,
+) -> ProposalPlan:
+    metadata = dict(plan.metadata)
+    metadata.update(
+        {
+            "post_action_trigger": "action_result",
+            "post_action_interaction_id": interaction_id,
+            "post_action_parent_proposal_type": prior_proposal.get("proposal_type"),
+            "post_action_parent_action_capability": prior_proposal.get(
+                "action_capability"
+            )
+            or result.get("capability"),
+            "post_action_result_status": result.get("status"),
+        }
+    )
+    return ProposalPlan(
+        proposal_type=plan.proposal_type,
+        response_text=plan.response_text,
+        action_capability=plan.action_capability,
+        action_payload=dict(plan.action_payload),
+        metadata=metadata,
+    )
+
+
 def _summarize_provider_failure(error: Exception) -> str:
     if isinstance(error, urllib.error.URLError):
         reason = getattr(error, "reason", None)

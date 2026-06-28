@@ -10,7 +10,11 @@ from personal_runtime.prompt_replay import build_replay_eval
 
 
 def build_chain_report(session, action_result: dict) -> dict:
-    intervention = session.gateway.state.interventions[-1]
+    related_interventions = _related_interventions(
+        session.gateway.state.interventions,
+        action_result,
+    )
+    intervention = _primary_intervention(related_interventions)
     interaction = next(
         (
             item
@@ -57,6 +61,11 @@ def build_chain_report(session, action_result: dict) -> dict:
             "target_device_id": intervention["target_device_id"],
         },
         "intervention": intervention,
+        "post_action_interventions": [
+            item
+            for item in related_interventions
+            if item.get("proposal", {}).get("source") == "post_action"
+        ],
         "replay_eval": replay_eval,
         "action_result": action_result,
     }
@@ -75,6 +84,7 @@ def format_chain_report(report: dict) -> str:
         ("Interaction", report.get("interaction", {})),
         ("Presence Decision", report["presence_decision"]),
         ("Recorded Intervention", report["intervention"]),
+        ("Post-Action Interventions", report.get("post_action_interventions", [])),
         ("Replay Eval", report.get("replay_eval", {})),
         ("Action Result", report["action_result"]),
     ]
@@ -89,3 +99,27 @@ def format_chain_report(report: dict) -> str:
         else:
             rendered_sections.append(json.dumps(payload, indent=2, ensure_ascii=True))
     return "\n".join(rendered_sections)
+
+
+def _related_interventions(interventions: list[dict], action_result: dict) -> list[dict]:
+    interaction_id = action_result.get("interaction_id")
+    if interaction_id:
+        related = [
+            intervention
+            for intervention in interventions
+            if intervention.get("interaction_id") == interaction_id
+        ]
+        if related:
+            return related
+    return interventions[-1:]
+
+
+def _primary_intervention(interventions: list[dict]) -> dict:
+    return next(
+        (
+            intervention
+            for intervention in interventions
+            if intervention.get("proposal", {}).get("source") != "post_action"
+        ),
+        interventions[-1],
+    )
