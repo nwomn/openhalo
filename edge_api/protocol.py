@@ -62,6 +62,8 @@ def build_capability_announce_frame(
     capabilities: list[str | dict],
     session_id: str | None = None,
 ) -> dict:
+    for capability in capabilities:
+        validate_capability_registration(capability)
     frame = {
         "type": "capability_announce",
         "device_id": device_id,
@@ -70,6 +72,40 @@ def build_capability_announce_frame(
     if session_id is not None:
         frame["session_id"] = session_id
     return with_api_version(frame)
+
+
+def validate_capability_registration(capability: str | dict) -> str | dict:
+    if isinstance(capability, str):
+        if not capability:
+            raise ValueError("Capability name must not be empty.")
+        return capability
+    if not isinstance(capability, dict):
+        raise ValueError("Capability registration must be a string or object.")
+    name = capability.get("name")
+    if not isinstance(name, str) or not name:
+        raise ValueError("Capability registration object requires a name.")
+    direction = capability.get("direction")
+    if direction is not None and direction not in {
+        "edge_to_runtime",
+        "runtime_to_edge",
+        "bidirectional",
+    }:
+        raise ValueError(f"Unsupported capability direction: {direction!r}")
+    observations = capability.get("observations", [])
+    if observations is None:
+        return capability
+    if not isinstance(observations, list):
+        raise ValueError("Capability observations must be a list.")
+    for observation in observations:
+        if not isinstance(observation, dict):
+            raise ValueError("Observation registration must be an object.")
+        observation_name = observation.get("name")
+        if not isinstance(observation_name, str) or not observation_name:
+            raise ValueError("Observation registration object requires a name.")
+        schema = observation.get("schema")
+        if schema is not None and not isinstance(schema, dict):
+            raise ValueError("Observation schema must be an object.")
+    return capability
 
 
 def build_event_push_frame(

@@ -40,6 +40,12 @@ def build_action_request(
     correlation: dict | None = None,
 ) -> dict:
     if trace_recorder is not None:
+        if action["capability"] == "notification.show":
+            trace_recorder.record(
+                "ACTION",
+                "built notification.show request",
+                target_device_id=target_device_id,
+            )
         trace_recorder.record(
             "ACTION",
             "built action request",

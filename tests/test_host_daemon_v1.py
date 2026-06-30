@@ -169,6 +169,58 @@ class HostDaemonTests(unittest.TestCase):
         self.assertEqual(result["result"]["capability"], "runtime.status")
         self.assertEqual(result["result"]["details"]["pid"], 42137)
 
+    def test_handle_action_request_records_host_edge_diagnostics(self) -> None:
+        diagnostics = InMemoryDiagnosticRecorder(
+            timestamp_provider=lambda: "2026-06-30T12:00:00Z"
+        )
+        daemon = HostEdgeDaemon(
+            device_id="host-edge-1",
+            token="dev-token",
+            runtime_control_adapter=FakeRuntimeControlAdapter(),
+            host_metrics_provider=lambda: {
+                "cpu_load_ratio": 0.31,
+                "memory_used_bytes": 400,
+                "memory_available_bytes": 600,
+                "memory_pressure": "normal",
+                "net_rx_bytes": 10,
+                "net_tx_bytes": 12,
+            },
+            runtime_health_provider=lambda: {
+                "health_state": "healthy",
+                "process_pid": 42137,
+                "process_present": True,
+                "process_started_at": "2026-06-19T09:00:00Z",
+                "process_memory_rss_bytes": 28114944,
+            },
+            diagnostic_recorder=diagnostics,
+        )
+
+        result = daemon.handle_action_request(
+            {
+                "type": "action_request",
+                "device_id": "host-edge-1",
+                "request_id": "action-1",
+                "interaction_id": "interaction-1",
+                "trace_id": "trace-terminal-edge-1-3",
+                "session_id": "session-terminal-edge-1",
+                "turn_id": "turn-terminal-edge-1-3",
+                "event_id": "terminal-edge-1-evt-3",
+                "action": {"capability": "runtime.status", "payload": {}},
+            }
+        )
+
+        self.assertEqual(result["type"], "action_result")
+        action_events = [
+            event
+            for event in diagnostics.events
+            if event.module == "Local Action Executor"
+            and event.operation == "execute_action"
+        ]
+        self.assertEqual(len(action_events), 1)
+        self.assertEqual(action_events[0].correlation.trace_id, "trace-terminal-edge-1-3")
+        self.assertEqual(action_events[0].output["result"]["status"], "ok")
+        self.assertEqual(action_events[0].output["frame"]["request_id"], "action-1")
+
     def test_records_bounded_local_observation_history_and_returns_it(self) -> None:
         captured_histories: list[dict] = []
 
@@ -460,6 +512,63 @@ class HostDaemonTests(unittest.TestCase):
                         "2026-06-19T09:30:00Z",
                         "2026-06-19T09:31:00Z",
                     ],
+                    idle_timeout_s=0.01,
+                    max_action_requests=1,
+                    send_follow_up_after_action=False,
+                )
+            )
+
+        self.assertEqual(results[0]["result"]["capability"], "runtime.status")
+        sent_frames = [
+            __import__("json").loads(call.args[0])
+            for call in websocket.send.await_args_list
+        ]
+        self.assertTrue(
+            any(frame.get("type") == "action_result" for frame in sent_frames)
+        )
+
+    def test_daemon_session_does_not_block_forever_after_observation_error(
+        self,
+    ) -> None:
+        daemon = HostEdgeDaemon(
+            device_id="host-edge-1",
+            token="dev-token",
+            runtime_control_adapter=FakeRuntimeControlAdapter(),
+            host_metrics_provider=lambda: {
+                "cpu_load_ratio": 0.31,
+                "memory_used_bytes": 400,
+                "memory_available_bytes": 600,
+                "memory_pressure": "normal",
+                "net_rx_bytes": 10,
+                "net_tx_bytes": 12,
+            },
+            runtime_health_provider=lambda: {
+                "health_state": "healthy",
+                "process_pid": 42137,
+                "process_present": True,
+                "process_started_at": None,
+                "process_memory_rss_bytes": 28114944,
+            },
+        )
+
+        websocket = AsyncMock()
+        websocket.recv = AsyncMock(
+            side_effect=[
+                '{"type": "connect_ok"}',
+                '{"type": "event_ack"}',
+                '{"type": "error", "code": "schema_mismatch", "message": "bad observation"}',
+                '{"type": "action_request", "device_id": "host-edge-1", "action": {"capability": "runtime.status", "payload": {}}}',
+            ]
+        )
+        connect_cm = AsyncMock()
+        connect_cm.__aenter__.return_value = websocket
+        connect_cm.__aexit__.return_value = False
+
+        with patch("device_edge.host.host_daemon.websockets.connect", return_value=connect_cm):
+            results = asyncio.run(
+                daemon.run_websocket_daemon_session(
+                    url="ws://127.0.0.1:8765",
+                    observation_schedule=["2026-06-19T09:30:00Z"],
                     idle_timeout_s=0.01,
                     max_action_requests=1,
                     send_follow_up_after_action=False,

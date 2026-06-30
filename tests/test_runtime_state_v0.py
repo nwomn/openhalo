@@ -19,6 +19,101 @@ class RuntimeStateTests(unittest.TestCase):
         self.assertIn("desktop-dev-1", state.devices)
         self.assertIn("text.input", state.devices["desktop-dev-1"]["capabilities"])
 
+    def test_roundtrips_device_capability_and_observation_registries(self) -> None:
+        state = RuntimeState()
+        state.register_device(
+            "phone-edge-1",
+            "mobile",
+            role="interactive_surface",
+            profile={"trust_tier": "personal", "placement": "pocket"},
+        )
+        state.register_capability(
+            "phone-edge-1",
+            {
+                "name": "notification.show",
+                "direction": "runtime_to_edge",
+                "kind": "action",
+                "affordances": ["notify_user", "deliver_private_text"],
+                "modality": "visual_text",
+                "content_capacity": "short_text",
+                "privacy": "personal",
+                "interruptiveness": "medium",
+                "side_effect": "user_visible",
+                "input_schema": {
+                    "type": "object",
+                    "required": ["message"],
+                    "properties": {"message": {"type": "string"}},
+                },
+            },
+        )
+        state.register_capability(
+            "phone-edge-1",
+            {
+                "name": "mobile.context",
+                "direction": "edge_to_runtime",
+                "kind": "observation_provider",
+                "observations": [
+                    {
+                        "name": "mobile.screen_state",
+                        "schema": {
+                            "type": "string",
+                            "enum": ["locked", "unlocked", "unknown"],
+                        },
+                        "semantics": ["device_activity"],
+                        "privacy": "personal_device_state",
+                        "freshness_seconds": 120,
+                    }
+                ],
+            },
+        )
+
+        restored = RuntimeState.from_dict(state.to_dict())
+
+        self.assertEqual(
+            restored.device_registry["phone-edge-1"]["role"],
+            "interactive_surface",
+        )
+        self.assertEqual(
+            restored.device_registry["phone-edge-1"]["profile"]["trust_tier"],
+            "personal",
+        )
+        self.assertIn(
+            "notification.show",
+            restored.devices["phone-edge-1"]["capabilities"],
+        )
+        self.assertEqual(
+            restored.capability_registry["phone-edge-1"]["notification.show"][
+                "content_capacity"
+            ],
+            "short_text",
+        )
+        self.assertEqual(
+            restored.observation_registry["phone-edge-1"]["mobile.context"][
+                "mobile.screen_state"
+            ]["schema"]["enum"],
+            ["locked", "unlocked", "unknown"],
+        )
+
+    def test_restores_legacy_state_without_registries(self) -> None:
+        restored = RuntimeState.from_dict(
+            {
+                "devices": {
+                    "terminal-edge-1": {
+                        "device_type": "desktop-cli",
+                        "capabilities": ["text.input"],
+                    }
+                }
+            }
+        )
+
+        self.assertEqual(
+            restored.devices["terminal-edge-1"]["capabilities"],
+            {"text.input"},
+        )
+        self.assertEqual(restored.device_registry, {})
+        self.assertEqual(restored.capability_registry, {})
+        self.assertEqual(restored.observation_registry, {})
+
     def test_presence_defaults_to_source_device(self) -> None:
         target = choose_response_device(source_device_id="desktop-dev-1")
 
