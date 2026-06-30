@@ -127,6 +127,38 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
         self.assertEqual(daemon.runtime_message_count, 1)
         self.assertFalse(daemon.pending_runtime_reply)
 
+    def test_runtime_action_result_preserves_request_correlation(self) -> None:
+        stdout = io.StringIO()
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=stdout,
+        )
+
+        result = daemon.handle_action_request(
+            {
+                "type": "action_request",
+                "request_id": "action-2",
+                "interaction_id": "interaction-1",
+                "trace_id": "trace-terminal-edge-1-3",
+                "session_id": "session-terminal-edge-1",
+                "turn_id": "turn-terminal-edge-1-3",
+                "event_id": "terminal-edge-1-evt-3",
+                "device_id": "terminal-edge-1",
+                "action": {
+                    "capability": "notification.show",
+                    "payload": {"message": "runtime push"},
+                },
+            }
+        )
+
+        self.assertEqual(result["request_id"], "action-2")
+        self.assertEqual(result["interaction_id"], "interaction-1")
+        self.assertEqual(result["trace_id"], "trace-terminal-edge-1-3")
+        self.assertEqual(result["session_id"], "session-terminal-edge-1")
+        self.assertEqual(result["turn_id"], "turn-terminal-edge-1-3")
+        self.assertEqual(result["event_id"], "terminal-edge-1-evt-3")
+
     def test_interaction_update_clears_waiting_without_local_action_request(self) -> None:
         stdout = io.StringIO()
         daemon = TerminalEdgeDaemon(

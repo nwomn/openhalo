@@ -273,6 +273,68 @@ class RuntimeOrchestratorTests(unittest.TestCase):
         self.assertIn("Proposal Formation", modules)
         self.assertIn("Execution Planning", modules)
 
+    def test_post_action_follow_up_preserves_original_correlation(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        source = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+        host = SessionClient(
+            device_id="host-edge-1",
+            device_type="server",
+            token="dev-token",
+            capabilities=["host.metrics", "runtime.health", "runtime.control"],
+        )
+        gateway.run_roundtrip(
+            [
+                source.build_connect_frame(),
+                source.build_capability_announce_frame(),
+                host.build_connect_frame(),
+                host.build_capability_announce_frame(),
+            ]
+        )
+        text_frame = source.build_text_event("check runtime status")
+        first_replies = gateway.run_roundtrip([text_frame])
+        first_action = next(
+            reply for reply in first_replies if reply["type"] == "action_request"
+        )
+
+        follow_up_replies = gateway.run_roundtrip(
+            [
+                {
+                    "type": "action_result",
+                    "device_id": "host-edge-1",
+                    "request_id": first_action["request_id"],
+                    "interaction_id": first_action["interaction_id"],
+                    "trace_id": first_action["trace_id"],
+                    "session_id": first_action["session_id"],
+                    "turn_id": first_action["turn_id"],
+                    "event_id": first_action["event_id"],
+                    "result": {
+                        "status": "ok",
+                        "capability": "runtime.status",
+                        "details": {"state": "running", "pid": 42137},
+                    },
+                }
+            ]
+        )
+
+        follow_up = next(
+            reply for reply in follow_up_replies if reply["type"] == "action_request"
+        )
+        self.assertRegex(follow_up["request_id"], r"^action-\d+$")
+        self.assertEqual(follow_up["interaction_id"], first_action["interaction_id"])
+        self.assertEqual(follow_up["trace_id"], first_action["trace_id"])
+        self.assertEqual(follow_up["session_id"], first_action["session_id"])
+        self.assertEqual(follow_up["turn_id"], first_action["turn_id"])
+        self.assertEqual(follow_up["event_id"], first_action["event_id"])
+
     def test_runtime_jsonl_diagnostics_are_written_for_normal_turn(self) -> None:
         with TemporaryDirectory() as directory:
             diagnostic_path = Path(directory) / "runtime.jsonl"

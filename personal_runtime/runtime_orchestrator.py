@@ -283,6 +283,7 @@ class RuntimeOrchestrator:
                 decision.target_device_id or interaction["source_device_id"],
                 proposal.to_dict(),
                 trace_recorder=self.gateway.trace_recorder,
+                correlation=correlation,
             )
             planned_action["interaction_id"] = interaction_id
             return [planned_action]
@@ -392,6 +393,7 @@ class RuntimeOrchestrator:
                 decision.target_device_id or interaction["source_device_id"],
                 proposal.to_dict(),
                 trace_recorder=self.gateway.trace_recorder,
+                correlation=correlation,
             )
             planned_action["interaction_id"] = interaction_id
             return [planned_action]
