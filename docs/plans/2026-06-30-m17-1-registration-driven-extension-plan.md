@@ -11,7 +11,7 @@ M17.1 on top of the current architecture.
 
 **Goal:** Build the `M17.1` baseline that lets new device edges register capabilities and observations through the public Edge API, then lets the runtime validate, plan, and dispatch actions through a generic registry-driven execution path.
 
-**Architecture:** Keep `Edge API v1 -> Gateway` as the physical boundary and keep `Presence Router` as the governance gate before execution. Add `Device Registry`, `Capability Registry`, and `Observation Registry` state, enforce strict registration at gateway ingress, then add `Execution Planning` after `Presence Router` so capability/provider selection is driven by registered metadata instead of device-type branches or fixed `intent -> capability` tables.
+**Architecture:** Keep `Edge API v1 -> Gateway` as the physical boundary and keep `Presence Router` as the governance gate before execution. Add `Device Registry`, `Capability Registry`, and `Observation Registry` state. `Gateway` should enforce public frame shape, registration presence, and schema validity at ingress, while `RuntimeOrchestrator` keeps owning the live-chain call order and `Execution Planning` owns capability/provider selection after `Presence Router`. Capability/provider selection must be driven by registered metadata instead of device-type branches or fixed `intent -> capability` tables.
 
 **Tech Stack:** Python 3.11 standard library, `unittest`, existing `edge_api` frame helpers, existing `RuntimeGateway`, existing runtime state persistence, existing terminal/host edge clients, existing chain inspection and verification scripts.
 
@@ -25,6 +25,8 @@ M17.1 on top of the current architecture.
 - `Capability Resolver` is an internal sub-step of `Execution Planning`, not a replacement for `Execution Planning`.
 - `Action Layer` receives a finalized action envelope or execution plan and does not decide semantic capability selection.
 - Planner records must preserve enough candidate, filter, and rationale data for later replay and `M20` policy-learning candidates.
+- M17.1 must build on the current `RuntimeOrchestrator`, `Execution Planning`, and `diagnostic.v1` module-boundary baseline. Do not resurrect the abandoned branch's separate `execution_planner.py` / Gateway-owned planning path.
+- Gateway-owned validation is limited to public API ingress concerns such as frame shape, registration existence, schema compatibility, and action-result lineage. Planning-time capability/provider filtering belongs inside `Execution Planning`.
 
 ### Task 1: Extend public Edge API registration contracts
 
@@ -185,7 +187,7 @@ Run:
 
 Expected: PASS.
 
-### Task 3: Register rich capabilities and observation schemas in Gateway
+### Task 3: Register rich capabilities and observation schemas at Gateway ingress
 
 **Files:**
 - Modify: `personal_runtime/gateway_server.py`
@@ -217,6 +219,8 @@ On `capability_announce`:
 - store the full rich capability metadata when provided
 - register nested observations when `observations` exists
 - infer bounded defaults for simple strings only for existing terminal/host compatibility
+
+Keep this work inside the boundary layer: `Gateway` may persist registration metadata and reject invalid public API input, but it must not choose semantic action targets or perform capability/provider planning.
 
 Compatibility defaults should be narrow:
 - `notification.show` defaults to runtime-to-edge user-visible short text
@@ -292,13 +296,13 @@ Run:
 
 Expected: PASS.
 
-### Task 5: Add Execution Planner and Capability Resolver modules
+### Task 5: Extend Execution Planning with a Capability Resolver sub-step
 
 **Files:**
-- Create: `personal_runtime/execution_planner.py`
+- Modify: `personal_runtime/execution_planning.py`
 - Modify: `personal_runtime/action_layer.py`
-- Modify: `personal_runtime/gateway_server.py`
-- Test: `tests/test_execution_planner.py`
+- Modify: `personal_runtime/runtime_orchestrator.py`
+- Test: `tests/test_execution_planning.py`
 - Test: `tests/test_gateway_v0.py`
 
 **Step 1: Write failing planner unit tests**
@@ -316,10 +320,10 @@ Create tests for:
 Run:
 
 ```bash
-.venv/bin/python -B -m unittest tests.test_execution_planner tests.test_gateway_v0 -v
+.venv/bin/python -B -m unittest tests.test_execution_planning tests.test_gateway_v0 -v
 ```
 
-Expected: FAIL because there is no planner module and gateway dispatch still calls `build_planned_action()` directly from proposal data.
+Expected: FAIL because the current `Execution Planning` module has a proposal-to-action baseline but does not yet resolve registered capability/provider candidates from runtime registries.
 
 **Step 3: Implement planner data shapes**
 
@@ -356,22 +360,22 @@ Score surviving candidates using simple explainable factors:
 
 Every score adjustment should produce a short reason string.
 
-**Step 6: Thread planner into gateway**
+**Step 6: Thread registry-driven planning into the orchestrated runtime chain**
 
-Replace direct normal-path calls from proposal to `build_planned_action()` with:
+Keep `RuntimeOrchestrator` as the only normal-chain coordinator. The intended chain is:
 
 ```text
-proposal -> Presence Router -> Execution Planner -> Action Layer
+proposal -> Presence Router -> Execution Planning / Capability Resolver -> Action Layer
 ```
 
-Keep legacy proposal action hints as advisory inputs.
+Keep legacy proposal action hints as advisory inputs. Do not move planning back into `Gateway`; Gateway should only deliver the already planned outbound frame.
 
 **Step 7: Run focused tests**
 
 Run:
 
 ```bash
-.venv/bin/python -B -m unittest tests.test_execution_planner tests.test_gateway_v0 -v
+.venv/bin/python -B -m unittest tests.test_execution_planning tests.test_gateway_v0 -v
 ```
 
 Expected: PASS.
@@ -418,6 +422,8 @@ Update chain inspection so manual acceptance can read:
 - selected action
 - rejection reasons
 - fallback candidates
+
+Also record the capability resolver boundary through `diagnostic.v1` under the existing `Execution Planning` module, including structured input, output, and error events. The diagnostics should show proposal requirements, presence decision, available registered candidates, filtered candidates, chosen plan, and correlation identifiers.
 
 **Step 5: Run focused tests**
 
@@ -501,7 +507,7 @@ Expected: PASS.
 Run:
 
 ```bash
-.venv/bin/python -B -m unittest tests.test_protocol_v0 tests.test_edge_client_v0 tests.test_runtime_state_v0 tests.test_runtime_persistence_v0 tests.test_gateway_v0 tests.test_roundtrip_v0 tests.test_execution_planner tests.test_chain_inspection tests.test_dev_env_scripts -v
+.venv/bin/python -B -m unittest tests.test_protocol_v0 tests.test_edge_client_v0 tests.test_runtime_state_v0 tests.test_runtime_persistence_v0 tests.test_gateway_v0 tests.test_roundtrip_v0 tests.test_execution_planning tests.test_chain_inspection tests.test_dev_env_scripts -v
 ```
 
 Expected: PASS.
