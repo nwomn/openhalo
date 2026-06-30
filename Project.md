@@ -410,6 +410,10 @@ Status:
 
 - In progress (`M7`, `M8`, `M9`, `M10`, `M11`, `M12`, `M13`, `M14`, `M15`, `M16`, `M17.0`, `M17.1`, and the module-boundary diagnostics v1 baseline completed and accepted; broader `M17` real multi-edge interaction expansion is the next expansion layer on top of the registration-driven baseline; `M18` observation-driven idle intent sensing and `M19` action/tool governance remain later work; `M20` policy learning/review is intentionally deferred until the system is stable but not fully ergonomic; storage hardening is deferred to `M21`; Home Assistant Bridge Edge and broader smart-home ecosystem bridging are intentionally deferred to `M22`)
 
+M17 preparation note:
+
+- The first broader `M17` real-device edge direction is a native Android `Device Edge` developed locally with Android Studio under `device_edge/android_edge/`, while the Alibaba Cloud server continues to run the OpenHalo `Personal Runtime`; local install requirements are documented in `docs/android-edge-install.md`, and the Android edge design baseline is documented in `docs/plans/2026-06-30-m17-android-edge-design.md`.
+
 ## Completed Sub-goals
 
 ### Completed: M17.0 public Edge API boundary and internal-runtime encapsulation baseline
