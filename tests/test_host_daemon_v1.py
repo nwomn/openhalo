@@ -21,6 +21,7 @@ from device_edge.host.host_daemon import build_runtime_control_adapter
 from device_edge.host.host_daemon import main
 from device_edge.host.runtime_control import PythonProcessAdapter
 from personal_runtime.trace_recorder import TraceRecorder
+from openhalo_common.diagnostics import InMemoryDiagnosticRecorder
 
 
 class FakeRuntimeControlAdapter:
@@ -99,6 +100,39 @@ class HostDaemonTests(unittest.TestCase):
             frames[1]["payload"]["observations"][0]["name"],
             "runtime.health_state",
         )
+
+    def test_building_observation_frames_records_host_edge_diagnostics(self) -> None:
+        diagnostics = InMemoryDiagnosticRecorder(
+            timestamp_provider=lambda: "2026-06-30T12:00:00Z"
+        )
+        daemon = HostEdgeDaemon(
+            device_id="host-edge-1",
+            token="dev-token",
+            runtime_control_adapter=FakeRuntimeControlAdapter(),
+            host_metrics_provider=lambda: {
+                "cpu_load_ratio": 0.31,
+                "memory_used_bytes": 400,
+                "memory_available_bytes": 600,
+                "memory_pressure": "normal",
+                "net_rx_bytes": 10,
+                "net_tx_bytes": 12,
+            },
+            runtime_health_provider=lambda: {
+                "health_state": "healthy",
+                "process_pid": 42137,
+                "process_present": True,
+                "process_started_at": "2026-06-19T09:00:00Z",
+                "process_memory_rss_bytes": 28114944,
+            },
+            diagnostic_recorder=diagnostics,
+        )
+
+        daemon.build_observation_frames(observed_at="2026-06-19T09:30:00Z")
+
+        self.assertTrue(diagnostics.events)
+        modules = [event.module for event in diagnostics.events]
+        self.assertIn("Local Capability Runtime", modules)
+        self.assertIn("Edge Session Link", modules)
 
     def test_handles_runtime_status_action_request(self) -> None:
         daemon = HostEdgeDaemon(

@@ -299,6 +299,42 @@ class EdgeClientTests(unittest.TestCase):
             frame["trace_id"],
         )
 
+    def test_records_edge_diagnostics_for_observation_frames(self) -> None:
+        diagnostics = InMemoryDiagnosticRecorder(
+            timestamp_provider=lambda: "2026-06-30T12:00:00Z"
+        )
+        client = SessionClient(
+            device_id="host-edge-1",
+            device_type="server",
+            token="dev-token",
+            capabilities=["host.metrics"],
+            diagnostic_recorder=diagnostics,
+        )
+
+        frame = client.build_observation_event(
+            capability="host.metrics",
+            observations=[
+                {
+                    "name": "host.memory_pressure",
+                    "value": "normal",
+                    "observed_at": "2026-06-30T12:00:00Z",
+                    "confidence": 1.0,
+                }
+            ],
+        )
+
+        modules = [event.module for event in diagnostics.events]
+        self.assertIn("Local Capability Runtime", modules)
+        self.assertIn("Edge Session Link", modules)
+        self.assertEqual(
+            diagnostics.events[-1].correlation.trace_id,
+            frame["trace_id"],
+        )
+        self.assertEqual(
+            diagnostics.events[-1].output["capability"],
+            "host.metrics",
+        )
+
 
 class EdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
     async def test_websocket_client_receives_action_and_returns_action_result(self) -> None:

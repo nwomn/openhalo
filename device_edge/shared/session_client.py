@@ -166,12 +166,35 @@ class SessionClient:
             capability=capability,
             event_id=correlation["event_id"],
         )
-        return build_observation_push_frame(
+        frame = build_observation_push_frame(
             device_id=self.device_id,
             capability=capability,
             observations=observations,
             **correlation,
         )
+        self._record_diagnostic(
+            module="Local Capability Runtime",
+            operation="normalize_observations",
+            phase="output",
+            correlation=correlation,
+            input_payload={"capability": capability, "observations": observations},
+            output_payload={
+                "type": frame["type"],
+                "capability": frame["capability"],
+                "observation_count": len(observations),
+            },
+            summary="Normalized observations into observation_push frame.",
+        )
+        self._record_diagnostic(
+            module="Edge Session Link",
+            operation="send_frame",
+            phase="output",
+            correlation=correlation,
+            input_payload={},
+            output_payload=frame,
+            summary="Prepared observation_push frame for runtime.",
+        )
+        return frame
 
     def build_terminal_activity_event(
         self,
