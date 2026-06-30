@@ -6,7 +6,9 @@ from pathlib import Path
 import websockets
 
 from device_edge.shared.capability_runtime import CapabilityRuntime
+from device_edge.shared.edge_session_link import EdgeSessionLink
 from device_edge.shared.local_actions import execute_action
+from device_edge.shared.local_action_executor import LocalActionExecutor
 from device_edge.shared.session_client import SessionClient
 from openhalo_common.diagnostics import InMemoryDiagnosticRecorder
 from personal_runtime.gateway_server import RuntimeGateway
@@ -67,6 +69,70 @@ class EdgeClientTests(unittest.TestCase):
         self.assertEqual(event.module, "Local Capability Runtime")
         self.assertEqual(event.operation, "normalize_user_input")
         self.assertEqual(event.output["capability"], "text.input")
+
+    def test_edge_session_link_records_own_send_frame_boundary(self) -> None:
+        diagnostics = InMemoryDiagnosticRecorder(
+            timestamp_provider=lambda: "2026-06-30T12:00:00Z"
+        )
+        link = EdgeSessionLink(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            diagnostic_recorder=diagnostics,
+        )
+        correlation = {
+            "trace_id": "trace-terminal-edge-1-1",
+            "session_id": "session-terminal-edge-1",
+            "turn_id": "turn-terminal-edge-1-1",
+            "event_id": "terminal-edge-1-evt-1",
+        }
+
+        frame = link.build_event_frame(
+            capability="text.input",
+            payload={"text": "hello"},
+            correlation=correlation,
+        )
+
+        self.assertEqual(frame["type"], "event_push")
+        self.assertEqual(len(diagnostics.events), 1)
+        event = diagnostics.events[0]
+        self.assertEqual(event.module, "Edge Session Link")
+        self.assertEqual(event.operation, "send_frame")
+        self.assertEqual(event.output["trace_id"], "trace-terminal-edge-1-1")
+
+    def test_local_action_executor_records_own_action_result_boundary(self) -> None:
+        diagnostics = InMemoryDiagnosticRecorder(
+            timestamp_provider=lambda: "2026-06-30T12:00:00Z"
+        )
+        executor = LocalActionExecutor(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            diagnostic_recorder=diagnostics,
+        )
+
+        result = executor.handle_action_request(
+            {
+                "type": "action_request",
+                "trace_id": "trace-terminal-edge-1-1",
+                "session_id": "session-terminal-edge-1",
+                "turn_id": "turn-terminal-edge-1-1",
+                "request_id": "action-1",
+                "interaction_id": "interaction-1",
+                "device_id": "terminal-edge-1",
+                "action": {
+                    "capability": "notification.show",
+                    "payload": {"message": "hello"},
+                },
+            }
+        )
+
+        self.assertEqual(result["type"], "action_result")
+        self.assertEqual(result["trace_id"], "trace-terminal-edge-1-1")
+        self.assertEqual(len(diagnostics.events), 1)
+        event = diagnostics.events[0]
+        self.assertEqual(event.module, "Local Action Executor")
+        self.assertEqual(event.operation, "execute_action")
+        self.assertEqual(event.output["result"]["status"], "ok")
 
     def test_executes_notification_action(self) -> None:
         result = execute_action(

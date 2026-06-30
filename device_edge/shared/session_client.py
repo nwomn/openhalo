@@ -6,13 +6,8 @@ from itertools import count
 import websockets
 
 from device_edge.shared.capability_runtime import CapabilityRuntime
-from device_edge.shared.local_actions import execute_action
-from edge_api.protocol import build_capability_announce_frame
-from edge_api.protocol import build_connect_frame
-from edge_api.protocol import build_event_push_frame
-from edge_api.protocol import build_observation_push_frame
-from edge_api.protocol import with_api_version
-from openhalo_common.diagnostics import build_session_id
+from device_edge.shared.edge_session_link import EdgeSessionLink
+from device_edge.shared.local_action_executor import LocalActionExecutor
 from openhalo_common.diagnostics import build_trace_id
 from openhalo_common.diagnostics import build_turn_id
 
@@ -33,27 +28,33 @@ class SessionClient:
         self.device_type = device_type
         self.token = token
         self.trace_recorder = trace_recorder
-        self.diagnostic_recorder = diagnostic_recorder
         self.edge_device = {
             "device_id": self.device_id,
             "device_name": self.device_id,
             "device_type": self.device_type,
         }
+        self.session_link = EdgeSessionLink(
+            device_id=device_id,
+            device_type=device_type,
+            token=token,
+            diagnostic_recorder=diagnostic_recorder,
+        )
         self.capability_runtime = CapabilityRuntime(
             capabilities=capabilities,
             diagnostic_recorder=diagnostic_recorder,
             device=self.edge_device,
         )
-        self.session_id = build_session_id(device_id)
+        self.action_executor = LocalActionExecutor(
+            device_id=device_id,
+            device_type=device_type,
+            diagnostic_recorder=diagnostic_recorder,
+            trace_recorder=trace_recorder,
+        )
+        self.session_id = self.session_link.session_id
 
     def build_connect_frame(self) -> dict:
         self._record_trace("EDGE", "build connect frame", device_id=self.device_id)
-        return build_connect_frame(
-            self.device_id,
-            self.device_type,
-            self.token,
-            session_id=self.session_id,
-        )
+        return self.session_link.build_connect_frame()
 
     def build_capability_announce_frame(self) -> dict:
         self._record_trace(
@@ -61,10 +62,8 @@ class SessionClient:
             "build capability_announce frame",
             capabilities=",".join(self.capability_runtime.capabilities),
         )
-        return build_capability_announce_frame(
-            self.device_id,
-            self.capability_runtime.capabilities,
-            session_id=self.session_id,
+        return self.session_link.build_capability_announce_frame(
+            self.capability_runtime.capabilities
         )
 
     def _next_correlation(self) -> dict:
@@ -83,22 +82,11 @@ class SessionClient:
             text,
             correlation=correlation,
         )
-        frame = build_event_push_frame(
-            device_id=self.device_id,
+        return self.session_link.build_event_frame(
             capability=normalized["capability"],
             payload=normalized["payload"],
-            **correlation,
-        )
-        self._record_diagnostic(
-            module="Edge Session Link",
-            operation="send_frame",
-            phase="output",
             correlation=correlation,
-            input_payload={},
-            output_payload=frame,
-            summary="Prepared event_push frame for runtime.",
         )
-        return frame
 
     def build_direct_action_event(
         self,
@@ -118,14 +106,13 @@ class SessionClient:
         if target_device_id is not None:
             direct_action["target_device_id"] = target_device_id
         correlation = self._next_correlation()
-        return build_event_push_frame(
-            device_id=self.device_id,
+        return self.session_link.build_event_frame(
             capability="text.input",
             payload={
                 "text": "",
                 "direct_action": direct_action,
             },
-            **correlation,
+            correlation=correlation,
         )
 
     def build_agent_initiative_event(
@@ -152,14 +139,13 @@ class SessionClient:
         if message is not None:
             initiative["message"] = message
         correlation = self._next_correlation()
-        return build_event_push_frame(
-            device_id=self.device_id,
+        return self.session_link.build_event_frame(
             capability="agent.initiative",
             payload={
                 "observed_at": observed_at,
                 "agent_initiative": initiative,
             },
-            **correlation,
+            correlation=correlation,
         )
 
     def build_observation_event(self, capability: str, observations: list[dict]) -> dict:
@@ -175,22 +161,11 @@ class SessionClient:
             observations,
             correlation=correlation,
         )
-        frame = build_observation_push_frame(
-            device_id=self.device_id,
+        return self.session_link.build_observation_frame(
             capability=normalized["capability"],
             observations=normalized["observations"],
-            **correlation,
-        )
-        self._record_diagnostic(
-            module="Edge Session Link",
-            operation="send_frame",
-            phase="output",
             correlation=correlation,
-            input_payload={},
-            output_payload=frame,
-            summary="Prepared observation_push frame for runtime.",
         )
-        return frame
 
     def build_terminal_activity_event(
         self,
@@ -210,27 +185,7 @@ class SessionClient:
         )
 
     def handle_action_request(self, frame: dict) -> dict:
-        result = execute_action(frame["action"])
-        self._record_trace(
-            "EDGE",
-            "executed notification.show",
-            status=result["status"],
-        )
-        action_result = with_api_version(
-            {
-                "type": "action_result",
-                "device_id": self.device_id,
-                "result": result,
-            }
-        )
-        if frame.get("request_id"):
-            action_result["request_id"] = frame["request_id"]
-        if frame.get("interaction_id"):
-            action_result["interaction_id"] = frame["interaction_id"]
-        for key in ("trace_id", "session_id", "turn_id", "event_id", "parent_event_id"):
-            if frame.get(key) is not None:
-                action_result[key] = frame[key]
-        return action_result
+        return self.action_executor.handle_action_request(frame)
 
     async def run_websocket_roundtrip(self, server_factory, text: str) -> dict:
         async with server_factory() as server_info:
@@ -252,27 +207,3 @@ class SessionClient:
     def _record_trace(self, component: str, message: str, **fields: str) -> None:
         if self.trace_recorder is not None:
             self.trace_recorder.record(component, message, **fields)
-
-    def _record_diagnostic(
-        self,
-        module: str,
-        operation: str,
-        phase: str,
-        correlation: dict,
-        input_payload: dict | None,
-        output_payload: dict | None,
-        summary: str,
-    ) -> None:
-        if self.diagnostic_recorder is None:
-            return
-        self.diagnostic_recorder.record_boundary(
-            side="edge",
-            device=self.edge_device,
-            module=module,
-            operation=operation,
-            phase=phase,
-            correlation=correlation,
-            input_payload=input_payload,
-            output_payload=output_payload,
-            summary=summary,
-        )
