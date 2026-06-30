@@ -6,6 +6,9 @@ from personal_runtime.context_contracts import RuntimeObservation
 class RuntimeState:
     def __init__(self) -> None:
         self.devices = {}
+        self.device_registry = {}
+        self.capability_registry = {}
+        self.observation_registry = {}
         self.events = []
         self.tasks = []
         self.action_results = []
@@ -14,13 +17,52 @@ class RuntimeState:
         self.interventions = []
         self.model_health = {}
 
-    def register_device(self, device_id: str, device_type: str) -> None:
+    def register_device(
+        self,
+        device_id: str,
+        device_type: str,
+        role: str | None = None,
+        profile: dict | None = None,
+    ) -> None:
         self.devices.setdefault(
             device_id,
             {"device_type": device_type, "capabilities": set()},
         )
+        self.device_registry.setdefault(
+            device_id,
+            {
+                "device_id": device_id,
+                "device_type": device_type,
+            },
+        )
+        if role is not None:
+            self.device_registry[device_id]["role"] = role
+        if profile is not None:
+            self.device_registry[device_id]["profile"] = profile
 
-    def register_capability(self, device_id: str, capability_name: str) -> None:
+    def register_capability(self, device_id: str, capability_name: str | dict) -> None:
+        if isinstance(capability_name, dict):
+            capability = dict(capability_name)
+            name = capability["name"]
+            self.capability_registry.setdefault(device_id, {})[name] = capability
+            for observation in capability.get("observations", []) or []:
+                observation_name = observation["name"]
+                self.observation_registry.setdefault(device_id, {}).setdefault(
+                    name,
+                    {},
+                )[observation_name] = dict(observation)
+            capability_name = name
+        else:
+            defaults = _compatibility_capability_registration(capability_name)
+            if defaults is not None:
+                self.capability_registry.setdefault(device_id, {})[
+                    capability_name
+                ] = defaults
+                for observation in defaults.get("observations", []):
+                    self.observation_registry.setdefault(device_id, {}).setdefault(
+                        capability_name,
+                        {},
+                    )[observation["name"]] = dict(observation)
         self.devices[device_id]["capabilities"].add(capability_name)
 
     def record_action_result(self, result: dict) -> None:
@@ -124,6 +166,9 @@ class RuntimeState:
                 }
                 for device_id, payload in self.devices.items()
             },
+            "device_registry": self.device_registry,
+            "capability_registry": self.capability_registry,
+            "observation_registry": self.observation_registry,
             "events": self.events,
             "tasks": self.tasks,
             "action_results": self.action_results,
@@ -143,6 +188,9 @@ class RuntimeState:
                 "device_type": device_payload["device_type"],
                 "capabilities": set(device_payload.get("capabilities", [])),
             }
+        state.device_registry = dict(payload.get("device_registry", {}))
+        state.capability_registry = dict(payload.get("capability_registry", {}))
+        state.observation_registry = dict(payload.get("observation_registry", {}))
         state.events = list(payload.get("events", []))
         state.tasks = list(payload.get("tasks", []))
         state.action_results = list(payload.get("action_results", []))
@@ -154,3 +202,206 @@ class RuntimeState:
         state.interventions = list(payload.get("interventions", []))
         state.model_health = dict(payload.get("model_health", {}))
         return state
+
+
+def _compatibility_capability_registration(capability_name: str) -> dict | None:
+    defaults = {
+        "notification.show": {
+            "name": "notification.show",
+            "direction": "runtime_to_edge",
+            "kind": "action",
+            "affordances": ["notify_user", "deliver_private_text"],
+            "modality": "visual_text",
+            "content_capacity": "short_text",
+            "privacy": "personal",
+            "interruptiveness": "medium",
+            "side_effect": "user_visible",
+            "input_schema": {
+                "type": "object",
+                "required": ["message"],
+                "properties": {"message": {"type": "string"}},
+            },
+        },
+        "text.input": {
+            "name": "text.input",
+            "direction": "edge_to_runtime",
+            "kind": "event_source",
+            "affordances": ["user_text"],
+            "modality": "text",
+            "content_capacity": "short_text",
+            "privacy": "personal",
+        },
+        "runtime.control": {
+            "name": "runtime.control",
+            "direction": "runtime_to_edge",
+            "kind": "action",
+            "affordances": ["runtime_control"],
+            "modality": "machine_action",
+            "content_capacity": "structured",
+            "privacy": "runtime_internal",
+            "interruptiveness": "low",
+            "side_effect": "runtime_side_effect",
+        },
+        "runtime.health": {
+            "name": "runtime.health",
+            "direction": "edge_to_runtime",
+            "kind": "observation_provider",
+            "observations": [
+                {
+                    "name": "runtime.health_state",
+                    "schema": {
+                        "type": "string",
+                        "enum": [
+                            "healthy",
+                            "degraded",
+                            "unhealthy",
+                            "offline",
+                            "down",
+                            "failed",
+                            "unknown",
+                        ],
+                    },
+                    "semantics": ["runtime_health"],
+                    "privacy": "runtime_internal",
+                    "freshness_seconds": 120,
+                },
+                {
+                    "name": "runtime.process_present",
+                    "schema": {"type": "boolean"},
+                    "semantics": ["runtime_health"],
+                    "privacy": "runtime_internal",
+                    "freshness_seconds": 120,
+                },
+                {
+                    "name": "runtime.process_pid",
+                    "schema": {"type": "integer"},
+                    "semantics": ["runtime_health"],
+                    "privacy": "runtime_internal",
+                    "freshness_seconds": 120,
+                },
+                {
+                    "name": "runtime.process_started_at",
+                    "schema": {"type": "string", "nullable": True},
+                    "semantics": ["runtime_health"],
+                    "privacy": "runtime_internal",
+                    "freshness_seconds": 120,
+                },
+                {
+                    "name": "runtime.process_memory_rss_bytes",
+                    "schema": {"type": "integer"},
+                    "semantics": ["runtime_health"],
+                    "privacy": "runtime_internal",
+                    "freshness_seconds": 120,
+                },
+            ],
+        },
+        "host.metrics": {
+            "name": "host.metrics",
+            "direction": "edge_to_runtime",
+            "kind": "observation_provider",
+            "observations": [
+                {
+                    "name": "host.cpu_load_ratio",
+                    "schema": {"type": "number"},
+                    "semantics": ["host_metrics"],
+                    "privacy": "runtime_internal",
+                    "freshness_seconds": 120,
+                },
+                {
+                    "name": "host.memory_available_bytes",
+                    "schema": {"type": "integer"},
+                    "semantics": ["host_metrics"],
+                    "privacy": "runtime_internal",
+                    "freshness_seconds": 120,
+                },
+                {
+                    "name": "host.memory_used_bytes",
+                    "schema": {"type": "integer"},
+                    "semantics": ["host_metrics"],
+                    "privacy": "runtime_internal",
+                    "freshness_seconds": 120,
+                },
+                {
+                    "name": "host.memory_pressure",
+                    "schema": {"type": "string"},
+                    "semantics": ["host_metrics"],
+                    "privacy": "runtime_internal",
+                    "freshness_seconds": 120,
+                },
+                {
+                    "name": "host.net_rx_bytes",
+                    "schema": {"type": "integer"},
+                    "semantics": ["host_metrics"],
+                    "privacy": "runtime_internal",
+                    "freshness_seconds": 120,
+                },
+                {
+                    "name": "host.net_tx_bytes",
+                    "schema": {"type": "integer"},
+                    "semantics": ["host_metrics"],
+                    "privacy": "runtime_internal",
+                    "freshness_seconds": 120,
+                },
+            ],
+        },
+        "terminal.context": {
+            "name": "terminal.context",
+            "direction": "edge_to_runtime",
+            "kind": "observation_provider",
+            "observations": [
+                {
+                    "name": "terminal.activity_state",
+                    "schema": {
+                        "type": "string",
+                        "enum": ["active", "idle", "unknown"],
+                    },
+                    "semantics": ["device_activity"],
+                    "privacy": "personal_device_state",
+                    "freshness_seconds": 120,
+                },
+                {
+                    "name": "terminal.input_state",
+                    "schema": {"type": "string"},
+                    "semantics": ["device_activity"],
+                    "privacy": "personal_device_state",
+                    "freshness_seconds": 120,
+                },
+                {
+                    "name": "terminal.input_draft_length",
+                    "schema": {"type": "integer"},
+                    "semantics": ["device_activity"],
+                    "privacy": "personal_device_state",
+                    "freshness_seconds": 120,
+                },
+            ],
+        },
+        "desktop_context": {
+            "name": "desktop_context",
+            "direction": "edge_to_runtime",
+            "kind": "observation_provider",
+            "observations": [
+                {
+                    "name": "user.location",
+                    "schema": {"type": "string"},
+                    "semantics": ["user_context"],
+                    "privacy": "personal",
+                    "freshness_seconds": 600,
+                },
+            ],
+        },
+        "mobile_context": {
+            "name": "mobile_context",
+            "direction": "edge_to_runtime",
+            "kind": "observation_provider",
+            "observations": [
+                {
+                    "name": "user.location",
+                    "schema": {"type": "string"},
+                    "semantics": ["user_context"],
+                    "privacy": "personal",
+                    "freshness_seconds": 600,
+                },
+            ],
+        },
+    }
+    return defaults.get(capability_name)

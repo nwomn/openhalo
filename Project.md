@@ -395,7 +395,7 @@ Acceptance criteria:
 
 Status:
 
-- In progress (`M7`, `M8`, `M9`, `M10`, `M11`, `M12`, `M13`, `M14`, `M15`, `M16`, `M17.0`, and the module-boundary diagnostics v1 baseline completed and accepted; `M17.1` registration-driven multi-device extension is the next planned slice to rebuild on top of the current orchestrator/diagnostics baseline before broader `M17` real multi-edge interaction expansion; `M18` observation-driven idle intent sensing and `M19` action/tool governance remain later work; `M20` policy learning/review is intentionally deferred until the system is stable but not fully ergonomic; storage hardening is deferred to `M21`)
+- In progress (`M7`, `M8`, `M9`, `M10`, `M11`, `M12`, `M13`, `M14`, `M15`, `M16`, `M17.0`, `M17.1`, and the module-boundary diagnostics v1 baseline completed and accepted; broader `M17` real multi-edge interaction expansion is the next expansion layer on top of the registration-driven baseline; `M18` observation-driven idle intent sensing and `M19` action/tool governance remain later work; `M20` policy learning/review is intentionally deferred until the system is stable but not fully ergonomic; storage hardening is deferred to `M21`)
 
 ## Completed Sub-goals
 
@@ -428,6 +428,39 @@ Status:
 
 - Completed and accepted
 
+### Completed: M17.1 registration-driven multi-device extension baseline
+
+Result:
+
+- The public Edge API now preserves and validates rich capability registration objects, including action metadata and observation-provider contracts, while keeping simple string capability announcements compatible for existing terminal and host edges
+- `RuntimeState` now persists a device registry, capability registry, and observation registry, and restores older state payloads without registry fields
+- `Gateway` now records rich capability metadata and nested observation schemas at public API ingress, rejects unregistered or schema-mismatched observations with public `error` frames, and keeps bounded compatibility defaults for current terminal and host observation providers
+- `Execution Planning` now includes a registry-driven capability resolver sub-step after `Presence Router`, consumes registered provider metadata and online device state, filters invalid candidates, deterministically scores valid candidates, and emits an inspectable planning record
+- Action dispatch now uses the finalized execution outcome from `Execution Planning`, while `Action Layer` remains responsible for building action frames rather than choosing semantic providers
+- Chain inspection now includes an `Execution Plan` section with candidate, filtered-candidate, chosen-candidate, fallback, and rationale data for replay and later policy-learning work
+- Automated coverage now includes rich mobile-style registration, strict observation rejection, schema mismatch rejection, registry persistence, planner candidate resolution, multi-surface phone/speaker/light routing, and dev-env verifier coverage
+- Bounded manual acceptance is available through `bin/verify-m17-1-registration-extension --dry-run` and `bin/verify-m17-1-registration-extension`
+- Fresh targeted verification passed with `.venv/bin/python -B -m unittest tests.test_protocol_v0 tests.test_edge_client_v0 tests.test_runtime_state_v0 tests.test_runtime_persistence_v0 tests.test_gateway_v0 tests.test_roundtrip_v0 tests.test_execution_planning tests.test_chain_inspection tests.test_dev_env_scripts -v`, reporting 145 tests OK
+- Fresh full regression passed with `.venv/bin/python -m unittest discover -s tests -v`, reporting 342 tests OK
+- Human acceptance evidence from the bounded verifier shows registered devices, registered capabilities, registered observations, accepted registered observation ingest, strict unregistered-observation rejection, phone notification selected as the primary action, and public speaker / ambient light candidates rejected with planner reasons
+
+Acceptance criteria:
+
+- Rich action-capability registration metadata is supported through the public Edge API
+- Explicit observation registration metadata is supported through the public Edge API
+- Device, capability, and observation registries are persisted while preserving existing terminal/host compatibility
+- Gateway rejects unregistered and schema-mismatched observations with inspectable public errors
+- New registered capabilities can participate in planning without device-type-specific runtime branches
+- Execution Planning owns capability/provider selection after Presence Router and before Action Layer
+- Capability selection uses registered metadata rather than a fixed `intent -> capability` table
+- Planning records preserve chosen, fallback, filtered, rationale, and registry-reference data
+- Diagnostics and chain inspection expose the Execution Planning / capability resolver boundary
+- Automated and bounded manual acceptance cover the multi-surface registration-driven path
+
+Status:
+
+- Completed and accepted
+
 ### Completed: Module-boundary diagnostics v1 and runtime orchestration boundary baseline
 
 Result:
@@ -442,6 +475,8 @@ Result:
 - Diagnostic recording is now starting to move inside module classes rather than being owned by the outer orchestration path: `Local Capability Runtime`, `Edge Session Link`, `Local Action Executor`, `Proposal Formation`, `Presence Router`, and `Execution Planning` each own their public input/output diagnostic boundaries, while lightweight coordinators such as `SessionClient` avoid writing downstream module logs
 - Runtime, terminal-edge, and host-edge entrypoints now accept `--diagnostic-log-path` so manual multi-process acceptance runs can write physically separate local JSONL diagnostic logs without assuming shared frontend/backend storage
 - Resident terminal live input now builds its `text.input` frames through the shared `SessionClient`, so manual terminal sessions carry `trace_id`, `session_id`, `turn_id`, and `event_id` like scripted/API edge traffic
+- Gateway WebSocket dispatch now emits non-invasive `diagnostic.v1` records for cross-device reply delivery, including target connection presence and send status, and host-edge / terminal-edge local action execution now records its own `Local Action Executor` boundary without importing backend internals
+- Host-edge startup observation handling now tolerates runtime observation errors without trapping later `action_request` frames behind an `event_ack` wait, and the compatibility runtime-health contract accepts unknown/null process start time while preserving strict observation validation elsewhere
 - Chain inspection now includes `Diagnostic Events` alongside the previous trace, observation, snapshot, grounding, prompt, proposal, presence, intervention, replay, and action-result sections, so local acceptance can inspect architecture-module input/output records directly
 - Automated coverage now includes diagnostic schema/JSONL behavior, correlation propagation, edge/backend dependency boundaries, runtime orchestrator delegation, execution planning outcomes, and chain-inspection diagnostic display
 
@@ -1290,7 +1325,7 @@ Current M3 slice direction:
 
 Current phase:
 
-- Post-M16 architecture expansion has completed and accepted `M17.0` public Edge API boundary/internal-runtime encapsulation and the module-boundary diagnostics v1 baseline; active focus is now `M17.1` registration-driven multi-device extension rework on top of the current orchestrator/diagnostics architecture before broader `M17` real multi-edge interaction expansion, while `M18` observation-driven idle intent sensing, `M19` behavior-contract/action-tool governance, and `M20` policy learning/review remain later work and bounded-growth/storage-hygiene hardening remains intentionally deferred to `M21`
+- Post-M16 architecture expansion has completed and accepted `M17.0` public Edge API boundary/internal-runtime encapsulation, `M17.1` registration-driven multi-device extension, and the module-boundary diagnostics v1 baseline; active focus can now move to broader `M17` real multi-edge interaction expansion on top of the public Edge API and registry-driven planning baseline, while `M18` observation-driven idle intent sensing, `M19` behavior-contract/action-tool governance, and `M20` policy learning/review remain later work and bounded-growth/storage-hygiene hardening remains intentionally deferred to `M21`
 
 Current progress summary:
 
@@ -1311,7 +1346,7 @@ Current progress summary:
 - We have partially defined the frontend/backend contract around capability events, state sync, action commands, and execution results
 - We have now added an `M17.0` Edge API interaction flow diagram to the runtime architecture baseline, showing how external, terminal, and host edges connect, announce capabilities, push events or observations, receive action requests, return action results, and preserve interaction updates through the public API boundary
 - We have completed and accepted the `M17.0` implementation baseline: a public `edge_api` package now defines versioned Edge API frame helpers, terminal and host edges build frames through the public API wrapper, Gateway accepts versioned public frames including `observation_push`, action requests and interaction updates carry the public API envelope, and an external-edge raw-frame test validates a full connect/capability/observation/event/action-result turn without importing runtime internals
-- We have recovered the `M17.1` registration-driven extension plan from an abandoned pre-diagnostics branch and kept it as a rework baseline rather than as accepted implementation; the old implementation should be discarded, while the rescued requirements cover rich capability registration, observation contracts, strict gateway validation, registry persistence, capability/provider resolution inside `Execution Planning`, and multi-surface acceptance evidence
+- We have completed and accepted the `M17.1` registration-driven extension baseline: rich capability and observation-provider registration now flows through the public Edge API, runtime registries persist device/capability/observation metadata, Gateway rejects unregistered or schema-mismatched observations, Execution Planning resolves registered provider candidates after Presence Router, and bounded multi-surface verifier evidence covers phone notification selection over public speaker and ambient light alternatives
 - We now prefer an agent-centered but presence-governed product reading of the architecture: the runtime should let the agent form intervention proposals while requiring explicit presence decisions before surfacing itself
 - We now treat the current `Presence Router` concept as a broader intervention-governance layer inside the agent runtime rather than a narrow routing helper
 - We now prefer durable proactive behavior to live in explicit or inspectable policy that can be created and revised by agent/model loops instead of only in end-to-end opaque model behavior

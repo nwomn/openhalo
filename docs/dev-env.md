@@ -183,6 +183,23 @@ Acceptance passes when:
   `retried_shapes` plus a final successful request format, rather than being
   hidden or reported as a credential failure
 
+For the bounded `M17.1` registration-driven multi-device acceptance path, use:
+
+```bash
+bin/verify-m17-1-registration-extension --dry-run
+bin/verify-m17-1-registration-extension
+```
+
+The dry run lists the scenario checkpoints before execution. The live run
+simulates a terminal source edge, a phone notification edge, a public speaker
+edge, and an ambient desk-light edge through public Edge API frames.
+
+Acceptance passes when the output shows registered devices, registered
+capabilities, registered observations, one accepted registered observation,
+strict observation rejection for an unregistered observation, phone notification
+as the planner-selected action, and planner selection rationale that explains
+why the public audio and ambient light candidates were rejected.
+
 Known residual real-provider behavior:
 
 - Occasional provider/relay errors may still surface as explicit runtime replies

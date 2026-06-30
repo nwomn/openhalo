@@ -20,7 +20,9 @@ import websockets
 from device_edge.shared.local_actions import execute_action
 from device_edge.shared.session_client import SessionClient
 from edge_api.protocol import with_api_version
+from openhalo_common.diagnostics import DiagnosticBoundaryRecorder
 from openhalo_common.diagnostics import JsonlDiagnosticRecorder
+from openhalo_common.diagnostics import correlation_from_frame
 
 
 def terminal_supports_textual_fullscreen() -> bool:
@@ -56,6 +58,16 @@ class TerminalEdgeDaemon:
         self.local_command_count = 0
         self.quit_requested = False
         self.transcript = deque(maxlen=self.transcript_limit)
+        self.device = {
+            "device_id": device_id,
+            "device_name": device_id,
+            "device_type": "desktop-cli",
+        }
+        self.action_diagnostics = DiagnosticBoundaryRecorder(
+            recorder=diagnostic_recorder,
+            side="edge",
+            device=self.device,
+        )
         self.client = SessionClient(
             device_id=device_id,
             device_type="desktop-cli",
@@ -332,35 +344,50 @@ class TerminalEdgeDaemon:
             pending_frames.append(frame)
 
     def handle_action_request(self, frame: dict) -> dict:
-        self.runtime_message_count += 1
-        self.pending_runtime_reply = False
-        self.pending_interaction_id = None
-        result = execute_action(
-            frame["action"],
-            output_stream=self.output_stream,
-            delivered_via="terminal.stdout",
-            message_prefix="[runtime] ",
-        )
-        if result["status"] == "ok":
-            self._append_transcript(
-                "runtime",
-                frame["action"]["payload"]["message"],
+        correlation = correlation_from_frame(frame)
+        with self.action_diagnostics.boundary(
+            module="Local Action Executor",
+            operation="execute_action",
+            correlation=correlation,
+            input_payload={"action": frame["action"]},
+            summary="Executed terminal-edge action request.",
+        ) as boundary:
+            self.runtime_message_count += 1
+            self.pending_runtime_reply = False
+            self.pending_interaction_id = None
+            result = execute_action(
+                frame["action"],
+                output_stream=self.output_stream,
+                delivered_via="terminal.stdout",
+                message_prefix="[runtime] ",
             )
-        action_result = with_api_version(
-            {
-                "type": "action_result",
-                "device_id": self.client.device_id,
-                "result": result,
-            }
-        )
-        if frame.get("request_id"):
-            action_result["request_id"] = frame["request_id"]
-        if frame.get("interaction_id"):
-            action_result["interaction_id"] = frame["interaction_id"]
-        for key in ("trace_id", "session_id", "turn_id", "event_id", "parent_event_id"):
-            if frame.get(key) is not None:
-                action_result[key] = frame[key]
-        return action_result
+            if result["status"] == "ok":
+                self._append_transcript(
+                    "runtime",
+                    frame["action"]["payload"]["message"],
+                )
+            action_result = with_api_version(
+                {
+                    "type": "action_result",
+                    "device_id": self.client.device_id,
+                    "result": result,
+                }
+            )
+            if frame.get("request_id"):
+                action_result["request_id"] = frame["request_id"]
+            if frame.get("interaction_id"):
+                action_result["interaction_id"] = frame["interaction_id"]
+            for key in (
+                "trace_id",
+                "session_id",
+                "turn_id",
+                "event_id",
+                "parent_event_id",
+            ):
+                if frame.get(key) is not None:
+                    action_result[key] = frame[key]
+            boundary.output({"result": result, "frame": action_result})
+            return action_result
 
     def handle_interaction_frame(self, frame: dict) -> None:
         interaction = frame["interaction"]

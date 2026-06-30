@@ -13,6 +13,7 @@ from device_edge.cli.cli_edge import run_cli_once, run_cli_once_over_websocket
 from device_edge.cli.terminal_daemon import TerminalEdgeDaemon
 from device_edge.host.host_daemon import HostEdgeDaemon
 from device_edge.shared.session_client import SessionClient
+from openhalo_common.diagnostics import InMemoryDiagnosticRecorder
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.main import build_runtime_server_message
 from personal_runtime.main import build_runtime_server_parser
@@ -38,6 +39,208 @@ def _latest_non_post_action_proposal(interventions: list[dict]) -> dict:
 
 
 class RoundtripTests(unittest.IsolatedAsyncioTestCase):
+    async def test_m17_1_mobile_style_registration_drives_planner_selection(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "terminal-edge-1",
+                        "device_type": "desktop-cli",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "capability_announce",
+                    "device_id": "terminal-edge-1",
+                    "capabilities": ["text.input"],
+                },
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "phone-edge-1",
+                        "device_type": "mobile",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "capability_announce",
+                    "device_id": "phone-edge-1",
+                    "capabilities": [
+                        {
+                            "name": "notification.show",
+                            "direction": "runtime_to_edge",
+                            "kind": "action",
+                            "affordances": [
+                                "notify_user",
+                                "deliver_private_text",
+                            ],
+                            "modality": "visual_text",
+                            "content_capacity": "short_text",
+                            "privacy": "personal",
+                            "interruptiveness": "medium",
+                            "side_effect": "user_visible",
+                            "input_schema": {
+                                "type": "object",
+                                "required": ["message"],
+                                "properties": {
+                                    "message": {"type": "string"},
+                                },
+                            },
+                        },
+                        {
+                            "name": "mobile.context",
+                            "direction": "edge_to_runtime",
+                            "kind": "observation_provider",
+                            "observations": [
+                                {
+                                    "name": "mobile.screen_state",
+                                    "schema": {
+                                        "type": "string",
+                                        "enum": [
+                                            "locked",
+                                            "unlocked",
+                                            "unknown",
+                                        ],
+                                    },
+                                }
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "speaker-edge-1",
+                        "device_type": "speaker",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "capability_announce",
+                    "device_id": "speaker-edge-1",
+                    "capabilities": [
+                        {
+                            "name": "speaker.play_audio",
+                            "direction": "runtime_to_edge",
+                            "kind": "action",
+                            "affordances": ["notify_user"],
+                            "modality": "public_audio",
+                            "content_capacity": "spoken_text",
+                            "privacy": "public",
+                            "interruptiveness": "high",
+                            "side_effect": "user_visible",
+                            "input_schema": {
+                                "type": "object",
+                                "required": ["message"],
+                                "properties": {
+                                    "message": {"type": "string"},
+                                },
+                            },
+                        }
+                    ],
+                },
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "desk-light-edge-1",
+                        "device_type": "light",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "capability_announce",
+                    "device_id": "desk-light-edge-1",
+                    "capabilities": [
+                        {
+                            "name": "light.pulse",
+                            "direction": "runtime_to_edge",
+                            "kind": "action",
+                            "affordances": ["ambient_signal"],
+                            "modality": "ambient_light",
+                            "content_capacity": "none",
+                            "privacy": "public",
+                            "interruptiveness": "low",
+                            "side_effect": "environment_visible",
+                            "input_schema": {"type": "object"},
+                        }
+                    ],
+                },
+                {
+                    "type": "observation_push",
+                    "device_id": "phone-edge-1",
+                    "capability": "mobile.context",
+                    "observations": [
+                        {
+                            "name": "mobile.screen_state",
+                            "value": "locked",
+                            "observed_at": "2026-06-30T10:00:00Z",
+                            "confidence": 1.0,
+                        }
+                    ],
+                },
+                {
+                    "type": "event_push",
+                    "device_id": "terminal-edge-1",
+                    "capability": "text.input",
+                    "payload": {
+                        "text": "private reminder",
+                        "observed_at": "2026-06-30T10:02:00Z",
+                    },
+                },
+            ]
+        )
+
+        action_request = next(
+            (item for item in reversed(replies) if item["type"] == "action_request"),
+            None,
+        )
+        self.assertIsNotNone(action_request)
+        self.assertEqual(action_request["device_id"], "phone-edge-1")
+        planning_record = gateway.state.interventions[-1]["planning_record"]
+        self.assertEqual(
+            planning_record["chosen_candidate"]["registry_ref"],
+            "phone-edge-1:notification.show",
+        )
+        filtered = {
+            item["registry_ref"]: item["reasons"]
+            for item in planning_record["filtered_candidates"]
+        }
+        self.assertTrue(filtered["speaker-edge-1:speaker.play_audio"])
+        self.assertIn(
+            "content_capacity:none",
+            filtered["desk-light-edge-1:light.pulse"],
+        )
+
+        rejected = await gateway.handle_test_frames(
+            [
+                {
+                    "type": "observation_push",
+                    "device_id": "phone-edge-1",
+                    "capability": "mobile.context",
+                    "observations": [
+                        {
+                            "name": "mobile.battery_state",
+                            "value": "full",
+                            "observed_at": "2026-06-30T10:03:00Z",
+                            "confidence": 1.0,
+                        }
+                    ],
+                }
+            ]
+        )
+
+        self.assertEqual(rejected[-1]["type"], "error")
+        self.assertEqual(rejected[-1]["code"], "unregistered_observation")
+
     async def test_user_text_roundtrips_back_to_same_edge(self) -> None:
         gateway = RuntimeGateway(
             shared_token="dev-token",
@@ -201,6 +404,58 @@ class CliEntryTests(unittest.TestCase):
         )
         self.assertEqual(daemon.user_request_count, 0)
         self.assertEqual(daemon.runtime_message_count, 1)
+
+    def test_terminal_daemon_records_local_action_executor_diagnostics(self) -> None:
+        diagnostics = InMemoryDiagnosticRecorder(
+            timestamp_provider=lambda: "2026-06-30T13:10:00Z"
+        )
+        stdout = io.StringIO()
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=stdout,
+            diagnostic_recorder=diagnostics,
+        )
+
+        result = daemon.handle_action_request(
+            {
+                "type": "action_request",
+                "trace_id": "trace-terminal-edge-1-3",
+                "session_id": "session-terminal-edge-1",
+                "turn_id": "turn-terminal-edge-1-3",
+                "event_id": "terminal-edge-1-evt-3",
+                "request_id": "action-2",
+                "interaction_id": "interaction-1",
+                "device_id": "terminal-edge-1",
+                "action": {
+                    "capability": "notification.show",
+                    "payload": {"message": "runtime is running"},
+                },
+            }
+        )
+
+        self.assertEqual(result["type"], "action_result")
+        self.assertEqual(result["trace_id"], "trace-terminal-edge-1-3")
+        action_events = [
+            event
+            for event in diagnostics.events
+            if event.module == "Local Action Executor"
+            and event.operation == "execute_action"
+        ]
+        self.assertEqual(len(action_events), 1)
+        self.assertEqual(
+            action_events[0].input["action"]["capability"],
+            "notification.show",
+        )
+        self.assertEqual(action_events[0].output["result"]["status"], "ok")
+        self.assertEqual(
+            action_events[0].output["frame"]["result"]["details"]["delivered_via"],
+            "terminal.stdout",
+        )
+        self.assertEqual(
+            action_events[0].correlation.trace_id,
+            "trace-terminal-edge-1-3",
+        )
 
     def test_run_cli_once_returns_ok_action_result(self) -> None:
         result = run_cli_once("hello runtime", config_path=TEST_LLM_CONFIG)

@@ -71,6 +71,60 @@ class ProtocolTests(unittest.TestCase):
             },
         )
 
+    def test_builds_mobile_style_rich_capability_registration(self) -> None:
+        notification_capability = {
+            "name": "notification.show",
+            "direction": "runtime_to_edge",
+            "kind": "action",
+            "affordances": ["notify_user", "deliver_private_text"],
+            "modality": "visual_text",
+            "content_capacity": "short_text",
+            "privacy": "personal",
+            "interruptiveness": "medium",
+            "side_effect": "user_visible",
+            "input_schema": {
+                "type": "object",
+                "required": ["message"],
+                "properties": {"message": {"type": "string"}},
+            },
+        }
+        observation_provider = {
+            "name": "mobile.context",
+            "direction": "edge_to_runtime",
+            "kind": "observation_provider",
+            "observations": [
+                {
+                    "name": "mobile.screen_state",
+                    "schema": {
+                        "type": "string",
+                        "enum": ["locked", "unlocked", "unknown"],
+                    },
+                    "semantics": ["device_activity"],
+                    "privacy": "personal_device_state",
+                    "freshness_seconds": 120,
+                    "confidence": {"type": "edge_reported"},
+                }
+            ],
+        }
+
+        frame = build_capability_announce_frame(
+            "phone-edge-1",
+            [notification_capability, observation_provider],
+        )
+
+        self.assertEqual(frame["type"], "capability_announce")
+        self.assertEqual(frame["api_version"], API_VERSION)
+        self.assertEqual(frame["device_id"], "phone-edge-1")
+        self.assertEqual(frame["capabilities"][0], notification_capability)
+        self.assertEqual(frame["capabilities"][1], observation_provider)
+
+    def test_rejects_malformed_rich_capability_registration(self) -> None:
+        with self.assertRaises(ValueError):
+            build_capability_announce_frame(
+                "phone-edge-1",
+                [{"direction": "runtime_to_edge", "kind": "action"}],
+            )
+
     def test_builds_observation_push_frame(self) -> None:
         frame = build_observation_push_frame(
             device_id="host-edge-1",

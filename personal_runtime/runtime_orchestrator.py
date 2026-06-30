@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from openhalo_common.diagnostics import correlation_from_frame
 from personal_runtime.action_layer import build_action_request
-from personal_runtime.action_layer import build_planned_action
 from personal_runtime.context_snapshot import build_context_snapshot
 from personal_runtime.context_snapshot import build_context_snapshot_contract
 from personal_runtime.runtime_memory import build_model_grounding_bundle
@@ -155,7 +154,14 @@ class RuntimeOrchestrator:
             decision=decision.to_dict(),
             interaction_id=interaction_id,
             correlation=correlation,
+            runtime_state=self.gateway.state,
+            online_device_ids=set(self.gateway.online_device_ids),
         )
+        if self.gateway.state.interventions and execution_outcome.get("planning_record"):
+            self.gateway.state.interventions[-1]["planning_record"] = execution_outcome[
+                "planning_record"
+            ]
+            self.gateway._persist_state()
         if execution_outcome["kind"] == "completion":
             completed = self.gateway._complete_interaction(
                 interaction_id=interaction_id,
@@ -167,9 +173,9 @@ class RuntimeOrchestrator:
                 correlation=correlation,
             )
 
-        planned_action = build_planned_action(
+        planned_action = build_action_request(
             execution_outcome["target_device_id"],
-            proposal.to_dict(),
+            execution_outcome["action"],
             trace_recorder=self.gateway.trace_recorder,
             correlation=correlation,
         )
@@ -278,10 +284,24 @@ class RuntimeOrchestrator:
         )
         self.gateway._persist_state()
 
-        if decision.decision == "allow" and proposal.action_capability is not None:
-            planned_action = build_planned_action(
-                decision.target_device_id or interaction["source_device_id"],
-                proposal.to_dict(),
+        execution_outcome = self.gateway.execution_planner.plan_action(
+            source_device_id=interaction["source_device_id"],
+            proposal=proposal.to_dict(),
+            decision=decision.to_dict(),
+            interaction_id=interaction_id,
+            correlation=correlation,
+            runtime_state=self.gateway.state,
+            online_device_ids=set(self.gateway.online_device_ids),
+        )
+        if self.gateway.state.interventions and execution_outcome.get("planning_record"):
+            self.gateway.state.interventions[-1]["planning_record"] = execution_outcome[
+                "planning_record"
+            ]
+            self.gateway._persist_state()
+        if execution_outcome["kind"] == "action":
+            planned_action = build_action_request(
+                execution_outcome["target_device_id"],
+                execution_outcome["action"],
                 trace_recorder=self.gateway.trace_recorder,
                 correlation=correlation,
             )
@@ -388,10 +408,24 @@ class RuntimeOrchestrator:
         )
         self.gateway._persist_state()
 
-        if decision.decision == "allow" and proposal.action_capability is not None:
-            planned_action = build_planned_action(
-                decision.target_device_id or interaction["source_device_id"],
-                proposal.to_dict(),
+        execution_outcome = self.gateway.execution_planner.plan_action(
+            source_device_id=interaction["source_device_id"],
+            proposal=proposal.to_dict(),
+            decision=decision.to_dict(),
+            interaction_id=interaction_id,
+            correlation=correlation,
+            runtime_state=self.gateway.state,
+            online_device_ids=set(self.gateway.online_device_ids),
+        )
+        if self.gateway.state.interventions and execution_outcome.get("planning_record"):
+            self.gateway.state.interventions[-1]["planning_record"] = execution_outcome[
+                "planning_record"
+            ]
+            self.gateway._persist_state()
+        if execution_outcome["kind"] == "action":
+            planned_action = build_action_request(
+                execution_outcome["target_device_id"],
+                execution_outcome["action"],
                 trace_recorder=self.gateway.trace_recorder,
                 correlation=correlation,
             )

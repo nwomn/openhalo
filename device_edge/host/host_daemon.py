@@ -17,6 +17,8 @@ from websockets.exceptions import ConnectionClosed
 
 from edge_api.protocol import with_api_version
 from openhalo_common.diagnostics import JsonlDiagnosticRecorder
+from openhalo_common.diagnostics import DiagnosticBoundaryRecorder
+from openhalo_common.diagnostics import correlation_from_frame
 from device_edge.host.host_observers import build_host_metric_observations
 from device_edge.host.host_observers import build_runtime_health_observations
 from device_edge.host.host_observers import read_host_metric_snapshot
@@ -43,6 +45,16 @@ class HostEdgeDaemon:
         self.history_limit = history_limit
         self.observation_history = deque(maxlen=history_limit)
         self.trace_recorder = trace_recorder
+        self.device = {
+            "device_id": device_id,
+            "device_name": device_id,
+            "device_type": "server",
+        }
+        self.action_diagnostics = DiagnosticBoundaryRecorder(
+            recorder=diagnostic_recorder,
+            side="edge",
+            device=self.device,
+        )
         self.client = SessionClient(
             device_id=device_id,
             device_type="server",
@@ -129,40 +141,55 @@ class HostEdgeDaemon:
 
     def handle_action_request(self, frame: dict) -> dict:
         action = frame["action"]
-        if self.trace_recorder is not None:
-            self.trace_recorder.record(
-                "HOST",
-                "handling action request",
-                capability=action["capability"],
+        correlation = correlation_from_frame(frame)
+        with self.action_diagnostics.boundary(
+            module="Local Action Executor",
+            operation="execute_action",
+            correlation=correlation,
+            input_payload={"action": action},
+            summary="Executed host-edge action request.",
+        ) as boundary:
+            if self.trace_recorder is not None:
+                self.trace_recorder.record(
+                    "HOST",
+                    "handling action request",
+                    capability=action["capability"],
+                )
+            if action["capability"] == "runtime.edge_history":
+                payload = dict(action.get("payload", {}))
+                payload["history_supplier"] = self.build_recent_history
+                action = dict(action)
+                action["payload"] = payload
+            result = self.runtime_control_adapter.execute(action)
+            if self.trace_recorder is not None:
+                self.trace_recorder.record(
+                    "HOST",
+                    "completed action request",
+                    capability=action["capability"],
+                    status=result["status"],
+                )
+            action_result = with_api_version(
+                {
+                    "type": "action_result",
+                    "device_id": self.client.device_id,
+                    "result": result,
+                }
             )
-        if action["capability"] == "runtime.edge_history":
-            payload = dict(action.get("payload", {}))
-            payload["history_supplier"] = self.build_recent_history
-            action = dict(action)
-            action["payload"] = payload
-        result = self.runtime_control_adapter.execute(action)
-        if self.trace_recorder is not None:
-            self.trace_recorder.record(
-                "HOST",
-                "completed action request",
-                capability=action["capability"],
-                status=result["status"],
-            )
-        action_result = with_api_version(
-            {
-                "type": "action_result",
-                "device_id": self.client.device_id,
-                "result": result,
-            }
-        )
-        if frame.get("request_id"):
-            action_result["request_id"] = frame["request_id"]
-        if frame.get("interaction_id"):
-            action_result["interaction_id"] = frame["interaction_id"]
-        for key in ("trace_id", "session_id", "turn_id", "event_id", "parent_event_id"):
-            if frame.get(key) is not None:
-                action_result[key] = frame[key]
-        return action_result
+            if frame.get("request_id"):
+                action_result["request_id"] = frame["request_id"]
+            if frame.get("interaction_id"):
+                action_result["interaction_id"] = frame["interaction_id"]
+            for key in (
+                "trace_id",
+                "session_id",
+                "turn_id",
+                "event_id",
+                "parent_event_id",
+            ):
+                if frame.get(key) is not None:
+                    action_result[key] = frame[key]
+            boundary.output({"result": result, "frame": action_result})
+            return action_result
 
     async def _send_frame(self, websocket, frame: dict) -> None:
         await websocket.send(json.dumps(frame))
@@ -199,6 +226,8 @@ class HostEdgeDaemon:
                 return frame
             if pending_frames is not None:
                 pending_frames.append(frame)
+                if frame.get("type") in {"action_request", "error"}:
+                    return frame
 
     async def _send_observation_cycle_with_pending(
         self,

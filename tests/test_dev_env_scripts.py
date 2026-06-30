@@ -356,6 +356,46 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("same interaction", contents)
         self.assertIn("require-model-backed", contents)
 
+    def test_m17_1_registration_extension_verifier_exists_and_supports_dry_run(
+        self,
+    ) -> None:
+        script_path = ROOT / "bin" / "verify-m17-1-registration-extension"
+
+        self.assertTrue(script_path.exists())
+        self.assertTrue(os.access(script_path, os.X_OK))
+        contents = script_path.read_text(encoding="utf-8")
+        self.assertIn("phone-edge-1", contents)
+        self.assertIn("speaker-edge-1", contents)
+        self.assertIn("desk-light-edge-1", contents)
+        self.assertIn("planning_record", contents)
+
+        result = subprocess.run(
+            [str(script_path), "--dry-run"],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+        )
+
+        self.assertIn("registered-devices", result.stdout)
+        self.assertIn("registered-capabilities", result.stdout)
+        self.assertIn("registered-observations", result.stdout)
+        self.assertIn("accepted-observation", result.stdout)
+        self.assertIn("rejected-unregistered-observation", result.stdout)
+        self.assertIn("planner-selected-action", result.stdout)
+        self.assertIn("rejected-candidate-reasons", result.stdout)
+
+    def test_dev_env_document_mentions_m17_1_registration_acceptance_path(
+        self,
+    ) -> None:
+        document_path = ROOT / "docs" / "dev-env.md"
+
+        contents = document_path.read_text(encoding="utf-8")
+        self.assertIn("verify-m17-1-registration-extension", contents)
+        self.assertIn("registered devices", contents)
+        self.assertIn("strict observation rejection", contents)
+        self.assertIn("planner selection rationale", contents)
+
 
 if __name__ == "__main__":
     unittest.main()

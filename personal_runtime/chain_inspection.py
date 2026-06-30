@@ -66,6 +66,7 @@ def build_chain_report(session, action_result: dict) -> dict:
             "reason": intervention["reason"],
             "target_device_id": intervention["target_device_id"],
         },
+        "planning_record": intervention.get("planning_record", {}),
         "intervention": intervention,
         "post_action_interventions": [
             item
@@ -90,6 +91,7 @@ def format_chain_report(report: dict) -> str:
         ("Proposal", report["proposal"]),
         ("Interaction", report.get("interaction", {})),
         ("Presence Decision", report["presence_decision"]),
+        ("Execution Plan", report.get("planning_record", {})),
         ("Recorded Intervention", report["intervention"]),
         ("Post-Action Interventions", report.get("post_action_interventions", [])),
         ("Replay Eval", report.get("replay_eval", {})),

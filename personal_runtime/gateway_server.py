@@ -18,6 +18,7 @@ from personal_runtime.execution_planning import ExecutionPlanner
 from personal_runtime.presence_router import PresenceRouter
 from personal_runtime.runtime_orchestrator import RuntimeOrchestrator
 from personal_runtime.runtime_state import RuntimeState
+from personal_runtime.runtime_state import _compatibility_capability_registration
 from personal_runtime.state_store import JsonStateStore
 from personal_runtime.trace_recorder import TraceRecorder
 
@@ -423,6 +424,8 @@ class RuntimeGateway:
                 self.state.register_device(
                     frame["device"]["device_id"],
                     frame["device"]["device_type"],
+                    role=frame["device"].get("role"),
+                    profile=frame["device"].get("profile"),
                 )
                 self._record_trace(
                     "STATE",
@@ -444,8 +447,7 @@ class RuntimeGateway:
                     device_id=frame["device_id"],
                 )
                 for capability in frame["capabilities"]:
-                    name = self._capability_name(capability)
-                    self.state.register_capability(frame["device_id"], name)
+                    self.state.register_capability(frame["device_id"], capability)
                 self._persist_state()
             elif frame["type"] == "event_push":
                 self._record_trace(
@@ -454,6 +456,10 @@ class RuntimeGateway:
                     device_id=frame["device_id"],
                     capability=frame["capability"],
                 )
+                validation_error = self._validate_observation_ingress(frame)
+                if validation_error is not None:
+                    replies.append(validation_error)
+                    continue
                 self.state.events.append(frame)
                 self.state.record_observations(self._extract_runtime_observations(frame))
                 self._record_trace(
@@ -513,6 +519,100 @@ class RuntimeGateway:
             )
             for observation_payload in observations
         ]
+
+    def _validate_observation_ingress(self, frame: dict) -> dict | None:
+        observations = frame.get("payload", {}).get("observations", [])
+        if not observations:
+            return None
+        device_id = frame["device_id"]
+        capability = frame["capability"]
+        registered = (
+            self.state.observation_registry.get(device_id, {})
+            .get(capability, {})
+        )
+        if not registered and _compatibility_capability_registration(capability):
+            self.state.devices.setdefault(
+                device_id,
+                {"device_type": "unknown", "capabilities": set()},
+            )
+            self.state.register_capability(device_id, capability)
+            registered = (
+                self.state.observation_registry.get(device_id, {})
+                .get(capability, {})
+            )
+        for observation in observations:
+            observation_name = observation.get("name")
+            registration = registered.get(observation_name)
+            if registration is None:
+                return self._build_observation_error(
+                    code="unregistered_observation",
+                    message="Observation is not registered for this device capability.",
+                    device_id=device_id,
+                    capability=capability,
+                    observation=observation_name,
+                )
+            schema = registration.get("schema")
+            if schema is not None and not self._value_matches_schema(
+                observation.get("value"),
+                schema,
+            ):
+                return self._build_observation_error(
+                    code="schema_mismatch",
+                    message="Observation value does not match registered schema.",
+                    device_id=device_id,
+                    capability=capability,
+                    observation=observation_name,
+                )
+        return None
+
+    @staticmethod
+    def _build_observation_error(
+        code: str,
+        message: str,
+        device_id: str,
+        capability: str,
+        observation: str | None,
+    ) -> dict:
+        return with_api_version(
+            {
+                "type": "error",
+                "code": code,
+                "message": message,
+                "device_id": device_id,
+                "capability": capability,
+                "observation": observation,
+            }
+        )
+
+    @classmethod
+    def _value_matches_schema(cls, value, schema: dict) -> bool:
+        if value is None and schema.get("nullable") is True:
+            return True
+        schema_type = schema.get("type")
+        if schema_type == "string" and not isinstance(value, str):
+            return False
+        if schema_type == "number" and not isinstance(value, (int, float)):
+            return False
+        if schema_type == "integer" and not isinstance(value, int):
+            return False
+        if schema_type == "boolean" and not isinstance(value, bool):
+            return False
+        if schema_type == "object":
+            if not isinstance(value, dict):
+                return False
+            for required_key in schema.get("required", []):
+                if required_key not in value:
+                    return False
+            properties = schema.get("properties", {})
+            for key, property_schema in properties.items():
+                if key in value and not cls._value_matches_schema(
+                    value[key],
+                    property_schema,
+                ):
+                    return False
+        if "enum" in schema and value not in schema["enum"]:
+            return False
+        return True
 
     def _event_timestamp(self, frame: dict) -> str:
         payload = frame.get("payload", {})
@@ -599,13 +699,104 @@ class RuntimeGateway:
                 if target_websocket is not None:
                     try:
                         await self._send_frame(target_websocket, reply)
+                        self._record_dispatch_diagnostic(
+                            reply=reply,
+                            source_device_id=source_device_id,
+                            target_connection_found=True,
+                            dispatched_to=target_device_id,
+                            send_status="sent",
+                        )
                     except ConnectionClosedOK:
+                        self._record_dispatch_diagnostic(
+                            reply=reply,
+                            source_device_id=source_device_id,
+                            target_connection_found=True,
+                            dispatched_to=target_device_id,
+                            send_status="connection_closed",
+                            error_class="ConnectionClosedOK",
+                        )
                         pass
                     continue
+                self._record_dispatch_diagnostic(
+                    reply=reply,
+                    source_device_id=source_device_id,
+                    target_connection_found=False,
+                    dispatched_to=source_device_id,
+                    send_status="target_missing",
+                )
             try:
                 await self._send_frame(websocket, reply)
+                if not (
+                    reply["type"] in {"action_request", "interaction_update"}
+                    and target_device_id != source_device_id
+                ):
+                    self._record_dispatch_diagnostic(
+                        reply=reply,
+                        source_device_id=source_device_id,
+                        target_connection_found=target_device_id in self.live_connections,
+                        dispatched_to=source_device_id,
+                        send_status="sent",
+                    )
             except ConnectionClosedOK:
+                self._record_dispatch_diagnostic(
+                    reply=reply,
+                    source_device_id=source_device_id,
+                    target_connection_found=target_device_id in self.live_connections,
+                    dispatched_to=source_device_id,
+                    send_status="connection_closed",
+                    error_class="ConnectionClosedOK",
+                )
                 pass
+
+    def _record_dispatch_diagnostic(
+        self,
+        reply: dict,
+        source_device_id: str,
+        target_connection_found: bool,
+        dispatched_to: str | None,
+        send_status: str,
+        error_class: str | None = None,
+    ) -> None:
+        self._record_diagnostic(
+            module="Gateway",
+            operation="dispatch_reply",
+            phase="output",
+            correlation={
+                key: reply.get(key)
+                for key in (
+                    "trace_id",
+                    "session_id",
+                    "turn_id",
+                    "event_id",
+                    "request_id",
+                    "interaction_id",
+                    "parent_event_id",
+                )
+                if reply.get(key) is not None
+            },
+            input_payload={
+                "reply_type": reply.get("type"),
+                "source_device_id": source_device_id,
+                "target_device_id": reply.get("device_id"),
+            },
+            output_payload={
+                "target_connection_found": target_connection_found,
+                "dispatched_to": dispatched_to,
+                "send_status": send_status,
+                "error_class": error_class,
+                "error_code": reply.get("code") if reply.get("type") == "error" else None,
+                "error_message": reply.get("message")
+                if reply.get("type") == "error"
+                else None,
+                "error_capability": reply.get("capability")
+                if reply.get("type") == "error"
+                else None,
+                "error_observation": reply.get("observation")
+                if reply.get("type") == "error"
+                else None,
+            },
+            summary="Dispatched runtime reply over websocket.",
+        )
 
     async def _websocket_handler(self, websocket) -> None:
         registered_device_id = None

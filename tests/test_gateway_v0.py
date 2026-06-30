@@ -29,6 +29,368 @@ def _last_interaction_update(replies: list[dict]) -> dict | None:
 
 
 class GatewayTests(unittest.IsolatedAsyncioTestCase):
+    async def test_capability_announce_registers_rich_capabilities_and_observations(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        await gateway.handle_test_frames(
+            [
+                {
+                    "api_version": API_VERSION,
+                    "type": "connect",
+                    "device": {
+                        "device_id": "phone-edge-1",
+                        "device_type": "mobile",
+                        "role": "interactive_surface",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "capability_announce",
+                    "device_id": "phone-edge-1",
+                    "capabilities": [
+                        {
+                            "name": "notification.show",
+                            "direction": "runtime_to_edge",
+                            "kind": "action",
+                            "affordances": [
+                                "notify_user",
+                                "deliver_private_text",
+                            ],
+                            "modality": "visual_text",
+                            "content_capacity": "short_text",
+                            "privacy": "personal",
+                            "interruptiveness": "medium",
+                            "side_effect": "user_visible",
+                            "input_schema": {
+                                "type": "object",
+                                "required": ["message"],
+                                "properties": {
+                                    "message": {"type": "string"},
+                                },
+                            },
+                        },
+                        {
+                            "name": "mobile.context",
+                            "direction": "edge_to_runtime",
+                            "kind": "observation_provider",
+                            "observations": [
+                                {
+                                    "name": "mobile.screen_state",
+                                    "schema": {
+                                        "type": "string",
+                                        "enum": [
+                                            "locked",
+                                            "unlocked",
+                                            "unknown",
+                                        ],
+                                    },
+                                    "semantics": ["device_activity"],
+                                    "privacy": "personal_device_state",
+                                    "freshness_seconds": 120,
+                                }
+                            ],
+                        },
+                    ],
+                },
+            ]
+        )
+
+        self.assertEqual(
+            gateway.state.device_registry["phone-edge-1"]["role"],
+            "interactive_surface",
+        )
+        self.assertIn(
+            "notification.show",
+            gateway.state.devices["phone-edge-1"]["capabilities"],
+        )
+        self.assertEqual(
+            gateway.state.capability_registry["phone-edge-1"][
+                "notification.show"
+            ]["privacy"],
+            "personal",
+        )
+        self.assertEqual(
+            gateway.state.observation_registry["phone-edge-1"]["mobile.context"][
+                "mobile.screen_state"
+            ]["schema"]["type"],
+            "string",
+        )
+
+    async def test_legacy_capability_announce_keeps_name_set_compatibility(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        await gateway.handle_test_frames(
+            [
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "terminal-edge-1",
+                        "device_type": "desktop-cli",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "capability_announce",
+                    "device_id": "terminal-edge-1",
+                    "capabilities": ["text.input", "notification.show"],
+                },
+            ]
+        )
+
+        self.assertEqual(
+            gateway.state.devices["terminal-edge-1"]["capabilities"],
+            {"text.input", "notification.show"},
+        )
+
+    async def test_rejects_unregistered_observation_push(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "api_version": API_VERSION,
+                    "type": "connect",
+                    "device": {
+                        "device_id": "phone-edge-1",
+                        "device_type": "mobile",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "capability_announce",
+                    "device_id": "phone-edge-1",
+                    "capabilities": [
+                        {
+                            "name": "mobile.context",
+                            "direction": "edge_to_runtime",
+                            "kind": "observation_provider",
+                        }
+                    ],
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "observation_push",
+                    "device_id": "phone-edge-1",
+                    "capability": "mobile.context",
+                    "observations": [
+                        {
+                            "name": "mobile.screen_state",
+                            "value": "locked",
+                            "observed_at": "2026-06-30T10:00:00Z",
+                            "confidence": 1.0,
+                        }
+                    ],
+                },
+            ]
+        )
+
+        self.assertEqual(replies[-1]["type"], "error")
+        self.assertEqual(replies[-1]["code"], "unregistered_observation")
+        self.assertEqual(gateway.state.observations, [])
+
+    async def test_rejects_schema_mismatched_observation_push(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "api_version": API_VERSION,
+                    "type": "connect",
+                    "device": {
+                        "device_id": "phone-edge-1",
+                        "device_type": "mobile",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "capability_announce",
+                    "device_id": "phone-edge-1",
+                    "capabilities": [
+                        {
+                            "name": "mobile.context",
+                            "direction": "edge_to_runtime",
+                            "kind": "observation_provider",
+                            "observations": [
+                                {
+                                    "name": "mobile.screen_state",
+                                    "schema": {
+                                        "type": "string",
+                                        "enum": [
+                                            "locked",
+                                            "unlocked",
+                                            "unknown",
+                                        ],
+                                    },
+                                }
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "observation_push",
+                    "device_id": "phone-edge-1",
+                    "capability": "mobile.context",
+                    "observations": [
+                        {
+                            "name": "mobile.screen_state",
+                            "value": "charging",
+                            "observed_at": "2026-06-30T10:00:00Z",
+                            "confidence": 1.0,
+                        }
+                    ],
+                },
+            ]
+        )
+
+        self.assertEqual(replies[-1]["type"], "error")
+        self.assertEqual(replies[-1]["code"], "schema_mismatch")
+        self.assertEqual(gateway.state.observations, [])
+
+    async def test_accepts_compat_runtime_health_with_null_started_at(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "host-edge-1",
+                        "device_type": "server",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "capability_announce",
+                    "device_id": "host-edge-1",
+                    "capabilities": [
+                        "host.metrics",
+                        "runtime.health",
+                        "runtime.control",
+                    ],
+                },
+                {
+                    "type": "observation_push",
+                    "device_id": "host-edge-1",
+                    "capability": "runtime.health",
+                    "observations": [
+                        {
+                            "name": "runtime.process_started_at",
+                            "value": None,
+                            "observed_at": "2026-06-19T09:30:00Z",
+                            "confidence": 1.0,
+                        }
+                    ],
+                    "payload": {
+                        "observations": [
+                            {
+                                "name": "runtime.process_started_at",
+                                "value": None,
+                                "observed_at": "2026-06-19T09:30:00Z",
+                                "confidence": 1.0,
+                            }
+                        ]
+                    },
+                },
+            ]
+        )
+
+        self.assertEqual(replies[-1]["type"], "event_ack")
+        self.assertEqual(
+            gateway.state.observations[-1].name,
+            "runtime.process_started_at",
+        )
+        self.assertIsNone(gateway.state.observations[-1].value)
+
+    async def test_accepts_registered_observation_push(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        await gateway.handle_test_frames(
+            [
+                {
+                    "api_version": API_VERSION,
+                    "type": "connect",
+                    "device": {
+                        "device_id": "phone-edge-1",
+                        "device_type": "mobile",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "capability_announce",
+                    "device_id": "phone-edge-1",
+                    "capabilities": [
+                        {
+                            "name": "mobile.context",
+                            "direction": "edge_to_runtime",
+                            "kind": "observation_provider",
+                            "observations": [
+                                {
+                                    "name": "mobile.screen_state",
+                                    "schema": {
+                                        "type": "string",
+                                        "enum": [
+                                            "locked",
+                                            "unlocked",
+                                            "unknown",
+                                        ],
+                                    },
+                                }
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "observation_push",
+                    "device_id": "phone-edge-1",
+                    "capability": "mobile.context",
+                    "observations": [
+                        {
+                            "name": "mobile.screen_state",
+                            "value": "locked",
+                            "observed_at": "2026-06-30T10:00:00Z",
+                            "confidence": 1.0,
+                        }
+                    ],
+                },
+            ]
+        )
+
+        self.assertEqual(gateway.state.observations[-1].name, "mobile.screen_state")
+
     async def test_external_edge_uses_public_api_frames_for_full_turn(self) -> None:
         gateway = RuntimeGateway(
             shared_token="dev-token",
@@ -64,6 +426,19 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                         {
                             "name": "surface.activity",
                             "direction": "edge_to_runtime",
+                            "kind": "observation_provider",
+                            "observations": [
+                                {
+                                    "name": "surface.activity_state",
+                                    "schema": {
+                                        "type": "string",
+                                        "enum": ["active", "idle", "unknown"],
+                                    },
+                                    "semantics": ["device_activity"],
+                                    "privacy": "personal_device_state",
+                                    "freshness_seconds": 120,
+                                }
+                            ],
                         },
                     ],
                 },

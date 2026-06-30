@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -65,6 +66,105 @@ class RuntimeOrchestratorTests(unittest.TestCase):
         self.assertIn("Presence Router", modules)
         self.assertIn("Execution Planning", modules)
         self.assertIn("Action Layer", modules)
+
+    def test_gateway_records_cross_device_dispatch_diagnostics(self) -> None:
+        diagnostics = InMemoryDiagnosticRecorder(
+            timestamp_provider=lambda: "2026-06-30T12:00:00Z"
+        )
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            diagnostic_recorder=diagnostics,
+        )
+
+        class FakeWebsocket:
+            def __init__(self) -> None:
+                self.sent_frames: list[str] = []
+
+            async def send(self, payload: str) -> None:
+                self.sent_frames.append(payload)
+
+        source_socket = FakeWebsocket()
+        target_socket = FakeWebsocket()
+        gateway.live_connections["host-edge-1"] = target_socket
+
+        asyncio.run(
+            gateway._dispatch_websocket_replies(
+                "terminal-edge-1",
+                source_socket,
+                [
+                    {
+                        "type": "action_request",
+                        "device_id": "host-edge-1",
+                        "request_id": "action-1",
+                        "interaction_id": "interaction-1",
+                        "trace_id": "trace-terminal-edge-1-1",
+                        "action": {"capability": "runtime.status", "payload": {}},
+                    }
+                ],
+            )
+        )
+
+        self.assertEqual(len(target_socket.sent_frames), 1)
+        dispatch_events = [
+            event
+            for event in diagnostics.events
+            if event.module == "Gateway" and event.operation == "dispatch_reply"
+        ]
+        self.assertEqual(len(dispatch_events), 1)
+        self.assertTrue(dispatch_events[0].output["target_connection_found"])
+        self.assertEqual(dispatch_events[0].output["send_status"], "sent")
+        self.assertEqual(dispatch_events[0].output["dispatched_to"], "host-edge-1")
+
+    def test_gateway_dispatch_diagnostics_include_error_details(self) -> None:
+        diagnostics = InMemoryDiagnosticRecorder(
+            timestamp_provider=lambda: "2026-06-30T12:00:00Z"
+        )
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            diagnostic_recorder=diagnostics,
+        )
+
+        class FakeWebsocket:
+            def __init__(self) -> None:
+                self.sent_frames: list[str] = []
+
+            async def send(self, payload: str) -> None:
+                self.sent_frames.append(payload)
+
+        source_socket = FakeWebsocket()
+
+        asyncio.run(
+            gateway._dispatch_websocket_replies(
+                "host-edge-1",
+                source_socket,
+                [
+                    {
+                        "type": "error",
+                        "device_id": "host-edge-1",
+                        "code": "schema_mismatch",
+                        "message": "Observation value does not match registered schema.",
+                        "capability": "runtime.health",
+                        "observation": "runtime.process_started_at",
+                    }
+                ],
+            )
+        )
+
+        dispatch_event = next(
+            event
+            for event in diagnostics.events
+            if event.module == "Gateway" and event.operation == "dispatch_reply"
+        )
+        self.assertEqual(dispatch_event.output["error_code"], "schema_mismatch")
+        self.assertEqual(dispatch_event.output["error_capability"], "runtime.health")
+        self.assertEqual(
+            dispatch_event.output["error_observation"],
+            "runtime.process_started_at",
+        )
 
     def test_orchestrator_does_not_delegate_to_gateway_private_event_impl(self) -> None:
         gateway = RuntimeGateway(

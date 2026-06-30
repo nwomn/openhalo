@@ -1,6 +1,6 @@
 # OpenHalo Edge API
 
-Status: M17.0 implementation baseline
+Status: M17.1 registration-driven extension baseline in progress
 
 The Edge API is the public integration boundary between device edges and the
 OpenHalo Personal Runtime. Edge authors should depend on this contract, not on
@@ -74,7 +74,7 @@ Successful response:
 ## Capability Announcement
 
 Edges announce capabilities after connecting. Capabilities may be simple strings
-or public capability objects.
+for migration compatibility or public capability objects for new integrations.
 
 ```json
 {
@@ -94,8 +94,57 @@ or public capability objects.
 }
 ```
 
-The runtime currently persists capability names. Rich capability fields are part
-of the public envelope and can be expanded without exposing backend internals.
+Rich action capabilities should include enough metadata for runtime planning to
+choose a compatible provider without device-type-specific branches:
+
+```json
+{
+  "name": "notification.show",
+  "direction": "runtime_to_edge",
+  "kind": "action",
+  "affordances": ["notify_user", "deliver_private_text"],
+  "modality": "visual_text",
+  "content_capacity": "short_text",
+  "privacy": "personal",
+  "interruptiveness": "medium",
+  "side_effect": "user_visible",
+  "input_schema": {
+    "type": "object",
+    "required": ["message"],
+    "properties": {
+      "message": {"type": "string"}
+    }
+  }
+}
+```
+
+Observation-provider capabilities register the observation names and schemas
+they may later push:
+
+```json
+{
+  "name": "mobile.context",
+  "direction": "edge_to_runtime",
+  "kind": "observation_provider",
+  "observations": [
+    {
+      "name": "mobile.screen_state",
+      "schema": {
+        "type": "string",
+        "enum": ["locked", "unlocked", "unknown"]
+      },
+      "semantics": ["device_activity"],
+      "privacy": "personal_device_state",
+      "freshness_seconds": 120,
+      "confidence": {"type": "edge_reported"}
+    }
+  ]
+}
+```
+
+The runtime stores registration metadata in device, capability, and observation
+registries. Capability names are still mirrored onto the legacy device
+capability set while built-in terminal and host edges migrate.
 
 ## User Events
 
@@ -154,9 +203,14 @@ Context and environment evidence use `observation_push`.
 }
 ```
 
-During the M17.0 migration, `payload.observations` is retained as a compatibility
-mirror for existing host and terminal code paths. New integrations should read
-and write the top-level `observations` field.
+During migration, `payload.observations` is retained as a compatibility mirror
+for existing host and terminal code paths. New integrations should read and
+write the top-level `observations` field.
+
+New edges must register each observation under the source capability before
+using `observation_push` or `event_push` with `payload.observations`.
+Unregistered observations and schema-mismatched observation values are rejected
+with public `error` frames and are not stored as runtime observations.
 
 ## Action Requests
 
@@ -205,7 +259,9 @@ Edges return action completion with `action_result`.
 
 When an `interaction_id` is present, the runtime records lineage and may re-enter
 post-action proposal formation before deciding whether to issue another action
-or complete the interaction.
+or complete the interaction. Action results must report a capability that the
+resulting device registered as a compatible runtime-to-edge action provider for
+the request lineage.
 
 ## Interaction Updates
 

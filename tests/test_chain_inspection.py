@@ -72,6 +72,15 @@ class ChainInspectionTests(unittest.TestCase):
         self.assertIn("Gateway", diagnostic_modules)
         self.assertIn("Proposal Formation", diagnostic_modules)
         self.assertIn("Execution Planning", diagnostic_modules)
+        self.assertIn("planning_record", report)
+        self.assertEqual(
+            report["planning_record"]["chosen_candidate"]["capability_name"],
+            "notification.show",
+        )
+        self.assertIn(
+            "fallback_candidates",
+            report["planning_record"],
+        )
 
     def test_formatted_chain_report_contains_major_sections_in_order(self) -> None:
         report = inspect_cli_once("hello runtime", config_path=TEST_LLM_CONFIG)
@@ -86,6 +95,7 @@ class ChainInspectionTests(unittest.TestCase):
         self.assertIn("Behavior Contract:", rendered)
         self.assertIn("Snapshot Contract:", rendered)
         self.assertIn("Proposal:", rendered)
+        self.assertIn("Execution Plan:", rendered)
         self.assertIn("Presence Decision:", rendered)
         self.assertIn("Recorded Intervention:", rendered)
         self.assertIn("Replay Eval:", rendered)
@@ -120,6 +130,10 @@ class ChainInspectionTests(unittest.TestCase):
         self.assertLess(rendered.index("Proposal:"), rendered.index("Presence Decision:"))
         self.assertLess(
             rendered.index("Presence Decision:"),
+            rendered.index("Execution Plan:"),
+        )
+        self.assertLess(
+            rendered.index("Execution Plan:"),
             rendered.index("Recorded Intervention:"),
         )
         self.assertLess(
