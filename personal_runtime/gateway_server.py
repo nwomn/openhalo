@@ -10,19 +10,12 @@ from pathlib import Path
 import websockets
 from websockets.exceptions import ConnectionClosedOK
 
-from edge_api.protocol import validate_frame
-from edge_api.protocol import with_api_version
-from openhalo_common.diagnostics import correlation_from_frame
-from personal_runtime.action_layer import build_action_request
+from edge_api.protocol import validate_frame, with_api_version
 from personal_runtime.action_layer import build_interaction_update
-from personal_runtime.action_layer import build_planned_action
 from personal_runtime.agent_executor import ProposalFormation
 from personal_runtime.context_contracts import RuntimeObservation
-from personal_runtime.context_snapshot import build_context_snapshot
-from personal_runtime.context_snapshot import build_context_snapshot_contract
 from personal_runtime.execution_planning import ExecutionPlanner
 from personal_runtime.presence_router import PresenceRouter
-from personal_runtime.runtime_memory import build_model_grounding_bundle
 from personal_runtime.runtime_orchestrator import RuntimeOrchestrator
 from personal_runtime.runtime_state import RuntimeState
 from personal_runtime.state_store import JsonStateStore
@@ -245,13 +238,14 @@ class RuntimeGateway:
         return replies
 
     def _build_event_replies(self, frame: dict) -> list[dict]:
-        return self.orchestrator.handle_event_frame(frame)
-
-    def _build_event_replies_impl(self, frame: dict) -> list[dict]:
-        replies = [with_api_version({"type": "event_ack"})]
-        payload = frame["payload"]
-        direct_action = payload.get("direct_action")
-        correlation = correlation_from_frame(frame)
+        correlation = {
+            "trace_id": frame.get("trace_id"),
+            "session_id": frame.get("session_id"),
+            "turn_id": frame.get("turn_id"),
+            "event_id": frame.get("event_id"),
+            "request_id": None,
+            "interaction_id": frame.get("interaction_id"),
+        }
         self._record_diagnostic(
             module="Gateway",
             operation="receive_frame",
@@ -265,163 +259,13 @@ class RuntimeGateway:
             output_payload={"ack": "event_ack"},
             summary=f"Received {frame.get('capability', '')} event frame.",
         )
-        if direct_action is not None:
-            execution_outcome = self.execution_planner.plan_direct_action(
-                source_device_id=frame["device_id"],
-                direct_action=direct_action,
-                correlation=correlation,
-            )
-            replies.append(
-                build_action_request(
-                    execution_outcome["target_device_id"],
-                    execution_outcome["action"],
-                    trace_recorder=self.trace_recorder,
-                    correlation=correlation,
-                )
-            )
-            return replies
+        return [
+            with_api_version({"type": "event_ack"}),
+            *self.orchestrator.handle_event_frame(frame),
+        ]
 
-        if payload.get("observations"):
-            self._record_diagnostic(
-                module="State / Context",
-                operation="ingest_observations",
-                phase="input",
-                correlation=correlation,
-                input_payload={"observation_count": len(payload.get("observations", []))},
-                output_payload={},
-                summary="Received observation event for state/context ingest.",
-            )
-            replies.extend(self._build_observation_reentry_replies(frame))
-            return replies
-
-        decision_time = self._event_timestamp(frame)
-        snapshot = build_context_snapshot(
-            self.state.observations,
-            snapshot_time=decision_time or None,
-        )
-        self._record_diagnostic(
-            module="State / Context",
-            operation="build_compact_snapshot",
-            phase="output",
-            correlation=correlation,
-            input_payload={"stored_observation_count": len(self.state.observations)},
-            output_payload=snapshot,
-            summary="Built compact context snapshot.",
-        )
-        edge_history = self._build_edge_history_for_grounding()
-        grounding_bundle = build_model_grounding_bundle(
-            state=self.state,
-            snapshot=snapshot,
-            edge_history=edge_history,
-        )
-        self._record_diagnostic(
-            module="Grounding / Runtime Memory",
-            operation="build_grounding_bundle",
-            phase="output",
-            correlation=correlation,
-            input_payload={"snapshot": snapshot},
-            output_payload=grounding_bundle,
-            summary="Built grounding bundle for proposal formation.",
-        )
-        snapshot_contract = build_context_snapshot_contract(
-            self.state.observations,
-            snapshot_time=decision_time or None,
-        )
-        proposal = self._build_normal_path_proposal(
-            frame,
-            snapshot=snapshot,
-            grounding_bundle=grounding_bundle,
-            correlation=correlation,
-        )
-        self.state.record_model_health(
-            proposal.metadata,
-            observed_at=decision_time,
-        )
-        decision = self.presence_router.choose(
-            source_device_id=frame["device_id"],
-            snapshot=snapshot,
-            devices=self.state.devices,
-            online_device_ids=set(self.online_device_ids),
-            required_capability=proposal.required_capability,
-            proposal=proposal.to_dict(),
-            intervention_history=self.state.interventions,
-            now_timestamp=decision_time,
-            correlation=correlation,
-        )
-        interaction_id = self._next_interaction_id()
-        correlation["interaction_id"] = interaction_id
-        self.state.record_interaction(
-            self._build_interaction_record(
-                interaction_id=interaction_id,
-                frame=frame,
-                proposal=proposal,
-                decision=decision,
-            )
-        )
-        self.state.record_intervention(
-            {
-                "interaction_id": interaction_id,
-                "source_device_id": frame["device_id"],
-                "target_device_id": decision.target_device_id,
-                "action_capability": proposal.action_capability,
-                "decision": decision.decision,
-                "reason": decision.reason,
-                "proposal": proposal.to_dict(),
-                "grounding_bundle": grounding_bundle,
-                "snapshot_contract": snapshot_contract,
-                "correlation": correlation,
-                "recorded_at": decision_time,
-            }
-        )
-        self._record_diagnostic(
-            module="State / Context",
-            operation="record_intervention",
-            phase="output",
-            correlation=correlation,
-            input_payload={"interaction_id": interaction_id},
-            output_payload={"decision": decision.decision},
-            summary="Recorded interaction and intervention.",
-        )
-        self._persist_state()
-        execution_outcome = self.execution_planner.plan_action(
-            source_device_id=frame["device_id"],
-            proposal=proposal.to_dict(),
-            decision=decision.to_dict(),
-            interaction_id=interaction_id,
-            correlation=correlation,
-        )
-        if execution_outcome["kind"] == "completion":
-            completed = self._complete_interaction(
-                interaction_id=interaction_id,
-                summary=execution_outcome["summary"],
-                visibility=execution_outcome["visibility"],
-            )
-            replies.extend(
-                self._build_interaction_update_replies(
-                    completed,
-                    correlation=correlation,
-                )
-            )
-            return replies
-
-        planned_action = build_planned_action(
-            execution_outcome["target_device_id"],
-            proposal.to_dict(),
-            trace_recorder=self.trace_recorder,
-            correlation=correlation,
-        )
-        planned_action["interaction_id"] = interaction_id
-        self._record_diagnostic(
-            module="Action Layer",
-            operation="build_action_request",
-            phase="output",
-            correlation={**correlation, "request_id": planned_action.get("request_id")},
-            input_payload={"planned_action": proposal.to_dict()},
-            output_payload=planned_action,
-            summary="Built action_request frame.",
-        )
-        replies.append(planned_action)
-        return replies
+    def _build_event_replies_impl(self, frame: dict) -> list[dict]:
+        return self.orchestrator.handle_event_frame(frame)
 
     def _turn_index_for_interaction(self, interaction_id: str) -> int:
         return (
@@ -551,235 +395,13 @@ class RuntimeGateway:
         return self._event_timestamp(frame)
 
     def _build_observation_reentry_replies(self, frame: dict) -> list[dict]:
-        observations = frame.get("payload", {}).get("observations", [])
-        if not observations:
-            return []
-        interaction = self._latest_open_interaction_for_observations(frame)
-        if interaction is None:
-            return []
-        if not self._observations_relevant_to_open_interaction(
-            interaction,
-            observations,
-        ):
-            return []
-        interaction_id = interaction["interaction_id"]
-        intervention = next(
-            (
-                item
-                for item in reversed(self.state.interventions)
-                if item.get("interaction_id") == interaction_id
-            ),
-            None,
-        )
-        if intervention is None:
-            return []
-
-        decision_time = self._observation_timestamp(frame)
-        snapshot = build_context_snapshot(
-            self.state.observations,
-            snapshot_time=decision_time or None,
-        )
-        edge_history = self._build_edge_history_for_grounding()
-        grounding_bundle = build_model_grounding_bundle(
-            state=self.state,
-            snapshot=snapshot,
-            edge_history=edge_history,
-        )
-        snapshot_contract = build_context_snapshot_contract(
-            self.state.observations,
-            snapshot_time=decision_time or None,
-        )
-        correlation = correlation_from_frame(frame)
-        correlation["interaction_id"] = interaction_id
-        proposal = self.proposal_formation.build_post_observation_proposal(
-            interaction=interaction,
-            prior_proposal=intervention["proposal"],
-            observations=observations,
-            turn_index=self._turn_index_for_interaction(interaction_id),
-            snapshot=snapshot,
-            grounding_bundle=grounding_bundle,
-            correlation=correlation,
-        )
-        self.state.record_model_health(
-            proposal.metadata,
-            observed_at=decision_time,
-        )
-        decision = self.presence_router.choose(
-            source_device_id=interaction["source_device_id"],
-            snapshot=snapshot,
-            devices=self.state.devices,
-            online_device_ids=set(self.online_device_ids),
-            required_capability=proposal.required_capability,
-            proposal=proposal.to_dict(),
-            intervention_history=self.state.interventions,
-            now_timestamp=decision_time,
-            correlation=correlation,
-        )
-        self.state.update_interaction(
-            interaction_id,
-            **{
-                key: value
-                for key, value in self._build_interaction_turn_update(
-                    interaction=interaction,
-                    proposal=proposal,
-                    decision=decision,
-                ).items()
-                if key != "interaction_id"
-            },
-        )
-        self.state.record_intervention(
-            {
-                "interaction_id": interaction_id,
-                "source_device_id": interaction["source_device_id"],
-                "target_device_id": decision.target_device_id,
-                "action_capability": proposal.action_capability,
-                "decision": decision.decision,
-                "reason": decision.reason,
-                "proposal": proposal.to_dict(),
-                "grounding_bundle": grounding_bundle,
-                "snapshot_contract": snapshot_contract,
-                "recorded_at": decision_time,
-            }
-        )
-        self._persist_state()
-
-        if decision.decision == "allow" and proposal.action_capability is not None:
-            planned_action = build_planned_action(
-                decision.target_device_id or interaction["source_device_id"],
-                proposal.to_dict(),
-                trace_recorder=self.trace_recorder,
-            )
-            planned_action["interaction_id"] = interaction_id
-            return [planned_action]
-
-        completed = self._complete_interaction(
-            interaction_id=interaction_id,
-            summary=self._build_interaction_summary(proposal.to_dict()),
-            visibility=proposal.visibility_intent,
-        )
-        self._persist_state()
-        return self._build_interaction_update_replies(completed)
+        return self.orchestrator.handle_observation_reentry_frame(frame)
 
     def _build_action_result_replies(self, frame: dict) -> list[dict]:
         return self.orchestrator.handle_action_result_frame(frame)
 
     def _build_action_result_replies_impl(self, frame: dict) -> list[dict]:
-        interaction_id = frame.get("interaction_id")
-        if not interaction_id:
-            return []
-        interaction = next(
-            (
-                item
-                for item in reversed(self.state.interactions)
-                if item.get("interaction_id") == interaction_id
-            ),
-            None,
-        )
-        intervention = next(
-            (
-                item
-                for item in reversed(self.state.interventions)
-                if item.get("interaction_id") == interaction_id
-            ),
-            None,
-        )
-        if interaction is None or intervention is None:
-            return []
-        result = frame["result"]
-        decision_time = self._action_result_timestamp(frame)
-        snapshot = build_context_snapshot(
-            self.state.observations,
-            snapshot_time=decision_time or None,
-        )
-        edge_history = self._build_edge_history_for_grounding()
-        grounding_bundle = build_model_grounding_bundle(
-            state=self.state,
-            snapshot=snapshot,
-            edge_history=edge_history,
-        )
-        snapshot_contract = build_context_snapshot_contract(
-            self.state.observations,
-            snapshot_time=decision_time or None,
-        )
-        correlation = correlation_from_frame(frame)
-        correlation["interaction_id"] = interaction_id
-        proposal = self.proposal_formation.build_post_action_proposal(
-            interaction=interaction,
-            prior_proposal=intervention["proposal"],
-            result=result,
-            turn_index=self._turn_index_for_interaction(interaction_id),
-            snapshot=snapshot,
-            grounding_bundle=grounding_bundle,
-            correlation=correlation,
-        )
-        self.state.record_model_health(
-            proposal.metadata,
-            observed_at=decision_time,
-        )
-        decision = self.presence_router.choose(
-            source_device_id=interaction["source_device_id"],
-            snapshot=snapshot,
-            devices=self.state.devices,
-            online_device_ids=set(self.online_device_ids),
-            required_capability=proposal.required_capability,
-            proposal=proposal.to_dict(),
-            intervention_history=self.state.interventions,
-            now_timestamp=decision_time,
-            correlation=correlation,
-        )
-        self.state.update_interaction(
-            interaction_id,
-            **{
-                key: value
-                for key, value in self._build_interaction_turn_update(
-                    interaction=interaction,
-                    proposal=proposal,
-                    decision=decision,
-                ).items()
-                if key != "interaction_id"
-            },
-        )
-        self.state.record_intervention(
-            {
-                "interaction_id": interaction_id,
-                "source_device_id": interaction["source_device_id"],
-                "target_device_id": decision.target_device_id,
-                "action_capability": proposal.action_capability,
-                "decision": decision.decision,
-                "reason": decision.reason,
-                "proposal": proposal.to_dict(),
-                "grounding_bundle": grounding_bundle,
-                "snapshot_contract": snapshot_contract,
-                "recorded_at": decision_time,
-            }
-        )
-        self._persist_state()
-
-        if decision.decision == "allow" and proposal.action_capability is not None:
-            planned_action = build_planned_action(
-                decision.target_device_id or interaction["source_device_id"],
-                proposal.to_dict(),
-                trace_recorder=self.trace_recorder,
-            )
-            planned_action["interaction_id"] = interaction_id
-            return [planned_action]
-
-        visibility = self._completion_visibility_for_action_result(
-            interaction=interaction,
-            proposal=proposal.to_dict(),
-            result=result,
-        )
-        completed = self._complete_interaction(
-            interaction_id=interaction_id,
-            summary=self._build_interaction_summary(
-                proposal.to_dict(),
-                result=result,
-            ),
-            visibility=visibility,
-            result_status=result.get("status"),
-        )
-        self._persist_state()
-        return self._build_interaction_update_replies(completed)
+        return self.orchestrator.handle_action_result_frame(frame)
 
     def _handle_frames_sync(self, frames: list[dict]) -> list[dict]:
         replies = []

@@ -59,13 +59,91 @@ class RuntimeOrchestratorTests(unittest.TestCase):
             frame["trace_id"],
         )
         modules = [event.module for event in diagnostics.events]
-        self.assertIn("Gateway", modules)
         self.assertIn("State / Context", modules)
         self.assertIn("Grounding / Runtime Memory", modules)
         self.assertIn("Proposal Formation", modules)
         self.assertIn("Presence Router", modules)
         self.assertIn("Execution Planning", modules)
         self.assertIn("Action Layer", modules)
+
+    def test_orchestrator_does_not_delegate_to_gateway_private_event_impl(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        gateway._build_event_replies_impl = None
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+            ]
+        )
+
+        replies = gateway.orchestrator.handle_event_frame(
+            client.build_text_event("hello runtime")
+        )
+
+        self.assertTrue(any(reply["type"] == "action_request" for reply in replies))
+
+    def test_orchestrator_does_not_delegate_to_gateway_private_action_result_impl(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+            ]
+        )
+        replies = gateway.run_roundtrip([client.build_text_event("hello runtime")])
+        action_request = next(
+            reply for reply in replies if reply["type"] == "action_request"
+        )
+        action_result = client.handle_action_request(action_request)
+        gateway._build_action_result_replies_impl = None
+
+        reentry_replies = gateway.orchestrator.handle_action_result_frame(action_result)
+
+        self.assertTrue(reentry_replies)
+
+    def test_orchestrator_does_not_record_gateway_boundary_diagnostic(self) -> None:
+        diagnostics = InMemoryDiagnosticRecorder(
+            timestamp_provider=lambda: "2026-06-30T12:00:00Z"
+        )
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            diagnostic_recorder=diagnostics,
+        )
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+            ]
+        )
+
+        gateway.orchestrator.handle_event_frame(client.build_text_event("hello runtime"))
+
+        self.assertNotIn("Gateway", [event.module for event in diagnostics.events])
 
     def test_runtime_modules_record_their_own_boundaries(self) -> None:
         diagnostics = InMemoryDiagnosticRecorder(

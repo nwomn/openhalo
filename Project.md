@@ -417,7 +417,7 @@ Result:
 - A neutral `openhalo_common` package now owns shared diagnostic primitives, including the structured `diagnostic.v1` event schema, in-memory diagnostic recorder, JSONL writer, correlation helpers, and backward-compatible lightweight trace recorder
 - Device-edge runtime paths now use runtime-neutral diagnostics instead of importing `personal_runtime` tracing internals; dependency-boundary coverage verifies ordinary shared, terminal, and host edge runtime paths do not depend on backend internals
 - Edge API frames now carry lightweight correlation fields such as `trace_id`, `session_id`, `turn_id`, and `event_id`, while runtime-generated `action_request`, edge-returned `action_result`, and runtime `interaction_update` frames preserve those identifiers and add `request_id` / `interaction_id` where applicable
-- `RuntimeGateway` now delegates event and action-result handling through an explicit `RuntimeOrchestrator` boundary, keeping a visible separation between gateway transport/control-plane work and runtime-chain orchestration
+- `RuntimeOrchestrator` now owns backend runtime-chain coordination for normal turns, direct actions, observation re-entry, and post-action re-entry, while `RuntimeGateway` remains focused on authentication, public frame validation/normalization, connection state, ingress persistence, event acknowledgements, and outbound WebSocket dispatch
 - A real `Execution Planning` module now owns the proposal / presence-decision to action-or-completion outcome boundary on the normal runtime path
 - Module-boundary diagnostics now record structured input/output events for the normal runtime chain across `Gateway`, `State / Context`, `Grounding / Runtime Memory`, `Proposal Formation`, `Presence Router`, `Execution Planning`, and `Action Layer`
 - Edge-side diagnostics now record representative `Local Capability Runtime` and `Edge Session Link` boundary events for both text input normalization and observation frame preparation, so host-edge observation traffic also creates local JSONL diagnostics when `--diagnostic-log-path` is enabled
@@ -433,7 +433,7 @@ Acceptance criteria:
 - Cross-boundary frames carry correlation identifiers that allow Edge and Runtime logs to be aligned without shared storage
 - Manual runtime, host-edge, and terminal-edge processes can opt into local JSONL diagnostic logs through startup arguments
 - Device-edge runtime code no longer depends on backend tracing internals for ordinary operation
-- Gateway-to-runtime orchestration and execution planning are represented by explicit tested modules
+- Gateway-to-runtime orchestration and execution planning are represented by explicit tested modules, with regression coverage ensuring `RuntimeOrchestrator` does not fall back to Gateway private runtime-chain implementations
 - Inspect-chain output exposes module-boundary diagnostic events in the architecture chain
 
 Status:
