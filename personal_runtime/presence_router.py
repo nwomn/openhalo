@@ -4,6 +4,8 @@ from dataclasses import asdict
 from dataclasses import dataclass
 from datetime import datetime
 
+from openhalo_common.diagnostics import DiagnosticBoundaryRecorder
+
 
 COOLDOWN_MINUTES = 5
 
@@ -16,6 +18,60 @@ class PresenceDecision:
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+
+class PresenceRouter:
+    def __init__(
+        self,
+        diagnostic_recorder=None,
+        runtime_instance_id: str = "runtime-main",
+        trace_recorder=None,
+    ) -> None:
+        self.diagnostics = DiagnosticBoundaryRecorder(
+            recorder=diagnostic_recorder,
+            side="runtime",
+            runtime_instance_id=runtime_instance_id,
+        )
+        self.trace_recorder = trace_recorder
+
+    def choose(
+        self,
+        source_device_id: str,
+        snapshot: dict | None = None,
+        proposal: dict | None = None,
+        devices: dict | None = None,
+        online_device_ids: set[str] | None = None,
+        required_capability: str | None = None,
+        intervention_history: list[dict] | None = None,
+        now_timestamp: str | None = None,
+        correlation: dict | None = None,
+    ) -> PresenceDecision:
+        input_payload = {
+            "source_device_id": source_device_id,
+            "required_capability": required_capability,
+            "proposal_type": (proposal or {}).get("proposal_type"),
+            "online_device_ids": sorted(online_device_ids or []),
+        }
+        with self.diagnostics.boundary(
+            module="Presence Router",
+            operation="choose_presence_decision",
+            correlation=correlation or {},
+            input_payload=input_payload,
+            summary="Evaluated presence decision.",
+        ) as boundary:
+            decision = choose_presence_decision(
+                source_device_id=source_device_id,
+                snapshot=snapshot,
+                proposal=proposal,
+                devices=devices,
+                online_device_ids=online_device_ids,
+                required_capability=required_capability,
+                intervention_history=intervention_history,
+                now_timestamp=now_timestamp,
+                trace_recorder=self.trace_recorder,
+            )
+            boundary.output(decision.to_dict())
+            return decision
 
 
 def choose_response_device(

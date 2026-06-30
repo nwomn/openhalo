@@ -43,6 +43,31 @@ class EdgeClientTests(unittest.TestCase):
             ["host.metrics", "runtime.health", "runtime.control"],
         )
 
+    def test_capability_runtime_records_own_text_normalization_boundary(self) -> None:
+        diagnostics = InMemoryDiagnosticRecorder(
+            timestamp_provider=lambda: "2026-06-30T12:00:00Z"
+        )
+        runtime = CapabilityRuntime(
+            diagnostic_recorder=diagnostics,
+            device={
+                "device_id": "terminal-edge-1",
+                "device_name": "terminal-edge-1",
+                "device_type": "desktop-cli",
+            },
+        )
+
+        normalized = runtime.normalize_user_input(
+            "check runtime status",
+            correlation={"trace_id": "trace-terminal-edge-1-1"},
+        )
+
+        self.assertEqual(normalized["capability"], "text.input")
+        self.assertEqual(len(diagnostics.events), 1)
+        event = diagnostics.events[0]
+        self.assertEqual(event.module, "Local Capability Runtime")
+        self.assertEqual(event.operation, "normalize_user_input")
+        self.assertEqual(event.output["capability"], "text.input")
+
     def test_executes_notification_action(self) -> None:
         result = execute_action(
             {"capability": "notification.show", "payload": {"message": "hello"}}

@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from openhalo_common.diagnostics import DiagnosticCorrelation
+from openhalo_common.diagnostics import DiagnosticBoundaryRecorder
 from openhalo_common.diagnostics import DiagnosticEvent
 from openhalo_common.diagnostics import InMemoryDiagnosticRecorder
 from openhalo_common.diagnostics import JsonlDiagnosticRecorder
@@ -101,6 +102,58 @@ class DiagnosticsV1Tests(unittest.TestCase):
         payload = recorder.events[0].to_dict()
         self.assertEqual(payload["module"], "Gateway")
         self.assertEqual(payload["correlation"]["trace_id"], "trace-terminal-edge-1-1")
+
+    def test_boundary_recorder_records_output_from_module_scope(self) -> None:
+        recorder = InMemoryDiagnosticRecorder(
+            timestamp_provider=lambda: "2026-06-30T12:00:00Z"
+        )
+        boundary_recorder = DiagnosticBoundaryRecorder(
+            recorder=recorder,
+            side="runtime",
+            runtime_instance_id="runtime-main",
+        )
+
+        with boundary_recorder.boundary(
+            module="Execution Planning",
+            operation="plan_action",
+            correlation={"trace_id": "trace-terminal-edge-1-1"},
+            input_payload={"proposal_type": "reply"},
+            summary="Planned runtime execution outcome.",
+        ) as boundary:
+            boundary.output({"kind": "action"})
+
+        self.assertEqual(len(recorder.events), 1)
+        event = recorder.events[0]
+        self.assertEqual(event.module, "Execution Planning")
+        self.assertEqual(event.phase, "output")
+        self.assertEqual(event.output["kind"], "action")
+
+    def test_boundary_recorder_records_error_from_module_scope(self) -> None:
+        recorder = InMemoryDiagnosticRecorder(
+            timestamp_provider=lambda: "2026-06-30T12:00:00Z"
+        )
+        boundary_recorder = DiagnosticBoundaryRecorder(
+            recorder=recorder,
+            side="runtime",
+            runtime_instance_id="runtime-main",
+        )
+
+        with self.assertRaisesRegex(ValueError, "bad plan"):
+            with boundary_recorder.boundary(
+                module="Execution Planning",
+                operation="plan_action",
+                correlation={"trace_id": "trace-terminal-edge-1-1"},
+                input_payload={"proposal_type": "reply"},
+                summary="Execution planning failed.",
+            ):
+                raise ValueError("bad plan")
+
+        self.assertEqual(len(recorder.events), 1)
+        event = recorder.events[0]
+        self.assertEqual(event.phase, "error")
+        self.assertEqual(event.severity, "error")
+        self.assertEqual(event.output["error_type"], "ValueError")
+        self.assertEqual(event.output["message"], "bad plan")
 
 
 if __name__ == "__main__":

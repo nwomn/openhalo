@@ -16,15 +16,12 @@ from openhalo_common.diagnostics import correlation_from_frame
 from personal_runtime.action_layer import build_action_request
 from personal_runtime.action_layer import build_interaction_update
 from personal_runtime.action_layer import build_planned_action
-from personal_runtime.agent_executor import build_intervention_proposal
-from personal_runtime.agent_executor import build_agent_initiative_proposal
-from personal_runtime.agent_executor import build_post_action_proposal
-from personal_runtime.agent_executor import build_post_observation_proposal
+from personal_runtime.agent_executor import ProposalFormation
 from personal_runtime.context_contracts import RuntimeObservation
 from personal_runtime.context_snapshot import build_context_snapshot
 from personal_runtime.context_snapshot import build_context_snapshot_contract
-from personal_runtime.execution_planning import build_execution_outcome
-from personal_runtime.presence_router import choose_presence_decision
+from personal_runtime.execution_planning import ExecutionPlanner
+from personal_runtime.presence_router import PresenceRouter
 from personal_runtime.runtime_memory import build_model_grounding_bundle
 from personal_runtime.runtime_orchestrator import RuntimeOrchestrator
 from personal_runtime.runtime_state import RuntimeState
@@ -68,6 +65,21 @@ class RuntimeGateway:
         self.diagnostic_recorder = diagnostic_recorder
         self.runtime_instance_id = runtime_instance_id
         self.orchestrator = RuntimeOrchestrator(self)
+        self.proposal_formation = ProposalFormation(
+            diagnostic_recorder=diagnostic_recorder,
+            runtime_instance_id=runtime_instance_id,
+            trace_recorder=trace_recorder,
+            config_path=llm_config_path,
+        )
+        self.presence_router = PresenceRouter(
+            diagnostic_recorder=diagnostic_recorder,
+            runtime_instance_id=runtime_instance_id,
+            trace_recorder=trace_recorder,
+        )
+        self.execution_planner = ExecutionPlanner(
+            diagnostic_recorder=diagnostic_recorder,
+            runtime_instance_id=runtime_instance_id,
+        )
         self._websocket_frame_lock = asyncio.Lock()
 
     def _persist_state(self) -> None:
@@ -254,22 +266,15 @@ class RuntimeGateway:
             summary=f"Received {frame.get('capability', '')} event frame.",
         )
         if direct_action is not None:
-            self._record_diagnostic(
-                module="Execution Planning",
-                operation="plan_direct_action",
-                phase="output",
+            execution_outcome = self.execution_planner.plan_direct_action(
+                source_device_id=frame["device_id"],
+                direct_action=direct_action,
                 correlation=correlation,
-                input_payload={"direct_action": direct_action},
-                output_payload={"target_device_id": direct_action.get("target_device_id", frame["device_id"])},
-                summary="Planned direct action fast path.",
             )
             replies.append(
                 build_action_request(
-                    direct_action.get("target_device_id", frame["device_id"]),
-                    {
-                        "capability": direct_action["capability"],
-                        "payload": direct_action["payload"],
-                    },
+                    execution_outcome["target_device_id"],
+                    execution_outcome["action"],
                     trace_recorder=self.trace_recorder,
                     correlation=correlation,
                 )
@@ -326,21 +331,13 @@ class RuntimeGateway:
             frame,
             snapshot=snapshot,
             grounding_bundle=grounding_bundle,
-        )
-        self._record_diagnostic(
-            module="Proposal Formation",
-            operation="build_proposal",
-            phase="output",
             correlation=correlation,
-            input_payload={"text": payload.get("text", "")},
-            output_payload=proposal.to_dict(),
-            summary="Built intervention proposal.",
         )
         self.state.record_model_health(
             proposal.metadata,
             observed_at=decision_time,
         )
-        decision = choose_presence_decision(
+        decision = self.presence_router.choose(
             source_device_id=frame["device_id"],
             snapshot=snapshot,
             devices=self.state.devices,
@@ -349,20 +346,7 @@ class RuntimeGateway:
             proposal=proposal.to_dict(),
             intervention_history=self.state.interventions,
             now_timestamp=decision_time,
-            trace_recorder=self.trace_recorder,
-        )
-        self._record_diagnostic(
-            module="Presence Router",
-            operation="choose_presence_decision",
-            phase="output",
             correlation=correlation,
-            input_payload={
-                "source_device_id": frame["device_id"],
-                "required_capability": proposal.required_capability,
-                "proposal_type": proposal.proposal_type,
-            },
-            output_payload=decision.to_dict(),
-            summary="Evaluated presence decision.",
         )
         interaction_id = self._next_interaction_id()
         correlation["interaction_id"] = interaction_id
@@ -399,23 +383,12 @@ class RuntimeGateway:
             summary="Recorded interaction and intervention.",
         )
         self._persist_state()
-        execution_outcome = build_execution_outcome(
+        execution_outcome = self.execution_planner.plan_action(
             source_device_id=frame["device_id"],
             proposal=proposal.to_dict(),
             decision=decision.to_dict(),
             interaction_id=interaction_id,
             correlation=correlation,
-        )
-        self._record_diagnostic(
-            module="Execution Planning",
-            operation="plan_action"
-            if execution_outcome["kind"] == "action"
-            else "complete_interaction",
-            phase="output",
-            correlation=correlation,
-            input_payload={"proposal": proposal.to_dict(), "decision": decision.to_dict()},
-            output_payload=execution_outcome,
-            summary="Planned runtime execution outcome.",
         )
         if execution_outcome["kind"] == "completion":
             completed = self._complete_interaction(
@@ -510,21 +483,13 @@ class RuntimeGateway:
         frame: dict,
         snapshot: dict,
         grounding_bundle: dict | None = None,
+        correlation: dict | None = None,
     ):
-        payload = frame["payload"]
-        if payload.get("agent_initiative") is not None:
-            return build_agent_initiative_proposal(
-                payload["agent_initiative"],
-                snapshot=snapshot,
-                grounding_bundle=grounding_bundle,
-                trace_recorder=self.trace_recorder,
-            )
-        return build_intervention_proposal(
-            payload["text"],
+        return self.proposal_formation.build_normal_path_proposal(
+            frame,
             snapshot=snapshot,
             grounding_bundle=grounding_bundle,
-            trace_recorder=self.trace_recorder,
-            config_path=self.llm_config_path,
+            correlation=correlation,
         )
 
     def _build_edge_history_for_grounding(self) -> dict | None:
@@ -624,21 +589,22 @@ class RuntimeGateway:
             self.state.observations,
             snapshot_time=decision_time or None,
         )
-        proposal = build_post_observation_proposal(
+        correlation = correlation_from_frame(frame)
+        correlation["interaction_id"] = interaction_id
+        proposal = self.proposal_formation.build_post_observation_proposal(
             interaction=interaction,
             prior_proposal=intervention["proposal"],
             observations=observations,
             turn_index=self._turn_index_for_interaction(interaction_id),
             snapshot=snapshot,
             grounding_bundle=grounding_bundle,
-            trace_recorder=self.trace_recorder,
-            config_path=self.llm_config_path,
+            correlation=correlation,
         )
         self.state.record_model_health(
             proposal.metadata,
             observed_at=decision_time,
         )
-        decision = choose_presence_decision(
+        decision = self.presence_router.choose(
             source_device_id=interaction["source_device_id"],
             snapshot=snapshot,
             devices=self.state.devices,
@@ -647,7 +613,7 @@ class RuntimeGateway:
             proposal=proposal.to_dict(),
             intervention_history=self.state.interventions,
             now_timestamp=decision_time,
-            trace_recorder=self.trace_recorder,
+            correlation=correlation,
         )
         self.state.update_interaction(
             interaction_id,
@@ -735,21 +701,22 @@ class RuntimeGateway:
             self.state.observations,
             snapshot_time=decision_time or None,
         )
-        proposal = build_post_action_proposal(
+        correlation = correlation_from_frame(frame)
+        correlation["interaction_id"] = interaction_id
+        proposal = self.proposal_formation.build_post_action_proposal(
             interaction=interaction,
             prior_proposal=intervention["proposal"],
             result=result,
             turn_index=self._turn_index_for_interaction(interaction_id),
             snapshot=snapshot,
             grounding_bundle=grounding_bundle,
-            trace_recorder=self.trace_recorder,
-            config_path=self.llm_config_path,
+            correlation=correlation,
         )
         self.state.record_model_health(
             proposal.metadata,
             observed_at=decision_time,
         )
-        decision = choose_presence_decision(
+        decision = self.presence_router.choose(
             source_device_id=interaction["source_device_id"],
             snapshot=snapshot,
             devices=self.state.devices,
@@ -758,7 +725,7 @@ class RuntimeGateway:
             proposal=proposal.to_dict(),
             intervention_history=self.state.interventions,
             now_timestamp=decision_time,
-            trace_recorder=self.trace_recorder,
+            correlation=correlation,
         )
         self.state.update_interaction(
             interaction_id,

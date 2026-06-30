@@ -5,6 +5,7 @@ from dataclasses import asdict
 from dataclasses import dataclass
 from pathlib import Path
 
+from openhalo_common.diagnostics import DiagnosticBoundaryRecorder
 from personal_runtime.model_provider import generate_text_reply_plan
 from personal_runtime.model_provider import generate_text_proposal_plan
 from personal_runtime.model_provider import generate_post_action_proposal_plan
@@ -33,6 +34,129 @@ class InterventionProposal:
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+
+class ProposalFormation:
+    def __init__(
+        self,
+        diagnostic_recorder=None,
+        runtime_instance_id: str = "runtime-main",
+        trace_recorder=None,
+        config_path: Path | None = None,
+    ) -> None:
+        self.diagnostics = DiagnosticBoundaryRecorder(
+            recorder=diagnostic_recorder,
+            side="runtime",
+            runtime_instance_id=runtime_instance_id,
+        )
+        self.trace_recorder = trace_recorder
+        self.config_path = config_path
+
+    def build_normal_path_proposal(
+        self,
+        frame: dict,
+        snapshot: dict,
+        grounding_bundle: dict | None = None,
+        correlation: dict | None = None,
+    ) -> InterventionProposal:
+        payload = frame["payload"]
+        operation_input = {
+            "capability": frame.get("capability"),
+            "text": payload.get("text", ""),
+            "has_agent_initiative": payload.get("agent_initiative") is not None,
+        }
+        with self.diagnostics.boundary(
+            module="Proposal Formation",
+            operation="build_proposal",
+            correlation=correlation or {},
+            input_payload=operation_input,
+            summary="Built intervention proposal.",
+        ) as boundary:
+            if payload.get("agent_initiative") is not None:
+                proposal = build_agent_initiative_proposal(
+                    payload["agent_initiative"],
+                    snapshot=snapshot,
+                    grounding_bundle=grounding_bundle,
+                    trace_recorder=self.trace_recorder,
+                )
+            else:
+                proposal = build_intervention_proposal(
+                    payload["text"],
+                    snapshot=snapshot,
+                    grounding_bundle=grounding_bundle,
+                    trace_recorder=self.trace_recorder,
+                    config_path=self.config_path,
+                )
+            boundary.output(proposal.to_dict())
+            return proposal
+
+    def build_post_action_proposal(
+        self,
+        interaction: dict,
+        prior_proposal: dict,
+        result: dict,
+        turn_index: int,
+        snapshot: dict,
+        grounding_bundle: dict | None = None,
+        correlation: dict | None = None,
+    ) -> InterventionProposal:
+        with self.diagnostics.boundary(
+            module="Proposal Formation",
+            operation="build_post_action_proposal",
+            correlation=correlation or {},
+            input_payload={
+                "interaction_id": interaction.get("interaction_id"),
+                "result": result,
+                "turn_index": turn_index,
+            },
+            summary="Built post-action proposal.",
+        ) as boundary:
+            proposal = build_post_action_proposal(
+                interaction=interaction,
+                prior_proposal=prior_proposal,
+                result=result,
+                turn_index=turn_index,
+                snapshot=snapshot,
+                grounding_bundle=grounding_bundle,
+                trace_recorder=self.trace_recorder,
+                config_path=self.config_path,
+            )
+            boundary.output(proposal.to_dict())
+            return proposal
+
+    def build_post_observation_proposal(
+        self,
+        interaction: dict,
+        prior_proposal: dict,
+        observations: list[dict],
+        turn_index: int,
+        snapshot: dict,
+        grounding_bundle: dict | None = None,
+        correlation: dict | None = None,
+    ) -> InterventionProposal:
+        with self.diagnostics.boundary(
+            module="Proposal Formation",
+            operation="build_post_observation_proposal",
+            correlation=correlation or {},
+            input_payload={
+                "interaction_id": interaction.get("interaction_id"),
+                "observation_count": len(observations),
+                "turn_index": turn_index,
+            },
+            summary="Built post-observation proposal.",
+        ) as boundary:
+            proposal = build_post_observation_proposal(
+                interaction=interaction,
+                prior_proposal=prior_proposal,
+                observations=observations,
+                turn_index=turn_index,
+                snapshot=snapshot,
+                grounding_bundle=grounding_bundle,
+                trace_recorder=self.trace_recorder,
+                config_path=self.config_path,
+            )
+            boundary.output(proposal.to_dict())
+            return proposal
 
 
 def build_intervention_proposal(

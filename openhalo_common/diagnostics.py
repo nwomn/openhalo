@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import AbstractContextManager
 from dataclasses import asdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -153,6 +154,113 @@ class InMemoryDiagnosticRecorder:
         )
         self.record(event)
         return event
+
+
+class DiagnosticBoundary(AbstractContextManager):
+    def __init__(
+        self,
+        recorder,
+        side: str,
+        module: str,
+        operation: str,
+        correlation: dict | DiagnosticCorrelation | None,
+        input_payload: dict | None,
+        summary: str,
+        device: dict | None = None,
+        runtime_instance_id: str | None = None,
+    ) -> None:
+        self.recorder = recorder
+        self.side = side
+        self.module = module
+        self.operation = operation
+        self.correlation = correlation
+        self.input_payload = input_payload
+        self.summary = summary
+        self.device = device
+        self.runtime_instance_id = runtime_instance_id
+        self._recorded = False
+
+    def __enter__(self) -> "DiagnosticBoundary":
+        return self
+
+    def output(self, output_payload: dict | None, summary: str | None = None) -> None:
+        self._record(
+            phase="output",
+            output_payload=output_payload,
+            summary=summary or self.summary,
+            severity="info",
+        )
+
+    def __exit__(self, exc_type, exc_value, traceback) -> bool:
+        if exc_value is not None and not self._recorded:
+            self._record(
+                phase="error",
+                output_payload={
+                    "error_type": exc_type.__name__ if exc_type is not None else "Error",
+                    "message": str(exc_value),
+                },
+                summary=self.summary,
+                severity="error",
+            )
+        return False
+
+    def _record(
+        self,
+        phase: str,
+        output_payload: dict | None,
+        summary: str,
+        severity: str,
+    ) -> None:
+        if self.recorder is None:
+            return
+        self.recorder.record_boundary(
+            side=self.side,
+            device=self.device,
+            runtime_instance_id=self.runtime_instance_id,
+            module=self.module,
+            operation=self.operation,
+            phase=phase,
+            correlation=self.correlation,
+            input_payload=self.input_payload,
+            output_payload=output_payload,
+            summary=summary,
+            severity=severity,
+        )
+        self._recorded = True
+
+
+class DiagnosticBoundaryRecorder:
+    def __init__(
+        self,
+        recorder=None,
+        side: str = "runtime",
+        device: dict | None = None,
+        runtime_instance_id: str | None = None,
+    ) -> None:
+        self.recorder = recorder
+        self.side = side
+        self.device = device
+        self.runtime_instance_id = runtime_instance_id
+
+    def boundary(
+        self,
+        module: str,
+        operation: str,
+        correlation: dict | DiagnosticCorrelation | None,
+        input_payload: dict | None,
+        summary: str,
+    ) -> DiagnosticBoundary:
+        return DiagnosticBoundary(
+            recorder=self.recorder,
+            side=self.side,
+            device=self.device,
+            runtime_instance_id=self.runtime_instance_id,
+            module=module,
+            operation=operation,
+            correlation=correlation,
+            input_payload=input_payload,
+            summary=summary,
+        )
 
 
 class TraceRecorder:

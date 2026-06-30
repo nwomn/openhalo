@@ -32,9 +32,18 @@ class SessionClient:
         self.device_id = device_id
         self.device_type = device_type
         self.token = token
-        self.capability_runtime = CapabilityRuntime(capabilities=capabilities)
         self.trace_recorder = trace_recorder
         self.diagnostic_recorder = diagnostic_recorder
+        self.edge_device = {
+            "device_id": self.device_id,
+            "device_name": self.device_id,
+            "device_type": self.device_type,
+        }
+        self.capability_runtime = CapabilityRuntime(
+            capabilities=capabilities,
+            diagnostic_recorder=diagnostic_recorder,
+            device=self.edge_device,
+        )
         self.session_id = build_session_id(device_id)
 
     def build_connect_frame(self) -> dict:
@@ -70,20 +79,15 @@ class SessionClient:
     def build_text_event(self, text: str) -> dict:
         self._record_trace("EDGE", "build text.input event", text=text)
         correlation = self._next_correlation()
+        normalized = self.capability_runtime.normalize_user_input(
+            text,
+            correlation=correlation,
+        )
         frame = build_event_push_frame(
             device_id=self.device_id,
-            capability="text.input",
-            payload={"text": text},
+            capability=normalized["capability"],
+            payload=normalized["payload"],
             **correlation,
-        )
-        self._record_diagnostic(
-            module="Local Capability Runtime",
-            operation="normalize_user_input",
-            phase="output",
-            correlation=correlation,
-            input_payload={"text": text},
-            output_payload={"type": frame["type"], "capability": frame["capability"]},
-            summary="Normalized text input into text.input event.",
         )
         self._record_diagnostic(
             module="Edge Session Link",
@@ -166,24 +170,16 @@ class SessionClient:
             capability=capability,
             event_id=correlation["event_id"],
         )
+        normalized = self.capability_runtime.normalize_observations(
+            capability,
+            observations,
+            correlation=correlation,
+        )
         frame = build_observation_push_frame(
             device_id=self.device_id,
-            capability=capability,
-            observations=observations,
+            capability=normalized["capability"],
+            observations=normalized["observations"],
             **correlation,
-        )
-        self._record_diagnostic(
-            module="Local Capability Runtime",
-            operation="normalize_observations",
-            phase="output",
-            correlation=correlation,
-            input_payload={"capability": capability, "observations": observations},
-            output_payload={
-                "type": frame["type"],
-                "capability": frame["capability"],
-                "observation_count": len(observations),
-            },
-            summary="Normalized observations into observation_push frame.",
         )
         self._record_diagnostic(
             module="Edge Session Link",
@@ -271,11 +267,7 @@ class SessionClient:
             return
         self.diagnostic_recorder.record_boundary(
             side="edge",
-            device={
-                "device_id": self.device_id,
-                "device_name": self.device_id,
-                "device_type": self.device_type,
-            },
+            device=self.edge_device,
             module=module,
             operation=operation,
             phase=phase,

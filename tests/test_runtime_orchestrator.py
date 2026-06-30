@@ -8,6 +8,8 @@ from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.runtime_orchestrator import RuntimeOrchestrator
 from openhalo_common.diagnostics import InMemoryDiagnosticRecorder
 from openhalo_common.diagnostics import JsonlDiagnosticRecorder
+from personal_runtime.agent_executor import ProposalFormation
+from personal_runtime.presence_router import PresenceRouter
 
 
 TEST_LLM_CONFIG = Path("tests/fixtures/llm-config-test.toml")
@@ -64,6 +66,95 @@ class RuntimeOrchestratorTests(unittest.TestCase):
         self.assertIn("Presence Router", modules)
         self.assertIn("Execution Planning", modules)
         self.assertIn("Action Layer", modules)
+
+    def test_runtime_modules_record_their_own_boundaries(self) -> None:
+        diagnostics = InMemoryDiagnosticRecorder(
+            timestamp_provider=lambda: "2026-06-30T12:00:00Z"
+        )
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            diagnostic_recorder=diagnostics,
+        )
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+            ]
+        )
+
+        gateway.orchestrator.handle_event_frame(client.build_text_event("hello runtime"))
+
+        proposal_event = next(
+            event for event in diagnostics.events if event.module == "Proposal Formation"
+        )
+        presence_event = next(
+            event for event in diagnostics.events if event.module == "Presence Router"
+        )
+        execution_event = next(
+            event for event in diagnostics.events if event.module == "Execution Planning"
+        )
+        self.assertEqual(proposal_event.operation, "build_proposal")
+        self.assertEqual(presence_event.operation, "choose_presence_decision")
+        self.assertEqual(execution_event.operation, "plan_action")
+        self.assertEqual(proposal_event.output["proposal_type"], "reply")
+
+    def test_proposal_formation_records_own_module_boundary(self) -> None:
+        diagnostics = InMemoryDiagnosticRecorder(
+            timestamp_provider=lambda: "2026-06-30T12:00:00Z"
+        )
+        proposal_formation = ProposalFormation(
+            diagnostic_recorder=diagnostics,
+            runtime_instance_id="runtime-main",
+            config_path=TEST_LLM_CONFIG,
+        )
+
+        proposal = proposal_formation.build_normal_path_proposal(
+            frame={
+                "device_id": "terminal-edge-1",
+                "payload": {"text": "hello runtime"},
+            },
+            snapshot={},
+            grounding_bundle=None,
+            correlation={"trace_id": "trace-terminal-edge-1-1"},
+        )
+
+        self.assertEqual(proposal.proposal_type, "reply")
+        self.assertEqual(len(diagnostics.events), 1)
+        self.assertEqual(diagnostics.events[0].module, "Proposal Formation")
+        self.assertEqual(diagnostics.events[0].operation, "build_proposal")
+
+    def test_presence_router_records_own_module_boundary(self) -> None:
+        diagnostics = InMemoryDiagnosticRecorder(
+            timestamp_provider=lambda: "2026-06-30T12:00:00Z"
+        )
+        router = PresenceRouter(
+            diagnostic_recorder=diagnostics,
+            runtime_instance_id="runtime-main",
+        )
+
+        decision = router.choose(
+            source_device_id="terminal-edge-1",
+            snapshot={},
+            devices={},
+            online_device_ids=set(),
+            required_capability="notification.show",
+            proposal={"proposal_type": "reply"},
+            intervention_history=[],
+            now_timestamp="2026-06-30T12:00:00Z",
+            correlation={"trace_id": "trace-terminal-edge-1-1"},
+        )
+
+        self.assertEqual(decision.decision, "allow")
+        self.assertEqual(len(diagnostics.events), 1)
+        self.assertEqual(diagnostics.events[0].module, "Presence Router")
+        self.assertEqual(diagnostics.events[0].operation, "choose_presence_decision")
 
     def test_orchestrator_records_post_action_diagnostics_with_same_trace(self) -> None:
         diagnostics = InMemoryDiagnosticRecorder(
