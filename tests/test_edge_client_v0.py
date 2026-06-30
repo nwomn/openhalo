@@ -8,6 +8,7 @@ import websockets
 from device_edge.shared.capability_runtime import CapabilityRuntime
 from device_edge.shared.local_actions import execute_action
 from device_edge.shared.session_client import SessionClient
+from openhalo_common.diagnostics import InMemoryDiagnosticRecorder
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.trace_recorder import TraceRecorder
 
@@ -57,6 +58,7 @@ class EdgeClientTests(unittest.TestCase):
         )
 
         self.assertEqual(client.build_connect_frame()["type"], "connect")
+        self.assertIn("session_id", client.build_connect_frame())
         self.assertEqual(
             client.build_capability_announce_frame()["capabilities"],
             ["text.input", "notification.show"],
@@ -83,6 +85,8 @@ class EdgeClientTests(unittest.TestCase):
         )
 
         self.assertEqual(frame["type"], "observation_push")
+        self.assertRegex(frame["trace_id"], r"^trace-host-edge-1-\d+$")
+        self.assertRegex(frame["turn_id"], r"^turn-host-edge-1-\d+$")
         self.assertEqual(frame["device_id"], "host-edge-1")
         self.assertEqual(frame["capability"], "host.metrics")
         self.assertIn("event_id", frame)
@@ -112,6 +116,35 @@ class EdgeClientTests(unittest.TestCase):
         self.assertEqual(result["type"], "action_result")
         self.assertEqual(result["result"]["status"], "ok")
 
+    def test_action_result_preserves_correlation_from_action_request(self) -> None:
+        client = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+
+        result = client.handle_action_request(
+            {
+                "type": "action_request",
+                "trace_id": "trace-desktop-dev-1-1",
+                "session_id": "session-desktop-dev-1",
+                "turn_id": "turn-desktop-dev-1-1",
+                "request_id": "action-1",
+                "interaction_id": "interaction-1",
+                "device_id": "desktop-dev-1",
+                "action": {
+                    "capability": "notification.show",
+                    "payload": {"message": "hello"},
+                },
+            }
+        )
+
+        self.assertEqual(result["trace_id"], "trace-desktop-dev-1-1")
+        self.assertEqual(result["session_id"], "session-desktop-dev-1")
+        self.assertEqual(result["turn_id"], "turn-desktop-dev-1-1")
+        self.assertEqual(result["request_id"], "action-1")
+        self.assertEqual(result["interaction_id"], "interaction-1")
+
     def test_builds_direct_action_event(self) -> None:
         client = SessionClient(
             device_id="desktop-dev-1",
@@ -125,6 +158,8 @@ class EdgeClientTests(unittest.TestCase):
         )
 
         self.assertEqual(frame["type"], "event_push")
+        self.assertRegex(frame["trace_id"], r"^trace-desktop-dev-1-\d+$")
+        self.assertRegex(frame["turn_id"], r"^turn-desktop-dev-1-\d+$")
         self.assertEqual(
             frame["payload"]["direct_action"]["capability"],
             "notification.show",
@@ -241,6 +276,27 @@ class EdgeClientTests(unittest.TestCase):
         self.assertTrue(any("EDGE build text.input event" in line for line in lines))
         self.assertTrue(
             any("EDGE executed notification.show" in line for line in lines)
+        )
+
+    def test_records_edge_diagnostics_for_local_capability_and_session_link(self) -> None:
+        diagnostics = InMemoryDiagnosticRecorder(
+            timestamp_provider=lambda: "2026-06-30T12:00:00Z"
+        )
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            diagnostic_recorder=diagnostics,
+        )
+
+        frame = client.build_text_event("check runtime status")
+
+        modules = [event.module for event in diagnostics.events]
+        self.assertIn("Local Capability Runtime", modules)
+        self.assertIn("Edge Session Link", modules)
+        self.assertEqual(
+            diagnostics.events[-1].correlation.trace_id,
+            frame["trace_id"],
         )
 
 

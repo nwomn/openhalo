@@ -356,6 +356,9 @@ class TerminalEdgeDaemon:
             action_result["request_id"] = frame["request_id"]
         if frame.get("interaction_id"):
             action_result["interaction_id"] = frame["interaction_id"]
+        for key in ("trace_id", "session_id", "turn_id", "event_id", "parent_event_id"):
+            if frame.get(key) is not None:
+                action_result[key] = frame[key]
         return action_result
 
     def handle_interaction_frame(self, frame: dict) -> None:

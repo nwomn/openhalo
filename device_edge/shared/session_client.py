@@ -12,7 +12,9 @@ from edge_api.protocol import build_connect_frame
 from edge_api.protocol import build_event_push_frame
 from edge_api.protocol import build_observation_push_frame
 from edge_api.protocol import with_api_version
-from personal_runtime.trace_recorder import TraceRecorder
+from openhalo_common.diagnostics import build_session_id
+from openhalo_common.diagnostics import build_trace_id
+from openhalo_common.diagnostics import build_turn_id
 
 
 class SessionClient:
@@ -23,7 +25,8 @@ class SessionClient:
         device_id: str,
         device_type: str,
         token: str,
-        trace_recorder: TraceRecorder | None = None,
+        trace_recorder=None,
+        diagnostic_recorder=None,
         capabilities: list[str] | None = None,
     ) -> None:
         self.device_id = device_id
@@ -31,10 +34,17 @@ class SessionClient:
         self.token = token
         self.capability_runtime = CapabilityRuntime(capabilities=capabilities)
         self.trace_recorder = trace_recorder
+        self.diagnostic_recorder = diagnostic_recorder
+        self.session_id = build_session_id(device_id)
 
     def build_connect_frame(self) -> dict:
         self._record_trace("EDGE", "build connect frame", device_id=self.device_id)
-        return build_connect_frame(self.device_id, self.device_type, self.token)
+        return build_connect_frame(
+            self.device_id,
+            self.device_type,
+            self.token,
+            session_id=self.session_id,
+        )
 
     def build_capability_announce_frame(self) -> dict:
         self._record_trace(
@@ -45,15 +55,46 @@ class SessionClient:
         return build_capability_announce_frame(
             self.device_id,
             self.capability_runtime.capabilities,
+            session_id=self.session_id,
         )
+
+    def _next_correlation(self) -> dict:
+        sequence = next(self._event_counter)
+        return {
+            "trace_id": build_trace_id(self.device_id, sequence),
+            "session_id": self.session_id,
+            "turn_id": build_turn_id(self.device_id, sequence),
+            "event_id": f"{self.device_id}-evt-{sequence}",
+        }
 
     def build_text_event(self, text: str) -> dict:
         self._record_trace("EDGE", "build text.input event", text=text)
-        return build_event_push_frame(
+        correlation = self._next_correlation()
+        frame = build_event_push_frame(
             device_id=self.device_id,
             capability="text.input",
             payload={"text": text},
+            **correlation,
         )
+        self._record_diagnostic(
+            module="Local Capability Runtime",
+            operation="normalize_user_input",
+            phase="output",
+            correlation=correlation,
+            input_payload={"text": text},
+            output_payload={"type": frame["type"], "capability": frame["capability"]},
+            summary="Normalized text input into text.input event.",
+        )
+        self._record_diagnostic(
+            module="Edge Session Link",
+            operation="send_frame",
+            phase="output",
+            correlation=correlation,
+            input_payload={},
+            output_payload=frame,
+            summary="Prepared event_push frame for runtime.",
+        )
+        return frame
 
     def build_direct_action_event(
         self,
@@ -72,6 +113,7 @@ class SessionClient:
         }
         if target_device_id is not None:
             direct_action["target_device_id"] = target_device_id
+        correlation = self._next_correlation()
         return build_event_push_frame(
             device_id=self.device_id,
             capability="text.input",
@@ -79,6 +121,7 @@ class SessionClient:
                 "text": "",
                 "direct_action": direct_action,
             },
+            **correlation,
         )
 
     def build_agent_initiative_event(
@@ -104,6 +147,7 @@ class SessionClient:
             initiative["target_device_hint"] = target_device_hint
         if message is not None:
             initiative["message"] = message
+        correlation = self._next_correlation()
         return build_event_push_frame(
             device_id=self.device_id,
             capability="agent.initiative",
@@ -111,21 +155,22 @@ class SessionClient:
                 "observed_at": observed_at,
                 "agent_initiative": initiative,
             },
+            **correlation,
         )
 
     def build_observation_event(self, capability: str, observations: list[dict]) -> dict:
-        event_id = f"{self.device_id}-evt-{next(self._event_counter)}"
+        correlation = self._next_correlation()
         self._record_trace(
             "EDGE",
             "build observation event",
             capability=capability,
-            event_id=event_id,
+            event_id=correlation["event_id"],
         )
         return build_observation_push_frame(
             device_id=self.device_id,
             capability=capability,
-            event_id=event_id,
             observations=observations,
+            **correlation,
         )
 
     def build_terminal_activity_event(
@@ -163,6 +208,9 @@ class SessionClient:
             action_result["request_id"] = frame["request_id"]
         if frame.get("interaction_id"):
             action_result["interaction_id"] = frame["interaction_id"]
+        for key in ("trace_id", "session_id", "turn_id", "event_id", "parent_event_id"):
+            if frame.get(key) is not None:
+                action_result[key] = frame[key]
         return action_result
 
     async def run_websocket_roundtrip(self, server_factory, text: str) -> dict:
@@ -185,3 +233,31 @@ class SessionClient:
     def _record_trace(self, component: str, message: str, **fields: str) -> None:
         if self.trace_recorder is not None:
             self.trace_recorder.record(component, message, **fields)
+
+    def _record_diagnostic(
+        self,
+        module: str,
+        operation: str,
+        phase: str,
+        correlation: dict,
+        input_payload: dict | None,
+        output_payload: dict | None,
+        summary: str,
+    ) -> None:
+        if self.diagnostic_recorder is None:
+            return
+        self.diagnostic_recorder.record_boundary(
+            side="edge",
+            device={
+                "device_id": self.device_id,
+                "device_name": self.device_id,
+                "device_type": self.device_type,
+            },
+            module=module,
+            operation=operation,
+            phase=phase,
+            correlation=correlation,
+            input_payload=input_payload,
+            output_payload=output_payload,
+            summary=summary,
+        )

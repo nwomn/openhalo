@@ -84,6 +84,10 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                 {
                     "api_version": API_VERSION,
                     "type": "event_push",
+                    "trace_id": "trace-external-display-1-1",
+                    "session_id": "session-external-display-1",
+                    "turn_id": "turn-external-display-1-1",
+                    "event_id": "external-display-1-evt-2",
                     "device_id": "external-display-1",
                     "capability": "text.input",
                     "payload": {
@@ -97,6 +101,9 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         action_request = _last_action_request(replies)
         self.assertIsNotNone(action_request)
         self.assertEqual(action_request["api_version"], API_VERSION)
+        self.assertEqual(action_request["trace_id"], "trace-external-display-1-1")
+        self.assertEqual(action_request["session_id"], "session-external-display-1")
+        self.assertEqual(action_request["turn_id"], "turn-external-display-1-1")
         self.assertRegex(action_request["request_id"], r"^action-\d+$")
         self.assertRegex(action_request["interaction_id"], r"^interaction-\d+$")
         self.assertEqual(action_request["device_id"], "external-display-1")
@@ -104,12 +111,19 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             gateway.state.observations[-1].name,
             "surface.activity_state",
         )
+        self.assertEqual(
+            gateway.state.interventions[-1]["correlation"]["trace_id"],
+            "trace-external-display-1-1",
+        )
 
         result_replies = await gateway.handle_test_frames(
             [
                 {
                     "api_version": API_VERSION,
                     "type": "action_result",
+                    "trace_id": action_request["trace_id"],
+                    "session_id": action_request["session_id"],
+                    "turn_id": action_request["turn_id"],
                     "request_id": action_request["request_id"],
                     "interaction_id": action_request["interaction_id"],
                     "device_id": "external-display-1",

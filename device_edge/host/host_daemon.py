@@ -21,7 +21,7 @@ from device_edge.host.host_observers import build_runtime_health_observations
 from device_edge.host.host_observers import read_host_metric_snapshot
 from device_edge.host.runtime_control import PythonProcessAdapter
 from device_edge.shared.session_client import SessionClient
-from personal_runtime.trace_recorder import TraceRecorder
+from openhalo_common.diagnostics import TraceRecorder
 
 
 class HostEdgeDaemon:
@@ -156,6 +156,9 @@ class HostEdgeDaemon:
             action_result["request_id"] = frame["request_id"]
         if frame.get("interaction_id"):
             action_result["interaction_id"] = frame["interaction_id"]
+        for key in ("trace_id", "session_id", "turn_id", "event_id", "parent_event_id"):
+            if frame.get(key) is not None:
+                action_result[key] = frame[key]
         return action_result
 
     async def _send_frame(self, websocket, frame: dict) -> None:

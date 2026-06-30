@@ -39,6 +39,7 @@ def build_connect_frame(
     device_type: str,
     token: str,
     role: str | None = None,
+    session_id: str | None = None,
 ) -> dict:
     device = {
         "device_id": device_id,
@@ -46,26 +47,29 @@ def build_connect_frame(
     }
     if role is not None:
         device["role"] = role
-    return with_api_version(
-        {
-            "type": "connect",
-            "device": device,
-            "auth": {"token": token},
-        }
-    )
+    frame = {
+        "type": "connect",
+        "device": device,
+        "auth": {"token": token},
+    }
+    if session_id is not None:
+        frame["session_id"] = session_id
+    return with_api_version(frame)
 
 
 def build_capability_announce_frame(
     device_id: str,
     capabilities: list[str | dict],
+    session_id: str | None = None,
 ) -> dict:
-    return with_api_version(
-        {
-            "type": "capability_announce",
-            "device_id": device_id,
-            "capabilities": capabilities,
-        }
-    )
+    frame = {
+        "type": "capability_announce",
+        "device_id": device_id,
+        "capabilities": capabilities,
+    }
+    if session_id is not None:
+        frame["session_id"] = session_id
+    return with_api_version(frame)
 
 
 def build_event_push_frame(
@@ -73,6 +77,10 @@ def build_event_push_frame(
     capability: str,
     payload: dict,
     event_id: str | None = None,
+    trace_id: str | None = None,
+    session_id: str | None = None,
+    turn_id: str | None = None,
+    parent_event_id: str | None = None,
 ) -> dict:
     frame = {
         "type": "event_push",
@@ -82,6 +90,14 @@ def build_event_push_frame(
     }
     if event_id is not None:
         frame["event_id"] = event_id
+    if trace_id is not None:
+        frame["trace_id"] = trace_id
+    if session_id is not None:
+        frame["session_id"] = session_id
+    if turn_id is not None:
+        frame["turn_id"] = turn_id
+    if parent_event_id is not None:
+        frame["parent_event_id"] = parent_event_id
     return with_api_version(frame)
 
 
@@ -90,6 +106,10 @@ def build_observation_push_frame(
     capability: str,
     observations: list[dict],
     event_id: str | None = None,
+    trace_id: str | None = None,
+    session_id: str | None = None,
+    turn_id: str | None = None,
+    parent_event_id: str | None = None,
 ) -> dict:
     frame = {
         "type": "observation_push",
@@ -100,4 +120,12 @@ def build_observation_push_frame(
     }
     if event_id is not None:
         frame["event_id"] = event_id
+    if trace_id is not None:
+        frame["trace_id"] = trace_id
+    if session_id is not None:
+        frame["session_id"] = session_id
+    if turn_id is not None:
+        frame["turn_id"] = turn_id
+    if parent_event_id is not None:
+        frame["parent_event_id"] = parent_event_id
     return with_api_version(frame)

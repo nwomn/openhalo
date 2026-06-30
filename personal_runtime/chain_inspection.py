@@ -42,6 +42,12 @@ def build_chain_report(session, action_result: dict) -> dict:
     )
     return {
         "trace_lines": session.drain_trace_lines(),
+        "diagnostic_events": [
+            event.to_dict()
+            for event in getattr(session, "diagnostic_recorder", None).events
+        ]
+        if getattr(session, "diagnostic_recorder", None) is not None
+        else [],
         "observations": [
             observation.to_dict() for observation in session.gateway.state.observations
         ],
@@ -74,6 +80,7 @@ def build_chain_report(session, action_result: dict) -> dict:
 def format_chain_report(report: dict) -> str:
     sections = [
         ("Trace", report["trace_lines"]),
+        ("Diagnostic Events", report.get("diagnostic_events", [])),
         ("Observations", report["observations"]),
         ("Compact Snapshot", report["snapshot"]),
         ("Grounding Bundle", report.get("grounding", {})),

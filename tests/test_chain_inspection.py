@@ -65,6 +65,13 @@ class ChainInspectionTests(unittest.TestCase):
         self.assertIn("replay_eval", report)
         self.assertIn("checks", report["replay_eval"])
         self.assertIn(report["presence_decision"]["decision"], {"allow", "suppress"})
+        self.assertIn("diagnostic_events", report)
+        diagnostic_modules = [
+            event["module"] for event in report["diagnostic_events"]
+        ]
+        self.assertIn("Gateway", diagnostic_modules)
+        self.assertIn("Proposal Formation", diagnostic_modules)
+        self.assertIn("Execution Planning", diagnostic_modules)
 
     def test_formatted_chain_report_contains_major_sections_in_order(self) -> None:
         report = inspect_cli_once("hello runtime", config_path=TEST_LLM_CONFIG)
@@ -82,6 +89,7 @@ class ChainInspectionTests(unittest.TestCase):
         self.assertIn("Presence Decision:", rendered)
         self.assertIn("Recorded Intervention:", rendered)
         self.assertIn("Replay Eval:", rendered)
+        self.assertIn("Diagnostic Events:", rendered)
         self.assertIn('"llm_profile": "proposal_formation"', rendered)
         self.assertIn('"used_deterministic_fallback": true', rendered)
         self.assertIn('"proposal_type": "reply"', rendered)

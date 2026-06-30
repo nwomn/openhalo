@@ -7,6 +7,7 @@ from pathlib import Path
 
 from device_edge.host.host_daemon import HostEdgeDaemon
 from device_edge.shared.session_client import SessionClient
+from openhalo_common.diagnostics import InMemoryDiagnosticRecorder
 from personal_runtime.chain_inspection import build_chain_report
 from personal_runtime.chain_inspection import format_chain_report
 from personal_runtime.gateway_server import RuntimeGateway
@@ -20,20 +21,24 @@ class LocalCliSession:
         trace: bool = False,
         config_path: Path | None = None,
         grounding_edge_history_fetcher=None,
+        diagnostic_recorder=None,
     ) -> None:
         self.trace_recorder = TraceRecorder() if trace else None
+        self.diagnostic_recorder = diagnostic_recorder
         self.gateway = RuntimeGateway(
             shared_token=token,
             trace_recorder=self.trace_recorder,
             persist_state=False,
             llm_config_path=config_path,
             grounding_edge_history_fetcher=grounding_edge_history_fetcher,
+            diagnostic_recorder=diagnostic_recorder,
         )
         self.client = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
             token=token,
             trace_recorder=self.trace_recorder,
+            diagnostic_recorder=diagnostic_recorder,
         )
         self.gateway.run_roundtrip(
             [
@@ -221,6 +226,7 @@ def inspect_cli_once(
         token=token,
         observed_at=observed_at,
     )
+    diagnostic_recorder = InMemoryDiagnosticRecorder()
     session = LocalCliSession(
         token=token,
         trace=True,
@@ -228,6 +234,7 @@ def inspect_cli_once(
         grounding_edge_history_fetcher=lambda: _fetch_inspection_edge_history(
             host_daemon
         ),
+        diagnostic_recorder=diagnostic_recorder,
     )
     session.gateway.state.upsert_goal(
         goal_id="goal-1",
@@ -258,6 +265,7 @@ def inspect_agent_initiative_once(
         token=token,
         observed_at=observed_at,
     )
+    diagnostic_recorder = InMemoryDiagnosticRecorder()
     session = LocalCliSession(
         token=token,
         trace=True,
@@ -265,6 +273,7 @@ def inspect_agent_initiative_once(
         grounding_edge_history_fetcher=lambda: _fetch_inspection_edge_history(
             host_daemon
         ),
+        diagnostic_recorder=diagnostic_recorder,
     )
     session.gateway.state.upsert_goal(
         goal_id="goal-1",

@@ -28,7 +28,13 @@ class ImportSmokeTests(unittest.TestCase):
 
         self.assertEqual(
             payload["tool"]["setuptools"]["packages"]["find"]["include"],
-            ["agent_guard", "device_edge", "edge_api", "personal_runtime"],
+            [
+                "agent_guard",
+                "device_edge",
+                "edge_api",
+                "openhalo_common",
+                "personal_runtime",
+            ],
         )
 
 

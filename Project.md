@@ -377,7 +377,7 @@ Acceptance criteria:
 
 Status:
 
-- In progress (`M7`, `M8`, `M9`, `M10`, `M11`, `M12`, `M13`, `M14`, `M15`, `M16`, and `M17.0` completed and accepted; broader `M17` multi-edge interaction expansion is now the next milestone on top of the accepted public Edge API boundary; `M18` observation-driven idle intent sensing and `M19` action/tool governance remain later work; `M20` policy learning/review is intentionally deferred until the system is stable but not fully ergonomic; storage hardening is deferred to `M21`)
+- In progress (`M7`, `M8`, `M9`, `M10`, `M11`, `M12`, `M13`, `M14`, `M15`, `M16`, `M17.0`, and the module-boundary diagnostics v1 baseline completed and accepted; broader `M17` multi-edge interaction expansion is now the next milestone on top of the accepted public Edge API boundary and cleaner module-boundary inspection path; `M18` observation-driven idle intent sensing and `M19` action/tool governance remain later work; `M20` policy learning/review is intentionally deferred until the system is stable but not fully ergonomic; storage hardening is deferred to `M21`)
 
 ## Completed Sub-goals
 
@@ -405,6 +405,32 @@ Acceptance criteria:
 - External-edge raw-frame automated coverage exists
 - Existing runtime, terminal-edge, host-edge, model-provider, prompt-contract, proposal-formation, and action-loop tests pass after the API boundary refactor
 - Human acceptance confirms the new edge API path is stable enough for the milestone
+
+Status:
+
+- Completed and accepted
+
+### Completed: Module-boundary diagnostics v1 and runtime orchestration boundary baseline
+
+Result:
+
+- A neutral `openhalo_common` package now owns shared diagnostic primitives, including the structured `diagnostic.v1` event schema, in-memory diagnostic recorder, JSONL writer, correlation helpers, and backward-compatible lightweight trace recorder
+- Device-edge runtime paths now use runtime-neutral diagnostics instead of importing `personal_runtime` tracing internals; dependency-boundary coverage verifies ordinary shared, terminal, and host edge runtime paths do not depend on backend internals
+- Edge API frames now carry lightweight correlation fields such as `trace_id`, `session_id`, `turn_id`, and `event_id`, while runtime-generated `action_request`, edge-returned `action_result`, and runtime `interaction_update` frames preserve those identifiers and add `request_id` / `interaction_id` where applicable
+- `RuntimeGateway` now delegates event and action-result handling through an explicit `RuntimeOrchestrator` boundary, keeping a visible separation between gateway transport/control-plane work and runtime-chain orchestration
+- A real `Execution Planning` module now owns the proposal / presence-decision to action-or-completion outcome boundary on the normal runtime path
+- Module-boundary diagnostics now record structured input/output events for the normal runtime chain across `Gateway`, `State / Context`, `Grounding / Runtime Memory`, `Proposal Formation`, `Presence Router`, `Execution Planning`, and `Action Layer`
+- Edge-side diagnostics now record representative `Local Capability Runtime` and `Edge Session Link` boundary events for text input normalization and frame preparation
+- Chain inspection now includes `Diagnostic Events` alongside the previous trace, observation, snapshot, grounding, prompt, proposal, presence, intervention, replay, and action-result sections, so local acceptance can inspect architecture-module input/output records directly
+- Automated coverage now includes diagnostic schema/JSONL behavior, correlation propagation, edge/backend dependency boundaries, runtime orchestrator delegation, execution planning outcomes, and chain-inspection diagnostic display
+
+Acceptance criteria:
+
+- Frontend and backend diagnostics use the same structured event shape while remaining locally recorded and physically separate
+- Cross-boundary frames carry correlation identifiers that allow Edge and Runtime logs to be aligned without shared storage
+- Device-edge runtime code no longer depends on backend tracing internals for ordinary operation
+- Gateway-to-runtime orchestration and execution planning are represented by explicit tested modules
+- Inspect-chain output exposes module-boundary diagnostic events in the architecture chain
 
 Status:
 

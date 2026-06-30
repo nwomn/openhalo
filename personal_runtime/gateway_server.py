@@ -12,6 +12,7 @@ from websockets.exceptions import ConnectionClosedOK
 
 from edge_api.protocol import validate_frame
 from edge_api.protocol import with_api_version
+from openhalo_common.diagnostics import correlation_from_frame
 from personal_runtime.action_layer import build_action_request
 from personal_runtime.action_layer import build_interaction_update
 from personal_runtime.action_layer import build_planned_action
@@ -22,8 +23,10 @@ from personal_runtime.agent_executor import build_post_observation_proposal
 from personal_runtime.context_contracts import RuntimeObservation
 from personal_runtime.context_snapshot import build_context_snapshot
 from personal_runtime.context_snapshot import build_context_snapshot_contract
+from personal_runtime.execution_planning import build_execution_outcome
 from personal_runtime.presence_router import choose_presence_decision
 from personal_runtime.runtime_memory import build_model_grounding_bundle
+from personal_runtime.runtime_orchestrator import RuntimeOrchestrator
 from personal_runtime.runtime_state import RuntimeState
 from personal_runtime.state_store import JsonStateStore
 from personal_runtime.trace_recorder import TraceRecorder
@@ -42,6 +45,8 @@ class RuntimeGateway:
         runtime_event_emitter=None,
         llm_config_path: Path | None = None,
         grounding_edge_history_fetcher=None,
+        diagnostic_recorder=None,
+        runtime_instance_id: str = "runtime-main",
     ) -> None:
         self.shared_token = shared_token
         self.state_store = JsonStateStore(
@@ -60,6 +65,9 @@ class RuntimeGateway:
         self.runtime_event_emitter = runtime_event_emitter
         self.llm_config_path = llm_config_path
         self.grounding_edge_history_fetcher = grounding_edge_history_fetcher
+        self.diagnostic_recorder = diagnostic_recorder
+        self.runtime_instance_id = runtime_instance_id
+        self.orchestrator = RuntimeOrchestrator(self)
         self._websocket_frame_lock = asyncio.Lock()
 
     def _persist_state(self) -> None:
@@ -204,6 +212,7 @@ class RuntimeGateway:
     def _build_interaction_update_replies(
         self,
         interaction: dict,
+        correlation: dict | None = None,
     ) -> list[dict]:
         visibility = interaction.get("completion", {}).get("visibility", "visible")
         summary = interaction.get("completion", {}).get("summary", "")
@@ -218,15 +227,42 @@ class RuntimeGateway:
                     "completion": interaction.get("completion", {}),
                 },
                 trace_recorder=self.trace_recorder,
+                correlation=correlation,
             )
         ]
         return replies
 
     def _build_event_replies(self, frame: dict) -> list[dict]:
+        return self.orchestrator.handle_event_frame(frame)
+
+    def _build_event_replies_impl(self, frame: dict) -> list[dict]:
         replies = [with_api_version({"type": "event_ack"})]
         payload = frame["payload"]
         direct_action = payload.get("direct_action")
+        correlation = correlation_from_frame(frame)
+        self._record_diagnostic(
+            module="Gateway",
+            operation="receive_frame",
+            phase="input",
+            correlation=correlation,
+            input_payload={
+                "type": frame["type"],
+                "device_id": frame.get("device_id"),
+                "capability": frame.get("capability"),
+            },
+            output_payload={"ack": "event_ack"},
+            summary=f"Received {frame.get('capability', '')} event frame.",
+        )
         if direct_action is not None:
+            self._record_diagnostic(
+                module="Execution Planning",
+                operation="plan_direct_action",
+                phase="output",
+                correlation=correlation,
+                input_payload={"direct_action": direct_action},
+                output_payload={"target_device_id": direct_action.get("target_device_id", frame["device_id"])},
+                summary="Planned direct action fast path.",
+            )
             replies.append(
                 build_action_request(
                     direct_action.get("target_device_id", frame["device_id"]),
@@ -235,11 +271,21 @@ class RuntimeGateway:
                         "payload": direct_action["payload"],
                     },
                     trace_recorder=self.trace_recorder,
+                    correlation=correlation,
                 )
             )
             return replies
 
         if payload.get("observations"):
+            self._record_diagnostic(
+                module="State / Context",
+                operation="ingest_observations",
+                phase="input",
+                correlation=correlation,
+                input_payload={"observation_count": len(payload.get("observations", []))},
+                output_payload={},
+                summary="Received observation event for state/context ingest.",
+            )
             replies.extend(self._build_observation_reentry_replies(frame))
             return replies
 
@@ -248,11 +294,29 @@ class RuntimeGateway:
             self.state.observations,
             snapshot_time=decision_time or None,
         )
+        self._record_diagnostic(
+            module="State / Context",
+            operation="build_compact_snapshot",
+            phase="output",
+            correlation=correlation,
+            input_payload={"stored_observation_count": len(self.state.observations)},
+            output_payload=snapshot,
+            summary="Built compact context snapshot.",
+        )
         edge_history = self._build_edge_history_for_grounding()
         grounding_bundle = build_model_grounding_bundle(
             state=self.state,
             snapshot=snapshot,
             edge_history=edge_history,
+        )
+        self._record_diagnostic(
+            module="Grounding / Runtime Memory",
+            operation="build_grounding_bundle",
+            phase="output",
+            correlation=correlation,
+            input_payload={"snapshot": snapshot},
+            output_payload=grounding_bundle,
+            summary="Built grounding bundle for proposal formation.",
         )
         snapshot_contract = build_context_snapshot_contract(
             self.state.observations,
@@ -262,6 +326,15 @@ class RuntimeGateway:
             frame,
             snapshot=snapshot,
             grounding_bundle=grounding_bundle,
+        )
+        self._record_diagnostic(
+            module="Proposal Formation",
+            operation="build_proposal",
+            phase="output",
+            correlation=correlation,
+            input_payload={"text": payload.get("text", "")},
+            output_payload=proposal.to_dict(),
+            summary="Built intervention proposal.",
         )
         self.state.record_model_health(
             proposal.metadata,
@@ -278,7 +351,21 @@ class RuntimeGateway:
             now_timestamp=decision_time,
             trace_recorder=self.trace_recorder,
         )
+        self._record_diagnostic(
+            module="Presence Router",
+            operation="choose_presence_decision",
+            phase="output",
+            correlation=correlation,
+            input_payload={
+                "source_device_id": frame["device_id"],
+                "required_capability": proposal.required_capability,
+                "proposal_type": proposal.proposal_type,
+            },
+            output_payload=decision.to_dict(),
+            summary="Evaluated presence decision.",
+        )
         interaction_id = self._next_interaction_id()
+        correlation["interaction_id"] = interaction_id
         self.state.record_interaction(
             self._build_interaction_record(
                 interaction_id=interaction_id,
@@ -298,37 +385,68 @@ class RuntimeGateway:
                 "proposal": proposal.to_dict(),
                 "grounding_bundle": grounding_bundle,
                 "snapshot_contract": snapshot_contract,
+                "correlation": correlation,
                 "recorded_at": decision_time,
             }
         )
+        self._record_diagnostic(
+            module="State / Context",
+            operation="record_intervention",
+            phase="output",
+            correlation=correlation,
+            input_payload={"interaction_id": interaction_id},
+            output_payload={"decision": decision.decision},
+            summary="Recorded interaction and intervention.",
+        )
         self._persist_state()
-        if decision.decision != "allow":
-            proposal_dict = proposal.to_dict()
-            summary = self._build_interaction_summary(proposal_dict)
+        execution_outcome = build_execution_outcome(
+            source_device_id=frame["device_id"],
+            proposal=proposal.to_dict(),
+            decision=decision.to_dict(),
+            interaction_id=interaction_id,
+            correlation=correlation,
+        )
+        self._record_diagnostic(
+            module="Execution Planning",
+            operation="plan_action"
+            if execution_outcome["kind"] == "action"
+            else "complete_interaction",
+            phase="output",
+            correlation=correlation,
+            input_payload={"proposal": proposal.to_dict(), "decision": decision.to_dict()},
+            output_payload=execution_outcome,
+            summary="Planned runtime execution outcome.",
+        )
+        if execution_outcome["kind"] == "completion":
             completed = self._complete_interaction(
                 interaction_id=interaction_id,
-                summary=summary,
-                visibility=proposal.visibility_intent,
+                summary=execution_outcome["summary"],
+                visibility=execution_outcome["visibility"],
             )
-            replies.extend(self._build_interaction_update_replies(completed))
-            return replies
-        if proposal.action_capability is None:
-            proposal_dict = proposal.to_dict()
-            summary = self._build_interaction_summary(proposal_dict)
-            completed = self._complete_interaction(
-                interaction_id=interaction_id,
-                summary=summary,
-                visibility=proposal.visibility_intent,
+            replies.extend(
+                self._build_interaction_update_replies(
+                    completed,
+                    correlation=correlation,
+                )
             )
-            replies.extend(self._build_interaction_update_replies(completed))
             return replies
 
         planned_action = build_planned_action(
-            decision.target_device_id or frame["device_id"],
+            execution_outcome["target_device_id"],
             proposal.to_dict(),
             trace_recorder=self.trace_recorder,
+            correlation=correlation,
         )
         planned_action["interaction_id"] = interaction_id
+        self._record_diagnostic(
+            module="Action Layer",
+            operation="build_action_request",
+            phase="output",
+            correlation={**correlation, "request_id": planned_action.get("request_id")},
+            input_payload={"planned_action": proposal.to_dict()},
+            output_payload=planned_action,
+            summary="Built action_request frame.",
+        )
         replies.append(planned_action)
         return replies
 
@@ -577,6 +695,9 @@ class RuntimeGateway:
         return self._build_interaction_update_replies(completed)
 
     def _build_action_result_replies(self, frame: dict) -> list[dict]:
+        return self.orchestrator.handle_action_result_frame(frame)
+
+    def _build_action_result_replies_impl(self, frame: dict) -> list[dict]:
         interaction_id = frame.get("interaction_id")
         if not interaction_id:
             return []
@@ -849,6 +970,30 @@ class RuntimeGateway:
     def _record_trace(self, component: str, message: str, **fields: str) -> None:
         if self.trace_recorder is not None:
             self.trace_recorder.record(component, message, **fields)
+
+    def _record_diagnostic(
+        self,
+        module: str,
+        operation: str,
+        phase: str,
+        correlation: dict | None,
+        input_payload: dict | None,
+        output_payload: dict | None,
+        summary: str,
+    ) -> None:
+        if self.diagnostic_recorder is None:
+            return
+        self.diagnostic_recorder.record_boundary(
+            side="runtime",
+            runtime_instance_id=self.runtime_instance_id,
+            module=module,
+            operation=operation,
+            phase=phase,
+            correlation=correlation or {},
+            input_payload=input_payload,
+            output_payload=output_payload,
+            summary=summary,
+        )
 
     def _emit_runtime_event(self, message: str) -> None:
         if self.runtime_event_emitter is not None:

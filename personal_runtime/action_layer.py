@@ -3,6 +3,7 @@
 from itertools import count
 
 from edge_api.protocol import with_api_version
+from openhalo_common.diagnostics import add_correlation_to_frame
 
 
 _action_request_counter = count(1)
@@ -12,6 +13,7 @@ def build_interaction_update(
     target_device_id: str,
     interaction: dict,
     trace_recorder=None,
+    correlation: dict | None = None,
 ) -> dict:
     if trace_recorder is not None:
         trace_recorder.record(
@@ -21,16 +23,22 @@ def build_interaction_update(
             interaction_id=interaction.get("interaction_id", ""),
             status=interaction.get("status", ""),
         )
-    return with_api_version(
+    frame = with_api_version(
         {
             "type": "interaction_update",
             "device_id": target_device_id,
             "interaction": interaction,
         }
     )
+    return add_correlation_to_frame(frame, correlation or {})
 
 
-def build_action_request(target_device_id: str, action: dict, trace_recorder=None) -> dict:
+def build_action_request(
+    target_device_id: str,
+    action: dict,
+    trace_recorder=None,
+    correlation: dict | None = None,
+) -> dict:
     if trace_recorder is not None:
         trace_recorder.record(
             "ACTION",
@@ -38,7 +46,7 @@ def build_action_request(target_device_id: str, action: dict, trace_recorder=Non
             target_device_id=target_device_id,
             capability=action["capability"],
         )
-    return with_api_version(
+    frame = with_api_version(
         {
             "type": "action_request",
             "request_id": f"action-{next(_action_request_counter)}",
@@ -46,6 +54,7 @@ def build_action_request(target_device_id: str, action: dict, trace_recorder=Non
             "action": action,
         }
     )
+    return add_correlation_to_frame(frame, correlation or {})
 
 
 def required_device_capability_for_action(action_capability: str) -> str:
@@ -60,6 +69,7 @@ def build_notification_action(
     target_device_id: str,
     message: str,
     trace_recorder=None,
+    correlation: dict | None = None,
 ) -> dict:
     if trace_recorder is not None:
         trace_recorder.record(
@@ -74,6 +84,7 @@ def build_notification_action(
             "payload": {"message": message},
         },
         trace_recorder=trace_recorder,
+        correlation=correlation,
     )
 
 
@@ -81,6 +92,7 @@ def build_planned_action(
     target_device_id: str,
     proposal: dict,
     trace_recorder=None,
+    correlation: dict | None = None,
 ) -> dict:
     action_capability = proposal["action_capability"]
     if action_capability is None:
@@ -91,6 +103,7 @@ def build_planned_action(
             target_device_id,
             message,
             trace_recorder=trace_recorder,
+            correlation=correlation,
         )
 
     if trace_recorder is not None:
@@ -107,4 +120,5 @@ def build_planned_action(
             "payload": proposal["action_payload"],
         },
         trace_recorder=trace_recorder,
+        correlation=correlation,
     )
