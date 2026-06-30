@@ -69,10 +69,17 @@ class RoundtripTests(unittest.IsolatedAsyncioTestCase):
         captured = {}
 
         class FakeGateway:
-            def __init__(self, token, state_path, llm_config_path):
+            def __init__(
+                self,
+                token,
+                state_path,
+                llm_config_path,
+                diagnostic_log_path=None,
+            ):
                 self.token = token
                 self.state_path = state_path
                 self.llm_config_path = llm_config_path
+                self.diagnostic_log_path = diagnostic_log_path
 
             def run_server(self, host, port):
                 captured["host"] = host
@@ -112,6 +119,54 @@ class RoundtripTests(unittest.IsolatedAsyncioTestCase):
             printed_message,
         )
         self.assertNotIn("LLM config", printed_message)
+
+    async def test_runtime_server_accepts_diagnostic_log_path(
+        self,
+    ) -> None:
+        captured = {}
+
+        class FakeGateway:
+            def __init__(
+                self,
+                token,
+                state_path,
+                llm_config_path,
+                diagnostic_log_path=None,
+            ):
+                captured["diagnostic_log_path"] = diagnostic_log_path
+
+            def run_server(self, host, port):
+                class FakeServerContext:
+                    async def __aenter__(self):
+                        return {"url": f"ws://{host}:{port}"}
+
+                    async def __aexit__(self, exc_type, exc, tb):
+                        return False
+
+                return FakeServerContext()
+
+        async def stop_after_ready():
+            await asyncio.sleep(0)
+            raise RuntimeError("stop after ready")
+
+        with patch("personal_runtime.main.build_gateway", FakeGateway), patch(
+            "personal_runtime.main.asyncio.Future",
+            side_effect=stop_after_ready,
+        ), patch("builtins.print"):
+            with self.assertRaisesRegex(RuntimeError, "stop after ready"):
+                await run_server(
+                    host="127.0.0.1",
+                    port=8765,
+                    token="dev-token",
+                    state_path=Path(".runtime/test-state.json"),
+                    llm_config_path=Path("tests/fixtures/llm-config-test.toml"),
+                    diagnostic_log_path=Path(".runtime/diagnostics/runtime.jsonl"),
+                )
+
+        self.assertEqual(
+            captured["diagnostic_log_path"],
+            Path(".runtime/diagnostics/runtime.jsonl"),
+        )
 
 
 class CliEntryTests(unittest.TestCase):

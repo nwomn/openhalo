@@ -421,6 +421,8 @@ Result:
 - A real `Execution Planning` module now owns the proposal / presence-decision to action-or-completion outcome boundary on the normal runtime path
 - Module-boundary diagnostics now record structured input/output events for the normal runtime chain across `Gateway`, `State / Context`, `Grounding / Runtime Memory`, `Proposal Formation`, `Presence Router`, `Execution Planning`, and `Action Layer`
 - Edge-side diagnostics now record representative `Local Capability Runtime` and `Edge Session Link` boundary events for text input normalization and frame preparation
+- Runtime, terminal-edge, and host-edge entrypoints now accept `--diagnostic-log-path` so manual multi-process acceptance runs can write physically separate local JSONL diagnostic logs without assuming shared frontend/backend storage
+- Resident terminal live input now builds its `text.input` frames through the shared `SessionClient`, so manual terminal sessions carry `trace_id`, `session_id`, `turn_id`, and `event_id` like scripted/API edge traffic
 - Chain inspection now includes `Diagnostic Events` alongside the previous trace, observation, snapshot, grounding, prompt, proposal, presence, intervention, replay, and action-result sections, so local acceptance can inspect architecture-module input/output records directly
 - Automated coverage now includes diagnostic schema/JSONL behavior, correlation propagation, edge/backend dependency boundaries, runtime orchestrator delegation, execution planning outcomes, and chain-inspection diagnostic display
 
@@ -428,6 +430,7 @@ Acceptance criteria:
 
 - Frontend and backend diagnostics use the same structured event shape while remaining locally recorded and physically separate
 - Cross-boundary frames carry correlation identifiers that allow Edge and Runtime logs to be aligned without shared storage
+- Manual runtime, host-edge, and terminal-edge processes can opt into local JSONL diagnostic logs through startup arguments
 - Device-edge runtime code no longer depends on backend tracing internals for ordinary operation
 - Gateway-to-runtime orchestration and execution planning are represented by explicit tested modules
 - Inspect-chain output exposes module-boundary diagnostic events in the architecture chain

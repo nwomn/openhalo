@@ -4,6 +4,7 @@ import argparse
 import asyncio
 from pathlib import Path
 
+from openhalo_common.diagnostics import JsonlDiagnosticRecorder
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.model_provider import DEFAULT_CONFIG_PATH
 
@@ -24,12 +25,16 @@ def build_gateway(
     token: str,
     state_path: Path,
     llm_config_path: Path | None = None,
+    diagnostic_log_path: Path | None = None,
 ) -> RuntimeGateway:
     return RuntimeGateway(
         shared_token=token,
         state_path=state_path,
         runtime_event_emitter=print,
         llm_config_path=llm_config_path,
+        diagnostic_recorder=JsonlDiagnosticRecorder(diagnostic_log_path)
+        if diagnostic_log_path is not None
+        else None,
     )
 
 
@@ -39,11 +44,13 @@ async def run_server(
     token: str,
     state_path: Path,
     llm_config_path: Path | None = None,
+    diagnostic_log_path: Path | None = None,
 ) -> None:
     gateway = build_gateway(
         token=token,
         state_path=state_path,
         llm_config_path=llm_config_path,
+        diagnostic_log_path=diagnostic_log_path,
     )
     async with gateway.run_server(host=host, port=port) as server_info:
         print(
@@ -74,6 +81,11 @@ def build_runtime_server_parser() -> argparse.ArgumentParser:
             "config/runtime-config.toml."
         ),
     )
+    parser.add_argument(
+        "--diagnostic-log-path",
+        type=Path,
+        help="Optional local JSONL path for runtime diagnostic.v1 module-boundary events.",
+    )
     return parser
 
 
@@ -90,6 +102,7 @@ def main() -> None:
             llm_config_path=Path(args.runtime_config_path)
             if args.runtime_config_path
             else None,
+            diagnostic_log_path=args.diagnostic_log_path,
         )
     )
 

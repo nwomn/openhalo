@@ -6,7 +6,7 @@ from pathlib import Path
 from openhalo_common.diagnostics import DiagnosticCorrelation
 from openhalo_common.diagnostics import DiagnosticEvent
 from openhalo_common.diagnostics import InMemoryDiagnosticRecorder
-from openhalo_common.diagnostics import JsonlDiagnosticWriter
+from openhalo_common.diagnostics import JsonlDiagnosticRecorder
 from openhalo_common.diagnostics import build_trace_id
 
 
@@ -52,24 +52,24 @@ class DiagnosticsV1Tests(unittest.TestCase):
     def test_jsonl_writer_appends_one_event_per_line(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "edge-terminal-edge-1.jsonl"
-            writer = JsonlDiagnosticWriter(path)
-            event = DiagnosticEvent(
-                timestamp="2026-06-30T12:00:00Z",
+            writer = JsonlDiagnosticRecorder(
+                path,
+                timestamp_provider=lambda: "2026-06-30T12:00:00Z",
+            )
+            writer.record_boundary(
                 side="runtime",
                 runtime_instance_id="runtime-main",
                 module="Gateway",
                 operation="receive_frame",
                 phase="input",
-                correlation=DiagnosticCorrelation(
-                    trace_id="trace-terminal-edge-1-1",
-                    event_id="terminal-edge-1-evt-1",
-                ),
-                input={"type": "event_push"},
-                output={},
+                correlation={
+                    "trace_id": "trace-terminal-edge-1-1",
+                    "event_id": "terminal-edge-1-evt-1",
+                },
+                input_payload={"type": "event_push"},
+                output_payload={},
                 summary="Received event_push frame.",
             )
-
-            writer.record(event)
 
             lines = path.read_text(encoding="utf-8").splitlines()
             self.assertEqual(len(lines), 1)

@@ -836,6 +836,21 @@ class HostDaemonTests(unittest.TestCase):
         self.assertEqual(str(args.trace_file), "/tmp/host-edge.trace")
         self.assertEqual(str(args.log_path), "/tmp/runtime.log")
 
+    def test_parser_accepts_diagnostic_log_path(self) -> None:
+        args = build_host_daemon_parser().parse_args(
+            [
+                "--url",
+                "ws://127.0.0.1:8765",
+                "--diagnostic-log-path",
+                ".runtime/diagnostics/host-edge-1.jsonl",
+            ]
+        )
+
+        self.assertEqual(
+            args.diagnostic_log_path,
+            Path(".runtime/diagnostics/host-edge-1.jsonl"),
+        )
+
     def test_build_trace_recorder_can_write_live_trace_file(self) -> None:
         with NamedTemporaryFile("r+", encoding="utf-8") as trace_file:
             args = build_host_daemon_parser().parse_args(

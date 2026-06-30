@@ -233,6 +233,39 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
 
         self.assertTrue(args.tui)
 
+    def test_parser_accepts_diagnostic_log_path(self) -> None:
+        parser = build_terminal_daemon_parser()
+
+        args = parser.parse_args(
+            [
+                "--url",
+                "ws://127.0.0.1:8765",
+                "--diagnostic-log-path",
+                ".runtime/diagnostics/terminal-edge-1.jsonl",
+            ]
+        )
+
+        self.assertEqual(
+            args.diagnostic_log_path,
+            Path(".runtime/diagnostics/terminal-edge-1.jsonl"),
+        )
+
+    def test_build_user_input_frames_use_session_client_correlation(self) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+        )
+
+        frames = daemon.build_user_input_frames(
+            text="hello runtime",
+            observed_at="2026-06-30T12:00:00Z",
+        )
+
+        self.assertEqual(frames[1]["type"], "event_push")
+        self.assertEqual(frames[1]["capability"], "text.input")
+        self.assertRegex(frames[1]["trace_id"], r"^trace-terminal-edge-1-\d+$")
+        self.assertEqual(frames[1]["payload"]["observed_at"], "2026-06-30T12:00:00Z")
+
     def test_parser_defaults_to_line_mode_when_tui_flag_is_omitted(self) -> None:
         parser = build_terminal_daemon_parser()
 

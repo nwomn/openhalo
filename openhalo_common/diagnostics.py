@@ -73,6 +73,47 @@ class JsonlDiagnosticWriter:
             handle.write("\n")
 
 
+class JsonlDiagnosticRecorder:
+    def __init__(self, path: Path, timestamp_provider=None) -> None:
+        self.writer = JsonlDiagnosticWriter(path)
+        self.timestamp_provider = timestamp_provider or _utc_timestamp
+
+    def record(self, event: DiagnosticEvent) -> None:
+        self.writer.record(event)
+
+    def record_boundary(
+        self,
+        side: str,
+        module: str,
+        operation: str,
+        phase: str,
+        correlation: dict | DiagnosticCorrelation | None,
+        input_payload: dict | None,
+        output_payload: dict | None,
+        summary: str,
+        device: dict | None = None,
+        runtime_instance_id: str | None = None,
+        severity: str = "info",
+        timestamp: str | None = None,
+    ) -> DiagnosticEvent:
+        event = _build_diagnostic_event(
+            timestamp=timestamp or self.timestamp_provider(),
+            side=side,
+            device=device,
+            runtime_instance_id=runtime_instance_id,
+            module=module,
+            operation=operation,
+            phase=phase,
+            correlation=correlation,
+            input_payload=input_payload,
+            output_payload=output_payload,
+            summary=summary,
+            severity=severity,
+        )
+        self.record(event)
+        return event
+
+
 class InMemoryDiagnosticRecorder:
     def __init__(self, timestamp_provider=None) -> None:
         self.events: list[DiagnosticEvent] = []
@@ -96,20 +137,7 @@ class InMemoryDiagnosticRecorder:
         severity: str = "info",
         timestamp: str | None = None,
     ) -> DiagnosticEvent:
-        if isinstance(correlation, DiagnosticCorrelation):
-            diagnostic_correlation = correlation
-        else:
-            correlation = correlation or {}
-            diagnostic_correlation = DiagnosticCorrelation(
-                trace_id=correlation.get("trace_id"),
-                session_id=correlation.get("session_id"),
-                turn_id=correlation.get("turn_id"),
-                event_id=correlation.get("event_id"),
-                request_id=correlation.get("request_id"),
-                interaction_id=correlation.get("interaction_id"),
-                parent_event_id=correlation.get("parent_event_id"),
-            )
-        event = DiagnosticEvent(
+        event = _build_diagnostic_event(
             timestamp=timestamp or self.timestamp_provider(),
             side=side,
             device=device,
@@ -117,9 +145,9 @@ class InMemoryDiagnosticRecorder:
             module=module,
             operation=operation,
             phase=phase,
-            correlation=diagnostic_correlation,
-            input=input_payload,
-            output=output_payload,
+            correlation=correlation,
+            input_payload=input_payload,
+            output_payload=output_payload,
             summary=summary,
             severity=severity,
         )
@@ -191,6 +219,49 @@ def add_correlation_to_frame(frame: dict, correlation: dict) -> dict:
             if value is not None
         },
     }
+
+
+def _build_diagnostic_event(
+    timestamp: str,
+    side: str,
+    device: dict | None,
+    runtime_instance_id: str | None,
+    module: str,
+    operation: str,
+    phase: str,
+    correlation: dict | DiagnosticCorrelation | None,
+    input_payload: dict | None,
+    output_payload: dict | None,
+    summary: str,
+    severity: str,
+) -> DiagnosticEvent:
+    if isinstance(correlation, DiagnosticCorrelation):
+        diagnostic_correlation = correlation
+    else:
+        correlation = correlation or {}
+        diagnostic_correlation = DiagnosticCorrelation(
+            trace_id=correlation.get("trace_id"),
+            session_id=correlation.get("session_id"),
+            turn_id=correlation.get("turn_id"),
+            event_id=correlation.get("event_id"),
+            request_id=correlation.get("request_id"),
+            interaction_id=correlation.get("interaction_id"),
+            parent_event_id=correlation.get("parent_event_id"),
+        )
+    return DiagnosticEvent(
+        timestamp=timestamp,
+        side=side,
+        device=device,
+        runtime_instance_id=runtime_instance_id,
+        module=module,
+        operation=operation,
+        phase=phase,
+        correlation=diagnostic_correlation,
+        input=input_payload,
+        output=output_payload,
+        summary=summary,
+        severity=severity,
+    )
 
 
 def _utc_timestamp() -> str:

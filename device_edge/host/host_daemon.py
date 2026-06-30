@@ -16,6 +16,7 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 
 from edge_api.protocol import with_api_version
+from openhalo_common.diagnostics import JsonlDiagnosticRecorder
 from device_edge.host.host_observers import build_host_metric_observations
 from device_edge.host.host_observers import build_runtime_health_observations
 from device_edge.host.host_observers import read_host_metric_snapshot
@@ -34,6 +35,7 @@ class HostEdgeDaemon:
         runtime_health_provider,
         history_limit: int = 20,
         trace_recorder: TraceRecorder | None = None,
+        diagnostic_recorder=None,
     ) -> None:
         self.runtime_control_adapter = runtime_control_adapter
         self.host_metrics_provider = host_metrics_provider
@@ -47,6 +49,7 @@ class HostEdgeDaemon:
             token=token,
             capabilities=["host.metrics", "runtime.health", "runtime.control"],
             trace_recorder=trace_recorder,
+            diagnostic_recorder=diagnostic_recorder,
         )
 
     def build_bootstrap_frames(self) -> list[dict]:
@@ -474,6 +477,11 @@ def build_host_daemon_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Optional file path for live host-edge trace output.",
     )
+    parser.add_argument(
+        "--diagnostic-log-path",
+        type=Path,
+        help="Optional local JSONL path for host-edge diagnostic.v1 events.",
+    )
     return parser
 
 
@@ -570,6 +578,9 @@ def main(argv: list[str] | None = None) -> None:
         runtime_health_provider=build_runtime_health_provider(runtime_control_adapter),
         history_limit=args.history_limit,
         trace_recorder=trace_recorder,
+        diagnostic_recorder=JsonlDiagnosticRecorder(args.diagnostic_log_path)
+        if args.diagnostic_log_path is not None
+        else None,
     )
 
     print(f"Host edge daemon connecting to {args.url} as {args.device_id}")

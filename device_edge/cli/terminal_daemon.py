@@ -12,6 +12,7 @@ import io
 from queue import Empty
 from datetime import datetime
 from datetime import timezone
+from pathlib import Path
 from contextlib import suppress
 
 import websockets
@@ -19,6 +20,7 @@ import websockets
 from device_edge.shared.local_actions import execute_action
 from device_edge.shared.session_client import SessionClient
 from edge_api.protocol import with_api_version
+from openhalo_common.diagnostics import JsonlDiagnosticRecorder
 
 
 def terminal_supports_textual_fullscreen() -> bool:
@@ -38,6 +40,7 @@ class TerminalEdgeDaemon:
         input_state_stream=None,
         timestamp_provider=None,
         stdin_observed_at: str | None = None,
+        diagnostic_recorder=None,
     ) -> None:
         self.output_stream = output_stream or sys.stdout
         self.input_stream = input_stream or sys.stdin
@@ -58,6 +61,7 @@ class TerminalEdgeDaemon:
             device_type="desktop-cli",
             token=token,
             capabilities=["text.input", "notification.show", "terminal.context"],
+            diagnostic_recorder=diagnostic_recorder,
         )
 
     @staticmethod
@@ -152,16 +156,13 @@ class TerminalEdgeDaemon:
                 activity_state="active",
                 observed_at=observed_at,
             ),
-            {
-                "type": "event_push",
-                "device_id": self.client.device_id,
-                "capability": "text.input",
-                "payload": {
-                    "text": text,
-                    "observed_at": observed_at,
-                },
-            },
+            self._build_text_input_frame(text=text, observed_at=observed_at),
         ]
+
+    def _build_text_input_frame(self, text: str, observed_at: str) -> dict:
+        frame = self.client.build_text_event(text)
+        frame["payload"]["observed_at"] = observed_at
+        return frame
 
     def _next_observed_at(self, explicit_observed_at: str | None = None) -> str:
         if explicit_observed_at is not None:
@@ -687,6 +688,11 @@ def build_terminal_daemon_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Run the resident terminal edge in full-screen Textual UI mode.",
     )
+    parser.add_argument(
+        "--diagnostic-log-path",
+        type=Path,
+        help="Optional local JSONL path for terminal-edge diagnostic.v1 events.",
+    )
     return parser
 
 
@@ -724,12 +730,18 @@ def main() -> None:
             max_sessions=args.max_sessions,
             stdin_observed_at=args.stdin_observed_at,
             scripted_inputs=scripted_inputs,
+            diagnostic_recorder=JsonlDiagnosticRecorder(args.diagnostic_log_path)
+            if args.diagnostic_log_path is not None
+            else None,
         )
         return
     daemon = TerminalEdgeDaemon(
         device_id=args.device_id,
         token=args.token,
         stdin_observed_at=args.stdin_observed_at,
+        diagnostic_recorder=JsonlDiagnosticRecorder(args.diagnostic_log_path)
+        if args.diagnostic_log_path is not None
+        else None,
     )
     asyncio.run(
         daemon.run_forever(

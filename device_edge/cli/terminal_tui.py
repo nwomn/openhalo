@@ -235,6 +235,7 @@ def create_textual_terminal_app(
     max_sessions: int | None,
     stdin_observed_at: str | None,
     scripted_inputs: list[dict],
+    diagnostic_recorder=None,
 ) -> TerminalEdgeApp:
     from device_edge.cli.terminal_daemon import TerminalEdgeDaemon
 
@@ -248,6 +249,7 @@ def create_textual_terminal_app(
         input_stream=QueueLineInput(input_queue),
         input_state_stream=input_state_queue,
         stdin_observed_at=stdin_observed_at,
+        diagnostic_recorder=diagnostic_recorder,
     )
 
     def start_session() -> None:
@@ -287,6 +289,7 @@ def run_textual_terminal_daemon(
     max_sessions: int | None,
     stdin_observed_at: str | None,
     scripted_inputs: list[dict],
+    diagnostic_recorder=None,
 ) -> None:
     app = create_textual_terminal_app(
         url=url,
@@ -300,6 +303,7 @@ def run_textual_terminal_daemon(
         max_sessions=max_sessions,
         stdin_observed_at=stdin_observed_at,
         scripted_inputs=scripted_inputs,
+        diagnostic_recorder=diagnostic_recorder,
     )
     app.run()
 
