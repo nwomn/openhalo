@@ -13,6 +13,7 @@ from device_edge.cli.cli_edge import run_cli_once, run_cli_once_over_websocket
 from device_edge.cli.terminal_daemon import TerminalEdgeDaemon
 from device_edge.host.host_daemon import HostEdgeDaemon
 from device_edge.shared.session_client import SessionClient
+from openhalo_common.diagnostics import InMemoryDiagnosticRecorder
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.main import build_runtime_server_message
 from personal_runtime.main import build_runtime_server_parser
@@ -403,6 +404,58 @@ class CliEntryTests(unittest.TestCase):
         )
         self.assertEqual(daemon.user_request_count, 0)
         self.assertEqual(daemon.runtime_message_count, 1)
+
+    def test_terminal_daemon_records_local_action_executor_diagnostics(self) -> None:
+        diagnostics = InMemoryDiagnosticRecorder(
+            timestamp_provider=lambda: "2026-06-30T13:10:00Z"
+        )
+        stdout = io.StringIO()
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=stdout,
+            diagnostic_recorder=diagnostics,
+        )
+
+        result = daemon.handle_action_request(
+            {
+                "type": "action_request",
+                "trace_id": "trace-terminal-edge-1-3",
+                "session_id": "session-terminal-edge-1",
+                "turn_id": "turn-terminal-edge-1-3",
+                "event_id": "terminal-edge-1-evt-3",
+                "request_id": "action-2",
+                "interaction_id": "interaction-1",
+                "device_id": "terminal-edge-1",
+                "action": {
+                    "capability": "notification.show",
+                    "payload": {"message": "runtime is running"},
+                },
+            }
+        )
+
+        self.assertEqual(result["type"], "action_result")
+        self.assertEqual(result["trace_id"], "trace-terminal-edge-1-3")
+        action_events = [
+            event
+            for event in diagnostics.events
+            if event.module == "Local Action Executor"
+            and event.operation == "execute_action"
+        ]
+        self.assertEqual(len(action_events), 1)
+        self.assertEqual(
+            action_events[0].input["action"]["capability"],
+            "notification.show",
+        )
+        self.assertEqual(action_events[0].output["result"]["status"], "ok")
+        self.assertEqual(
+            action_events[0].output["frame"]["result"]["details"]["delivered_via"],
+            "terminal.stdout",
+        )
+        self.assertEqual(
+            action_events[0].correlation.trace_id,
+            "trace-terminal-edge-1-3",
+        )
 
     def test_run_cli_once_returns_ok_action_result(self) -> None:
         result = run_cli_once("hello runtime", config_path=TEST_LLM_CONFIG)
