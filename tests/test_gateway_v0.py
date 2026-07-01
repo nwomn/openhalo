@@ -2414,6 +2414,265 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertTrue(gateway.state.observations[-1].source_event_id)
 
+    async def test_m17_mobile_edge_routes_terminal_interaction_and_preserves_lineage(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "api_version": API_VERSION,
+                    "type": "connect",
+                    "device": {
+                        "device_id": "terminal-edge-1",
+                        "device_type": "desktop-cli",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "capability_announce",
+                    "device_id": "terminal-edge-1",
+                    "capabilities": ["text.input"],
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "connect",
+                    "device": {
+                        "device_id": "android-edge-1",
+                        "device_type": "android-phone",
+                        "role": "interactive_surface",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "capability_announce",
+                    "device_id": "android-edge-1",
+                    "capabilities": [
+                        {
+                            "name": "notification.show",
+                            "direction": "runtime_to_edge",
+                            "kind": "action",
+                            "affordances": [
+                                "notify_user",
+                                "deliver_private_text",
+                            ],
+                            "modality": "visual_text",
+                            "content_capacity": "short_text",
+                            "privacy": "personal",
+                            "interruptiveness": "medium",
+                            "side_effect": "user_visible",
+                            "input_schema": {
+                                "type": "object",
+                                "required": ["message"],
+                                "properties": {"message": {"type": "string"}},
+                            },
+                        },
+                        {
+                            "name": "mobile.context",
+                            "direction": "edge_to_runtime",
+                            "kind": "observation_provider",
+                            "observations": [
+                                {
+                                    "name": "mobile.app_visibility",
+                                    "schema": {
+                                        "type": "string",
+                                        "enum": [
+                                            "foreground",
+                                            "background",
+                                            "unknown",
+                                        ],
+                                    },
+                                    "semantics": ["device_activity"],
+                                    "privacy": "personal_device_state",
+                                    "freshness_seconds": 120,
+                                },
+                                {
+                                    "name": "mobile.notification_permission",
+                                    "schema": {
+                                        "type": "string",
+                                        "enum": ["granted", "denied", "unknown"],
+                                    },
+                                    "semantics": ["permission_state"],
+                                    "privacy": "personal_device_state",
+                                    "freshness_seconds": 300,
+                                },
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "connect",
+                    "device": {
+                        "device_id": "speaker-edge-1",
+                        "device_type": "speaker",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "capability_announce",
+                    "device_id": "speaker-edge-1",
+                    "capabilities": [
+                        {
+                            "name": "speaker.play_audio",
+                            "direction": "runtime_to_edge",
+                            "kind": "action",
+                            "affordances": ["notify_user"],
+                            "modality": "public_audio",
+                            "content_capacity": "spoken_text",
+                            "privacy": "public",
+                            "interruptiveness": "high",
+                            "side_effect": "user_visible",
+                            "input_schema": {
+                                "type": "object",
+                                "required": ["message"],
+                                "properties": {"message": {"type": "string"}},
+                            },
+                        }
+                    ],
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "connect",
+                    "device": {
+                        "device_id": "desk-light-edge-1",
+                        "device_type": "ambient-light",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "capability_announce",
+                    "device_id": "desk-light-edge-1",
+                    "capabilities": [
+                        {
+                            "name": "light.pulse",
+                            "direction": "runtime_to_edge",
+                            "kind": "action",
+                            "affordances": ["ambient_signal"],
+                            "modality": "ambient_light",
+                            "content_capacity": "none",
+                            "privacy": "public",
+                            "interruptiveness": "low",
+                            "side_effect": "environment_visible",
+                            "input_schema": {"type": "object"},
+                        }
+                    ],
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "observation_push",
+                    "device_id": "android-edge-1",
+                    "capability": "mobile.context",
+                    "observations": [
+                        {
+                            "name": "mobile.app_visibility",
+                            "value": "foreground",
+                            "observed_at": "2026-07-01T03:56:04Z",
+                            "confidence": 1.0,
+                        },
+                        {
+                            "name": "mobile.notification_permission",
+                            "value": "granted",
+                            "observed_at": "2026-07-01T03:56:04Z",
+                            "confidence": 1.0,
+                        },
+                    ],
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "event_push",
+                    "device_id": "terminal-edge-1",
+                    "capability": "text.input",
+                    "payload": {
+                        "text": "send me a private reminder",
+                        "observed_at": "2026-07-01T03:57:00Z",
+                    },
+                },
+            ]
+        )
+
+        action_request = _last_action_request(replies)
+        self.assertIsNotNone(action_request)
+        self.assertEqual(action_request["api_version"], API_VERSION)
+        self.assertEqual(action_request["device_id"], "android-edge-1")
+        self.assertEqual(action_request["action"]["capability"], "notification.show")
+
+        interaction = gateway.state.interactions[-1]
+        self.assertEqual(interaction["source_device_id"], "terminal-edge-1")
+        self.assertEqual(
+            interaction["participant_device_ids"],
+            ["terminal-edge-1", "android-edge-1"],
+        )
+        self.assertEqual(
+            interaction["primary_action"]["target_device_id"],
+            "android-edge-1",
+        )
+
+        intervention = gateway.state.interventions[-1]
+        self.assertEqual(intervention["source_device_id"], "terminal-edge-1")
+        self.assertEqual(intervention["target_device_id"], "android-edge-1")
+        planning_record = intervention["planning_record"]
+        self.assertEqual(
+            planning_record["chosen_candidate"]["device_id"],
+            "android-edge-1",
+        )
+        filtered = {
+            item["device_id"]: item["reasons"]
+            for item in planning_record["filtered_candidates"]
+        }
+        self.assertIn("target_mismatch:android-edge-1", filtered["speaker-edge-1"])
+        self.assertIn("privacy:public", filtered["speaker-edge-1"])
+        self.assertIn("target_mismatch:android-edge-1", filtered["desk-light-edge-1"])
+        self.assertIn("content_capacity:none", filtered["desk-light-edge-1"])
+
+        result_replies = await gateway.handle_test_frames(
+            [
+                {
+                    "api_version": API_VERSION,
+                    "type": "action_result",
+                    "request_id": action_request["request_id"],
+                    "interaction_id": action_request["interaction_id"],
+                    "device_id": "android-edge-1",
+                    "result": {
+                        "status": "ok",
+                        "capability": "notification.show",
+                        "observed_at": "2026-07-01T03:57:02Z",
+                        "details": {
+                            "message": action_request["action"]["payload"][
+                                "message"
+                            ],
+                        },
+                    },
+                }
+            ]
+        )
+
+        self.assertEqual(gateway.state.action_results[-1]["status"], "ok")
+        self.assertEqual(
+            gateway.state.action_results[-1]["capability"],
+            "notification.show",
+        )
+        self.assertEqual(
+            gateway.state.interactions[-1]["interaction_id"],
+            action_request["interaction_id"],
+        )
+        self.assertIn("android-edge-1", gateway.state.interactions[-1]["participant_device_ids"])
+        self.assertTrue(
+            any(
+                reply["type"] in {"action_request", "interaction_update"}
+                for reply in result_replies
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
