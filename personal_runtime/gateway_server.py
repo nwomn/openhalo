@@ -8,6 +8,7 @@ from itertools import count
 from pathlib import Path
 
 import websockets
+from websockets.exceptions import ConnectionClosedError
 from websockets.exceptions import ConnectionClosedOK
 
 from edge_api.protocol import validate_frame, with_api_version
@@ -706,14 +707,14 @@ class RuntimeGateway:
                             dispatched_to=target_device_id,
                             send_status="sent",
                         )
-                    except ConnectionClosedOK:
+                    except (ConnectionClosedOK, ConnectionClosedError) as exc:
                         self._record_dispatch_diagnostic(
                             reply=reply,
                             source_device_id=source_device_id,
                             target_connection_found=True,
                             dispatched_to=target_device_id,
                             send_status="connection_closed",
-                            error_class="ConnectionClosedOK",
+                            error_class=type(exc).__name__,
                         )
                         pass
                     continue
@@ -737,14 +738,14 @@ class RuntimeGateway:
                         dispatched_to=source_device_id,
                         send_status="sent",
                     )
-            except ConnectionClosedOK:
+            except (ConnectionClosedOK, ConnectionClosedError) as exc:
                 self._record_dispatch_diagnostic(
                     reply=reply,
                     source_device_id=source_device_id,
                     target_connection_found=target_device_id in self.live_connections,
                     dispatched_to=source_device_id,
                     send_status="connection_closed",
-                    error_class="ConnectionClosedOK",
+                    error_class=type(exc).__name__,
                 )
                 pass
 
@@ -813,6 +814,19 @@ class RuntimeGateway:
                     websocket,
                     replies,
                 )
+        except (ConnectionClosedOK, ConnectionClosedError) as exc:
+            self._record_diagnostic(
+                module="Gateway",
+                operation="websocket_session",
+                phase="output",
+                correlation={},
+                input_payload={"device_id": registered_device_id},
+                output_payload={
+                    "status": "connection_closed",
+                    "error_class": type(exc).__name__,
+                },
+                summary="Edge websocket session closed.",
+            )
         finally:
             if registered_device_id is not None:
                 current = self.live_connections.get(registered_device_id)

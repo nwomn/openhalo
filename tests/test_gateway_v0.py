@@ -3,6 +3,8 @@ import unittest
 from pathlib import Path
 
 import websockets
+from websockets.exceptions import ConnectionClosedOK
+from websockets.frames import Close
 
 from device_edge.shared.session_client import SessionClient
 from edge_api.protocol import API_VERSION
@@ -29,6 +31,47 @@ def _last_interaction_update(replies: list[dict]) -> dict | None:
 
 
 class GatewayTests(unittest.IsolatedAsyncioTestCase):
+    async def test_websocket_handler_treats_disconnect_as_closed_session(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        class DisconnectWebSocket:
+            def __init__(self) -> None:
+                self.sent_frames = []
+
+            def __aiter__(self):
+                async def frames():
+                    yield json.dumps(
+                        {
+                            "api_version": API_VERSION,
+                            "type": "connect",
+                            "device": {
+                                "device_id": "android-edge-1",
+                                "device_type": "android-phone",
+                            },
+                            "auth": {"token": "dev-token"},
+                        }
+                    )
+                    raise ConnectionClosedOK(Close(1000, "normal close"), None)
+
+                return frames()
+
+            async def send(self, frame: str) -> None:
+                self.sent_frames.append(json.loads(frame))
+
+        websocket = DisconnectWebSocket()
+
+        await gateway._websocket_handler(websocket)
+
+        self.assertEqual(websocket.sent_frames[-1]["type"], "connect_ok")
+        self.assertNotIn("android-edge-1", gateway.online_device_ids)
+        self.assertNotIn("android-edge-1", gateway.live_connections)
+
     async def test_capability_announce_registers_rich_capabilities_and_observations(
         self,
     ) -> None:
