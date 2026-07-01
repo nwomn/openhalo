@@ -413,6 +413,8 @@ Status:
 M17 preparation note:
 
 - The first broader `M17` real-device edge direction is a native Android `Device Edge` developed locally with Android Studio under `device_edge/android_edge/`, while the Alibaba Cloud server continues to run the OpenHalo `Personal Runtime`; local install requirements are documented in `docs/android-edge-install.md`, and the Android edge design baseline is documented in `docs/plans/2026-06-30-m17-android-edge-design.md`.
+- The local Android Studio scaffold for that first native Android edge now exists under `device_edge/android_edge/` as a Kotlin/Jetpack Compose Gradle project with package `dev.openhalo.android.edge`, giving `M17` a concrete mobile-app baseline for foreground diagnostics UI, later background service wiring, and eventual Edge API session integration without changing the `Device Edge -> Edge API v1 WebSocket -> Gateway -> Personal Runtime` boundary.
+- The first local real-device bootstrap acceptance for that Android edge has now been exercised end to end: Gradle sync completed successfully after removing one duplicate Kotlin Android plugin addition from the generated scaffold, a USB-connected Android phone was recognized through `adb`, and the debug app installed and launched on a real device, confirming that the current `device_edge/android_edge/` baseline is not only scaffolded but deployable on local hardware.
 
 ## Completed Sub-goals
 
@@ -746,6 +748,7 @@ Status:
 Result:
 
 - The repository now documents a default shared-venv workflow in `docs/dev-env.md`
+- The repository-level development workflow now also documents the local Android edge path, including opening `device_edge/android_edge/` in Android Studio, verifying devices with `adb devices -l`, and using Android Studio as the normal debug install/run surface for the first M17 phone edge
 - `bin/test` now provides a small helper that always uses the repository root `.venv`
 - `bin/bootstrap-worktree-venv` now provides an explicit opt-in path for isolated worktree environments during dependency or packaging experiments
 - Automated tests now verify the helper scripts and the documented shared-versus-isolated environment rules

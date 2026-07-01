@@ -41,6 +41,19 @@ Recommended local setup:
 - Kotlin and Gradle support from the standard Android Studio installation.
 - At least one physical Android phone available for testing.
 
+## Current Verified Local Baseline
+
+The current local Android baseline now includes:
+
+- An Android Studio project scaffold under `device_edge/android_edge/`.
+- Package name `dev.openhalo.android.edge`.
+- Kotlin + Jetpack Compose Gradle project generation through Android Studio.
+- A successful first debug install and launch on a USB-connected Android phone.
+
+This means the repository is now past the "tooling only" stage for M17 local
+setup. The local Android path has been exercised through project creation,
+Gradle sync, device recognition, debug install, and app launch.
+
 ## Prepare The Phone
 
 Recommended phone setup:
@@ -52,6 +65,13 @@ Recommended phone setup:
 - Notification permission available for Android 13+ testing.
 - Ability to review battery optimization / background restriction settings.
 
+Quick local verification steps:
+
+- Confirm the phone is visible to Android Debug Bridge with `adb devices -l`.
+- Accept the phone-side USB debugging trust prompt when it appears.
+- Prefer a data mode such as file transfer if the phone is not detected
+  immediately.
+
 ## Debugging Expectations
 
 Use Android Studio for:
@@ -61,6 +81,27 @@ Use Android Studio for:
 - Logcat.
 - Interactive UI debugging.
 - Foreground service and notification permission checks.
+
+## First Sync And First Run Notes
+
+On a fresh local Android Studio setup, the first Gradle sync and first run may
+take noticeably longer than later runs because Android Studio and Gradle need
+to download Android, Kotlin, and Compose dependencies.
+
+You may also encounter a local proxy-authentication prompt such as
+`Proxy Authentication: 127.0.0.1` during dependency resolution:
+
+- If the machine intentionally uses a local proxy for Gradle traffic, provide
+  the proxy credentials configured for that local proxy.
+- If the machine does not intentionally require that proxy for Android Studio,
+  cancel the prompt and let the normal local network path continue.
+
+Successful first-run indicators:
+
+- Android Studio device selector shows the connected phone model.
+- Gradle sync completes successfully.
+- `Run` installs the debug build to the phone.
+- The launcher activity opens on the connected device.
 
 Do not expose `adb` directly to the public internet. If remote debugging is ever
 needed, use a trusted private network and treat it as a temporary debugging aid,

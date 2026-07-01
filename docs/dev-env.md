@@ -44,6 +44,39 @@ Do not copy or diff `.venv` directories between a worktree and the main workspac
 
 If a dependency experiment succeeds, commit the source-of-truth file changes such as `pyproject.toml`, merge those changes, and then update the repository root `.venv` from the main workspace.
 
+## Android edge local workflow
+
+When working on the `M17` native Android `Device Edge`, keep the same checkout
+open in both Codex and Android Studio, but let each tool own its normal layer:
+
+- Open the repository root in Codex for project-wide context and non-Android
+  code or documentation work.
+- Open only `device_edge/android_edge/` in Android Studio for the native mobile
+  app.
+- Keep Python runtime and backend work on the repository root `.venv`; do not
+  try to route Android Studio builds through the repository Python environment.
+- Let Android Studio manage its own JDK, SDK, Gradle sync, device deployment,
+  and Logcat workflow.
+
+Preferred local Android verification ladder:
+
+- Confirm the phone is visible before a run with `adb devices -l`.
+- Wait for the first Android Studio Gradle sync to finish; the first sync may
+  take noticeably longer because Android, Kotlin, and Compose dependencies are
+  downloaded on demand.
+- Use the Android Studio device selector to confirm the intended phone model is
+  selected.
+- Run the `app` configuration from Android Studio and expect the debug build to
+  install and launch on the connected device.
+
+The current verified baseline for this repository is that
+`device_edge/android_edge/` syncs successfully, a USB-connected Android phone
+is recognized through `adb`, and the debug app can be installed and launched on
+real hardware.
+
+Use `docs/android-edge-install.md` for the fuller Android Studio setup,
+phone-preparation checklist, and local proxy-authentication notes.
+
 ## Verification ladder
 
 CLI device validation is acceptable for early module testing.

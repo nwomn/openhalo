@@ -396,6 +396,16 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("strict observation rejection", contents)
         self.assertIn("planner selection rationale", contents)
 
+    def test_dev_env_document_mentions_android_edge_local_workflow(self) -> None:
+        document_path = ROOT / "docs" / "dev-env.md"
+
+        contents = document_path.read_text(encoding="utf-8")
+        self.assertIn("## Android edge local workflow", contents)
+        self.assertIn("device_edge/android_edge/", contents)
+        self.assertIn("adb devices -l", contents)
+        self.assertIn("Android Studio device selector", contents)
+        self.assertIn("docs/android-edge-install.md", contents)
+
 
 if __name__ == "__main__":
     unittest.main()
