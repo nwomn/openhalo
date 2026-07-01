@@ -49,6 +49,10 @@ The current local Android baseline now includes:
 - Package name `dev.openhalo.android.edge`.
 - Kotlin + Jetpack Compose Gradle project generation through Android Studio.
 - A successful first debug install and launch on a USB-connected Android phone.
+- A foreground diagnostic app surface that can connect to a configured runtime,
+  start the foreground presence service, send `mobile.context` observations,
+  execute `notification.show`, and expose recent Edge API activity for local
+  verification.
 
 This means the repository is now past the "tooling only" stage for M17 local
 setup. The local Android path has been exercised through project creation,
@@ -102,10 +106,41 @@ Successful first-run indicators:
 - Gradle sync completes successfully.
 - `Run` installs the debug build to the phone.
 - The launcher activity opens on the connected device.
+- The app can connect to the runtime URL and show `Connection: connected`.
+- The app shows `Service: foreground` while the Android edge session is active.
+- `Send Observations` records a recent `mobile.context` observation.
 
 Do not expose `adb` directly to the public internet. If remote debugging is ever
 needed, use a trusted private network and treat it as a temporary debugging aid,
 not the primary M17 development path.
+
+## M17 Verification Workflow
+
+M17 verification is layered rather than one large cross-device test:
+
+1. Runtime-side simulated verifier for routing, candidate filtering, action
+   result handling, and interaction lineage:
+
+   ```powershell
+   python bin\verify_m17_mobile_edge.py
+   ```
+
+2. Local real-device smoke verifier for Android app launch, connection, and
+   observation delivery:
+
+   ```powershell
+   python bin\verify_m17_android_device.py --tap-connect --tap-observations
+   ```
+
+3. Manual live-chain acceptance for the full server-runtime-to-phone action
+   path. During the manual action window, the device verifier can wait for a
+   real phone-side `notification.show -> ok`:
+
+   ```powershell
+   python bin\verify_m17_android_device.py --require-action
+   ```
+
+See `docs/m17-android-edge-acceptance.md` for the full acceptance model.
 
 ## Useful References
 
