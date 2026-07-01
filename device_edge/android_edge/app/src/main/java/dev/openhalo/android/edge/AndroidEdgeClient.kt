@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit
 data class EdgeDiagnostics(
     val runtimeUrl: String = DEFAULT_RUNTIME_URL,
     val deviceId: String = "android-edge-${UUID.randomUUID().toString().take(8)}",
+    val serviceState: String = "stopped",
     val connectionState: String = "disconnected",
     val lastSentFrame: String = "",
     val lastReceivedFrame: String = "",
@@ -260,6 +261,7 @@ class AndroidEdgeClient(
 
     private fun logEvent(event: String, vararg fields: Pair<String, String>) {
         val payload = JSONObject().put("event", event)
+        payload.put("service_state", state.serviceState)
         fields.forEach { (key, value) ->
             if (value.isNotBlank()) {
                 payload.put(key, value)

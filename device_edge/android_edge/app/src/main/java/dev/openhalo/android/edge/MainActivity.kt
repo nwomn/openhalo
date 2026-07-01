@@ -1,6 +1,7 @@
 package dev.openhalo.android.edge
 
 import android.Manifest
+import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -56,27 +57,25 @@ class MainActivity : ComponentActivity() {
 fun M17BootstrapScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val appContext = context.applicationContext
-    var diagnostics by remember { mutableStateOf(EdgeDiagnostics()) }
-    var runtimeUrl by remember { mutableStateOf(DEFAULT_RUNTIME_URL) }
+    var diagnostics by remember { mutableStateOf(EdgeDiagnosticsStore.current()) }
+    var runtimeUrl by remember { mutableStateOf(diagnostics.runtimeUrl) }
     var deviceId by remember { mutableStateOf(diagnostics.deviceId) }
-    val client = remember {
-        AndroidEdgeClient(appContext, diagnostics) { next ->
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        startEdgeService(appContext, AndroidEdgeService.sendObservationsIntent(appContext))
+    }
+
+    DisposableEffect(Unit) {
+        val unsubscribe = EdgeDiagnosticsStore.subscribe { next ->
             (context as? ComponentActivity)?.runOnUiThread {
                 diagnostics = next
             } ?: run {
                 diagnostics = next
             }
         }
-    }
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) {
-        client.sendCurrentObservations()
-    }
-
-    DisposableEffect(Unit) {
         onDispose {
-            client.disconnect()
+            unsubscribe()
         }
     }
 
@@ -113,12 +112,19 @@ fun M17BootstrapScreen(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Button(
-                onClick = { client.connect(runtimeUrl, deviceId) }
+                onClick = {
+                    startEdgeService(
+                        appContext,
+                        AndroidEdgeService.startIntent(appContext, runtimeUrl, deviceId)
+                    )
+                }
             ) {
                 Text("Connect")
             }
             OutlinedButton(
-                onClick = { client.disconnect() }
+                onClick = {
+                    startEdgeService(appContext, AndroidEdgeService.stopIntent(appContext))
+                }
             ) {
                 Text("Disconnect")
             }
@@ -127,7 +133,12 @@ fun M17BootstrapScreen(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             OutlinedButton(
-                onClick = { client.sendCurrentObservations() }
+                onClick = {
+                    startEdgeService(
+                        appContext,
+                        AndroidEdgeService.sendObservationsIntent(appContext)
+                    )
+                }
             ) {
                 Text("Send Observations")
             }
@@ -142,6 +153,7 @@ fun M17BootstrapScreen(modifier: Modifier = Modifier) {
             }
         }
         DiagnosticsCard("Connection", diagnostics.connectionState)
+        DiagnosticsCard("Service", diagnostics.serviceState)
         DiagnosticsCard("Registered Capabilities", diagnostics.registeredCapabilities)
         DiagnosticsCard("Recent Observations", diagnostics.recentObservations.ifBlank { "None yet" })
         DiagnosticsCard("Recent Actions", diagnostics.recentActions.ifBlank { "None yet" })
@@ -149,6 +161,16 @@ fun M17BootstrapScreen(modifier: Modifier = Modifier) {
         DiagnosticsCard("Last Error", diagnostics.lastError.ifBlank { "None" })
         DiagnosticsCard("Last Sent Frame", diagnostics.lastSentFrame.ifBlank { "None yet" })
         DiagnosticsCard("Last Received Frame", diagnostics.lastReceivedFrame.ifBlank { "None yet" })
+    }
+}
+
+private fun startEdgeService(context: Context, intent: android.content.Intent) {
+    if (intent.action == AndroidEdgeService.ACTION_STOP) {
+        context.startService(intent)
+    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        context.startForegroundService(intent)
+    } else {
+        context.startService(intent)
     }
 }
 

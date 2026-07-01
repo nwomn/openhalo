@@ -50,8 +50,9 @@ The current local Android baseline now includes:
 - Kotlin + Jetpack Compose Gradle project generation through Android Studio.
 - A successful first debug install and launch on a USB-connected Android phone.
 - A foreground diagnostic app surface that can connect to a configured runtime,
-  send `mobile.context` observations, execute `notification.show`, and expose
-  recent Edge API activity for local verification.
+  start the foreground presence service, send `mobile.context` observations,
+  execute `notification.show`, and expose recent Edge API activity for local
+  verification.
 
 This means the repository is now past the "tooling only" stage for M17 local
 setup. The local Android path has been exercised through project creation,
@@ -106,6 +107,7 @@ Successful first-run indicators:
 - `Run` installs the debug build to the phone.
 - The launcher activity opens on the connected device.
 - The app can connect to the runtime URL and show `Connection: connected`.
+- The app shows `Service: foreground` while the Android edge session is active.
 - `Send Observations` records a recent `mobile.context` observation.
 
 Do not expose `adb` directly to the public internet. If remote debugging is ever

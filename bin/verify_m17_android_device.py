@@ -18,6 +18,7 @@ EVENT_PREFIX = "OPENHALO_EDGE_EVENT "
 class DeviceEvidence:
     device_id: str
     connected: bool
+    service_foreground: bool
     sent_observation: bool
     sent_capability_announce: bool
     action_result_ok: bool
@@ -117,6 +118,11 @@ def build_evidence(events: list[dict], ui_texts: list[str]) -> DeviceEvidence:
     connected = any(event.get("event") == "connected" for event in events) or (
         "Connection" in ui_texts and "connected" in ui_texts
     )
+    service_foreground = any(
+        event.get("event") in {"service_start_requested", "connected"}
+        or event.get("service_state") == "foreground"
+        for event in events
+    ) or ("Service" in ui_texts and "foreground" in ui_texts)
     sent_capability_announce = any(
         event.get("event") == "sent_frame"
         and event.get("frame_type") == "capability_announce"
@@ -146,6 +152,7 @@ def build_evidence(events: list[dict], ui_texts: list[str]) -> DeviceEvidence:
     return DeviceEvidence(
         device_id=device_id,
         connected=connected,
+        service_foreground=service_foreground,
         sent_observation=sent_observation,
         sent_capability_announce=sent_capability_announce,
         action_result_ok=action_result_ok,
@@ -189,12 +196,15 @@ def main() -> None:
     result = {
         "ok": (
             evidence.connected
+            and evidence.service_foreground
+            and evidence.sent_capability_announce
             and evidence.sent_observation
             and (evidence.action_result_ok or not args.require_action)
         ),
         "device_serial": serial,
         "android_edge_device_id": evidence.device_id,
         "connected": evidence.connected,
+        "service_foreground": evidence.service_foreground,
         "sent_capability_announce": evidence.sent_capability_announce,
         "sent_observation": evidence.sent_observation,
         "action_result_ok": evidence.action_result_ok,

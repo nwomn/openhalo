@@ -72,11 +72,14 @@ What it verifies:
 
 - An Android device is online through adb.
 - The Android edge app launches.
+- The foreground service owns the Edge API session while the UI exposes
+  diagnostics and control.
 - The app connects to the configured runtime.
 - The app sends `mobile.context` observations.
 - The verifier can read foreground diagnostic state through UI automation.
 - After installing the instrumented app build, the verifier can also read
-  structured `OPENHALO_EDGE_EVENT` logcat evidence.
+  structured `OPENHALO_EDGE_EVENT` logcat evidence, including foreground
+  service state.
 
 Use this layer for Android app changes and before manual M17 live acceptance.
 
