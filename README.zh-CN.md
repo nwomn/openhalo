@@ -123,6 +123,7 @@ bin/run-runtime-dev
 - [docs/android-edge-install.md](docs/android-edge-install.md)：Android 手机 Edge 设置和安装说明
 - [docs/m17-android-edge-acceptance.md](docs/m17-android-edge-acceptance.md)：Android Edge 验证流程
 - [docs/design/mobile-edge-ui/mobile-edge-ui-spec.md](docs/design/mobile-edge-ui/mobile-edge-ui-spec.md)：手机 Edge 产品 UI 设计基线
+- [docs/ops/runtime-troubleshooting.md](docs/ops/runtime-troubleshooting.md)：生产 runtime 与 edge 连接排障
 - [docs/plans/2026-06-16-runtime-architecture-design.md](docs/plans/2026-06-16-runtime-architecture-design.md)：架构基线设计
 
 ## 说明

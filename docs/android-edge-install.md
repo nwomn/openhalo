@@ -80,8 +80,59 @@ Use Android Studio for:
 - Interactive UI debugging.
 - Foreground service and notification permission checks.
 
-Do not expose `adb` directly to the public internet. If remote debugging is ever
-needed, use a trusted private network and treat it as temporary debugging aid.
+## Runtime Connection Acceptance
+
+For the current production runtime on Alibaba Cloud, configure the Android edge
+with:
+
+```text
+runtime_url = ws://8.153.37.167/openhalo/edge
+```
+
+The Android debug build must allow cleartext traffic for this IP-based
+acceptance path. When a stable OpenHalo domain and TLS certificate are ready,
+switch the runtime URL to `wss://<openhalo-domain>/openhalo/edge` and remove the
+cleartext dependency.
+
+Use the production edge token from the server:
+
+```text
+/etc/openhalo/runtime.env
+```
+
+The value is `OPENHALO_EDGE_TOKEN`. Do not use `dev-token` against the
+production systemd runtime.
+
+The Android edge must follow this frame order:
+
+```text
+connect
+wait for connect_ok
+capability_announce
+observation_push / event_push / action_result
+```
+
+`capability_announce` registers capabilities on an already connected device; it
+does not create the device. If `connect` returns `error` or the socket closes
+before `connect_ok`, the Android edge should not send capabilities or
+observations on that session. Log the failure locally and retry only after the
+URL/token problem is fixed.
+
+Useful acceptance signals:
+
+- Android logcat shows `connect_ok` before capability or observation frames.
+- nginx access log shows `GET /openhalo/edge HTTP/1.1" 101` with an Android
+  client such as `okhttp`.
+- runtime diagnostics show a `Gateway/dispatch_reply` entry with
+  `reply_type=connect_ok` for the Android `device_id`.
+- runtime state contains the Android `device_id` after the successful connect.
+
+If nginx shows `101` but runtime later logs `KeyError: '<android-device-id>'`,
+the edge likely sent `capability_announce` before a successful authenticated
+`connect`. Recheck the production token and make sure the Android code waits
+for `connect_ok`.
+
+## First Sync And First Run Notes
 
 ## Successful Run Indicators
 
@@ -102,6 +153,9 @@ needed, use a trusted private network and treat it as temporary debugging aid.
   `OPENHALO_EDGE_TOKEN` without exposing the secret in diagnostics.
 - Runtime-delivered `notification.show` actions use the urgent alert presenter
   so messages can visibly pop up instead of requiring notification-shade search.
+
+Do not expose `adb` directly to the public internet. If remote debugging is ever
+needed, use a trusted private network and treat it as temporary debugging aid.
 
 ## Current Test Workflow
 

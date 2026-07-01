@@ -104,6 +104,7 @@ Current boundary rules:
 - For the first same-template multi-edge slice, ordinary routed actions should prefer a different online edge instance with the required capability before falling back to the source device
 - Ordinary development work should be branch-first in the main workspace and should reuse the repository root `.venv` by default, while optional worktree-based dependency or packaging experiments should use an explicitly created worktree-local `.venv`
 - Runtime startup should distinguish restart-heavy development acceptance from the long-running server runtime: development helpers use port `18765` by default, while stable server operation reserves port `8765` and should be owned by a process supervisor such as systemd
+- Current backend hardening gap: `Gateway` should reject post-connect frames such as `capability_announce`, `observation_push`, `event_push`, or `action_result` from unknown or unauthorized `device_id` values with a structured public error instead of allowing runtime-side exceptions such as `KeyError`
 - CLI device validation is acceptable for early module testing, but host-edge verification is required before documenting a module as fully implemented and operationally ready
 - In this project, `manual acceptance` or `human acceptance` means testing implemented functionality in a simulated real usage scenario, rather than only checking static output, isolated unit behavior, or non-interactive script success
 

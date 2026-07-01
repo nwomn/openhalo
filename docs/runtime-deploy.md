@@ -46,7 +46,7 @@ The recommended baseline is:
 
 - systemd owns process lifetime and restart behavior
 - the runtime binds `127.0.0.1:8765`
-- a reverse proxy exposes the public `wss://...` edge endpoint when needed
+- a reverse proxy exposes the public edge WebSocket endpoint when needed
 - state lives under `/var/lib/openhalo`
 - diagnostics live under `/var/log/openhalo` or journald
 - the shared edge token is read through `--token-env OPENHALO_EDGE_TOKEN`
@@ -89,6 +89,62 @@ Check logs:
 ```bash
 sudo journalctl -u openhalo-runtime -f
 ```
+
+## Current Production Edge Endpoint
+
+The current Alibaba Cloud production runtime keeps the Python runtime private
+and exposes the phone edge through nginx:
+
+```text
+Phone Edge -> ws://8.153.37.167/openhalo/edge -> nginx -> 127.0.0.1:8765
+```
+
+Use this URL for Android cleartext testing:
+
+```text
+ws://8.153.37.167/openhalo/edge
+```
+
+The Android edge must use the production token from:
+
+```text
+/etc/openhalo/runtime.env
+```
+
+Specifically, use the value of `OPENHALO_EDGE_TOKEN`. Do not use `dev-token`
+against the production systemd runtime.
+
+The nginx `listen 80 default_server` block must keep a special
+`/openhalo/edge` location before the normal HTTP-to-HTTPS redirect:
+
+```nginx
+location /openhalo/edge {
+    proxy_pass http://127.0.0.1:8765;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+}
+```
+
+This keeps `8765` closed to the public internet while allowing Android devices
+with cleartext traffic enabled to reach the runtime through nginx. Without the
+`default_server` behavior, IP-based requests may be handled by another nginx
+site and redirected to an unrelated domain.
+
+When a stable OpenHalo domain is available, prefer a TLS endpoint:
+
+```text
+wss://<openhalo-domain>/openhalo/edge
+```
+
+At that point, move the same WebSocket `location` into the active TLS server
+block for that domain and update Android builds to use `wss://`.
 
 ## Port Rule
 

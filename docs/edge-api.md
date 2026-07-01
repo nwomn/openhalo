@@ -43,6 +43,27 @@ The runtime still accepts legacy unversioned frames during the M17.0 migration
 so older tests and local tools can continue to run. New edge integrations should
 send `api_version`.
 
+## Session Lifecycle
+
+Every edge session has an ordered handshake. New edge implementations must use
+this order:
+
+```text
+connect + auth token
+-> connect_ok
+-> capability_announce
+-> observation_push / event_push / action_result
+```
+
+`connect` is the device-registration step. `capability_announce` extends an
+already registered device; it does not create a device by itself. Edges must not
+send capabilities, observations, user events, or action results until they have
+received `connect_ok` for the same `device_id`.
+
+If `connect` returns `error`, the edge should stop the session, surface the
+failure in local diagnostics, and retry only after configuration changes such as
+fixing the token or runtime URL.
+
 ## Connect
 
 Edges start a session with `connect`.
@@ -71,10 +92,26 @@ Successful response:
 }
 ```
 
+Authentication failure response:
+
+```json
+{
+  "api_version": "edge.runtime.v1",
+  "type": "error",
+  "message": "unauthorized"
+}
+```
+
+For production runtimes, the token is normally loaded by the server from
+`OPENHALO_EDGE_TOKEN` in `/etc/openhalo/runtime.env`. Development runtimes may
+still use `dev-token`, but production edges must not assume that token works.
+
 ## Capability Announcement
 
 Edges announce capabilities after connecting. Capabilities may be simple strings
 for migration compatibility or public capability objects for new integrations.
+The `device_id` must match a prior successful `connect` on the same WebSocket
+session.
 
 ```json
 {
@@ -145,6 +182,13 @@ they may later push:
 The runtime stores registration metadata in device, capability, and observation
 registries. Capability names are still mirrored onto the legacy device
 capability set while built-in terminal and host edges migrate.
+
+Current hardening gap: a `capability_announce` for an unknown or unauthorized
+`device_id` may still surface as a runtime-side `KeyError` in current builds.
+The intended public behavior is a structured `error` frame such as
+`unknown_device` or `not_connected`. Edge implementations should still obey the
+handshake order above and wait for `connect_ok`; backend hardening should make
+this failure mode explicit rather than crashing the WebSocket handler.
 
 ## User Events
 
@@ -298,3 +342,10 @@ Errors use the public `error` frame type.
 
 Future hardening should add stable error codes, retryability, and request
 correlation for all error frames.
+
+Current expected error meanings:
+
+- `unauthorized`: the `connect` token does not match the runtime token.
+- unknown or missing device registration: the edge sent a post-connect frame
+  before a successful `connect_ok`; current builds may expose this as a server
+  diagnostic instead of a stable public error.

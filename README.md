@@ -137,6 +137,7 @@ systemd-backed server startup path.
 - [docs/android-edge-install.md](docs/android-edge-install.md): Android phone Edge setup and install notes
 - [docs/m17-android-edge-acceptance.md](docs/m17-android-edge-acceptance.md): Android Edge verification ladder
 - [docs/design/mobile-edge-ui/mobile-edge-ui-spec.md](docs/design/mobile-edge-ui/mobile-edge-ui-spec.md): phone Edge product UI design baseline
+- [docs/ops/runtime-troubleshooting.md](docs/ops/runtime-troubleshooting.md): production runtime and edge-connection troubleshooting
 - [docs/plans/2026-06-16-runtime-architecture-design.md](docs/plans/2026-06-16-runtime-architecture-design.md): architecture baseline
 
 ## Notes
