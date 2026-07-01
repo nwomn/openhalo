@@ -44,6 +44,12 @@ Android background execution should be treated as constrained availability, not
 as guaranteed presence. Restrictions should be reported as observations where
 they affect runtime routing or presence decisions.
 
+The Android edge should preserve signal provenance and avoid converting passive
+Android platform observations into user intent by itself. Deliberate foreground
+input, notification actions, and quick replies may be marked as user-originated
+events, while passive platform state should remain normalized observation
+evidence for backend proposal formation and presence governance.
+
 ## Initial Capability And Observation Candidates
 
 Initial capability candidates:
@@ -93,4 +99,3 @@ chain inspection output.
 - Do not treat Android background execution as guaranteed availability.
 - Do not rely on Google/Firebase services for the first M17 runtime path unless
   a later decision explicitly adds that dependency.
-

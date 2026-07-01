@@ -14,9 +14,12 @@ The accepted first `M13` slice should not be mistaken for the final interaction-
 
 Follow-on work should let proposal formation move from one-shot text classification toward an interaction-lifecycle view that can:
 
+- distinguish passive observation evidence from explicit user intent
+- recognize approved user-configured triggers that promote otherwise passive observations into actionable intent
 - infer whether one or more observations together constitute an interaction
 - classify that interaction as `pull`, `push`, `background`, or `silent`
 - suggest candidate participant surfaces, visibility intent, and the current `primary action`
+- preserve requester-facing acknowledgement or result-reporting semantics when an explicit command also requires a remote edge action
 
 Those outputs remain model-suggested candidates. `Presence Router` should keep final governance authority over what may actually appear on which device or surface at decision time.
 

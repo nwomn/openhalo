@@ -34,6 +34,10 @@ Important boundary decisions:
 - raw edge signals remain on the edge in v1
 - runtime stores normalized observations plus provenance, not raw device-private evidence
 - the broader agent system consumes compact context plus supporting evidence when needed
+- normalized observations are evidence, not commands by default
+- explicit user requests, explicit commands, and approved user-configured triggers are intent and require a user-perceptible response or outcome through the presence-governed interaction model
+- ambiguous environment or body signals remain passive evidence unless user agreement, policy, or surrounding context explicitly promotes them into actionable intent
+- cross-edge commands may need both target-edge execution and requester-facing acknowledgement, result reporting, or failure explanation
 - `Presence Router` remains an explicit, inspectable governance submodule inside `Agent Runtime`
 - both proactive entry paths must flow through that explicit presence module before user-facing intervention
 - heuristic-learning style improvement should happen in one outer maintenance loop that refines vocabulary, mappers, reducers, and presence policy through review-gated updates
