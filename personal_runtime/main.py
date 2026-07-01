@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import os
 from pathlib import Path
 
 from openhalo_common.diagnostics import JsonlDiagnosticRecorder
@@ -68,6 +69,13 @@ def build_runtime_server_parser() -> argparse.ArgumentParser:
     parser.add_argument("--port", type=int, default=8765, help="Port to bind.")
     parser.add_argument("--token", default="dev-token", help="Shared development token.")
     parser.add_argument(
+        "--token-env",
+        help=(
+            "Name of an environment variable containing the shared edge token. "
+            "When set, this value takes precedence over --token."
+        ),
+    )
+    parser.add_argument(
         "--state-path",
         default=".runtime/state.json",
         help="Path to the persisted runtime state file.",
@@ -89,6 +97,24 @@ def build_runtime_server_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def resolve_runtime_token(
+    args: argparse.Namespace,
+    parser: argparse.ArgumentParser | None = None,
+) -> str:
+    token_env = getattr(args, "token_env", None)
+    if not token_env:
+        return args.token
+
+    token = os.environ.get(token_env)
+    if token:
+        return token
+
+    message = f"environment variable {token_env!r} is required by --token-env"
+    if parser is not None:
+        parser.error(message)
+    raise SystemExit(message)
+
+
 def main() -> None:
     parser = build_runtime_server_parser()
     args = parser.parse_args()
@@ -97,7 +123,7 @@ def main() -> None:
         run_server(
             host=args.host,
             port=args.port,
-            token=args.token,
+            token=resolve_runtime_token(args, parser),
             state_path=Path(args.state_path),
             llm_config_path=Path(args.runtime_config_path)
             if args.runtime_config_path
@@ -112,6 +138,7 @@ __all__ = [
     "build_runtime_server_message",
     "build_runtime_server_parser",
     "main",
+    "resolve_runtime_token",
     "run_server",
 ]
 

@@ -160,25 +160,24 @@ summary. Low-coverage modules should be listed when relevant so follow-up tests
 can be prioritized.
 
 For real-use terminal acceptance with the current runtime-config baseline, use
-three long-running processes:
+three long-running processes. The development runtime should use port `18765`
+so the long-running server runtime can keep port `8765`; see
+`docs/runtime-deploy.md` for the systemd-backed server path.
 
 ```bash
-.venv/bin/python -m personal_runtime.main \
-  --host 127.0.0.1 \
-  --port 8765 \
-  --token dev-token \
-  --state-path .runtime/state.json
+OPENHALO_DEV_RUNTIME_HOST=127.0.0.1 bin/run-runtime-dev
 ```
 
 When validating a non-default provider such as the official OpenAI local config,
-add `--runtime-config-path config/runtime-config.openai-local.toml` to the
-runtime command and use a separate state file such as
-`.runtime/openai-manual-state.json` so relay and official-provider evidence do
-not overwrite each other.
+`bin/run-runtime-dev` already uses
+`config/runtime-config.openai-local.toml` and
+`.runtime/android-openai-dev-state.json` by default. Override
+`OPENHALO_DEV_RUNTIME_CONFIG_PATH` or `OPENHALO_DEV_STATE_PATH` when you need to
+keep evidence from separate provider runs apart.
 
 ```bash
 .venv/bin/python -u -m device_edge.host.host_daemon \
-  --url ws://127.0.0.1:8765 \
+  --url ws://127.0.0.1:18765 \
   --token dev-token \
   --device-id host-edge-1 \
   --idle-timeout 10 \
@@ -187,7 +186,7 @@ not overwrite each other.
 
 ```bash
 .venv/bin/python -m device_edge.cli.terminal_daemon \
-  --url ws://127.0.0.1:8765 \
+  --url ws://127.0.0.1:18765 \
   --token dev-token \
   --device-id terminal-edge-1
 ```
@@ -385,18 +384,16 @@ For a formal live acceptance scenario that matches current intended use, run all
 1. Start the runtime:
 
    ```bash
-   .venv/bin/python -m personal_runtime.main \
-     --host 127.0.0.1 \
-     --port 8765 \
-     --token dev-token \
-     --state-path .runtime/manual-acceptance-state.json
+   OPENHALO_DEV_RUNTIME_HOST=127.0.0.1 \
+   OPENHALO_DEV_STATE_PATH=.runtime/manual-acceptance-state.json \
+   bin/run-runtime-dev
    ```
 
 2. Start the host edge in a second terminal:
 
    ```bash
    .venv/bin/python -m device_edge.host.host_daemon \
-     --url ws://127.0.0.1:8765 \
+     --url ws://127.0.0.1:18765 \
      --token dev-token \
      --device-id host-edge-1 \
      --runtime-process-match personal_runtime.main \
@@ -409,7 +406,7 @@ For a formal live acceptance scenario that matches current intended use, run all
 
    ```bash
    .venv/bin/python -m device_edge.cli.terminal_daemon \
-     --url ws://127.0.0.1:8765 \
+     --url ws://127.0.0.1:18765 \
      --token dev-token \
      --device-id terminal-edge-1
    ```
@@ -480,13 +477,13 @@ For a true live terminal session, start the runtime first and then run the resid
 Preferred command shape:
 
 ```bash
-.venv/bin/python -m personal_runtime.main --host 127.0.0.1 --port 8765 --token dev-token
+OPENHALO_DEV_RUNTIME_HOST=127.0.0.1 bin/run-runtime-dev
 ```
 
 Preferred full-screen TUI mode:
 
 ```bash
-.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token --tui
+.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token --tui
 ```
 
 The new `--tui` mode uses a Textual full-screen UI as the preferred resident terminal surface. The first MVP intentionally keeps the same daemon/runtime protocol path while replacing the plain log stream with a fixed layout:
@@ -502,7 +499,7 @@ The TUI draft-input signal is also part of the idle-sensing behavior: a nonempty
 Use the older non-TUI foreground command as the compatibility fallback when you need a plain line-oriented terminal session or when diagnosing UI-specific problems:
 
 ```bash
-.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token
+.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token
 ```
 
 Type a line and press Enter to send a normal `text.input` event. Leave the terminal idle to let the daemon emit an idle observation. The bounded `bin/verify-terminal-edge` flow remains the preferred acceptance script when you want a repeatable proof run instead of manual `stdin` interaction.
@@ -511,9 +508,9 @@ For manual live-terminal acceptance, repeated explicit user input should continu
 
 For the current manual `M11` acceptance bar, prefer one real user-scenario foreground session instead of isolated command pokes:
 
-1. Start the runtime with `.venv/bin/python -m personal_runtime.main --host 127.0.0.1 --port 8765 --token dev-token`.
-2. Start the host edge with `.venv/bin/python -m device_edge.host.host_daemon --url ws://127.0.0.1:8765 --token dev-token --device-id host-edge-1 --runtime-process-match personal_runtime.main --runtime-start-command ".venv/bin/python -m personal_runtime.main" --idle-timeout 5 --trace`.
-3. Start the terminal surface with `.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token --tui`.
+1. Start the runtime with `OPENHALO_DEV_RUNTIME_HOST=127.0.0.1 bin/run-runtime-dev`.
+2. Start the host edge with `.venv/bin/python -m device_edge.host.host_daemon --url ws://127.0.0.1:18765 --token dev-token --device-id host-edge-1 --runtime-process-match personal_runtime.main --runtime-start-command "bin/run-runtime-dev" --idle-timeout 5 --trace`.
+3. Start the terminal surface with `.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token --tui`.
 4. Send `hello runtime`.
    Expectation: the session shows both `[user] hello runtime` and one real `[runtime] ...` reply line on the same resident session.
 5. Send `check runtime status`.
@@ -523,6 +520,6 @@ For the current manual `M11` acceptance bar, prefer one real user-scenario foreg
 7. Send `/quit`.
    Expectation: the TUI exits cleanly without a reconnect loop.
 
-If you need the plain compatibility path instead of the TUI, run `.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token` and apply the same user-scenario expectations to the line-oriented transcript.
+If you need the plain compatibility path instead of the TUI, run `.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token` and apply the same user-scenario expectations to the line-oriented transcript.
 
 For the current live-terminal baseline, a single `Ctrl+C` in the foreground terminal-daemon session should now terminate the CLI device cleanly during normal TTY use. If manual acceptance still requires repeated interrupt signals, treat that as a terminal-edge interaction regression rather than expected behavior.

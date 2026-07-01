@@ -13,13 +13,13 @@ The TUI is a presentation layer only. It does not introduce a second backend pat
 Start the runtime first:
 
 ```bash
-.venv/bin/python -m personal_runtime.main --host 127.0.0.1 --port 8765 --token dev-token
+OPENHALO_DEV_RUNTIME_HOST=127.0.0.1 bin/run-runtime-dev
 ```
 
 Then start the full-screen terminal edge:
 
 ```bash
-.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token --tui
+.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token --tui
 ```
 
 If you need the older compatibility path, omit `--tui` and use the line-oriented foreground daemon.
@@ -108,13 +108,13 @@ Use one foreground session and validate a real user scenario instead of isolated
 1. Start the runtime with:
 
 ```bash
-.venv/bin/python -m personal_runtime.main --host 127.0.0.1 --port 8765 --token dev-token
+OPENHALO_DEV_RUNTIME_HOST=127.0.0.1 bin/run-runtime-dev
 ```
 
 2. In a second terminal, start the TUI with:
 
 ```bash
-.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token --tui
+.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token --tui
 ```
 
 3. Wait for the TUI to connect and confirm the full-screen layout appears with a visible status bar, transcript pane, input box, and help bar.

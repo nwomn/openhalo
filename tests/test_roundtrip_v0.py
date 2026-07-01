@@ -1,6 +1,7 @@
 import asyncio
 import json
 import io
+import os
 import time
 import unittest
 from pathlib import Path
@@ -14,6 +15,7 @@ from device_edge.cli.terminal_daemon import TerminalEdgeDaemon
 from device_edge.host.host_daemon import HostEdgeDaemon
 from device_edge.shared.session_client import SessionClient
 from openhalo_common.diagnostics import InMemoryDiagnosticRecorder
+import personal_runtime.main as runtime_main
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.main import build_runtime_server_message
 from personal_runtime.main import build_runtime_server_parser
@@ -570,6 +572,30 @@ class CliEntryTests(unittest.TestCase):
             args.runtime_config_path,
             "tests/fixtures/llm-config-test.toml",
         )
+
+    def test_runtime_server_parser_accepts_token_env_name(self) -> None:
+        parser = build_runtime_server_parser()
+
+        args = parser.parse_args(["--token-env", "OPENHALO_EDGE_TOKEN"])
+
+        self.assertEqual(args.token_env, "OPENHALO_EDGE_TOKEN")
+
+    def test_runtime_token_can_be_loaded_from_environment(self) -> None:
+        parser = build_runtime_server_parser()
+        args = parser.parse_args(["--token-env", "OPENHALO_EDGE_TOKEN"])
+
+        with patch.dict(os.environ, {"OPENHALO_EDGE_TOKEN": "runtime-secret"}):
+            token = runtime_main.resolve_runtime_token(args)
+
+        self.assertEqual(token, "runtime-secret")
+
+    def test_runtime_token_env_requires_existing_value(self) -> None:
+        parser = build_runtime_server_parser()
+        args = parser.parse_args(["--token-env", "OPENHALO_EDGE_TOKEN"])
+
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(SystemExit):
+                runtime_main.resolve_runtime_token(args)
 
     def test_local_cli_session_records_llm_profile_metadata_on_text_reply(self) -> None:
         session = LocalCliSession(

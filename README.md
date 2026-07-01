@@ -52,20 +52,17 @@ python3 -m venv .venv
 .venv/bin/pip install -e .
 ```
 
-Start the runtime:
+Start a development runtime:
 
 ```bash
-.venv/bin/python -m personal_runtime.main \
-  --host 127.0.0.1 \
-  --port 8765 \
-  --token dev-token
+bin/run-runtime-dev
 ```
 
 Start the host edge in another terminal:
 
 ```bash
 .venv/bin/python -m device_edge.host.host_daemon \
-  --url ws://127.0.0.1:8765 \
+  --url ws://127.0.0.1:18765 \
   --token dev-token \
   --device-id host-edge-1
 ```
@@ -74,15 +71,20 @@ Start the terminal edge in a third terminal:
 
 ```bash
 .venv/bin/python -m device_edge.cli.terminal_daemon \
-  --url ws://127.0.0.1:8765 \
+  --url ws://127.0.0.1:18765 \
   --token dev-token \
   --device-id terminal-edge-1
 ```
+
+The development helper uses port `18765` so a long-running server runtime can
+keep port `8765`. See [docs/runtime-deploy.md](docs/runtime-deploy.md) for the
+systemd-backed server startup path.
 
 ## Important Docs
 
 - [Project.md](Project.md): project baseline, milestones, architecture direction, current status
 - [docs/dev-env.md](docs/dev-env.md): local development and verification workflow
+- [docs/runtime-deploy.md](docs/runtime-deploy.md): development versus server runtime startup
 - [docs/plans/2026-06-16-runtime-architecture-design.md](docs/plans/2026-06-16-runtime-architecture-design.md): architecture baseline
 
 ## Notes

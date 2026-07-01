@@ -52,20 +52,17 @@ python3 -m venv .venv
 .venv/bin/pip install -e .
 ```
 
-启动 runtime：
+启动开发 runtime：
 
 ```bash
-.venv/bin/python -m personal_runtime.main \
-  --host 127.0.0.1 \
-  --port 8765 \
-  --token dev-token
+bin/run-runtime-dev
 ```
 
 在第二个终端启动 host edge：
 
 ```bash
 .venv/bin/python -m device_edge.host.host_daemon \
-  --url ws://127.0.0.1:8765 \
+  --url ws://127.0.0.1:18765 \
   --token dev-token \
   --device-id host-edge-1
 ```
@@ -74,15 +71,19 @@ python3 -m venv .venv
 
 ```bash
 .venv/bin/python -m device_edge.cli.terminal_daemon \
-  --url ws://127.0.0.1:8765 \
+  --url ws://127.0.0.1:18765 \
   --token dev-token \
   --device-id terminal-edge-1
 ```
+
+开发 helper 使用 `18765` 端口，让长期运行的服务器 runtime 可以保留
+`8765`。服务器常驻启动方式见 [docs/runtime-deploy.md](docs/runtime-deploy.md)。
 
 ## 重要文档
 
 - [Project.md](Project.md)：项目基线、路线图、架构方向、当前状态
 - [docs/dev-env.md](docs/dev-env.md)：本地开发与验证流程
+- [docs/runtime-deploy.md](docs/runtime-deploy.md)：开发与服务器常驻 runtime 启动方式
 - [docs/plans/2026-06-16-runtime-architecture-design.md](docs/plans/2026-06-16-runtime-architecture-design.md)：架构基线设计
 
 ## 说明

@@ -27,6 +27,39 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("worktree-local", contents)
         self.assertIn("optional", contents)
 
+    def test_runtime_dev_script_uses_non_production_port(self) -> None:
+        script_path = ROOT / "bin" / "run-runtime-dev"
+
+        self.assertTrue(script_path.exists())
+        self.assertTrue(os.access(script_path, os.X_OK))
+        contents = script_path.read_text(encoding="utf-8")
+        self.assertIn("18765", contents)
+        self.assertIn(".runtime/android-openai-dev-state.json", contents)
+        self.assertIn("config/runtime-config.openai-local.toml", contents)
+        self.assertIn("personal_runtime.main", contents)
+
+    def test_runtime_deploy_document_and_systemd_examples_exist(self) -> None:
+        document_path = ROOT / "docs" / "runtime-deploy.md"
+        service_path = ROOT / "deploy" / "systemd" / "openhalo-runtime.service.example"
+        env_path = ROOT / "deploy" / "systemd" / "openhalo-runtime.env.example"
+
+        self.assertTrue(document_path.exists())
+        self.assertTrue(service_path.exists())
+        self.assertTrue(env_path.exists())
+
+        document = document_path.read_text(encoding="utf-8")
+        service = service_path.read_text(encoding="utf-8")
+        env = env_path.read_text(encoding="utf-8")
+
+        self.assertIn("18765", document)
+        self.assertIn("8765", document)
+        self.assertIn("OPENHALO_EDGE_TOKEN", document)
+        self.assertIn("Personal Runtime", document)
+        self.assertIn("--token-env", service)
+        self.assertIn("8765", service)
+        self.assertIn("OPENHALO_EDGE_TOKEN", env)
+        self.assertIn("/var/lib/openhalo", env)
+
     def test_dev_env_document_describes_branch_first_default_and_optional_worktree_mode(self) -> None:
         document_path = ROOT / "docs" / "dev-env.md"
 
@@ -53,9 +86,9 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("input box", contents)
         self.assertIn("fallback", contents)
         self.assertIn("docs/terminal-tui.md", contents)
-        self.assertIn(".venv/bin/python -m personal_runtime.main", contents)
+        self.assertIn("bin/run-runtime-dev", contents)
         self.assertIn(
-            ".venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token --tui",
+            ".venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token --tui",
             contents,
         )
         self.assertIn("hello runtime", contents)
@@ -78,9 +111,9 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("/quit", contents)
         self.assertIn("Ctrl+C", contents)
         self.assertIn("Current Limits", contents)
-        self.assertIn(".venv/bin/python -m personal_runtime.main", contents)
+        self.assertIn("bin/run-runtime-dev", contents)
         self.assertIn(
-            ".venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:8765 --token dev-token --tui",
+            ".venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token --tui",
             contents,
         )
         self.assertIn("real user scenario", contents)
@@ -149,6 +182,7 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("agent_initiative", result.stdout)
         self.assertIn("state-check", result.stdout)
         self.assertIn(".runtime/host-edge-verify-state.json", result.stdout)
+        self.assertIn("18765", result.stdout)
 
     def test_terminal_edge_verification_script_exists_and_is_executable(self) -> None:
         script_path = ROOT / "bin" / "verify-terminal-edge"
@@ -184,6 +218,7 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("runtime-push-idle", result.stdout)
         self.assertIn("state-check", result.stdout)
         self.assertIn(".runtime/terminal-edge-verify-state.json", result.stdout)
+        self.assertIn("18765", result.stdout)
 
     def test_prompt_contract_verification_script_exists_and_is_executable(self) -> None:
         script_path = ROOT / "bin" / "verify-prompt-contract"
