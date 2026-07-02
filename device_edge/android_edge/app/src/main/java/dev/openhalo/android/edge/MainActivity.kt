@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Composable
@@ -35,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import dev.openhalo.android.edge.ui.theme.OpenHaloAndroidEdgeTheme
 
 class MainActivity : ComponentActivity() {
@@ -58,8 +60,13 @@ fun M17BootstrapScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val appContext = context.applicationContext
     var diagnostics by remember { mutableStateOf(EdgeDiagnosticsStore.current()) }
+    var useStableRuntime by remember {
+        mutableStateOf(diagnostics.runtimeMode == RUNTIME_MODE_STABLE)
+    }
     var runtimeUrl by remember { mutableStateOf(diagnostics.runtimeUrl) }
     var deviceId by remember { mutableStateOf(diagnostics.deviceId) }
+    var edgeToken by remember { mutableStateOf(diagnostics.edgeToken) }
+    val runtimeMode = if (useStableRuntime) RUNTIME_MODE_STABLE else RUNTIME_MODE_DEVELOPMENT
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) {
@@ -94,6 +101,24 @@ fun M17BootstrapScreen(modifier: Modifier = Modifier) {
             text = "M17 native Device Edge diagnostic session",
             style = MaterialTheme.typography.bodyLarge
         )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "Persistent Runtime",
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Switch(
+                checked = useStableRuntime,
+                onCheckedChange = { checked ->
+                    useStableRuntime = checked
+                    val nextMode = if (checked) RUNTIME_MODE_STABLE else RUNTIME_MODE_DEVELOPMENT
+                    runtimeUrl = runtimeUrlForMode(nextMode)
+                    edgeToken = edgeTokenForMode(nextMode)
+                }
+            )
+        }
         OutlinedTextField(
             modifier = Modifier.fillMaxWidth(),
             value = runtimeUrl,
@@ -108,6 +133,14 @@ fun M17BootstrapScreen(modifier: Modifier = Modifier) {
             label = { Text("Device ID") },
             singleLine = true
         )
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = edgeToken,
+            onValueChange = { edgeToken = it },
+            label = { Text("Edge Token") },
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation()
+        )
         Row(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -115,7 +148,13 @@ fun M17BootstrapScreen(modifier: Modifier = Modifier) {
                 onClick = {
                     startEdgeService(
                         appContext,
-                        AndroidEdgeService.startIntent(appContext, runtimeUrl, deviceId)
+                        AndroidEdgeService.startIntent(
+                            appContext,
+                            runtimeMode,
+                            runtimeUrl,
+                            deviceId,
+                            edgeToken
+                        )
                     )
                 }
             ) {
@@ -152,8 +191,33 @@ fun M17BootstrapScreen(modifier: Modifier = Modifier) {
                 }
             }
         }
+        OutlinedButton(
+            onClick = {
+                RuntimeNotificationPresenter.show(
+                    appContext,
+                    "OpenHalo local banner test"
+                )
+            }
+        ) {
+            Text("Test Notification")
+        }
+        OutlinedButton(
+            onClick = {
+                RuntimeNotificationPresenter.showUrgent(
+                    appContext,
+                    "OpenHalo urgent alert test"
+                )
+            }
+        ) {
+            Text("Test Urgent Alert")
+        }
         DiagnosticsCard("Connection", diagnostics.connectionState)
         DiagnosticsCard("Service", diagnostics.serviceState)
+        DiagnosticsCard("Runtime Mode", diagnostics.runtimeMode)
+        DiagnosticsCard(
+            "Edge Token",
+            if (diagnostics.edgeToken.isBlank()) "Missing" else "Configured"
+        )
         DiagnosticsCard("Registered Capabilities", diagnostics.registeredCapabilities)
         DiagnosticsCard("Recent Observations", diagnostics.recentObservations.ifBlank { "None yet" })
         DiagnosticsCard("Recent Actions", diagnostics.recentActions.ifBlank { "None yet" })

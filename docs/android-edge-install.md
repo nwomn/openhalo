@@ -108,6 +108,18 @@ Successful first-run indicators:
 - The launcher activity opens on the connected device.
 - The app can connect to the runtime URL and show `Connection: connected`.
 - The app shows `Service: foreground` while the Android edge session is active.
+- The runtime mode switch can choose development runtime defaults or persistent
+  runtime defaults. Local persistent runtime URL/token values should come from
+  ignored Android `local.properties`, not tracked source. The current
+  persistent runtime endpoint is `ws://8.153.37.167/openhalo/edge`.
+- The app token field matches the runtime edge token; for development helpers
+  this defaults to `dev-token`, while long-running server runtime tokens should
+  match the server's `OPENHALO_EDGE_TOKEN` without exposing the secret in
+  diagnostics.
+- Runtime-delivered `notification.show` actions are treated as effective phone
+  alerts on Android: the edge uses the urgent alert presenter so the message can
+  visibly pop up instead of requiring the user to manually search the
+  notification shade.
 - `Send Observations` records a recent `mobile.context` observation.
 
 Do not expose `adb` directly to the public internet. If remote debugging is ever

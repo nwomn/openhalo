@@ -5,11 +5,24 @@ import org.json.JSONObject
 import java.time.Instant
 
 const val EDGE_API_VERSION = "edge.runtime.v1"
-const val DEFAULT_RUNTIME_URL = "ws://8.153.37.167:8765"
+const val RUNTIME_MODE_DEVELOPMENT = "development"
+const val RUNTIME_MODE_STABLE = "stable"
+val DEVELOPMENT_RUNTIME_URL: String = BuildConfig.OPENHALO_DEV_RUNTIME_URL
+val DEVELOPMENT_EDGE_TOKEN: String = BuildConfig.OPENHALO_DEV_EDGE_TOKEN
+val STABLE_RUNTIME_URL: String = BuildConfig.OPENHALO_STABLE_RUNTIME_URL
+val STABLE_EDGE_TOKEN: String = BuildConfig.OPENHALO_STABLE_EDGE_TOKEN
+val DEFAULT_RUNTIME_URL: String = DEVELOPMENT_RUNTIME_URL
+val DEFAULT_EDGE_TOKEN: String = DEVELOPMENT_EDGE_TOKEN
+
+fun runtimeUrlForMode(runtimeMode: String): String =
+    if (runtimeMode == RUNTIME_MODE_STABLE) STABLE_RUNTIME_URL else DEVELOPMENT_RUNTIME_URL
+
+fun edgeTokenForMode(runtimeMode: String): String =
+    if (runtimeMode == RUNTIME_MODE_STABLE) STABLE_EDGE_TOKEN else DEVELOPMENT_EDGE_TOKEN
 
 fun nowIso(): String = Instant.now().toString()
 
-fun buildConnectFrame(deviceId: String): JSONObject =
+fun buildConnectFrame(deviceId: String, token: String): JSONObject =
     JSONObject()
         .put("api_version", EDGE_API_VERSION)
         .put("type", "connect")
@@ -20,7 +33,7 @@ fun buildConnectFrame(deviceId: String): JSONObject =
                 .put("device_type", "android-phone")
                 .put("role", "interactive_surface")
         )
-        .put("auth", JSONObject().put("token", "dev-token"))
+        .put("auth", JSONObject().put("token", token))
 
 fun buildCapabilityAnnounceFrame(deviceId: String): JSONObject =
     JSONObject()
@@ -53,8 +66,45 @@ fun buildCapabilityAnnounceFrame(deviceId: String): JSONObject =
                         .put("modality", "visual_text")
                         .put("content_capacity", "short_text")
                         .put("privacy", "personal")
-                        .put("interruptiveness", "medium")
-                        .put("side_effect", "user_visible")
+                        .put("interruptiveness", "high")
+                        .put("side_effect", "user_visible_interruptive")
+                        .put(
+                            "input_schema",
+                            JSONObject()
+                                .put("type", "object")
+                                .put("required", JSONArray().put("message"))
+                                .put(
+                                    "properties",
+                                    JSONObject().put(
+                                        "message",
+                                        JSONObject().put("type", "string")
+                                    )
+                                )
+                        )
+                        .put(
+                            "result_schema",
+                            JSONObject()
+                                .put("type", "object")
+                                .put("required", JSONArray().put("status"))
+                        )
+                )
+                .put(
+                    JSONObject()
+                        .put("name", "notification.alert")
+                        .put("direction", "runtime_to_edge")
+                        .put("kind", "action")
+                        .put(
+                            "affordances",
+                            JSONArray()
+                                .put("notify_user")
+                                .put("interrupt_user")
+                                .put("deliver_private_text")
+                        )
+                        .put("modality", "visual_text")
+                        .put("content_capacity", "short_text")
+                        .put("privacy", "personal")
+                        .put("interruptiveness", "high")
+                        .put("side_effect", "user_visible_interruptive")
                         .put(
                             "input_schema",
                             JSONObject()

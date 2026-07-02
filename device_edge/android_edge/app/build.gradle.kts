@@ -1,7 +1,19 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.inputStream().use(::load)
+    }
+}
+
+fun localProperty(name: String, defaultValue: String): String =
+    localProperties.getProperty(name)?.takeIf { it.isNotBlank() } ?: defaultValue
 
 android {
     namespace = "dev.openhalo.android.edge"
@@ -19,6 +31,26 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField(
+            "String",
+            "OPENHALO_DEV_RUNTIME_URL",
+            "\"${localProperty("openhalo.devRuntimeUrl", "ws://8.153.37.167:18765")}\""
+        )
+        buildConfigField(
+            "String",
+            "OPENHALO_DEV_EDGE_TOKEN",
+            "\"${localProperty("openhalo.devEdgeToken", "dev-token")}\""
+        )
+        buildConfigField(
+            "String",
+            "OPENHALO_STABLE_RUNTIME_URL",
+            "\"${localProperty("openhalo.stableRuntimeUrl", "ws://8.153.37.167/openhalo/edge")}\""
+        )
+        buildConfigField(
+            "String",
+            "OPENHALO_STABLE_EDGE_TOKEN",
+            "\"${localProperty("openhalo.stableEdgeToken", "")}\""
+        )
     }
 
     buildTypes {
@@ -34,6 +66,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

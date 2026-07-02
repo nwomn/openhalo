@@ -31,12 +31,16 @@ class AndroidEdgeService : Service() {
         when (intent?.action ?: ACTION_START) {
             ACTION_START -> {
                 startAsForegroundService()
+                val runtimeMode = intent?.getStringExtra(EXTRA_RUNTIME_MODE)
+                    ?: EdgeDiagnosticsStore.current().runtimeMode
                 val runtimeUrl = intent?.getStringExtra(EXTRA_RUNTIME_URL)
                     ?: EdgeDiagnosticsStore.current().runtimeUrl
                 val deviceId = intent?.getStringExtra(EXTRA_DEVICE_ID)
                     ?: EdgeDiagnosticsStore.current().deviceId
+                val edgeToken = intent?.getStringExtra(EXTRA_EDGE_TOKEN)
+                    ?: EdgeDiagnosticsStore.current().edgeToken
                 Log.i(LOG_TAG, "OPENHALO_EDGE_EVENT {\"event\":\"service_start_requested\"}")
-                client?.connect(runtimeUrl, deviceId)
+                client?.connect(runtimeMode, runtimeUrl, deviceId, edgeToken)
             }
 
             ACTION_SEND_OBSERVATIONS -> {
@@ -120,17 +124,27 @@ class AndroidEdgeService : Service() {
         const val ACTION_STOP = "dev.openhalo.android.edge.action.STOP"
         const val ACTION_SEND_OBSERVATIONS =
             "dev.openhalo.android.edge.action.SEND_OBSERVATIONS"
+        const val EXTRA_RUNTIME_MODE = "runtime_mode"
         const val EXTRA_RUNTIME_URL = "runtime_url"
         const val EXTRA_DEVICE_ID = "device_id"
+        const val EXTRA_EDGE_TOKEN = "edge_token"
         private const val SERVICE_CHANNEL_ID = "openhalo_edge_service"
         private const val SERVICE_NOTIFICATION_ID = 1702
         private const val LOG_TAG = "OpenHaloEdge"
 
-        fun startIntent(context: Context, runtimeUrl: String, deviceId: String): Intent =
+        fun startIntent(
+            context: Context,
+            runtimeMode: String,
+            runtimeUrl: String,
+            deviceId: String,
+            edgeToken: String
+        ): Intent =
             Intent(context, AndroidEdgeService::class.java).apply {
                 action = ACTION_START
+                putExtra(EXTRA_RUNTIME_MODE, runtimeMode)
                 putExtra(EXTRA_RUNTIME_URL, runtimeUrl)
                 putExtra(EXTRA_DEVICE_ID, deviceId)
+                putExtra(EXTRA_EDGE_TOKEN, edgeToken)
             }
 
         fun sendObservationsIntent(context: Context): Intent =

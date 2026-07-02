@@ -1,15 +1,7 @@
 package dev.openhalo.android.edge
 
-import android.Manifest
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
 import android.util.Log
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -20,14 +12,16 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 data class EdgeDiagnostics(
+    val runtimeMode: String = RUNTIME_MODE_DEVELOPMENT,
     val runtimeUrl: String = DEFAULT_RUNTIME_URL,
     val deviceId: String = "android-edge-${UUID.randomUUID().toString().take(8)}",
+    val edgeToken: String = DEFAULT_EDGE_TOKEN,
     val serviceState: String = "stopped",
     val connectionState: String = "disconnected",
     val lastSentFrame: String = "",
     val lastReceivedFrame: String = "",
     val lastError: String = "",
-    val registeredCapabilities: String = "mobile.input, notification.show, mobile.reply.render, mobile.context",
+    val registeredCapabilities: String = "mobile.input, notification.show, notification.alert, mobile.reply.render, mobile.context",
     val recentObservations: String = "",
     val recentActions: String = "",
     val inAppReply: String = ""
@@ -46,16 +40,25 @@ class AndroidEdgeClient(
     private var state = initialState
 
     init {
-        ensureNotificationChannel()
+        RuntimeNotificationPresenter.ensureNotificationChannel(context)
         publish(state)
     }
 
-    fun connect(runtimeUrl: String, deviceId: String) {
+    fun connect(runtimeMode: String, runtimeUrl: String, deviceId: String, edgeToken: String) {
         disconnect()
+        val modeToken = edgeTokenForMode(runtimeMode)
         publish(
             state.copy(
-                runtimeUrl = runtimeUrl.trim().ifBlank { DEFAULT_RUNTIME_URL },
+                runtimeMode = runtimeMode,
+                runtimeUrl = runtimeUrl.trim().ifBlank { runtimeUrlForMode(runtimeMode) },
                 deviceId = deviceId.trim().ifBlank { state.deviceId },
+                edgeToken = edgeToken.trim().ifBlank {
+                    if (runtimeMode == RUNTIME_MODE_STABLE) {
+                        modeToken
+                    } else {
+                        modeToken.ifBlank { DEFAULT_EDGE_TOKEN }
+                    }
+                },
                 connectionState = "connecting",
                 lastError = ""
             )
@@ -89,7 +92,7 @@ class AndroidEdgeClient(
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 publish(state.copy(connectionState = "connected", lastError = ""))
                 logEvent("connected", "runtime_url" to state.runtimeUrl, "device_id" to state.deviceId)
-                sendFrame(buildConnectFrame(state.deviceId))
+                sendFrame(buildConnectFrame(state.deviceId, state.edgeToken))
                 sendFrame(buildCapabilityAnnounceFrame(state.deviceId))
                 sendCurrentObservations()
             }
@@ -149,6 +152,7 @@ class AndroidEdgeClient(
         val details = JSONObject().put("message", message)
         val status = when (capability) {
             "notification.show" -> showNotification(message, details)
+            "notification.alert" -> showUrgentNotification(message, details)
             "mobile.reply.render" -> {
                 publish(
                     state.copy(
@@ -180,22 +184,20 @@ class AndroidEdgeClient(
     }
 
     private fun showNotification(message: String, details: JSONObject): String {
-        if (!canPostNotifications()) {
-            details.put("error", "POST_NOTIFICATIONS permission is not granted")
+        val error = RuntimeNotificationPresenter.showUrgent(context, message)
+        if (error.isNotBlank()) {
+            details.put("error", error)
             return "error"
         }
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("OpenHalo")
-            .setContentText(message)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setAutoCancel(true)
-            .build()
-        NotificationManagerCompat.from(context).notify(
-            (System.currentTimeMillis() % Int.MAX_VALUE).toInt(),
-            notification
-        )
+        return "ok"
+    }
+
+    private fun showUrgentNotification(message: String, details: JSONObject): String {
+        val error = RuntimeNotificationPresenter.showUrgent(context, message)
+        if (error.isNotBlank()) {
+            details.put("error", error)
+            return "error"
+        }
         return "ok"
     }
 
@@ -210,7 +212,7 @@ class AndroidEdgeClient(
             )
             publish(
                 state.copy(
-                    lastSentFrame = pretty(text),
+                    lastSentFrame = pretty(redactSecrets(text)),
                     recentObservations = if (frame.optString("type") == "observation_push") {
                         "Sent mobile.context at ${nowIso()}"
                     } else {
@@ -228,28 +230,8 @@ class AndroidEdgeClient(
         }
     }
 
-    private fun canPostNotifications(): Boolean =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-
     private fun notificationPermissionState(): String =
-        if (canPostNotifications()) "granted" else "denied"
-
-    private fun ensureNotificationChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            return
-        }
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "OpenHalo runtime actions",
-            NotificationManager.IMPORTANCE_DEFAULT
-        )
-        context.getSystemService(NotificationManager::class.java)
-            .createNotificationChannel(channel)
-    }
+        if (RuntimeNotificationPresenter.canPostNotifications(context)) "granted" else "denied"
 
     private fun publish(next: EdgeDiagnostics) {
         state = next
@@ -258,6 +240,13 @@ class AndroidEdgeClient(
 
     private fun pretty(rawJson: String): String =
         runCatching { JSONObject(rawJson).toString(2) }.getOrDefault(rawJson)
+
+    private fun redactSecrets(rawJson: String): String =
+        runCatching {
+            val frame = JSONObject(rawJson)
+            frame.optJSONObject("auth")?.put("token", "<redacted>")
+            frame.toString()
+        }.getOrDefault(rawJson)
 
     private fun logEvent(event: String, vararg fields: Pair<String, String>) {
         val payload = JSONObject().put("event", event)
@@ -271,7 +260,6 @@ class AndroidEdgeClient(
     }
 
     companion object {
-        private const val CHANNEL_ID = "openhalo_runtime_actions"
         private const val LOG_TAG = "OpenHaloEdge"
     }
 }

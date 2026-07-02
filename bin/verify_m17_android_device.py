@@ -62,16 +62,48 @@ def tap(serial: str | None, x: int, y: int) -> None:
     run_adb(["shell", "input", "tap", str(x), str(y)], serial=serial, timeout=10)
 
 
-def dump_ui_texts(serial: str | None) -> list[str]:
+def dump_ui_tree(serial: str | None) -> ET.Element:
     run_adb(["shell", "uiautomator", "dump", "/sdcard/openhalo-window.xml"], serial=serial)
     xml_text = run_adb(["shell", "cat", "/sdcard/openhalo-window.xml"], serial=serial)
+    return ET.fromstring(xml_text)
+
+
+def dump_ui_texts(serial: str | None) -> list[str]:
     texts = []
-    root = ET.fromstring(xml_text)
-    for node in root.iter("node"):
-        text = node.attrib.get("text", "")
-        if text:
-            texts.append(text)
+    seen = set()
+
+    def add_visible_texts() -> None:
+        root = dump_ui_tree(serial)
+        for node in root.iter("node"):
+            text = node.attrib.get("text", "")
+            if text and text not in seen:
+                texts.append(text)
+                seen.add(text)
+
+    add_visible_texts()
+    run_adb(
+        ["shell", "input", "swipe", "600", "2450", "600", "1200", "500"],
+        serial=serial,
+        timeout=10,
+    )
+    time.sleep(0.5)
+    add_visible_texts()
     return texts
+
+
+def tap_text(serial: str | None, text: str) -> None:
+    root = dump_ui_tree(serial)
+    for node in root.iter("node"):
+        if node.attrib.get("text", "") != text:
+            continue
+        bounds = node.attrib.get("bounds", "")
+        match = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", bounds)
+        if not match:
+            continue
+        left, top, right, bottom = map(int, match.groups())
+        tap(serial, (left + right) // 2, (top + bottom) // 2)
+        return
+    raise RuntimeError(f"could not find UI text: {text}")
 
 
 def collect_events(serial: str | None, lines: int = 2000) -> list[dict]:
@@ -127,6 +159,10 @@ def build_evidence(events: list[dict], ui_texts: list[str]) -> DeviceEvidence:
         event.get("event") == "sent_frame"
         and event.get("frame_type") == "capability_announce"
         for event in events
+    ) or (
+        "Registered Capabilities" in ui_texts
+        and "notification.show" in ui_joined
+        and "mobile.context" in ui_joined
     )
     sent_observation = any(
         event.get("event") == "sent_frame"
@@ -182,10 +218,10 @@ def main() -> None:
     start_app(serial)
     time.sleep(2)
     if args.tap_connect:
-        tap(serial, 250, 1210)
+        tap_text(serial, "Connect")
         time.sleep(2)
     if args.tap_observations:
-        tap(serial, 350, 1410)
+        tap_text(serial, "Send Observations")
         time.sleep(1)
 
     evidence = wait_for_evidence(

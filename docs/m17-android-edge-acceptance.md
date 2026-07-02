@@ -59,8 +59,12 @@ Prerequisites:
 
 - A debug build of `device_edge/android_edge/` installed from Android Studio.
 - USB debugging enabled and the phone visible in `adb devices -l`.
-- The runtime URL in the app points at the intended runtime, currently
-  `ws://8.153.37.167:8765` for the first public server slice.
+- The runtime URL in the app points at the intended runtime. Use the
+  restart-heavy development runtime on `ws://<server-ip>:18765` for Android
+  acceptance unless intentionally testing the long-running server runtime on
+  `ws://8.153.37.167/openhalo/edge`.
+- The runtime mode switch selects development runtime settings when off and
+  persistent runtime settings when on.
 
 Command:
 
@@ -75,7 +79,12 @@ What it verifies:
 - The foreground service owns the Edge API session while the UI exposes
   diagnostics and control.
 - The app connects to the configured runtime.
+- The app sends the configured Edge API auth token in the `connect` frame while
+  foreground diagnostics redact the token value.
 - The app sends `mobile.context` observations.
+- A live `notification.show` action visibly pops up through the Android urgent
+  alert path. A notification that only appears after manually opening the
+  notification shade does not satisfy M17.2 phone-alert acceptance.
 - The verifier can read foreground diagnostic state through UI automation.
 - After installing the instrumented app build, the verifier can also read
   structured `OPENHALO_EDGE_EVENT` logcat evidence, including foreground
