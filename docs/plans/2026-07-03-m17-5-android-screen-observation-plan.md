@@ -1,10 +1,10 @@
-# M17.4 Android Screen Context Observation Plan
+# M17.5 Android Screen Context Observation Plan
 
 Status: design baseline for the next Android-edge observation milestone.
 
 ## Goal
 
-`M17.4` extends the accepted Android `Device Edge` from daily-use connection and
+`M17.5` extends the accepted Android `Device Edge` from daily-use connection and
 notification handling into richer phone-side observation collection. The goal
 is to let the phone edge observe and summarize current screen/use context, then
 send normalized evidence to the runtime.
@@ -84,7 +84,7 @@ using screenshots. For each relevant event, extract a bounded tree summary:
 
 ### 2. Foreground And Background Capture Model
 
-M17.4 must distinguish OpenHalo app visibility from screen-observation
+M17.5 must distinguish OpenHalo app visibility from screen-observation
 availability.
 
 ```text
@@ -135,7 +135,7 @@ Candidate state fields:
 
 ### 3. Async Capture, Processing, And Upload Pipeline
 
-M17.4 must not do heavy work inside the `AccessibilityService` callback path.
+M17.5 must not do heavy work inside the `AccessibilityService` callback path.
 Accessibility events can arrive in bursts, and blocking that callback on OCR,
 tree summarization, JSON building, disk writes, or WebSocket upload risks
 making the phone edge laggy or unreliable.
@@ -191,7 +191,7 @@ Suggested first-slice defaults:
 - max visible text summary length: 500-1000 characters
 
 The correctness model should be "latest useful screen context", not "lossless
-event log". M17.4 observations are context evidence, so dropping stale captures
+event log". M17.5 observations are context evidence, so dropping stale captures
 is acceptable and preferable to blocking the phone edge.
 
 ### 4. Interactive Element Indexing
@@ -268,7 +268,7 @@ The default mode should be conservative:
 - expose a clear user-facing enable/pause control
 - record `raw_screenshot_uploaded=false` in normal observations
 
-Any future automation or action path must remain out of scope for M17.4.
+Any future automation or action path must remain out of scope for M17.5.
 
 ## Observation Contract Draft
 
@@ -330,7 +330,7 @@ the default implementation path.
 
 ## Non-Goals
 
-- Do not implement runtime intent sensing in M17.4.
+- Do not implement runtime intent sensing in M17.5.
 - Do not upload raw screenshots by default.
 - Do not build an ADB-driven phone automation agent.
 - Do not rely on Xposed/root/system-server hooks as the normal Android edge
