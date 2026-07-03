@@ -51,6 +51,7 @@ object RuntimeNotificationPresenter {
         }
         val launchIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(MainActivity.EXTRA_INITIAL_VIEW, MainActivity.VIEW_NOTIFICATIONS)
         }
         val contentIntent = PendingIntent.getActivity(
             context,

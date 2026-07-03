@@ -8,14 +8,16 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import org.json.JSONObject
-import java.util.UUID
+import android.os.Handler
+import android.os.Looper
+import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 data class EdgeDiagnostics(
-    val runtimeMode: String = RUNTIME_MODE_DEVELOPMENT,
-    val runtimeUrl: String = DEFAULT_RUNTIME_URL,
-    val deviceId: String = "android-edge-${UUID.randomUUID().toString().take(8)}",
-    val edgeToken: String = DEFAULT_EDGE_TOKEN,
+    val runtimeMode: String = RUNTIME_MODE_STABLE,
+    val runtimeUrl: String = STABLE_RUNTIME_URL,
+    val deviceId: String = "",
+    val edgeToken: String = STABLE_EDGE_TOKEN,
     val serviceState: String = "stopped",
     val connectionState: String = "disconnected",
     val lastSentFrame: String = "",
@@ -24,7 +26,17 @@ data class EdgeDiagnostics(
     val registeredCapabilities: String = "mobile.input, notification.show, notification.alert, mobile.reply.render, mobile.context",
     val recentObservations: String = "",
     val recentActions: String = "",
-    val inAppReply: String = ""
+    val inAppReply: String = "",
+    val recentEvents: String = "",
+    val lastSuccessfulConnectionAt: String = "",
+    val lastDisconnectedAt: String = "",
+    val lastDisconnectReason: String = "",
+    val reconnectAttempt: Int = 0,
+    val reconnectStatus: String = "idle",
+    val nextReconnectAt: String = "",
+    val notificationHealth: String = "",
+    val fullScreenAlertHealth: String = "",
+    val batteryHealth: String = ""
 )
 
 class AndroidEdgeClient(
@@ -36,8 +48,12 @@ class AndroidEdgeClient(
         .pingInterval(20, TimeUnit.SECONDS)
         .readTimeout(0, TimeUnit.SECONDS)
         .build()
+    private val reconnectHandler = Handler(Looper.getMainLooper())
     private var webSocket: WebSocket? = null
     private var state = initialState
+    private var pendingTextCommand: String? = null
+    private var currentConfig: AndroidEdgeConfig? = null
+    private var manualDisconnect = false
 
     init {
         RuntimeNotificationPresenter.ensureNotificationChannel(context)
@@ -45,22 +61,42 @@ class AndroidEdgeClient(
     }
 
     fun connect(runtimeMode: String, runtimeUrl: String, deviceId: String, edgeToken: String) {
-        disconnect()
+        reconnectHandler.removeCallbacksAndMessages(null)
+        disconnect(scheduleReconnect = false)
+        manualDisconnect = false
         val modeToken = edgeTokenForMode(runtimeMode)
+        val config = AndroidEdgeConfig(
+            runtimeMode = runtimeMode,
+            runtimeUrl = runtimeUrl.trim().ifBlank { runtimeUrlForMode(runtimeMode) },
+            deviceId = deviceId.trim().ifBlank { state.deviceId },
+            edgeToken = edgeToken.trim().ifBlank {
+                if (runtimeMode == RUNTIME_MODE_STABLE) {
+                    modeToken
+                } else {
+                    modeToken.ifBlank { DEFAULT_EDGE_TOKEN }
+                }
+            }
+        )
+        currentConfig = config
+        AndroidEdgePreferences.saveConfig(context, config)
         publish(
             state.copy(
-                runtimeMode = runtimeMode,
-                runtimeUrl = runtimeUrl.trim().ifBlank { runtimeUrlForMode(runtimeMode) },
-                deviceId = deviceId.trim().ifBlank { state.deviceId },
-                edgeToken = edgeToken.trim().ifBlank {
-                    if (runtimeMode == RUNTIME_MODE_STABLE) {
-                        modeToken
-                    } else {
-                        modeToken.ifBlank { DEFAULT_EDGE_TOKEN }
-                    }
-                },
+                runtimeMode = config.runtimeMode,
+                runtimeUrl = config.runtimeUrl,
+                deviceId = config.deviceId,
+                edgeToken = config.edgeToken,
                 connectionState = "connecting",
-                lastError = ""
+                lastError = "",
+                reconnectStatus = "connecting",
+                nextReconnectAt = "",
+                notificationHealth = notificationPermissionState(),
+                fullScreenAlertHealth = AndroidEdgeHealth.fullScreenAlertState(context),
+                batteryHealth = AndroidEdgeHealth.batteryOptimizationState(context),
+                recentEvents = AndroidEdgePreferences.appendHistory(
+                    context,
+                    "Connection requested",
+                    config.runtimeUrl
+                )
             )
         )
         val request = Request.Builder().url(state.runtimeUrl).build()
@@ -69,10 +105,27 @@ class AndroidEdgeClient(
     }
 
     fun disconnect() {
+        manualDisconnect = true
+        disconnect(scheduleReconnect = false)
+        reconnectHandler.removeCallbacksAndMessages(null)
+        publish(
+            state.copy(
+                reconnectStatus = "stopped",
+                nextReconnectAt = "",
+                lastDisconnectedAt = nowIso(),
+                lastDisconnectReason = "manual stop"
+            )
+        )
+    }
+
+    private fun disconnect(scheduleReconnect: Boolean) {
         webSocket?.close(1000, "Android edge disconnect")
         webSocket = null
         if (state.connectionState != "disconnected") {
             publish(state.copy(connectionState = "disconnected"))
+        }
+        if (!scheduleReconnect) {
+            reconnectHandler.removeCallbacksAndMessages(null)
         }
     }
 
@@ -87,14 +140,68 @@ class AndroidEdgeClient(
         )
     }
 
+    fun submitTextCommand(text: String) {
+        val trimmed = text.trim()
+        if (trimmed.isBlank()) {
+            publish(state.copy(lastError = "Text command is empty."))
+            return
+        }
+        if (state.connectionState != "connected" || webSocket == null) {
+            pendingTextCommand = trimmed
+            val config = AndroidEdgePreferences.loadConfig(context)
+            publish(
+                state.copy(
+                    lastError = "",
+                    recentEvents = AndroidEdgePreferences.appendHistory(
+                        context,
+                        "Queued mobile.input",
+                        trimmed
+                    )
+                )
+            )
+            connect(config.runtimeMode, config.runtimeUrl, config.deviceId, config.edgeToken)
+            return
+        }
+        sendTextCommandNow(trimmed)
+    }
+
+    private fun sendTextCommandNow(text: String) {
+        sendFrame(buildMobileInputEventFrame(state.deviceId, text))
+        publish(
+            state.copy(
+                recentEvents = AndroidEdgePreferences.appendHistory(
+                    context,
+                    "Submitted mobile.input",
+                    text
+                )
+            )
+        )
+    }
+
     private fun listener(): WebSocketListener =
         object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                publish(state.copy(connectionState = "connected", lastError = ""))
+                publish(
+                    state.copy(
+                        connectionState = "connected",
+                        lastError = "",
+                        lastSuccessfulConnectionAt = nowIso(),
+                        reconnectAttempt = 0,
+                        reconnectStatus = "connected",
+                        nextReconnectAt = "",
+                        notificationHealth = notificationPermissionState(),
+                        fullScreenAlertHealth = AndroidEdgeHealth.fullScreenAlertState(context),
+                        batteryHealth = AndroidEdgeHealth.batteryOptimizationState(context)
+                    )
+                )
                 logEvent("connected", "runtime_url" to state.runtimeUrl, "device_id" to state.deviceId)
                 sendFrame(buildConnectFrame(state.deviceId, state.edgeToken))
                 sendFrame(buildCapabilityAnnounceFrame(state.deviceId))
                 sendCurrentObservations()
+                pendingTextCommand?.let { pending ->
+                    pendingTextCommand = null
+                    sendTextCommandNow(pending)
+                }
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -125,22 +232,35 @@ class AndroidEdgeClient(
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                val reason = t.message ?: "WebSocket failure"
                 logEvent(
                     "connection_failure",
-                    "error" to (t.message ?: "WebSocket failure"),
+                    "error" to reason,
                     "http_code" to (response?.code?.toString() ?: "")
                 )
                 publish(
                     state.copy(
                         connectionState = "disconnected",
-                        lastError = t.message ?: "WebSocket failure"
+                        lastError = reason,
+                        lastDisconnectedAt = nowIso(),
+                        lastDisconnectReason = reason
                     )
                 )
+                scheduleReconnect(reason)
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 logEvent("closed", "code" to code.toString(), "reason" to reason)
-                publish(state.copy(connectionState = "disconnected"))
+                publish(
+                    state.copy(
+                        connectionState = "disconnected",
+                        lastDisconnectedAt = nowIso(),
+                        lastDisconnectReason = "closed $code ${reason.ifBlank { "no reason" }}"
+                    )
+                )
+                if (!manualDisconnect && code != 1000) {
+                    scheduleReconnect("closed $code")
+                }
             }
         }
 
@@ -154,10 +274,17 @@ class AndroidEdgeClient(
             "notification.show" -> showNotification(message, details)
             "notification.alert" -> showUrgentNotification(message, details)
             "mobile.reply.render" -> {
+                val history = AndroidEdgePreferences.appendHistory(
+                    context,
+                    "Rendered runtime reply",
+                    message,
+                    "reply"
+                )
                 publish(
                     state.copy(
                         inAppReply = message,
-                        recentActions = "Rendered mobile.reply.render at ${nowIso()}"
+                        recentActions = "Rendered mobile.reply.render at ${nowIso()}",
+                        recentEvents = history
                     )
                 )
                 "ok"
@@ -170,7 +297,13 @@ class AndroidEdgeClient(
         publish(
             state.copy(
                 recentActions = "$capability -> $status at ${nowIso()}",
-                inAppReply = if (capability == "mobile.reply.render") message else state.inAppReply
+                inAppReply = if (capability == "mobile.reply.render") message else state.inAppReply,
+                recentEvents = AndroidEdgePreferences.appendHistory(
+                    context,
+                    "$capability -> $status",
+                    message,
+                    if (capability.startsWith("notification.")) "notification" else "event"
+                )
             )
         )
         logEvent(
@@ -217,6 +350,11 @@ class AndroidEdgeClient(
                         "Sent mobile.context at ${nowIso()}"
                     } else {
                         state.recentObservations
+                    },
+                    recentEvents = if (frame.optString("type") == "observation_push") {
+                        AndroidEdgePreferences.appendHistory(context, "Sent mobile.context")
+                    } else {
+                        state.recentEvents
                     }
                 )
             )
@@ -232,6 +370,36 @@ class AndroidEdgeClient(
 
     private fun notificationPermissionState(): String =
         if (RuntimeNotificationPresenter.canPostNotifications(context)) "granted" else "denied"
+
+    private fun scheduleReconnect(reason: String) {
+        if (manualDisconnect) {
+            return
+        }
+        val config = currentConfig ?: AndroidEdgePreferences.loadConfig(context)
+        currentConfig = config
+        val nextAttempt = (state.reconnectAttempt + 1).coerceAtMost(MAX_RECONNECT_ATTEMPT)
+        val delayMs = reconnectDelayMillis(nextAttempt)
+        val nextAt = Instant.now().plusMillis(delayMs).toString()
+        publish(
+            state.copy(
+                reconnectAttempt = nextAttempt,
+                reconnectStatus = "retrying in ${delayMs / 1000}s",
+                nextReconnectAt = nextAt,
+                lastDisconnectReason = reason,
+                recentEvents = AndroidEdgePreferences.appendHistory(
+                    context,
+                    "Reconnect scheduled",
+                    "attempt $nextAttempt after ${delayMs / 1000}s"
+                )
+            )
+        )
+        reconnectHandler.removeCallbacksAndMessages(null)
+        reconnectHandler.postDelayed({
+            if (!manualDisconnect && state.connectionState != "connected") {
+                connect(config.runtimeMode, config.runtimeUrl, config.deviceId, config.edgeToken)
+            }
+        }, delayMs)
+    }
 
     private fun publish(next: EdgeDiagnostics) {
         state = next
@@ -261,5 +429,17 @@ class AndroidEdgeClient(
 
     companion object {
         private const val LOG_TAG = "OpenHaloEdge"
+        private const val MAX_RECONNECT_ATTEMPT = 5
     }
+}
+
+fun reconnectDelayMillis(attempt: Int): Long {
+    val seconds = when (attempt.coerceAtLeast(1)) {
+        1 -> 2L
+        2 -> 5L
+        3 -> 10L
+        4 -> 20L
+        else -> 30L
+    }
+    return seconds * 1000L
 }

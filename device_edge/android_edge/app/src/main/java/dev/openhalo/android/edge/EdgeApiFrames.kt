@@ -242,6 +242,20 @@ fun buildObservationPushFrame(
         .put("payload", JSONObject().put("observations", observations))
 }
 
+fun buildMobileInputEventFrame(deviceId: String, text: String): JSONObject =
+    JSONObject()
+        .put("api_version", EDGE_API_VERSION)
+        .put("type", "event_push")
+        .put("device_id", deviceId)
+        .put("capability", "mobile.input")
+        .put(
+            "payload",
+            JSONObject()
+                .put("text", text)
+                .put("observed_at", nowIso())
+                .put("input_surface", "android_edge")
+        )
+
 fun buildActionResultFrame(
     actionRequest: JSONObject,
     deviceId: String,

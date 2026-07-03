@@ -1,104 +1,184 @@
 # M17 Android Edge Acceptance
 
-Status: M17 acceptance workflow baseline.
+Status: M17 Android edge testing workflow baseline.
 
-This document defines how to verify the first native Android `Device Edge`
-without turning every development check into a full cross-device live test.
+This document defines the current verification workflow for the native Android
+`Device Edge`. The workflow is optimized for stable day-to-day development:
+most checks should run below the black-box adb layer, while adb remains a small
+installed-build smoke test.
 
-The acceptance model is intentionally layered:
+## Current Testing Workflow
+
+Use this order for Android edge work:
 
 ```text
-runtime-side simulated verifier -> real-device smoke verifier -> manual live chain acceptance
+unit tests -> Compose UI tests -> instrumentation/UI Automator -> adb installed-build smoke -> manual live-chain acceptance
 ```
 
-## Layer 1: Runtime-Side Simulated Verifier
+This replaces the older verifier-first workflow. Do not treat
+`bin/verify_m17_android_device.py` as the main UI automation layer.
+
+## 1. Unit Tests
 
 Purpose:
 
-- Verify `Personal Runtime` multi-edge routing and lineage logic.
-- Keep the check fast and deterministic.
-- Avoid depending on Android Studio, a phone, public network reachability, or a
-  live cloud runtime.
+- Verify pure Android-edge behavior without a phone, emulator, Android Studio,
+  public network reachability, or a live runtime.
+- Keep high-churn logic fast and deterministic.
 
-Command on Windows:
+Target coverage:
+
+- Edge API frame builders such as `mobile.input`, `mobile.context`, and action
+  result frames.
+- Reconnect/backoff policy and connection health state transitions.
+- Runtime config persistence boundaries.
+- Bounded notification/event history formatting.
+- Diagnostic state to UI-model mapping once that mapping is factored out.
+
+Expectation:
+
+- Any new Android edge behavior that can be expressed without Android framework
+  side effects should land here first.
+
+## 2. Compose UI Tests
+
+Purpose:
+
+- Verify app-internal UI flows with stable semantics instead of screen-text
+  scraping or coordinate clicking.
+- Run the normal app UI automation on an Android Studio emulator or a dedicated
+  test device, not on the user's daily phone.
+
+Required practice:
+
+- Add stable `testTag` or accessibility-friendly semantics before adding UI
+  tests for important controls and state surfaces.
+- Prefer tags for controls whose visible copy may change.
+
+Recommended stable surfaces:
+
+- `openhalo.home.tab`
+- `openhalo.notifications.tab`
+- `openhalo.diagnostics.tab`
+- `openhalo.start`
+- `openhalo.stop`
+- `openhalo.command.input`
+- `openhalo.command.send`
+- `openhalo.status.connection`
+- `openhalo.status.service`
+- `openhalo.status.reconnect`
+- `openhalo.notification.history`
+- `openhalo.notification.detail`
+
+Target coverage:
+
+- Home status rendering for connected, disconnected, reconnecting, and
+  needs-setup states.
+- Start/stop control state.
+- Phone-originated text command entry and send button behavior.
+- Notification history and detail navigation.
+- Diagnostics navigation and stable display of recent Edge API state.
+
+Current emulator command:
 
 ```powershell
-python bin\verify_m17_mobile_edge.py
+powershell -ExecutionPolicy Bypass -File .\bin\test_m17_android_emulator.ps1 -AvdName OpenHalo_M17
 ```
 
-Command on Unix-like environments:
+This script reuses an existing Android Studio AVD. It does not create or
+download an emulator image. It builds unit-test and debug/test APK artifacts,
+installs only to the selected `emulator-*` serial, runs the Compose
+instrumentation test class, and fails if instrumentation output reports
+failures even when `adb shell am instrument` exits successfully.
 
-```bash
-bin/verify-m17-mobile-edge
-```
+If no emulator is already online, the script starts the existing AVD named by
+`-AvdName`. If physical adb devices are attached, the script ignores them and
+continues to target only the emulator serial.
 
-What it verifies:
+Current emulator coverage:
 
-- A terminal-like source edge connects through public Edge API frames.
-- An Android-like edge registers `notification.show` and `mobile.context`.
-- Competing speaker and ambient-light surfaces register as available candidates.
-- `mobile.context` observations are accepted.
-- A terminal text intent routes to the Android-like edge as `notification.show`.
-- Nonchosen surfaces record filtered candidate reasons.
-- The Android-like edge returns `action_result`.
-- Interaction lineage preserves source, target, participants, action, and result.
+- Daily home shell: title, connection status, service status, reconnect status,
+  Start/Stop controls, command input, and disabled empty Send state.
+- Phone command affordance: entering text enables Send through Compose
+  semantics rather than adb text or coordinate scraping.
+- Top-level app navigation: Home, Notifications, and Diagnostics are reachable
+  through stable tags.
+- Notification history/detail: persisted notification events render in the
+  Notifications view and expose the stored detail body.
+- Diagnostics state display: updated connection/service/error/recent
+  observation/recent action state is visible in the Diagnostics view.
+- Config persistence: runtime mode, runtime URL, device ID, and token configured
+  state round-trip through Android shared preferences.
+- History retention: mobile event history remains newest-first and bounded.
+- Service intent contracts: start, stop, send-observations, and submit-text
+  intents preserve the expected action names and payload extras.
+- Android health helpers: full-screen alert and battery/background status helper
+  calls return usable state strings in instrumentation.
 
-This layer is the default regression check for runtime changes that may affect
-M17 routing, planning, action dispatch, or interaction lineage.
+This is a functional coverage matrix for the app surface. It complements, but
+does not replace, line/branch coverage for pure Kotlin logic.
 
-## Layer 2: Local Android Real-Device Smoke Verifier
+## 3. Instrumentation And UI Automator
 
 Purpose:
 
-- Verify the actual Android app can run as a real `Device Edge`.
-- Cover Android-local behavior that runtime simulation cannot prove, such as
-  app launch, adb visibility, UI diagnostics, Android network policy, and
-  observation delivery from a real phone.
+- Verify real Android/device behavior that unit and Compose tests cannot prove.
 
-Prerequisites:
+Target coverage:
 
-- A debug build of `device_edge/android_edge/` installed from Android Studio.
-- USB debugging enabled and the phone visible in `adb devices -l`.
-- The runtime URL in the app points at the intended runtime. Use the
-  restart-heavy development runtime on `ws://<server-ip>:18765` for Android
-  acceptance unless intentionally testing the long-running server runtime on
-  `ws://8.153.37.167/openhalo/edge`.
-- The runtime mode switch selects development runtime settings when off and
-  persistent runtime settings when on.
+- Foreground service lifecycle.
+- Notification runtime permission behavior.
+- Full-screen alert availability and alert activity behavior.
+- Battery/background restriction settings affordances.
+- System settings intents.
+- App interactions with Android notification surfaces.
+
+Use instrumentation or UI Automator when the flow crosses from the app into the
+Android system. Do not model these flows primarily through Python XML scraping.
+
+## 4. adb Installed-Build Smoke
+
+Purpose:
+
+- Prove that an installed build can launch and participate as a real
+  `Device Edge`.
+- Collect a small, robust evidence bundle from a physical phone.
 
 Command:
 
 ```powershell
-python bin\verify_m17_android_device.py --tap-connect --tap-observations
+python bin\verify_m17_android_device.py --tap-start --require-daily-ui --timeout-seconds 30
 ```
 
-What it verifies:
+What this smoke check may verify:
 
-- An Android device is online through adb.
-- The Android edge app launches.
-- The foreground service owns the Edge API session while the UI exposes
-  diagnostics and control.
-- The app connects to the configured runtime.
-- The app sends the configured Edge API auth token in the `connect` frame while
-  foreground diagnostics redact the token value.
-- The app sends `mobile.context` observations.
-- A live `notification.show` action visibly pops up through the Android urgent
-  alert path. A notification that only appears after manually opening the
-  notification shade does not satisfy M17.2 phone-alert acceptance.
-- The verifier can read foreground diagnostic state through UI automation.
-- After installing the instrumented app build, the verifier can also read
-  structured `OPENHALO_EDGE_EVENT` logcat evidence, including foreground
-  service state.
+- A device is visible through adb.
+- The installed app launches.
+- The foreground service is running.
+- The app reaches `Connection: connected`.
+- The app sends connect, capability announcement, and `mobile.context`
+  observation frames, preferably confirmed through structured
+  `OPENHALO_EDGE_EVENT` logcat evidence.
+- The daily-use surface exposes a small set of visible health markers such as
+  Home, Notifications, Diagnostics, Android Health, and reconnect state.
 
-Use this layer for Android app changes and before manual M17 live acceptance.
+What this smoke check should not become:
 
-## Layer 3: Manual Live Chain Acceptance
+- The primary test for command input, rich scrolling, keyboard behavior,
+  notification detail navigation, or Compose state transitions.
+- A replacement for stable Compose semantics or instrumentation tests.
+
+If an adb smoke flow starts needing extensive scrolling, coordinate tuning,
+keyboard handling, or repeated Compose control interaction, move that coverage
+down into Compose tests or instrumentation tests.
+
+## 5. Manual Live-Chain Acceptance
 
 Purpose:
 
 - Verify the real deployed chain across multiple live processes and devices.
-- Confirm that a real source edge can cause the live runtime to route a
-  governed action to the real Android phone edge.
+- Confirm that a real source edge can cause the live runtime to route a governed
+  action to the real Android phone edge.
 
 Scenario:
 
@@ -109,39 +189,38 @@ terminal edge -> public runtime -> Android phone edge
 Expected flow:
 
 1. Start or confirm the `Personal Runtime` on the server.
-2. Start or confirm the Android edge app is connected to the runtime.
+2. Start or confirm the Android edge app is connected to the same runtime.
 3. Start a terminal edge against the same runtime.
-4. Send a normal user request that should surface as a private text reply.
-5. Confirm the phone receives `notification.show`.
+4. Send a normal user request that should surface as a private text reply or
+   phone notification.
+5. Confirm the phone receives the runtime-delivered action.
 6. Confirm the phone returns `action_result` with status `ok`.
-7. Inspect runtime state or diagnostics for source, target, participants,
+7. Inspect runtime or edge diagnostics for source, target, participants,
    routed capability, and action result lineage.
 
-During the manual action window, the Android verifier can wait for the phone
+During a manual action window, the adb smoke verifier may wait for the phone
 side of the action:
 
 ```powershell
-python bin\verify_m17_android_device.py --require-action
+python bin\verify_m17_android_device.py --require-action --timeout-seconds 45
 ```
 
-If the verifier also needs to reconnect the app first:
+This is a milestone or human-acceptance check. It is not expected to run on
+every local edit.
 
-```powershell
-python bin\verify_m17_android_device.py --tap-connect --tap-observations --require-action
-```
+## Current Practice By Change Type
 
-This layer is a milestone or human-acceptance check. It is not expected to run
-on every local code edit.
+- Runtime routing/planning change: run runtime-side Python tests and
+  `python bin\verify_m17_mobile_edge.py`.
+- Android pure logic change: run unit tests for the touched behavior.
+- Android Compose UI change: run Compose UI tests over stable tags/semantics.
+- Android emulator workflow change: run
+  `powershell -ExecutionPolicy Bypass -File .\bin\test_m17_android_emulator.ps1 -AvdName OpenHalo_M17`.
+- Android system/device behavior change: run instrumentation or UI Automator
+  tests, then the adb installed-build smoke check.
+- Milestone acceptance: run the relevant unit/Compose/instrumentation tests,
+  the runtime-side verifier, the adb installed-build smoke check, and manual
+  live-chain acceptance.
 
-## Current M17 Practice
-
-Use the layers as follows:
-
-- Runtime or planning change: run Layer 1.
-- Android app change: run Layer 1 and Layer 2.
-- M17 milestone acceptance: run Layer 1, Layer 2, then manual Layer 3.
-
-Do not treat a purely simulated verifier as proof that the Android device is
-healthy. Do not treat a phone smoke check as proof that runtime lineage is
-correct. The two checks cover different risks and are meant to complement each
-other.
+Do not preserve the old practice of using adb UI-text scraping as the main
+optimization or interaction-test workflow.

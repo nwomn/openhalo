@@ -22,6 +22,8 @@ class DeviceEvidence:
     sent_observation: bool
     sent_capability_announce: bool
     action_result_ok: bool
+    daily_ui_ready: bool
+    submitted_mobile_input: bool
     last_error: str
     events: list[dict]
     ui_texts: list[str]
@@ -72,6 +74,15 @@ def dump_ui_texts(serial: str | None) -> list[str]:
     texts = []
     seen = set()
 
+    def scroll_to_top() -> None:
+        for _ in range(3):
+            run_adb(
+                ["shell", "input", "swipe", "600", "900", "600", "2350", "350"],
+                serial=serial,
+                timeout=10,
+            )
+            time.sleep(0.2)
+
     def add_visible_texts() -> None:
         root = dump_ui_tree(serial)
         for node in root.iter("node"):
@@ -80,14 +91,11 @@ def dump_ui_texts(serial: str | None) -> list[str]:
                 texts.append(text)
                 seen.add(text)
 
+    scroll_to_top()
     add_visible_texts()
-    run_adb(
-        ["shell", "input", "swipe", "600", "2450", "600", "1200", "500"],
-        serial=serial,
-        timeout=10,
-    )
-    time.sleep(0.5)
-    add_visible_texts()
+    for _ in range(3):
+        scroll_down(serial)
+        add_visible_texts()
     return texts
 
 
@@ -104,6 +112,45 @@ def tap_text(serial: str | None, text: str) -> None:
         tap(serial, (left + right) // 2, (top + bottom) // 2)
         return
     raise RuntimeError(f"could not find UI text: {text}")
+
+
+def tap_text_if_present(serial: str | None, text: str) -> bool:
+    try:
+        tap_text(serial, text)
+    except RuntimeError:
+        return False
+    return True
+
+
+def scroll_down(serial: str | None) -> None:
+    run_adb(
+        ["shell", "input", "swipe", "600", "2350", "600", "900", "500"],
+        serial=serial,
+        timeout=10,
+    )
+    time.sleep(0.5)
+
+
+def tap_text_with_scroll(serial: str | None, text: str, attempts: int = 3) -> None:
+    for _ in range(attempts):
+        if tap_text_if_present(serial, text):
+            return
+        scroll_down(serial)
+    raise RuntimeError(f"could not find UI text after scrolling: {text}")
+
+
+def submit_text_command(serial: str | None, text: str) -> None:
+    tap_text_if_present(serial, "Home")
+    if not tap_text_if_present(serial, "Ask OpenHalo from this phone"):
+        scroll_down(serial)
+        if not tap_text_if_present(serial, "Ask OpenHalo from this phone"):
+            # Compose exposes the text field label inconsistently on some devices;
+            # this coordinate lands in the command box after one downward scroll.
+            tap(serial, 500, 1200)
+    escaped = text.replace(" ", "%s")
+    run_adb(["shell", "input", "text", escaped], serial=serial, timeout=10)
+    run_adb(["shell", "input", "keyevent", "111"], serial=serial, timeout=10)
+    tap_text_with_scroll(serial, "Send")
 
 
 def collect_events(serial: str | None, lines: int = 2000) -> list[dict]:
@@ -124,6 +171,8 @@ def wait_for_evidence(
     serial: str | None,
     timeout_seconds: int,
     require_action: bool,
+    require_daily_ui: bool,
+    require_mobile_input: bool,
 ) -> DeviceEvidence:
     deadline = time.monotonic() + timeout_seconds
     last_ui_texts: list[str] = []
@@ -139,6 +188,8 @@ def wait_for_evidence(
             and evidence.sent_capability_announce
             and evidence.sent_observation
             and (evidence.action_result_ok or not require_action)
+            and (evidence.daily_ui_ready or not require_daily_ui)
+            and (evidence.submitted_mobile_input or not require_mobile_input)
         ):
             return evidence
         time.sleep(2)
@@ -148,13 +199,13 @@ def wait_for_evidence(
 def build_evidence(events: list[dict], ui_texts: list[str]) -> DeviceEvidence:
     ui_joined = "\n".join(ui_texts)
     connected = any(event.get("event") == "connected" for event in events) or (
-        "Connection" in ui_texts and "connected" in ui_texts
+        "Connection: connected" in ui_joined
     )
     service_foreground = any(
         event.get("event") in {"service_start_requested", "connected"}
         or event.get("service_state") == "foreground"
         for event in events
-    ) or ("Service" in ui_texts and "foreground" in ui_texts)
+    ) or ("Service: foreground" in ui_joined)
     sent_capability_announce = any(
         event.get("event") == "sent_frame"
         and event.get("frame_type") == "capability_announce"
@@ -175,6 +226,26 @@ def build_evidence(events: list[dict], ui_texts: list[str]) -> DeviceEvidence:
         and event.get("status") == "ok"
         for event in events
     ) or bool(re.search(r"notification\.show\s*->\s*ok", ui_joined))
+    daily_ui_ready = all(
+        marker in ui_joined
+        for marker in [
+            "Home",
+            "Notifications",
+            "Diagnostics",
+        "Android Health",
+    ]
+    ) and (
+        "Battery Settings" in ui_joined
+        or "Ask OpenHalo from this phone" in ui_joined
+        or "Reconnect Health" in ui_joined
+        or "Battery/background" in ui_joined
+    )
+    submitted_mobile_input = any(
+        event.get("event") == "sent_frame"
+        and event.get("frame_type") == "event_push"
+        and event.get("capability") == "mobile.input"
+        for event in events
+    ) or "Submitted mobile.input" in ui_joined
     device_id = ""
     for text in ui_texts:
         if text.startswith("android-edge-"):
@@ -192,6 +263,8 @@ def build_evidence(events: list[dict], ui_texts: list[str]) -> DeviceEvidence:
         sent_observation=sent_observation,
         sent_capability_announce=sent_capability_announce,
         action_result_ok=action_result_ok,
+        daily_ui_ready=daily_ui_ready,
+        submitted_mobile_input=submitted_mobile_input,
         last_error=last_error,
         events=events,
         ui_texts=ui_texts,
@@ -204,7 +277,10 @@ def main() -> None:
     parser.add_argument("--timeout-seconds", type=int, default=45)
     parser.add_argument("--require-action", action="store_true")
     parser.add_argument("--tap-connect", action="store_true")
+    parser.add_argument("--tap-start", action="store_true")
     parser.add_argument("--tap-observations", action="store_true")
+    parser.add_argument("--require-daily-ui", action="store_true")
+    parser.add_argument("--submit-text-command")
     args = parser.parse_args()
 
     devices = list_devices()
@@ -217,17 +293,25 @@ def main() -> None:
     run_adb(["logcat", "-c"], serial=serial)
     start_app(serial)
     time.sleep(2)
-    if args.tap_connect:
-        tap_text(serial, "Connect")
+    if args.tap_connect or args.tap_start:
+        if not tap_text_if_present(serial, "Start"):
+            tap_text(serial, "Connect")
         time.sleep(2)
     if args.tap_observations:
-        tap_text(serial, "Send Observations")
+        tap_text_if_present(serial, "Diagnostics")
+        time.sleep(0.5)
+        tap_text_with_scroll(serial, "Send Observations")
         time.sleep(1)
+    if args.submit_text_command:
+        submit_text_command(serial, args.submit_text_command)
+        time.sleep(2)
 
     evidence = wait_for_evidence(
         serial=serial,
         timeout_seconds=args.timeout_seconds,
         require_action=args.require_action,
+        require_daily_ui=args.require_daily_ui,
+        require_mobile_input=bool(args.submit_text_command),
     )
     result = {
         "ok": (
@@ -236,6 +320,8 @@ def main() -> None:
             and evidence.sent_capability_announce
             and evidence.sent_observation
             and (evidence.action_result_ok or not args.require_action)
+            and (evidence.daily_ui_ready or not args.require_daily_ui)
+            and (evidence.submitted_mobile_input or not args.submit_text_command)
         ),
         "device_serial": serial,
         "android_edge_device_id": evidence.device_id,
@@ -244,6 +330,8 @@ def main() -> None:
         "sent_capability_announce": evidence.sent_capability_announce,
         "sent_observation": evidence.sent_observation,
         "action_result_ok": evidence.action_result_ok,
+        "daily_ui_ready": evidence.daily_ui_ready,
+        "submitted_mobile_input": evidence.submitted_mobile_input,
         "last_error": evidence.last_error,
         "events": evidence.events[-20:],
         "ui_texts": evidence.ui_texts,

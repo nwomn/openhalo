@@ -1,6 +1,7 @@
 package dev.openhalo.android.edge
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -37,6 +38,20 @@ class RuntimeAlertActivity : ComponentActivity() {
                     )
                     Button(onClick = { finish() }) {
                         Text("Dismiss")
+                    }
+                    Button(
+                        onClick = {
+                            startActivity(
+                                Intent(this@RuntimeAlertActivity, MainActivity::class.java)
+                                    .putExtra(
+                                        MainActivity.EXTRA_INITIAL_VIEW,
+                                        MainActivity.VIEW_NOTIFICATIONS
+                                    )
+                            )
+                            finish()
+                        }
+                    ) {
+                        Text("Open Details")
                     }
                 }
             }

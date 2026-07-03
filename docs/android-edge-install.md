@@ -3,15 +3,13 @@
 Status: M17 local development setup baseline.
 
 This document defines the local Android Studio setup for developing the native
-Android `Device Edge`. It is only about local tooling and phone setup. The M17
-Android edge design is tracked separately in
-`docs/plans/2026-06-30-m17-android-edge-design.md`.
+Android `Device Edge`. The detailed Android edge testing workflow lives in
+`docs/m17-android-edge-acceptance.md`.
 
 ## Intended Local Workflow
 
 - Open the full `openhalo/` repository in Codex or another project-aware editor.
-- Open only `openhalo/device_edge/android_edge/` in Android Studio once the
-  Android project is scaffolded.
+- Open only `openhalo/device_edge/android_edge/` in Android Studio.
 - Keep Android-specific source code under `device_edge/android_edge/`.
 - Run and debug the Android app from the local computer.
 - Keep the Alibaba Cloud server focused on the OpenHalo `Personal Runtime`.
@@ -43,20 +41,15 @@ Recommended local setup:
 
 ## Current Verified Local Baseline
 
-The current local Android baseline now includes:
+The current local Android baseline includes:
 
-- An Android Studio project scaffold under `device_edge/android_edge/`.
+- An Android Studio project under `device_edge/android_edge/`.
 - Package name `dev.openhalo.android.edge`.
-- Kotlin + Jetpack Compose Gradle project generation through Android Studio.
-- A successful first debug install and launch on a USB-connected Android phone.
-- A foreground diagnostic app surface that can connect to a configured runtime,
-  start the foreground presence service, send `mobile.context` observations,
-  execute `notification.show`, and expose recent Edge API activity for local
-  verification.
-
-This means the repository is now past the "tooling only" stage for M17 local
-setup. The local Android path has been exercised through project creation,
-Gradle sync, device recognition, debug install, and app launch.
+- Kotlin + Jetpack Compose.
+- A successful debug install and launch on a USB-connected Android phone.
+- A foreground-service Android edge that can connect to the runtime, announce
+  capabilities, send `mobile.context`, execute `notification.show`, expose a
+  status-first daily surface, and keep recent activity history.
 
 ## Prepare The Phone
 
@@ -64,17 +57,18 @@ Recommended phone setup:
 
 - Android developer options enabled.
 - USB debugging enabled.
-- Wireless debugging optional, only when the local computer and phone are on a
-  suitable trusted network.
+- Wireless debugging optional, only on a trusted private network.
 - Notification permission available for Android 13+ testing.
-- Ability to review battery optimization / background restriction settings.
+- Ability to review battery optimization and background restriction settings.
 
-Quick local verification steps:
+Quick local verification:
 
-- Confirm the phone is visible to Android Debug Bridge with `adb devices -l`.
-- Accept the phone-side USB debugging trust prompt when it appears.
-- Prefer a data mode such as file transfer if the phone is not detected
-  immediately.
+```powershell
+adb devices -l
+```
+
+Accept the phone-side USB debugging trust prompt when it appears. Prefer a data
+mode such as file transfer if the phone is not detected immediately.
 
 ## Debugging Expectations
 
@@ -86,21 +80,10 @@ Use Android Studio for:
 - Interactive UI debugging.
 - Foreground service and notification permission checks.
 
-## First Sync And First Run Notes
+Do not expose `adb` directly to the public internet. If remote debugging is ever
+needed, use a trusted private network and treat it as temporary debugging aid.
 
-On a fresh local Android Studio setup, the first Gradle sync and first run may
-take noticeably longer than later runs because Android Studio and Gradle need
-to download Android, Kotlin, and Compose dependencies.
-
-You may also encounter a local proxy-authentication prompt such as
-`Proxy Authentication: 127.0.0.1` during dependency resolution:
-
-- If the machine intentionally uses a local proxy for Gradle traffic, provide
-  the proxy credentials configured for that local proxy.
-- If the machine does not intentionally require that proxy for Android Studio,
-  cancel the prompt and let the normal local network path continue.
-
-Successful first-run indicators:
+## Successful Run Indicators
 
 - Android Studio device selector shows the connected phone model.
 - Gradle sync completes successfully.
@@ -109,50 +92,60 @@ Successful first-run indicators:
 - The app can connect to the runtime URL and show `Connection: connected`.
 - The app shows `Service: foreground` while the Android edge session is active.
 - The runtime mode switch can choose development runtime defaults or persistent
-  runtime defaults. Local persistent runtime URL/token values should come from
-  ignored Android `local.properties`, not tracked source. The current
-  persistent runtime endpoint is `ws://8.153.37.167/openhalo/edge`.
-- The app token field matches the runtime edge token; for development helpers
-  this defaults to `dev-token`, while long-running server runtime tokens should
-  match the server's `OPENHALO_EDGE_TOKEN` without exposing the secret in
-  diagnostics.
-- Runtime-delivered `notification.show` actions are treated as effective phone
-  alerts on Android: the edge uses the urgent alert presenter so the message can
-  visibly pop up instead of requiring the user to manually search the
-  notification shade.
-- `Send Observations` records a recent `mobile.context` observation.
+  runtime defaults.
+- Local persistent runtime URL/token values come from ignored Android
+  `local.properties`, not tracked source.
+- The current persistent runtime endpoint is
+  `ws://8.153.37.167/openhalo/edge`.
+- The app token field matches the runtime edge token. Development helpers use
+  `dev-token`; long-running server runtime tokens should match the server's
+  `OPENHALO_EDGE_TOKEN` without exposing the secret in diagnostics.
+- Runtime-delivered `notification.show` actions use the urgent alert presenter
+  so messages can visibly pop up instead of requiring notification-shade search.
 
-Do not expose `adb` directly to the public internet. If remote debugging is ever
-needed, use a trusted private network and treat it as a temporary debugging aid,
-not the primary M17 development path.
+## Current Test Workflow
 
-## M17 Verification Workflow
+Use the current Android edge testing workflow, not the old adb-first flow:
 
-M17 verification is layered rather than one large cross-device test:
+```text
+unit tests -> Compose UI tests -> instrumentation/UI Automator -> adb installed-build smoke -> manual live-chain acceptance
+```
 
-1. Runtime-side simulated verifier for routing, candidate filtering, action
-   result handling, and interaction lineage:
+Practice:
 
-   ```powershell
-   python bin\verify_m17_mobile_edge.py
-   ```
+- Unit-test pure Kotlin behavior such as frame creation, reconnect/backoff,
+  config/history persistence boundaries, and diagnostics mapping.
+- Add Compose `testTag` or accessibility semantics before writing UI tests for
+  important controls.
+- Use Compose UI tests for app-internal daily-use flows such as status, command
+  input, notification history, and diagnostics navigation.
+- Prefer the Android Studio emulator for this automated UI layer. The current
+  local emulator helper reuses the existing `OpenHalo_M17` AVD and installs
+  only to the selected `emulator-*` serial:
 
-2. Local real-device smoke verifier for Android app launch, connection, and
-   observation delivery:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\bin\test_m17_android_emulator.ps1 -AvdName OpenHalo_M17
+```
 
-   ```powershell
-   python bin\verify_m17_android_device.py --tap-connect --tap-observations
-   ```
+- Use instrumentation/UI Automator for device and system behavior such as
+  notification permission, full-screen alert permission, foreground service
+  lifecycle, system settings intents, and notification surfaces.
+- Keep the Python adb verifier as installed-build smoke only.
 
-3. Manual live-chain acceptance for the full server-runtime-to-phone action
-   path. During the manual action window, the device verifier can wait for a
-   real phone-side `notification.show -> ok`:
+Installed-build smoke command:
 
-   ```powershell
-   python bin\verify_m17_android_device.py --require-action
-   ```
+```powershell
+python bin\verify_m17_android_device.py --tap-start --require-daily-ui --timeout-seconds 30
+```
 
-See `docs/m17-android-edge-acceptance.md` for the full acceptance model.
+Runtime-side multi-edge routing verifier:
+
+```powershell
+python bin\verify_m17_mobile_edge.py
+```
+
+Manual live-chain acceptance remains a milestone/human check. See
+`docs/m17-android-edge-acceptance.md` for the full workflow.
 
 ## Useful References
 
@@ -162,4 +155,3 @@ See `docs/m17-android-edge-acceptance.md` for the full acceptance model.
 - Foreground services: <https://developer.android.com/develop/background-work/services/foreground-services>
 - Notification runtime permission: <https://developer.android.com/develop/ui/views/notifications/notification-permission>
 - Android background restrictions: <https://developer.android.com/develop/background-work/background-tasks/bg-work-restrictions>
-

@@ -31,14 +31,15 @@ class AndroidEdgeService : Service() {
         when (intent?.action ?: ACTION_START) {
             ACTION_START -> {
                 startAsForegroundService()
+                val storedConfig = AndroidEdgePreferences.loadConfig(applicationContext)
                 val runtimeMode = intent?.getStringExtra(EXTRA_RUNTIME_MODE)
-                    ?: EdgeDiagnosticsStore.current().runtimeMode
+                    ?: storedConfig.runtimeMode
                 val runtimeUrl = intent?.getStringExtra(EXTRA_RUNTIME_URL)
-                    ?: EdgeDiagnosticsStore.current().runtimeUrl
+                    ?: storedConfig.runtimeUrl
                 val deviceId = intent?.getStringExtra(EXTRA_DEVICE_ID)
-                    ?: EdgeDiagnosticsStore.current().deviceId
+                    ?: storedConfig.deviceId
                 val edgeToken = intent?.getStringExtra(EXTRA_EDGE_TOKEN)
-                    ?: EdgeDiagnosticsStore.current().edgeToken
+                    ?: storedConfig.edgeToken
                 Log.i(LOG_TAG, "OPENHALO_EDGE_EVENT {\"event\":\"service_start_requested\"}")
                 client?.connect(runtimeMode, runtimeUrl, deviceId, edgeToken)
             }
@@ -47,6 +48,13 @@ class AndroidEdgeService : Service() {
                 startAsForegroundService()
                 Log.i(LOG_TAG, "OPENHALO_EDGE_EVENT {\"event\":\"service_observation_requested\"}")
                 client?.sendCurrentObservations()
+            }
+
+            ACTION_SUBMIT_TEXT -> {
+                startAsForegroundService()
+                val text = intent?.getStringExtra(EXTRA_TEXT_COMMAND).orEmpty()
+                Log.i(LOG_TAG, "OPENHALO_EDGE_EVENT {\"event\":\"service_text_submitted\"}")
+                client?.submitTextCommand(text)
             }
 
             ACTION_STOP -> {
@@ -124,10 +132,12 @@ class AndroidEdgeService : Service() {
         const val ACTION_STOP = "dev.openhalo.android.edge.action.STOP"
         const val ACTION_SEND_OBSERVATIONS =
             "dev.openhalo.android.edge.action.SEND_OBSERVATIONS"
+        const val ACTION_SUBMIT_TEXT = "dev.openhalo.android.edge.action.SUBMIT_TEXT"
         const val EXTRA_RUNTIME_MODE = "runtime_mode"
         const val EXTRA_RUNTIME_URL = "runtime_url"
         const val EXTRA_DEVICE_ID = "device_id"
         const val EXTRA_EDGE_TOKEN = "edge_token"
+        const val EXTRA_TEXT_COMMAND = "text_command"
         private const val SERVICE_CHANNEL_ID = "openhalo_edge_service"
         private const val SERVICE_NOTIFICATION_ID = 1702
         private const val LOG_TAG = "OpenHaloEdge"
@@ -150,6 +160,12 @@ class AndroidEdgeService : Service() {
         fun sendObservationsIntent(context: Context): Intent =
             Intent(context, AndroidEdgeService::class.java).apply {
                 action = ACTION_SEND_OBSERVATIONS
+            }
+
+        fun submitTextIntent(context: Context, text: String): Intent =
+            Intent(context, AndroidEdgeService::class.java).apply {
+                action = ACTION_SUBMIT_TEXT
+                putExtra(EXTRA_TEXT_COMMAND, text)
             }
 
         fun stopIntent(context: Context): Intent =
