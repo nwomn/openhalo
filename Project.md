@@ -107,6 +107,16 @@ Current boundary rules:
 - CLI device validation is acceptable for early module testing, but host-edge verification is required before documenting a module as fully implemented and operationally ready
 - In this project, `manual acceptance` or `human acceptance` means testing implemented functionality in a simulated real usage scenario, rather than only checking static output, isolated unit behavior, or non-interactive script success
 
+Initial productization target:
+
+- The first productized OpenHalo slice should package three surfaces together rather than treating them as unrelated developer processes: phone `Device Edge`, desktop/computer `Device Edge`, and server-side `Personal Runtime` plus host-class `Device Edge`
+- The Linux server runtime should support a one-command or one-script installation path that installs and configures both `Personal Runtime` and the server/host edge together, while still preserving the `Device Edge -> Edge API -> Gateway -> Personal Runtime` boundary
+- The Windows desktop edge should be installable through a normal user-facing installer rather than only through a development shell; the productized desktop package may include the runtime and host edge as optional local components that are installed but disabled by default
+- The Android phone edge should be deliverable as an APK suitable for real-device installation outside Android Studio
+- The standard deployment scene is: one public server running `Personal Runtime + host edge`, one computer running the desktop edge, and one phone running the phone edge
+- The computer-server deployment scene is: one computer running `Personal Runtime + host edge + desktop edge`, with the phone edge connecting to the computer-hosted runtime
+- Product packaging is now an explicit product milestone, not only a release-engineering afterthought; UI polish, installation flow, service supervision, endpoint pairing, and deployment-mode clarity all count as part of the first productized slice
+
 ## Edge Representation Model
 
 For edge integration, the working direction is a layered model rather than a flat "all hardware is the same kind of node" model.
@@ -264,15 +274,16 @@ Sub-goals:
 - 4.19. Define milestone M18: observation-driven intent sensing after multi-edge expansion, so the runtime can periodically evaluate the full current observation/context picture while otherwise idle, infer whether a user need or environmental condition warrants a proposal, and still route any intervention through model-backed proposal formation plus `Presence Router`
 - 4.20. Define milestone M19: agent behavior contracts and unified action/tool governance, so model-backed proposal formation, post-action deliberation, model-native tool calls, MCP/tool/skill calls, runtime-local tools, and external device actions are constrained by one inspectable runtime contract and capability registry after the system has enough real action/tool and multi-edge surface area to validate the governance model
 - 4.21. Define milestone M20: policy learning and review loop after the runtime is stable but not yet fully ergonomic, so intervention feedback, ignored interactions, explicit user responses, and runtime replays can produce model-backed, review-gated policy updates rather than remaining as ad hoc one-off heuristics
-- 4.22. Define milestone M21: bounded-growth and storage-hygiene hardening pass after the first mature product slice, covering unbounded state growth, high-frequency persistence pressure, duplicated long-term storage, and other operational accumulation risks across the system
-- 4.23. Define milestone M22: Home Assistant Bridge Edge and smart-home ecosystem bridge baseline, so Home Assistant-managed smart-home devices can eventually be discovered through the Home Assistant API, translated into OpenHalo downstream devices, capabilities, and observations, synchronized as context evidence, and controlled through OpenHalo-governed actions without requiring Home Assistant devices to speak the OpenHalo Edge API directly
+- 4.22. Define milestone M21: first packaged three-end product slice, so OpenHalo can be installed and tried as a coherent phone edge, desktop edge, and runtime/host-edge system instead of as separate developer-run processes
+- 4.23. Define milestone M22: bounded-growth and storage-hygiene hardening pass after the first mature product slice, covering unbounded state growth, high-frequency persistence pressure, duplicated long-term storage, and other operational accumulation risks across the system
+- 4.24. Define milestone M23: Home Assistant Bridge Edge and smart-home ecosystem bridge baseline, so Home Assistant-managed smart-home devices can eventually be discovered through the Home Assistant API, translated into OpenHalo downstream devices, capabilities, and observations, synchronized as context evidence, and controlled through OpenHalo-governed actions without requiring Home Assistant devices to speak the OpenHalo Edge API directly
 
 Milestone ownership clarification:
 
 - The structural home for richer proposal formation from edge-delivered signals, including proposal classes such as `reply`, `action`, `clarification`, and `no_intervention`, belongs primarily to the `M6` `Agent Runtime` proposal-formation surface.
 - The accepted `M6` implementation should not be read as full semantic completion of proposal formation; before model integration it establishes the correct live-chain location and a narrow deterministic slice, but not yet sufficiently capable open-ended intent interpretation.
 - `M13` is now the explicit maturity milestone for this surface: it owns turning that narrow slice into a reliable multi-type proposal-formation capability on the live chain.
-- Adjacent milestones deepen that behavior from other angles without changing the ownership boundary: `M9` supplies provider-backed generation, `M10` supplies runtime grounding and memory, `M12` supplies prompt/context and behavior-contract hardening, `M14` supplies model-provider reliability and diagnostics, `M15` deepens operator trust through runtime-native credentials, `M16` supplies post-action deliberation and same-interaction action-loop re-entry, `M17.0` closes the public Edge API boundary, `M17.1` adds registration-driven capability/observation extension plus explicit capability/provider resolution before broad real-edge expansion, `M17.2` establishes the first native Android Presence Edge baseline, `M17.3` hardens that Android edge into a more durable daily-use mobile surface without turning it into a backend shortcut or chat-centered side channel, `M17.4` adds Android screen/use-context observation extraction on the phone edge while still treating it as passive evidence, broader `M17` expands real multi-edge interaction surface area, `M18` adds idle observation-driven intent sensing, `M19` later hardens unified action/tool governance once there are enough real actions, tools, skills, and edge differences to validate the governance model, `M20` adds model-backed review-gated policy learning once the system is stable but not yet fully ergonomic, and `M22` is intentionally deferred as a far-future ecosystem bridge milestone for Home Assistant and similar smart-home platforms after the core runtime shape is more mature. The current M15 implementation begins with a narrow single-file local runtime-config baseline rather than an environment-variable fallback.
+- Adjacent milestones deepen that behavior from other angles without changing the ownership boundary: `M9` supplies provider-backed generation, `M10` supplies runtime grounding and memory, `M12` supplies prompt/context and behavior-contract hardening, `M14` supplies model-provider reliability and diagnostics, `M15` deepens operator trust through runtime-native credentials, `M16` supplies post-action deliberation and same-interaction action-loop re-entry, `M17.0` closes the public Edge API boundary, `M17.1` adds registration-driven capability/observation extension plus explicit capability/provider resolution before broad real-edge expansion, `M17.2` establishes the first native Android Presence Edge baseline, `M17.3` hardens that Android edge into a more durable daily-use mobile surface without turning it into a backend shortcut or chat-centered side channel, `M17.4` adds Android screen/use-context observation extraction on the phone edge while still treating it as passive evidence, broader `M17` expands real multi-edge interaction surface area, `M18` adds idle observation-driven intent sensing, `M19` later hardens unified action/tool governance once there are enough real actions, tools, skills, and edge differences to validate the governance model, `M20` adds model-backed review-gated policy learning once the system is stable but not yet fully ergonomic, `M21` packages the first coherent three-end product slice across phone edge, desktop edge, and runtime/host-edge deployment, and `M23` is intentionally deferred as a far-future ecosystem bridge milestone for Home Assistant and similar smart-home platforms after the core runtime shape is more mature. The current M15 implementation begins with a narrow single-file local runtime-config baseline rather than an environment-variable fallback.
 
 Acceptance criteria for M13 proposal-formation maturity:
 
@@ -391,6 +402,18 @@ Acceptance criteria for M17.4 Android screen/context observation baseline:
 - Automated tests cover accessibility node-tree extraction, interactive element indexing, redaction, bounded payload size, event debounce/coalescing, queue backpressure, stale-capture dropping, and runtime passive handling or rejection of malformed screen-context observations
 - Human acceptance demonstrates that a real phone can enable the feature, interact with several normal apps, and produce useful bounded screen-context observations without raw screenshot upload or runtime intervention, including a foreground-app usage period where observations arrive at the runtime in near real time rather than only after the user reopens the OpenHalo app
 
+Acceptance criteria for M21 first packaged three-end product slice:
+
+- The runtime/host-edge server package supports Linux installation with one primary install command or script, producing a supervised `Personal Runtime` service plus a co-installed host edge that connects through the normal public Edge API boundary
+- The Linux installer documents and verifies the standard public-server deployment scene, including runtime endpoint, host-edge pairing, provider runtime config, service start/stop/status, logs, and uninstall or cleanup expectations
+- The Windows desktop edge is deliverable as a normal installer package for end users rather than only as a Python development command, and it can connect to a configured runtime endpoint after installation
+- The Windows desktop package may include `Personal Runtime + host edge` components for the computer-server deployment scene, but those local runtime components are disabled by default and can be explicitly enabled by the user
+- The Android phone edge is deliverable as an APK that can be installed on a real phone outside Android Studio, preserving persistent runtime endpoint/device configuration and the accepted M17.3 daily-use surface
+- Product UI packaging covers first-run setup, connection/health state, runtime endpoint pairing, recent activity, and diagnostics escape hatches on phone and desktop without turning either edge into a backend shortcut
+- Both accepted deployment scenes are documented and manually verified: standard public-server deployment with server runtime/host edge plus separate computer and phone edges, and computer-server deployment with runtime/host edge/desktop edge on one computer plus phone edge connected to that computer-hosted runtime
+- Packaged-mode verification includes smoke tests for service startup, endpoint connectivity, capability registration, terminal or desktop-originated input, phone notification delivery, host runtime-status action, and clean restart behavior
+- The milestone explicitly does not require app-store distribution, auto-update, polished account login, encrypted local secret storage, or broad OS/ROM compatibility matrices; those remain later product hardening
+
 Acceptance criteria for M18 observation-driven intent sensing:
 
 - When the runtime is otherwise idle with no active interaction or in-flight action, it can build a current observation/context picture across connected or actively reporting edge devices and evaluate whether the combined evidence suggests a user need, environmental change, or runtime condition worth proposing on
@@ -425,7 +448,7 @@ Acceptance criteria for M20 policy learning and review loop:
 - Automated tests cover positive feedback, explicit rejection, ignored intervention evidence, replay-derived candidate generation, model-backed candidate drafting, review approval, rejected/deferred candidate handling, and schema/validator rejection of overbroad policy suggestions
 - Human acceptance demonstrates a realistic terminal/runtime scenario where user feedback generates a readable model-backed candidate and an approved policy change affects a later presence decision
 
-Acceptance criteria for M22 Home Assistant Bridge Edge and smart-home ecosystem bridge:
+Acceptance criteria for M23 Home Assistant Bridge Edge and smart-home ecosystem bridge:
 
 - A Home Assistant Bridge Edge can connect to a configured Home Assistant instance through its public API without requiring individual Home Assistant-managed devices to implement the OpenHalo Edge API
 - The bridge discovers Home Assistant entities, devices, areas, states, services, and relevant events, then maps supported entities into OpenHalo downstream device records, action capability registrations, and observation registrations
@@ -460,7 +483,34 @@ Acceptance criteria:
 
 Status:
 
-- In progress (`M7`, `M8`, `M9`, `M10`, `M11`, `M12`, `M13`, `M14`, `M15`, `M16`, `M17.0`, `M17.1`, `M17.2`, `M17.3`, and the module-boundary diagnostics v1 baseline completed and accepted; broader `M17` real multi-edge interaction expansion continues on top of the registration-driven Android phone edge baseline; `M18` observation-driven idle intent sensing and `M19` action/tool governance remain later work; `M20` policy learning/review is intentionally deferred until the system is stable but not fully ergonomic; storage hardening is deferred to `M21`; Home Assistant Bridge Edge and broader smart-home ecosystem bridging are intentionally deferred to `M22`)
+- In progress (`M7`, `M8`, `M9`, `M10`, `M11`, `M12`, `M13`, `M14`, `M15`, `M16`, `M17.0`, `M17.1`, `M17.2`, `M17.3`, and the module-boundary diagnostics v1 baseline completed and accepted; broader `M17` real multi-edge interaction expansion continues on top of the registration-driven Android phone edge baseline; `M18` observation-driven idle intent sensing and `M19` action/tool governance remain later work; `M20` policy learning/review is intentionally deferred until the system is stable but not fully ergonomic; `M21` first packaged three-end product slice is now the first concrete milestone for productization; storage hardening is deferred to `M22`; Home Assistant Bridge Edge and broader smart-home ecosystem bridging are intentionally deferred to `M23`)
+
+### Goal 5: Productize OpenHalo into an installable three-end system
+
+We need OpenHalo to become a coherent product that can be installed, configured, connected, and tried without requiring the user to manually run unrelated developer processes.
+
+Sub-goals:
+
+- 5.1. Define the first productized deployment shape across phone edge, desktop/computer edge, and server/runtime host edge
+- 5.2. Provide a Linux server installation path that installs and supervises `Personal Runtime + host edge` together
+- 5.3. Provide a Windows desktop edge installer that can connect to a remote runtime and can optionally include disabled-by-default local runtime/host-edge components
+- 5.4. Provide an Android APK delivery path for the phone edge outside Android Studio
+- 5.5. Define first-run setup, endpoint pairing, connection health, diagnostics, and recent-activity UI expectations across phone and desktop surfaces
+- 5.6. Verify the two accepted deployment scenes: standard public-server deployment and computer-server deployment
+
+Acceptance criteria:
+
+- A written productization baseline exists for the first installable OpenHalo slice
+- The accepted deployment scenes are documented clearly enough that a user can tell what machines and packages are required
+- Linux runtime/host-edge installation can be performed through one primary command or script and results in supervised services with status/log visibility
+- Windows desktop edge installation produces a user-facing installed app, not only a development-shell entrypoint
+- Android phone edge delivery produces an installable APK preserving the accepted daily-use phone-edge behavior
+- Phone, desktop, runtime, and host edge all continue to communicate through the public Edge API boundary; packaging must not introduce hidden backend shortcuts
+- Manual acceptance demonstrates both standard public-server deployment and computer-server deployment using packaged or packaging-equivalent artifacts
+
+Status:
+
+- In progress (`M21` is the first concrete implementation milestone for this goal; broader product polish, auto-update, app-store distribution, account/login UX, and encrypted local secret storage remain later hardening)
 
 M17 preparation note:
 
@@ -642,7 +692,7 @@ Result:
 - Project-level Codex hooks have been added in `.codex/hooks.json`
 - Shared enforcement logic has been added in `agent_guard/codex_hooks.py`
 - `AGENTS.md` now documents the internal per-turn audit and the conditional `Project.md Check` exception path
-- Project progress updates are now also hook-enforced: when the user asks for a progress report, the response must include separate `Goal 1` through `Goal 4` sections with explicit architecture-aware labels for `状态`, `架构位置`, `本批完成`, `对整体链路的作用`, and `还缺什么`
+- Project progress updates are now also hook-enforced: when the user asks for a progress report, the response must include separate `Goal 1` through `Goal 5` sections with explicit architecture-aware labels for `状态`, `架构位置`, `本批完成`, `对整体链路的作用`, and `还缺什么`
 - Edited turns are now also hook-enforced: when a turn uses `apply_patch`, the final response must include a `架构实现小结` block with explicit `架构位置`, `本步完成`, and `影响链路` labels
 - A minimal automated test suite validates audit parsing and enforcement rules
 - The hook entrypoint is now path-portable through `.codex/run_hook.py`, so `.codex/hooks.json` no longer hard-codes the repository checkout path
@@ -652,7 +702,7 @@ Acceptance criteria:
 - The repository has project-level Codex hooks for session start and turn-end enforcement
 - The enforced workflow validates that `Project.md` was read at session start
 - The enforced workflow validates that every meaningful interaction performs a `Project.md` progress check
-- The enforced workflow validates the required `Goal 1` through `Goal 4` architecture-aware structure for project progress updates
+- The enforced workflow validates the required `Goal 1` through `Goal 5` architecture-aware structure for project progress updates
 - The enforced workflow validates the required `架构实现小结` structure for edited turns
 - The enforced workflow blocks inconsistent `Project.md` update claims while keeping normal responses free of mandatory visible audit output
 - The hook configuration can survive repository folder renames by deriving the repository root from the checked-out project path
@@ -1419,7 +1469,7 @@ Current preference:
 - The first terminal edge should support both pull-style user requests and push-style runtime interventions, but push should depend on terminal presence or activity instead of blindly printing into unattended terminals
 - Model terminal-side user input, activity or idle evidence, runtime-originated message delivery, reply, and ignore or non-response as ordinary edge events and actions on the normal runtime path instead of inventing a chat-only side protocol
 - Keep terminal-edge intelligence thin: local UX control may exist on the edge, but proposal formation, intervention policy, and routing authority should remain in the backend runtime
-- Prefer the next post-M7 milestone sequence to stay narrow and layered: M8 formal terminal edge first, M9 cloud-model agent baseline second, M10 grounding and memory third, M11 terminal/CLI interaction maturity fourth, M12 prompt/context engineering fifth, M13 proposal-formation maturity sixth, M14 model-provider connection reliability and diagnostics seventh, M15 runtime-native credential/runtime-config baseline eighth, M16 post-action deliberation/action loop ninth, M17 multi-edge interaction expansion tenth, M18 observation-driven idle intent sensing eleventh, M19 behavior-contract/action-tool governance twelfth, M20 policy learning/review thirteenth, and bounded-growth hardening later at M21
+- Prefer the next post-M7 milestone sequence to stay narrow and layered: M8 formal terminal edge first, M9 cloud-model agent baseline second, M10 grounding and memory third, M11 terminal/CLI interaction maturity fourth, M12 prompt/context engineering fifth, M13 proposal-formation maturity sixth, M14 model-provider connection reliability and diagnostics seventh, M15 runtime-native credential/runtime-config baseline eighth, M16 post-action deliberation/action loop ninth, M17 multi-edge interaction expansion tenth, M18 observation-driven idle intent sensing eleventh, M19 behavior-contract/action-tool governance twelfth, M20 policy learning/review thirteenth, M21 first packaged three-end product slice fourteenth, and bounded-growth hardening later at M22
 - Prefer cloud-model proposal and reply generation to stay behind a provider boundary inside `Agent Runtime`, with explicit presence governance and normal edge routing still deciding whether and where anything surfaces
 - Prefer a hybrid model-provider architecture for `M9`: keep a shared provider registry, model catalog, and runtime-facing profile-selection layer, while implementing only the `openai_compatible` adapter branch in the first accepted slice
 - Prefer runtime call sites to select named model profiles rather than hard-coding provider/model pairs directly in business logic, so later provider swaps and model-routing changes stay configuration-driven
@@ -1468,7 +1518,7 @@ Current M3 slice direction:
 
 Current phase:
 
-- Post-M16 architecture expansion has completed and accepted `M17.0` public Edge API boundary/internal-runtime encapsulation, `M17.1` registration-driven multi-device extension, and the module-boundary diagnostics v1 baseline; active focus can now move to broader `M17` real multi-edge interaction expansion on top of the public Edge API and registry-driven planning baseline, while `M18` observation-driven idle intent sensing, `M19` behavior-contract/action-tool governance, and `M20` policy learning/review remain later work and bounded-growth/storage-hygiene hardening remains intentionally deferred to `M21`
+- Post-M16 architecture expansion has completed and accepted `M17.0` public Edge API boundary/internal-runtime encapsulation, `M17.1` registration-driven multi-device extension, `M17.2` native Android Presence Edge, `M17.3` Android daily-use hardening, and the module-boundary diagnostics v1 baseline; active focus can now move from proving individual edge capability toward `M17.4` mobile observation depth and `M21` first packaged three-end productization, while `M18` observation-driven idle intent sensing, `M19` behavior-contract/action-tool governance, and `M20` policy learning/review remain later work and bounded-growth/storage-hygiene hardening remains intentionally deferred to `M22`
 
 Current progress summary:
 
@@ -1501,6 +1551,8 @@ Current progress summary:
 - We now prefer the first host-edge capability envelope to observe whole-host state while limiting executable actions to the personal runtime's own process or service lifecycle
 - We now prefer the host-edge interface layer to stay stable even if the runtime later moves from a plain Python process to `systemd` or another deployment supervisor
 - We now prefer `runtime_control` actions to stay deployment-agnostic and `runtime.collect_logs` to return structured diagnostics plus raw tail text rather than only opaque log blobs
+- We now define the first productized slice as a coherent phone edge, desktop edge, and runtime/host-edge system with two supported deployment scenes: a standard public-server deployment and a computer-server deployment where the desktop package can optionally enable local runtime/host-edge components
+- We now treat Linux one-command runtime/host-edge installation, Windows desktop-edge installer packaging, Android APK delivery, endpoint pairing, health UI, and install-mode verification as explicit product work rather than incidental release engineering
 - We now require the first host edge to remain a frontend-side daemon independent from the backend runtime process so restart and health-observation loops stay physically separable
 - We now have a dedicated host-edge v1 design baseline covering daemon boundaries, capability contracts, adapter shape, and restart/recovery semantics in `docs/plans/2026-06-19-host-edge-v1-design.md`
 - We now have a dedicated host-edge v1 implementation ladder in `docs/plans/2026-06-19-host-edge-v1-implementation-plan.md`, scoped around configurable edge capabilities, host observation collection, runtime control adapters, host-daemon lifecycle, and observation recording
@@ -1604,7 +1656,7 @@ Current progress summary:
 - We now have a dedicated M6 inspection entrypoint for manual acceptance: `python -m device_edge.cli.cli_edge --inspect-agent-initiative` prints the initiative-triggered trace, snapshot inputs, proposal, presence decision, recorded intervention, and resulting action outcome in one report
 - A real websocket verification now proves that runtime-originated initiative dispatch can route `runtime.status` to a connected host edge and record the returned result through the normal action-result path
 - We now consider M6 complete: the runtime has a dual-entry proactive chain, unified presence governance, and a first mature execution-planning path across both user-facing notification and narrow host-control actions
-- We now hard-enforce the project progress report format at the hook layer: when the user asks for progress, the response must include separate `Goal 1` through `Goal 4` sections and each section must carry the required architecture-aware labels
+- We now hard-enforce the project progress report format at the hook layer: when the user asks for progress, the response must include separate `Goal 1` through `Goal 5` sections and each section must carry the required architecture-aware labels
 - We now also hard-enforce architecture-aware final reply summaries for edited turns: when a turn uses `apply_patch`, the final response must include `架构实现小结` with `架构位置`, `本步完成`, and `影响链路`
 - We now move active execution focus to M7 operational-readiness verification: end-to-end host-edge-path validation must now gate stronger “implemented and ready to run” claims on top of the newly accepted M6 runtime behavior
 - We now have a dedicated M7 implementation plan in `docs/plans/2026-06-21-m7-operational-readiness-verification-plan.md`, focused on turning host-edge readiness into a concrete bounded acceptance gate instead of another feature-expansion batch
@@ -1612,8 +1664,8 @@ Current progress summary:
 - The host-edge daemon verification surface now includes an explicit bounded `max_action_requests` control so local readiness runs can exit after handling the intended number of action requests rather than relying only on idle-time timing
 - Refreshed M7 verification evidence now passed across both targeted automated suites and a bounded real `bin/verify-host-edge` run: the repository can now gate stronger “implemented and ready to run” claims on both the direct-action host-control path and the normal runtime-initiative host-control path, each validated against a separate real host-edge daemon
 - We now consider M7 complete: host-edge-path operational-readiness verification is no longer only a documentation rule, but a concrete bounded acceptance gate with real runtime, host-daemon, websocket, persisted-state, and dual-path action evidence
-- We now reorder the post-M7 roadmap so storage hardening is no longer the immediate next step: M8 formal terminal edge, M9 cloud-model-backed agent baseline, M10 model grounding/runtime memory, M11 terminal/CLI interaction maturity, M12 prompt/context engineering, M13 proposal-formation maturity, M14 model-provider connection reliability and diagnostics, M15 runtime-native credential/runtime-config baseline, M16 post-action deliberation/action loop, M17 multi-edge interaction expansion, M18 observation-driven idle intent sensing, M19 behavior-contract/action-tool governance, M20 policy learning/review, and M21 bounded-growth/storage-hygiene hardening
-- We now intentionally defer bounded-growth and storage-hygiene hardening to M21, after the first formal terminal/model interaction surfaces plus explicit proposal-formation maturity, model-provider reliability, credential-baseline, action-loop, multi-edge expansion, observation-driven idle intent sensing, action/tool governance, and policy-learning design have been validated more concretely
+- We now reorder the post-M7 roadmap so storage hardening is no longer the immediate next step: M8 formal terminal edge, M9 cloud-model-backed agent baseline, M10 model grounding/runtime memory, M11 terminal/CLI interaction maturity, M12 prompt/context engineering, M13 proposal-formation maturity, M14 model-provider connection reliability and diagnostics, M15 runtime-native credential/runtime-config baseline, M16 post-action deliberation/action loop, M17 multi-edge interaction expansion, M18 observation-driven idle intent sensing, M19 behavior-contract/action-tool governance, M20 policy learning/review, M21 first packaged three-end product slice, and M22 bounded-growth/storage-hygiene hardening
+- We now intentionally defer bounded-growth and storage-hygiene hardening to M22, after the first formal terminal/model interaction surfaces plus explicit proposal-formation maturity, model-provider reliability, credential-baseline, action-loop, multi-edge expansion, observation-driven idle intent sensing, action/tool governance, policy-learning design, and first packaged product slice have been validated more concretely
 - We now prefer the desktop/CLI edge to evolve from a verification harness into the first formal long-running terminal `Device Edge` for product-facing interaction
 - We now explicitly treat terminal interaction as ordinary environment sensing plus runtime action on a `Device Edge`, not as a special chat-centered system mode
 - We now want the first formal terminal edge to support both user-initiated pull requests and presence-gated runtime-initiated push interactions on the same normal runtime chain

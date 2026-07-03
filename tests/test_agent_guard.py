@@ -2,6 +2,7 @@ import unittest
 from pathlib import Path
 
 from agent_guard.codex_hooks import (
+    REQUIRED_PROGRESS_LABELS,
     SessionState,
     TurnAudit,
     extract_project_phase,
@@ -64,6 +65,14 @@ VALID_ARCHITECTURE_SUMMARY = """架构实现小结:
 - 本步完成: 新增一个 freshness-aware compact snapshot 字段。
 - 影响链路: normalized observations -> compact snapshot -> Agent Runtime / Presence Router
 """
+
+
+VALID_PROGRESS_MESSAGE_WITH_GOAL5 = (
+    VALID_PROGRESS_MESSAGE
+    + "\n## Goal 5\n"
+    + "\n".join(f"{label}: ok" for label in REQUIRED_PROGRESS_LABELS)
+    + "\n"
+)
 
 
 class ParseProjectCheckTests(unittest.TestCase):
@@ -180,16 +189,27 @@ class ProgressUpdateValidationTests(unittest.TestCase):
         self.assertTrue(is_project_progress_update_request("汇报一下进度"))
 
     def test_accepts_valid_goal_structured_progress_update(self) -> None:
-        self.assertIsNone(validate_progress_update_response(VALID_PROGRESS_MESSAGE))
+        self.assertIsNone(
+            validate_progress_update_response(VALID_PROGRESS_MESSAGE_WITH_GOAL5)
+        )
 
     def test_rejects_progress_update_missing_goal_section(self) -> None:
-        invalid = VALID_PROGRESS_MESSAGE.replace("## Goal 4\n", "")
+        invalid = VALID_PROGRESS_MESSAGE
 
         error = validate_progress_update_response(invalid)
 
-        self.assertIn("Goal 4", error)
+        self.assertIn("Goal 5", error)
 
     def test_rejects_progress_update_missing_required_architecture_label(self) -> None:
+        invalid = VALID_PROGRESS_MESSAGE_WITH_GOAL5.replace(
+            f"{REQUIRED_PROGRESS_LABELS[1]}: ok", ""
+        )
+        error = validate_progress_update_response(invalid)
+        self.assertIn(REQUIRED_PROGRESS_LABELS[1], error)
+        return
+        self.assertIn("鏋舵瀯浣嶇疆", error)
+        return
+
         invalid = VALID_PROGRESS_MESSAGE.replace("架构位置：真实 runtime 主链路\n", "")
 
         error = validate_progress_update_response(invalid)

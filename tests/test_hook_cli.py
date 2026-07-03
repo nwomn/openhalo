@@ -151,6 +151,13 @@ class HookCliTests(unittest.TestCase):
             patch("agent_guard.codex_hooks.load_state", return_value=state),
             patch("agent_guard.codex_hooks.save_state"),
         ):
+            valid_message += (
+                "\n\n## Goal 5\n"
+                + "\n".join(
+                    f"{label}: ok" for label in codex_hooks.REQUIRED_PROGRESS_LABELS
+                )
+                + "\n"
+            )
             exit_code = self.run_main(
                 "Stop",
                 {"last_assistant_message": valid_message},

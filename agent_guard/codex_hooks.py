@@ -21,7 +21,7 @@ REQUIRED_SUMMARY_TEMPLATE = """Project.md Check:
 - project_updated: yes|no
 - summary: One concise sentence.
 """
-REQUIRED_PROGRESS_UPDATE_TEMPLATE = """Project progress updates must include separate `Goal 1` through `Goal 4` sections.
+REQUIRED_PROGRESS_UPDATE_TEMPLATE = """Project progress updates must include separate `Goal 1` through `Goal 5` sections.
 Each Goal section must include:
 - `状态`
 - `架构位置`
@@ -38,6 +38,10 @@ That block must include:
 
 GOAL_HEADER_RE = re.compile(
     r"^\s{0,3}(?:[#>*-]+\s*)?(?:\*\*)?Goal\s*([1-4])(?:\*\*)?(?:[:：].*)?$",
+    re.IGNORECASE,
+)
+GOAL_HEADER_RE = re.compile(
+    r"^\s{0,3}(?:[#>*-]+\s*)?(?:\*\*)?Goal\s*([1-5])\b.*$",
     re.IGNORECASE,
 )
 PROGRESS_REQUEST_PATTERNS = (
@@ -166,7 +170,7 @@ def is_project_progress_update_request(prompt: str | None) -> bool:
 
 def validate_progress_update_response(message_text: str) -> str | None:
     sections = _extract_goal_sections(message_text)
-    for goal_number in range(1, 5):
+    for goal_number in range(1, 6):
         section_text = sections.get(goal_number)
         if section_text is None:
             return f"Project progress updates must include a Goal {goal_number} section."
