@@ -150,6 +150,16 @@ class M17AndroidEdgeComposeTest {
             .performClick()
         composeRule.waitForIdle()
         assertFalse(AndroidEdgePreferences.backgroundKeepAliveEnabled(appContext))
+
+        assertFalse(AndroidEdgePreferences.screenContextObservationEnabled(appContext))
+        composeRule.onNodeWithTag(AndroidEdgeTestTags.SETTINGS_SCREEN_CONTEXT_ROW)
+            .performScrollTo()
+            .performClick()
+        composeRule.waitForIdle()
+        assertTrue(AndroidEdgePreferences.screenContextObservationEnabled(appContext))
+        composeRule.onNodeWithTag(AndroidEdgeTestTags.SETTINGS_ACCESSIBILITY_ROW)
+            .performScrollTo()
+            .assertHasClickAction()
     }
 
     @Test

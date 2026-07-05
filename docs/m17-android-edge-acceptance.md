@@ -30,6 +30,10 @@ Target coverage:
 
 - Edge API frame builders such as `mobile.input`, `mobile.context`, and action
   result frames.
+- `mobile.screen_context` capability registration and observation frame shape.
+- Screen-context summarization, redaction, bounded visible text, indexed
+  interactive elements, and the default `raw_screenshot_uploaded=false`
+  privacy contract.
 - Reconnect/backoff policy and connection health state transitions.
 - Runtime config persistence boundaries.
 - Bounded notification/event history formatting.
@@ -127,6 +131,7 @@ Purpose:
 Target coverage:
 
 - Foreground service lifecycle.
+- Accessibility service enablement and screen-context observation toggle.
 - Notification runtime permission behavior.
 - Full-screen alert availability and alert activity behavior.
 - Battery/background restriction settings affordances.
@@ -207,6 +212,51 @@ python bin\verify_m17_android_device.py --require-action --timeout-seconds 45
 
 This is a milestone or human-acceptance check. It is not expected to run on
 every local edit.
+
+## 6. M17.5 Screen-Context Observation Acceptance
+
+Purpose:
+
+- Verify that the phone can observe current foreground-app screen context as
+  passive evidence while OpenHalo itself is not the foreground Activity.
+- Confirm the feature remains user-controlled, redacted, bounded, and free of
+  raw screenshot upload by default.
+
+Scenario:
+
+```text
+Android foreground service + AccessibilityService -> public runtime observation ingest
+```
+
+Expected flow:
+
+1. Install the debug APK and connect the Android edge to the target runtime.
+2. In Settings, enable `屏幕上下文`.
+3. Open `无障碍观察`, enable the OpenHalo accessibility service, and return to
+   the app.
+4. Confirm developer diagnostics show `mobile.screen_context` in registered
+   capabilities and a non-empty Screen Context state.
+5. Background OpenHalo, interact with several normal apps such as chat,
+   browser, and settings, then return to OpenHalo diagnostics or inspect
+   runtime state/logs.
+6. Confirm `mobile.screen_context` observations arrive through the normal Edge
+   API with `source=accessibility`, `capture_mode=accessibility_tree`,
+   indexed `interactive_elements`, bounded `visible_text_summary`, sensitivity
+   metadata, provenance, and `raw_screenshot_uploaded=false`.
+7. Confirm sensitive or locked/screen-off cases produce blocked/redacted or
+   health-only evidence rather than rich text or screenshots.
+8. Confirm no runtime action, reply, or proactive intervention is triggered by
+   these observations during M17.5 acceptance.
+
+Current automated coverage:
+
+- `EdgeApiFramesTest` covers `mobile.screen_context` capability registration,
+  redaction/blocking behavior, default no-screenshot provenance, and indexed
+  interactive elements.
+- `M17AndroidEdgeComposeTest` covers the settings toggle and accessibility row
+  as user-facing controls.
+- `GatewayTests.test_mobile_screen_context_observation_is_passive_evidence`
+  covers passive runtime storage without intervention.
 
 ## Current Practice By Change Type
 

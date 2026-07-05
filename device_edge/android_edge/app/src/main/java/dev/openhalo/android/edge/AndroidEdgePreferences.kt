@@ -27,6 +27,7 @@ object AndroidEdgePreferences {
     private const val KEY_EDGE_TOKEN = "edge_token"
     private const val KEY_EVENT_HISTORY = "event_history"
     private const val KEY_BACKGROUND_KEEPALIVE = "background_keepalive"
+    private const val KEY_SCREEN_CONTEXT_OBSERVATION = "screen_context_observation"
     private const val MAX_HISTORY_ITEMS = 12
 
     fun loadConfig(context: Context): AndroidEdgeConfig {
@@ -62,6 +63,18 @@ object AndroidEdgePreferences {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putBoolean(KEY_BACKGROUND_KEEPALIVE, enabled)
+            .apply()
+    }
+
+    fun screenContextObservationEnabled(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_SCREEN_CONTEXT_OBSERVATION, false)
+    }
+
+    fun saveScreenContextObservationEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_SCREEN_CONTEXT_OBSERVATION, enabled)
             .apply()
     }
 

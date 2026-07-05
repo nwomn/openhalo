@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">OpenHalo Android Edge</string>
+    <string name="accessibility_service_description">Collects redacted screen context observations for OpenHalo when you enable screen-context mode.</string>
 </resources>

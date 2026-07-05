@@ -23,7 +23,7 @@ data class EdgeDiagnostics(
     val lastSentFrame: String = "",
     val lastReceivedFrame: String = "",
     val lastError: String = "",
-    val registeredCapabilities: String = "mobile.input, notification.show, notification.alert, mobile.reply.render, mobile.context",
+    val registeredCapabilities: String = "mobile.input, notification.show, notification.alert, mobile.reply.render, mobile.context, mobile.screen_context",
     val recentObservations: String = "",
     val recentActions: String = "",
     val inAppReply: String = "",
@@ -36,7 +36,8 @@ data class EdgeDiagnostics(
     val nextReconnectAt: String = "",
     val notificationHealth: String = "",
     val fullScreenAlertHealth: String = "",
-    val batteryHealth: String = ""
+    val batteryHealth: String = "",
+    val screenContextState: String = "disabled"
 )
 
 class AndroidEdgeClient(
@@ -163,6 +164,30 @@ class AndroidEdgeClient(
             return
         }
         sendTextCommandNow(trimmed)
+    }
+
+    fun sendScreenContextObservation(observation: JSONObject) {
+        if (state.connectionState != "connected" || webSocket == null) {
+            publish(
+                state.copy(
+                    screenContextState = "queued: websocket disconnected",
+                    lastError = "Screen context observation skipped because WebSocket is not connected."
+                )
+            )
+            return
+        }
+        sendFrame(buildScreenContextObservationPushFrame(state.deviceId, observation))
+        publish(
+            state.copy(
+                screenContextState = "sent at ${nowIso()}",
+                recentEvents = AndroidEdgePreferences.appendHistory(
+                    context,
+                    "Sent mobile.screen_context",
+                    observation.optJSONObject("value")?.optString("screen_kind").orEmpty(),
+                    "event"
+                )
+            )
+        )
     }
 
     private fun sendTextCommandNow(text: String) {
@@ -347,12 +372,15 @@ class AndroidEdgeClient(
                 state.copy(
                     lastSentFrame = pretty(redactSecrets(text)),
                     recentObservations = if (frame.optString("type") == "observation_push") {
-                        "Sent mobile.context at ${nowIso()}"
+                        "Sent ${frame.optString("capability")} at ${nowIso()}"
                     } else {
                         state.recentObservations
                     },
                     recentEvents = if (frame.optString("type") == "observation_push") {
-                        AndroidEdgePreferences.appendHistory(context, "Sent mobile.context")
+                        AndroidEdgePreferences.appendHistory(
+                            context,
+                            "Sent ${frame.optString("capability")}"
+                        )
                     } else {
                         state.recentEvents
                     }

@@ -7,8 +7,25 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import android.text.TextUtils
 
 object AndroidEdgeHealth {
+    fun accessibilityServiceState(context: Context): String {
+        val expected = "${context.packageName}/${OpenHaloAccessibilityService::class.java.name}"
+        val enabled = Settings.Secure.getString(
+            context.contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return "disabled"
+        return if (enabled.split(':').any { TextUtils.equals(it, expected) }) {
+            "enabled"
+        } else {
+            "disabled"
+        }
+    }
+
+    fun accessibilitySettingsIntent(): Intent =
+        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+
     fun batteryOptimizationState(context: Context): String {
         val powerManager = context.getSystemService(PowerManager::class.java)
         return if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {

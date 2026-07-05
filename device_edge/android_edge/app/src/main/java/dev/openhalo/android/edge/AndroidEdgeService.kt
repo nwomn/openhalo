@@ -26,6 +26,9 @@ class AndroidEdgeService : Service() {
         ) { next ->
             EdgeDiagnosticsStore.update(next.copy(serviceState = "foreground"))
         }
+        ScreenContextObservationBridge.attach { observation ->
+            client?.sendScreenContextObservation(observation)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -75,6 +78,7 @@ class AndroidEdgeService : Service() {
     override fun onDestroy() {
         client?.disconnect()
         client = null
+        ScreenContextObservationBridge.detach()
         EdgeDiagnosticsStore.update(
             EdgeDiagnosticsStore.current().copy(serviceState = "stopped")
         )

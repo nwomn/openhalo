@@ -99,6 +99,36 @@ That inspection mode runs one local interaction and prints the chain in this ord
 
 This is the fastest local way to confirm what the runtime actually consumed on the `normalized observations -> compact snapshot / snapshot contract -> Agent proposal -> Presence decision -> recorded intervention` chain without manually digging through multiple files.
 
+When you need to inspect a long-running runtime without starting a new
+interaction, use the read-only context viewer against the runtime state file:
+
+```powershell
+.\.venv\Scripts\python.exe -m personal_runtime.context_viewer --state-path .runtime\android-openai-dev-state.json --diagnostic-log-path .runtime\android-openai-dev-diagnostics.jsonl --watch
+```
+
+On Linux or the server, the wrapper form is:
+
+```bash
+bin/runtime-context-viewer --state-path .runtime/state.json --diagnostic-log-path .runtime/runtime-diagnostics.jsonl --watch
+```
+
+The viewer does not modify runtime state or the hot path. It reads the persisted
+state JSON and optional diagnostic JSONL, then shows:
+
+- latest accepted ingress events
+- latest normalized runtime observations
+- whether each latest observation is evidence in the current compact snapshot
+- current compact snapshot and evidence contract
+- latest agent turn summary, snapshot contract, and prompt/context package
+- recent diagnostic boundary events when a diagnostic log path is provided
+
+This is the preferred way to confirm whether a live edge observation, such as
+`mobile.screen_context`, reached the runtime, how it was normalized, and whether
+it is currently represented in compact snapshot evidence. For M17.5,
+`mobile.screen_context` may be stored as passive evidence while still showing
+`in_current_snapshot_evidence: false`; that is expected until M18 adds the
+observation-driven intent reducers/policy path.
+
 That same inspection path is now also the first local `M9` acceptance surface for model-provider wiring.
 
 For the first `M9` slice, inspect the `Proposal` section and confirm it contains:

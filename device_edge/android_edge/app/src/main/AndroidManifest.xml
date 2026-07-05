@@ -44,6 +44,17 @@
             android:name=".AndroidEdgeService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+        <service
+            android:name=".OpenHaloAccessibilityService"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/openhalo_accessibility_service" />
+        </service>
     </application>
 
 </manifest>

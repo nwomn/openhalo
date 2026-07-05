@@ -434,6 +434,97 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(gateway.state.observations[-1].name, "mobile.screen_state")
 
+    async def test_mobile_screen_context_observation_is_passive_evidence(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "api_version": API_VERSION,
+                    "type": "connect",
+                    "device": {
+                        "device_id": "android-edge-1",
+                        "device_type": "android-phone",
+                        "role": "interactive_surface",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "capability_announce",
+                    "device_id": "android-edge-1",
+                    "capabilities": [
+                        {
+                            "name": "mobile.screen_context",
+                            "direction": "edge_to_runtime",
+                            "kind": "observation_provider",
+                            "observations": [
+                                {
+                                    "name": "mobile.screen_context",
+                                    "schema": {
+                                        "type": "object",
+                                        "required": [
+                                            "trigger",
+                                            "event_kind",
+                                            "source",
+                                            "capture_mode",
+                                            "screen_state",
+                                            "sensitivity",
+                                            "raw_screenshot_uploaded",
+                                        ],
+                                        "properties": {
+                                            "trigger": {"type": "string"},
+                                            "event_kind": {"type": "string"},
+                                            "source": {"type": "string"},
+                                            "capture_mode": {"type": "string"},
+                                            "screen_state": {"type": "string"},
+                                            "sensitivity": {"type": "string"},
+                                            "raw_screenshot_uploaded": {
+                                                "type": "boolean"
+                                            },
+                                        },
+                                    },
+                                }
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "observation_push",
+                    "device_id": "android-edge-1",
+                    "capability": "mobile.screen_context",
+                    "observations": [
+                        {
+                            "name": "mobile.screen_context",
+                            "value": {
+                                "trigger": "accessibility_event",
+                                "event_kind": "view_clicked",
+                                "source": "accessibility",
+                                "capture_mode": "accessibility_tree",
+                                "screen_state": "unlocked",
+                                "sensitivity": "normal",
+                                "raw_screenshot_uploaded": False,
+                                "visible_text_summary": "Chat screen with reply box.",
+                            },
+                            "observed_at": "2026-07-05T14:24:53Z",
+                            "confidence": 0.76,
+                        }
+                    ],
+                },
+            ]
+        )
+
+        self.assertEqual(replies[0], {"api_version": API_VERSION, "type": "connect_ok"})
+        self.assertEqual(replies[-1], {"api_version": API_VERSION, "type": "event_ack"})
+        self.assertEqual(len(gateway.state.observations), 1)
+        self.assertEqual(gateway.state.observations[-1].name, "mobile.screen_context")
+        self.assertEqual(gateway.state.interventions, [])
+
     async def test_external_edge_uses_public_api_frames_for_full_turn(self) -> None:
         gateway = RuntimeGateway(
             shared_token="dev-token",

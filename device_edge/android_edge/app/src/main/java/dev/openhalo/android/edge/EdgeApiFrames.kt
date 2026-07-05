@@ -13,6 +13,7 @@ val STABLE_RUNTIME_URL: String = BuildConfig.OPENHALO_STABLE_RUNTIME_URL
 val STABLE_EDGE_TOKEN: String = BuildConfig.OPENHALO_STABLE_EDGE_TOKEN
 val DEFAULT_RUNTIME_URL: String = DEVELOPMENT_RUNTIME_URL
 val DEFAULT_EDGE_TOKEN: String = DEVELOPMENT_EDGE_TOKEN
+private const val SCREEN_CONTEXT_OBSERVATION_SCHEMA_TYPE = "object"
 
 fun runtimeUrlForMode(runtimeMode: String): String =
     if (runtimeMode == RUNTIME_MODE_STABLE) STABLE_RUNTIME_URL else DEVELOPMENT_RUNTIME_URL
@@ -220,6 +221,72 @@ fun buildCapabilityAnnounceFrame(deviceId: String): JSONObject =
                                 )
                         )
                 )
+                .put(
+                    JSONObject()
+                        .put("name", "mobile.screen_context")
+                        .put("direction", "edge_to_runtime")
+                        .put("kind", "observation_provider")
+                        .put("source", "android_accessibility_service")
+                        .put(
+                            "observations",
+                            JSONArray()
+                                .put(
+                                    JSONObject()
+                                        .put("name", "mobile.screen_context")
+                                        .put(
+                                            "schema",
+                                            JSONObject()
+                                                .put("type", SCREEN_CONTEXT_OBSERVATION_SCHEMA_TYPE)
+                                                .put(
+                                                    "required",
+                                                    JSONArray()
+                                                        .put("trigger")
+                                                        .put("event_kind")
+                                                        .put("source")
+                                                        .put("capture_mode")
+                                                        .put("screen_state")
+                                                        .put("sensitivity")
+                                                        .put("raw_screenshot_uploaded")
+                                                )
+                                                .put(
+                                                    "properties",
+                                                    JSONObject()
+                                                        .put("trigger", JSONObject().put("type", "string"))
+                                                        .put("event_kind", JSONObject().put("type", "string"))
+                                                        .put("source", JSONObject().put("type", "string"))
+                                                        .put("capture_mode", JSONObject().put("type", "string"))
+                                                        .put("screen_state", JSONObject().put("type", "string"))
+                                                        .put("sensitivity", JSONObject().put("type", "string"))
+                                                        .put("raw_screenshot_uploaded", JSONObject().put("type", "boolean"))
+                                                )
+                                        )
+                                        .put("semantics", JSONArray().put("passive_screen_context"))
+                                        .put("privacy", "personal_screen_context_redacted")
+                                        .put("freshness_seconds", 30)
+                                        .put("confidence", JSONObject().put("type", "edge_reported"))
+                                )
+                                .put(
+                                    JSONObject()
+                                        .put("name", "mobile.screen_capture_health")
+                                        .put(
+                                            "schema",
+                                            JSONObject()
+                                                .put("type", SCREEN_CONTEXT_OBSERVATION_SCHEMA_TYPE)
+                                                .put(
+                                                    "required",
+                                                    JSONArray()
+                                                        .put("accessibility_service_state")
+                                                        .put("capture_mode")
+                                                        .put("capture_pause_reason")
+                                                )
+                                        )
+                                        .put("semantics", JSONArray().put("edge_availability"))
+                                        .put("privacy", "operational")
+                                        .put("freshness_seconds", 60)
+                                        .put("confidence", JSONObject().put("type", "edge_reported"))
+                                )
+                        )
+                )
         )
 
 fun buildObservationPushFrame(
@@ -238,6 +305,20 @@ fun buildObservationPushFrame(
         .put("type", "observation_push")
         .put("device_id", deviceId)
         .put("capability", "mobile.context")
+        .put("observations", observations)
+        .put("payload", JSONObject().put("observations", observations))
+}
+
+fun buildScreenContextObservationPushFrame(
+    deviceId: String,
+    observation: JSONObject
+): JSONObject {
+    val observations = JSONArray().put(observation)
+    return JSONObject()
+        .put("api_version", EDGE_API_VERSION)
+        .put("type", "observation_push")
+        .put("device_id", deviceId)
+        .put("capability", "mobile.screen_context")
         .put("observations", observations)
         .put("payload", JSONObject().put("observations", observations))
 }

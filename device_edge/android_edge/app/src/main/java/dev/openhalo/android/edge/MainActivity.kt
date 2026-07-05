@@ -132,6 +132,8 @@ object AndroidEdgeTestTags {
     const val SETTINGS_PROTOCOL_ROW = "openhalo.settings.protocol.row"
     const val SETTINGS_NOTIFICATION_ROW = "openhalo.settings.notification.row"
     const val SETTINGS_KEEPALIVE_ROW = "openhalo.settings.keepalive.row"
+    const val SETTINGS_SCREEN_CONTEXT_ROW = "openhalo.settings.screen_context.row"
+    const val SETTINGS_ACCESSIBILITY_ROW = "openhalo.settings.accessibility.row"
     const val SETTINGS_BATTERY_ROW = "openhalo.settings.battery.row"
     const val SETTINGS_LOCAL_NETWORK_ROW = "openhalo.settings.local_network.row"
     const val SETTINGS_BUILD_ROW = "openhalo.settings.build_row"
@@ -159,6 +161,9 @@ fun M17BootstrapScreen(
     var edgeToken by remember { mutableStateOf(storedConfig.edgeToken) }
     var backgroundKeepAlive by remember {
         mutableStateOf(AndroidEdgePreferences.backgroundKeepAliveEnabled(appContext))
+    }
+    var screenContextObservation by remember {
+        mutableStateOf(AndroidEdgePreferences.screenContextObservationEnabled(appContext))
     }
     var selectedView by remember { mutableStateOf(normalizeInitialView(initialView)) }
     var diagnosticsUnlocked by remember { mutableStateOf(false) }
@@ -285,6 +290,7 @@ fun M17BootstrapScreen(
                 deviceId = deviceId,
                 notificationState = currentNotificationState,
                 backgroundKeepAlive = backgroundKeepAlive,
+                screenContextObservation = screenContextObservation,
                 diagnosticsUnlocked = diagnosticsUnlocked,
                 onRuntimeUrlChanged = {
                     runtimeUrl = it
@@ -307,9 +313,17 @@ fun M17BootstrapScreen(
                 onOpenBatterySettings = {
                     openSettings(appContext, AndroidEdgeHealth.batterySettingsIntent(appContext))
                 },
+                onOpenAccessibilitySettings = {
+                    openSettings(appContext, AndroidEdgeHealth.accessibilitySettingsIntent())
+                },
                 onBackgroundKeepAliveChanged = {
                     backgroundKeepAlive = it
                     AndroidEdgePreferences.saveBackgroundKeepAliveEnabled(appContext, it)
+                },
+                onScreenContextObservationChanged = {
+                    screenContextObservation = it
+                    AndroidEdgePreferences.saveScreenContextObservationEnabled(appContext, it)
+                    startEdgeService(appContext, AndroidEdgeService.sendObservationsIntent(appContext))
                 },
                 onResetConnection = {
                     startEdgeService(appContext, AndroidEdgeService.stopIntent(appContext))
@@ -720,13 +734,16 @@ private fun SettingsScreen(
     deviceId: String,
     notificationState: String,
     backgroundKeepAlive: Boolean,
+    screenContextObservation: Boolean,
     diagnosticsUnlocked: Boolean,
     onRuntimeUrlChanged: (String) -> Unit,
     onDeviceIdChanged: (String) -> Unit,
     onOpenNotificationSettings: () -> Unit,
     onOpenAlertSettings: () -> Unit,
     onOpenBatterySettings: () -> Unit,
+    onOpenAccessibilitySettings: () -> Unit,
     onBackgroundKeepAliveChanged: (Boolean) -> Unit,
+    onScreenContextObservationChanged: (Boolean) -> Unit,
     onResetConnection: () -> Unit,
     onClearCache: () -> Unit,
     onBuildTap: () -> Unit,
@@ -799,6 +816,20 @@ private fun SettingsScreen(
                 checked = backgroundKeepAlive,
                 tag = AndroidEdgeTestTags.SETTINGS_KEEPALIVE_ROW,
                 onClick = { onBackgroundKeepAliveChanged(!backgroundKeepAlive) }
+            )
+            SettingsDivider()
+            ToggleSettingsRow(
+                title = "屏幕上下文",
+                checked = screenContextObservation,
+                tag = AndroidEdgeTestTags.SETTINGS_SCREEN_CONTEXT_ROW,
+                onClick = { onScreenContextObservationChanged(!screenContextObservation) }
+            )
+            SettingsDivider()
+            PermissionRow(
+                title = "无障碍观察",
+                value = AndroidEdgeHealth.accessibilityServiceState(LocalContext.current),
+                tag = AndroidEdgeTestTags.SETTINGS_ACCESSIBILITY_ROW,
+                onClick = onOpenAccessibilitySettings
             )
             SettingsDivider()
             PermissionRow(
@@ -1138,6 +1169,7 @@ private fun DeveloperDiagnosticsScreen(
         DiagnosticLine("Runtime Mode", diagnostics.runtimeMode)
         DiagnosticLine("Reconnect", reconnectSummary(diagnostics))
         DiagnosticLine("Android Health", androidHealthSummary(LocalContext.current, diagnostics))
+        DiagnosticLine("Screen Context", diagnostics.screenContextState)
         DiagnosticLine("Registered Capabilities", diagnostics.registeredCapabilities)
         DiagnosticLine("Recent Observations", diagnostics.recentObservations.ifBlank { "None yet" })
         DiagnosticLine("Recent Actions", diagnostics.recentActions.ifBlank { "None yet" })
@@ -1341,6 +1373,10 @@ private fun androidHealthSummary(context: Context, diagnostics: EdgeDiagnostics)
         }}",
         "battery=${diagnostics.batteryHealth.ifBlank {
             AndroidEdgeHealth.batteryOptimizationState(context)
+        }}",
+        "accessibility=${AndroidEdgeHealth.accessibilityServiceState(context)}",
+        "screen_context=${diagnostics.screenContextState.ifBlank {
+            if (AndroidEdgePreferences.screenContextObservationEnabled(context)) "enabled" else "disabled"
         }}"
     ).joinToString("\n")
 

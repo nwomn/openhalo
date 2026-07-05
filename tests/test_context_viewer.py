@@ -1,0 +1,188 @@
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+from personal_runtime.context_contracts import RuntimeObservation
+from personal_runtime.context_viewer import build_context_view
+from personal_runtime.context_viewer import load_diagnostic_events
+from personal_runtime.context_viewer import render_context_view
+from personal_runtime.runtime_state import RuntimeState
+from personal_runtime.state_store import JsonStateStore
+
+
+class ContextViewerTests(unittest.TestCase):
+    def test_builds_view_with_latest_observations_and_snapshot_evidence(self) -> None:
+        state = RuntimeState()
+        state.register_device("terminal-edge-1", "terminal")
+        state.register_capability("terminal-edge-1", "terminal.context")
+        state.events.append(
+            {
+                "type": "event_push",
+                "device_id": "terminal-edge-1",
+                "capability": "terminal.context",
+                "payload": {
+                    "observations": [
+                        {
+                            "name": "terminal.activity_state",
+                            "value": "active",
+                        }
+                    ]
+                },
+            }
+        )
+        state.record_observation(
+            RuntimeObservation(
+                name="terminal.activity_state",
+                value="active",
+                source_device_id="terminal-edge-1",
+                source_capability="terminal.context",
+                source_event_id="event-1",
+                observed_at="2026-07-05T14:40:00Z",
+                confidence=1.0,
+            )
+        )
+
+        view = build_context_view(state.to_dict())
+
+        self.assertEqual(view["counts"]["observations"], 1)
+        self.assertEqual(
+            view["current_snapshot"]["terminal.current_activity_state"],
+            "active",
+        )
+        latest = view["latest_observations"][-1]
+        self.assertTrue(latest["in_current_snapshot_evidence"])
+        self.assertEqual(
+            latest["snapshot_fields"],
+            ["terminal.current_activity_state"],
+        )
+
+    def test_marks_mobile_screen_context_as_stored_but_not_snapshot_evidence(self) -> None:
+        state = RuntimeState()
+        state.register_device("android-edge-1", "android-phone")
+        state.record_observation(
+            RuntimeObservation(
+                name="mobile.screen_context",
+                value={
+                    "trigger": "accessibility_event",
+                    "event_kind": "view_clicked",
+                    "source": "accessibility",
+                    "screen_state": "unlocked",
+                    "capture_mode": "accessibility_tree",
+                    "screen_kind": "conversation_or_feed",
+                    "visible_text_summary": "Chat with reply box.",
+                    "sensitivity": "normal",
+                    "raw_screenshot_uploaded": False,
+                },
+                source_device_id="android-edge-1",
+                source_capability="mobile.screen_context",
+                source_event_id="event-2",
+                observed_at="2026-07-05T14:41:00Z",
+                confidence=0.76,
+            )
+        )
+
+        view = build_context_view(state.to_dict())
+        latest = view["latest_observations"][-1]
+
+        self.assertEqual(latest["name"], "mobile.screen_context")
+        self.assertFalse(latest["in_current_snapshot_evidence"])
+        self.assertEqual(latest["snapshot_fields"], [])
+
+    def test_includes_latest_agent_prompt_context_from_intervention(self) -> None:
+        state = RuntimeState()
+        state.record_intervention(
+            {
+                "interaction_id": "interaction-1",
+                "proposal": {
+                    "proposal_type": "reply",
+                    "source": "normal",
+                    "message": "hello runtime",
+                },
+                "decision": "allow",
+                "reason": "source edge is active",
+                "target_device_id": "terminal-edge-1",
+                "snapshot_contract": {
+                    "snapshot_time": "2026-07-05T14:42:00Z",
+                    "fields": {
+                        "terminal.current_activity_state": {
+                            "observation_name": "terminal.activity_state",
+                            "value": "active",
+                            "status": "fresh",
+                            "evidence": [],
+                        }
+                    },
+                },
+                "grounding_bundle": {
+                    "bundle_version": "m10.v1",
+                    "active_goals": [{"goal_id": "goal-1"}],
+                    "recent_memory": {"observations": []},
+                    "edge_history": {"returned_entries": 0},
+                },
+            }
+        )
+
+        view = build_context_view(state.to_dict())
+        prompt_context = view["latest_prompt_context"]["prompt_context"]
+
+        self.assertEqual(prompt_context["user_text"], "hello runtime")
+        self.assertEqual(
+            prompt_context["sections"]["compact_snapshot"][
+                "terminal.current_activity_state"
+            ],
+            "active",
+        )
+
+    def test_render_context_view_reads_state_and_diagnostic_jsonl(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = Path(directory) / "state.json"
+            diagnostic_path = Path(directory) / "runtime.jsonl"
+            state = RuntimeState()
+            state.record_observation(
+                RuntimeObservation(
+                    name="runtime.health_state",
+                    value="healthy",
+                    source_device_id="host-edge-1",
+                    source_capability="runtime.health",
+                    source_event_id="event-3",
+                    observed_at="2026-07-05T14:43:00Z",
+                    confidence=1.0,
+                )
+            )
+            JsonStateStore(state_path).save(state)
+            diagnostic_path.write_text(
+                json.dumps(
+                    {
+                        "module": "Gateway",
+                        "operation": "receive_frame",
+                        "phase": "input",
+                        "summary": "Received mobile.screen_context observation.",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            rendered = render_context_view(
+                state_path=state_path,
+                diagnostic_log_path=diagnostic_path,
+            )
+
+        self.assertIn("OpenHalo Runtime Context Viewer", rendered)
+        self.assertIn("runtime.current_health_state", rendered)
+        self.assertIn("Latest Diagnostic Events", rendered)
+        self.assertIn("Received mobile.screen_context observation.", rendered)
+
+    def test_load_diagnostic_events_tolerates_malformed_lines(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "runtime.jsonl"
+            path.write_text('{"module": "Gateway"}\nnot-json\n', encoding="utf-8")
+
+            events = load_diagnostic_events(path, limit=2)
+
+        self.assertEqual(events[0]["module"], "Gateway")
+        self.assertEqual(events[1]["malformed_jsonl"], "not-json")
+
+
+if __name__ == "__main__":
+    unittest.main()
