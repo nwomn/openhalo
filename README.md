@@ -36,31 +36,6 @@ Core backend layers:
 - `Agent Executor`
 - `Action Layer`
 
-## Current Status
-
-The project has moved beyond pure architecture planning. The current baseline
-already supports:
-
-- A real local `Personal Runtime` with WebSocket Edge API traffic
-- A host-class edge and resident terminal edge
-- A first-version Android phone Edge surface with `Connect`, `Global Chat`, and `Settings`
-- Public Edge API registration, observation, event, action, and action-result frames
-- Model-backed proposal formation with prompt/context inspection and provider diagnostics
-- Presence-governed action routing across more than one edge surface
-
-Implementation progress is intentionally tracked at a product-slice level:
-
-| Area | Current status |
-| --- | --- |
-| Runtime core | Implemented baseline with Gateway, state/context, proposal formation, Presence Router, action dispatch, grounding, and diagnostics |
-| Terminal edge | Completed first resident terminal edge with foreground user input and runtime-delivered messages |
-| Host edge | Implemented host-class edge for runtime/host-device validation and local actions |
-| Android phone edge | Completed first product UI slice: `Connect`, `Global Chat`, `Settings`, hidden diagnostics, and preview APK |
-| Mobile observation depth | Planned next Android milestone (`M17.5`), focused on screen/use-context evidence rather than intent decisions |
-| Product packaging | Planned later milestone (`M21`), covering installable three-end delivery and stronger release packaging |
-
-The project roadmap and milestone status live in [Project.md](Project.md).
-
 ## Deployment Shapes
 
 OpenHalo is being built toward a small set of deployment scenes:
@@ -76,6 +51,25 @@ All deployment scenes preserve the same boundary:
 The server, computer, and phone may be physically close or even colocated, but
 edge traffic should still cross the Edge API boundary instead of importing
 backend internals directly.
+
+## Progress Toward Deployment
+
+The deployment shapes above require three things to come together: a durable
+runtime, real device edges, and installable product packaging. The current
+implementation has moved beyond pure architecture planning, but it is not yet a
+fully packaged three-end product.
+
+| Deployment requirement | Current status | Remaining gap |
+| --- | --- | --- |
+| Personal Runtime | Implemented baseline with Gateway, state/context, proposal formation, Presence Router, action dispatch, grounding, and diagnostics | Production service hardening and packaged install flow |
+| Server/host edge | Implemented host-class edge for runtime/host-device validation and local actions | One-command server install and supervision polish |
+| Computer edge | Completed resident terminal edge with foreground user input and runtime-delivered messages | User-facing desktop packaging remains later work |
+| Android phone edge | Completed first product UI slice: `Connect`, `Global Chat`, `Settings`, hidden diagnostics, and preview APK | Formal signing, distribution polish, and deeper mobile observation remain later work |
+| Cross-edge interaction | Public Edge API registration, observations, events, actions, action results, and presence-governed routing are implemented | Broader real-device scenarios and richer capability coverage |
+| Mobile observation depth | Planned next Android milestone (`M17.5`), focused on screen/use-context evidence rather than intent decisions | Not part of the completed M17.4 phone UI slice |
+| Product packaging | Planned later milestone (`M21`) | Installable three-end delivery and release-grade packaging |
+
+The project roadmap and milestone status live in [Project.md](Project.md).
 
 ## Android Phone Edge
 
