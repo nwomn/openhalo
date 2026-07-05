@@ -179,13 +179,14 @@ class ContextViewerTests(unittest.TestCase):
 
         self.assertIn("OpenHalo Runtime Context Viewer", rendered)
         self.assertIn("runtime.current_health_state", rendered)
+        self.assertIn("Latest Accepted Ingress Events", rendered)
+        self.assertIn("Latest Normalized Observations", rendered)
         self.assertNotIn("Latest Diagnostic Events", rendered)
         self.assertNotIn("Received mobile.screen_context observation.", rendered)
 
-    def test_render_context_view_can_show_debug_history_explicitly(self) -> None:
+    def test_render_context_view_keeps_observation_uploads_visible_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             state_path = Path(directory) / "state.json"
-            diagnostic_path = Path(directory) / "runtime.jsonl"
             state = RuntimeState()
             state.events.append(
                 {
@@ -195,29 +196,26 @@ class ContextViewerTests(unittest.TestCase):
                     "payload": {},
                 }
             )
-            JsonStateStore(state_path).save(state)
-            diagnostic_path.write_text(
-                json.dumps(
-                    {
-                        "module": "Gateway",
-                        "operation": "receive_frame",
-                        "summary": "old diagnostic event",
-                    }
+            state.record_observation(
+                RuntimeObservation(
+                    name="mobile.screen_context",
+                    value={"screen_kind": "launcher"},
+                    source_device_id="android-edge-1",
+                    source_capability="mobile.screen_context",
+                    source_event_id="event-5",
+                    observed_at="2026-07-05T14:44:00Z",
+                    confidence=0.8,
                 )
-                + "\n",
-                encoding="utf-8",
             )
+            JsonStateStore(state_path).save(state)
 
             rendered = render_context_view(
                 state_path=state_path,
-                diagnostic_log_path=diagnostic_path,
-                debug_history=True,
             )
 
-        self.assertIn("Debug History - Latest Ingress Events", rendered)
         self.assertIn("old-android-edge", rendered)
-        self.assertIn("Debug History - Latest Diagnostic Events", rendered)
-        self.assertIn("old diagnostic event", rendered)
+        self.assertIn("mobile.screen_context", rendered)
+        self.assertIn("launcher", rendered)
 
     def test_current_view_treats_old_observations_as_stale_at_view_time(self) -> None:
         state = RuntimeState()

@@ -116,6 +116,12 @@ def format_context_view(
         "Counts:",
         _format_json(view["counts"]),
         "",
+        "Latest Accepted Ingress Events:",
+        _format_json(_summarize_events(view["latest_ingress_events"])),
+        "",
+        "Latest Normalized Observations:",
+        _format_json(_summarize_observations(view["latest_observations"])),
+        "",
         "Current Agent-Visible Compact Snapshot:",
         _format_json(view["current_snapshot"]),
         "",
@@ -138,11 +144,8 @@ def format_context_view(
         lines.extend(
             [
                 "",
-                "Debug History - Latest Ingress Events:",
-                _format_json(_summarize_events(view["latest_ingress_events"])),
-                "",
-                "Debug History - Latest Normalized Observations:",
-                _format_json(_summarize_observations(view["latest_observations"])),
+                "Debug History:",
+                "No additional persisted history sections are enabled yet.",
             ]
         )
     if debug_history and view.get("latest_diagnostic_events"):
@@ -442,6 +445,8 @@ def _agent_context_view(view: dict) -> dict:
     return {
         "generated_at": view.get("generated_at"),
         "counts": view.get("counts", {}),
+        "latest_ingress_events": view.get("latest_ingress_events", []),
+        "latest_observations": view.get("latest_observations", []),
         "current_snapshot": view.get("current_snapshot", {}),
         "current_snapshot_contract": view.get("current_snapshot_contract", {}),
         "current_snapshot_evidence": view.get("current_snapshot_evidence", []),

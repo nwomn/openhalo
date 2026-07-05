@@ -116,6 +116,8 @@ The viewer does not modify runtime state or the hot path. It reads the persisted
 state JSON and optional diagnostic JSONL, then shows the context surface that is
 relevant to what the agent can see now or most recently saw:
 
+- latest accepted ingress events so edge uploads can be verified
+- latest normalized runtime observations so observation ingestion can be verified
 - current agent-visible compact snapshot and evidence contract
 - only the observations that currently participate in snapshot evidence
 - latest agent turn summary, snapshot contract, and prompt/context package
@@ -127,9 +129,11 @@ it is currently represented in compact snapshot evidence. For M17.5,
 `in_current_snapshot_evidence: false`; that is expected until M18 adds the
 observation-driven intent reducers/policy path.
 
-Use `--debug-history` only when you intentionally want persisted ingress events,
-latest raw observations, and diagnostic tail entries. The default view omits
-historical/offline device noise so it stays focused on the current agent context.
+The default view omits historical/offline device registry noise and diagnostic
+tail entries, but keeps recent ingress and normalized observations visible
+because those are the operator-facing proof that an edge upload reached the
+runtime. Use `--debug-history` only when a future debug-only persisted history
+section is needed.
 
 That same inspection path is now also the first local `M9` acceptance surface for model-provider wiring.
 
