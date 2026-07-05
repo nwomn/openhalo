@@ -64,10 +64,10 @@ fully packaged three-end product.
 | Personal Runtime | Implemented baseline with Gateway, state/context, proposal formation, Presence Router, action dispatch, grounding, and diagnostics | Production service hardening and packaged install flow |
 | Server/host edge | Implemented host-class edge for runtime/host-device validation and local actions | One-command server install and supervision polish |
 | Computer edge | Completed resident terminal edge with foreground user input and runtime-delivered messages | User-facing desktop packaging remains later work |
-| Android phone edge | Completed first product UI slice: `Connect`, `Global Chat`, `Settings`, hidden diagnostics, and preview APK | Formal signing, distribution polish, and deeper mobile observation remain later work |
+| Android phone edge | Completed first product UI slice: `Connect`, `Global Chat`, `Settings`, hidden diagnostics, preview APK, and accepted M17.5 screen-context observation baseline | Formal signing, distribution polish, mobile observation liveness, and sensitive-screen capture governance remain later work |
 | Cross-edge interaction | Public Edge API registration, observations, events, actions, action results, and presence-governed routing are implemented | Broader real-device scenarios and richer capability coverage |
 | Ambient/home edge ecosystem | Long-term direction: smart-home devices, sensors, and small edge-AI nodes become additional `Device Edge` participants | Bridge integrations, device profiles, safety policy, and low-presence ambient interaction design |
-| Mobile observation depth | Planned next Android milestone (`M17.5`), focused on screen/use-context evidence rather than intent decisions | Not part of the completed M17.4 phone UI slice |
+| Mobile observation depth | M17.5 accepted: Android can upload passive `mobile.screen_context` / `mobile.screen_capture_health` evidence and operators can verify it through the runtime context viewer | M17.7 owns liveness/wake recovery; M17.8 owns allowlist-first sensitive-screen capture governance |
 | Product packaging | Planned later milestone (`M21`) | Installable three-end delivery and release-grade packaging |
 
 The project roadmap and milestone status live in [Project.md](Project.md).

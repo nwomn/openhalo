@@ -129,6 +129,59 @@ it is currently represented in compact snapshot evidence. For M17.5,
 `in_current_snapshot_evidence: false`; that is expected until M18 adds the
 observation-driven intent reducers/policy path.
 
+For a long-running server runtime, run the viewer directly on the server against
+the supervised runtime's persisted state and diagnostic log. The current
+Alibaba Cloud deployment uses:
+
+```bash
+cd /root/openhalo
+.venv/bin/python -m personal_runtime.context_viewer \
+  --state-path /var/lib/openhalo/runtime-state.json \
+  --diagnostic-log-path /var/log/openhalo/runtime-diagnostics.jsonl \
+  --limit 80
+```
+
+Use this as the manual observation-acceptance loop:
+
+1. Run the viewer once to record `generated_at`, recent counts, and the latest
+   observations before the user action.
+2. Perform the real edge action on the device, such as opening a normal Android
+   app, scrolling, locking the phone, or turning the screen off.
+3. Run the viewer again and compare the newest `observed_at` timestamps against
+   `generated_at`. Fresh evidence should usually be seconds old during active
+   foreground use.
+4. Inspect `Latest Accepted Ingress Events` to prove the Gateway accepted the
+   uploaded frame from the expected `device_id` and capability.
+5. Inspect `Latest Normalized Observations` to prove runtime ingestion stored
+   the observation with the expected name, source, value fields, confidence, and
+   passive/snapshot status.
+6. Inspect `Current Snapshot Evidence Only` and the latest prompt/context
+   package to confirm whether the observation is agent-visible now. For M17.5,
+   `mobile.screen_context` should remain stored passive evidence and may show
+   `in_current_snapshot_evidence: false`.
+7. If the output is too large, save a local or server-side snapshot and review
+   the bounded latest sections rather than the entire raw state file.
+
+For M17.5 Android screen-context acceptance, pass criteria in the viewer are:
+
+- the latest accepted ingress event comes from the expected Android device,
+  such as `android-edge-782d0247`, with capability `mobile.screen_context`
+- normal unlocked app use produces `mobile.screen_context` with
+  `capture_mode=accessibility_tree`, bounded `visible_text_summary`, optional
+  `interactive_elements`, and `raw_screenshot_uploaded=false`
+- locked or screen-off states produce health-only evidence such as
+  `mobile.screen_capture_health` or a health-only screen-context observation
+  with `capture_pause_reason=locked` or `screen_off`
+- high-frequency activity may produce health-only throttling observations with
+  `capture_pause_reason=throttled`
+- the current compact snapshot and prompt context do not treat M17.5 screen
+  observations as direct user intent
+
+Sensitive banking/payment/login screen governance is deliberately not accepted
+through M17.5. If viewer evidence shows sensitive app text reaching
+`mobile.screen_context`, record it as M17.8 evidence rather than reopening
+M17.5, because M17.8 owns the allowlist-first sensitive-screen capture model.
+
 The default view omits historical/offline device registry noise and diagnostic
 tail entries, but keeps recent ingress and normalized observations visible
 because those are the operator-facing proof that an edge upload reached the

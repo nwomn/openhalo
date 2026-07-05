@@ -55,10 +55,10 @@ OpenHalo 正在面向几个清晰的部署场景建设：
 | Personal Runtime | 已有实现基线，包含 Gateway、state/context、proposal formation、Presence Router、action dispatch、grounding 和 diagnostics | 生产服务硬化和打包安装流程 |
 | Server/host edge | 已实现 host-class edge，用于 runtime/host-device 验证和本地动作 | 一键服务器安装与服务监督 polish |
 | Computer edge | 已完成常驻 terminal edge，支持前台用户输入和 runtime-delivered messages | 用户侧 desktop packaging 仍是后续工作 |
-| Android phone edge | 已完成第一版产品 UI：`Connect`、`Global Chat`、`Settings`、隐藏诊断入口和 preview APK | 正式签名、分发体验和更深的手机观察能力仍是后续工作 |
+| Android phone edge | 已完成第一版产品 UI：`Connect`、`Global Chat`、`Settings`、隐藏诊断入口、preview APK，以及已验收的 M17.5 屏幕上下文观察基线 | 正式签名、分发体验、手机观察保活和敏感屏幕采集治理仍是后续工作 |
 | 跨边缘交互 | 已实现公开 Edge API 的注册、观察、事件、动作、动作结果，以及经过 Presence 治理的路由 | 更广的真实设备场景和更丰富的 capability 覆盖 |
 | 环境/家庭 edge 生态 | 长期方向：智能家居、传感器和小型边缘 AI 节点成为额外的 `Device Edge` 参与者 | 桥接集成、设备画像、安全策略和低存在感环境交互设计 |
-| Mobile observation depth | 下一个 Android 里程碑 `M17.5`，重点是屏幕/使用上下文 evidence，而不是在手机侧做 intent decision | 不属于已完成的 M17.4 手机 UI 切片 |
+| Mobile observation depth | `M17.5` 已验收：Android 可以上传被动的 `mobile.screen_context` / `mobile.screen_capture_health` evidence，并可通过 runtime context viewer 验证 | `M17.7` 负责观察保活/唤醒恢复；`M17.8` 负责 allowlist-first 的敏感屏幕采集治理 |
 | Product packaging | 后续 `M21` | 可安装三端交付和 release-grade packaging |
 
 完整路线图和里程碑状态见 [Project.md](Project.md)。

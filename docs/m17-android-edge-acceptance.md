@@ -219,8 +219,10 @@ Purpose:
 
 - Verify that the phone can observe current foreground-app screen context as
   passive evidence while OpenHalo itself is not the foreground Activity.
-- Confirm the feature remains user-controlled, redacted, bounded, and free of
-  raw screenshot upload by default.
+- Confirm the feature remains user-controlled, bounded, free of raw screenshot
+  upload by default, and passive from the runtime's point of view.
+- Confirm complete sensitive banking/payment/login governance is tracked as
+  M17.8 rather than treated as a quick M17.5 denylist patch.
 
 Scenario:
 
@@ -234,19 +236,59 @@ Expected flow:
 2. In Settings, enable `屏幕上下文`.
 3. Open `无障碍观察`, enable the OpenHalo accessibility service, and return to
    the app.
+   The intended UI labels are `Screen Context` / `屏幕上下文` and
+   `Accessibility Observation` / `无障碍观察`.
 4. Confirm developer diagnostics show `mobile.screen_context` in registered
    capabilities and a non-empty Screen Context state.
 5. Background OpenHalo, interact with several normal apps such as chat,
-   browser, and settings, then return to OpenHalo diagnostics or inspect
-   runtime state/logs.
-6. Confirm `mobile.screen_context` observations arrive through the normal Edge
+   browser, reader, and settings.
+6. On the runtime host, inspect the long-running runtime through the read-only
+   context viewer:
+
+   ```bash
+   cd /root/openhalo
+   .venv/bin/python -m personal_runtime.context_viewer \
+     --state-path /var/lib/openhalo/runtime-state.json \
+     --diagnostic-log-path /var/log/openhalo/runtime-diagnostics.jsonl \
+     --limit 80
+   ```
+
+   For local development runtimes, use the same module with the local state and
+   diagnostic paths, or add `--watch` for a continuously refreshing view.
+7. Confirm `mobile.screen_context` observations arrive through the normal Edge
    API with `source=accessibility`, `capture_mode=accessibility_tree`,
    indexed `interactive_elements`, bounded `visible_text_summary`, sensitivity
    metadata, provenance, and `raw_screenshot_uploaded=false`.
-7. Confirm sensitive or locked/screen-off cases produce blocked/redacted or
-   health-only evidence rather than rich text or screenshots.
-8. Confirm no runtime action, reply, or proactive intervention is triggered by
+8. Confirm the viewer's `Latest Accepted Ingress Events` shows the expected
+   Android `device_id` and capability `mobile.screen_context`, proving the
+   Gateway accepted the live edge upload.
+9. Confirm `Latest Normalized Observations` shows fresh `observed_at`
+   timestamps, expected screen-context or capture-health fields, and
+   `in_current_snapshot_evidence=false` for M17.5 passive evidence.
+10. Confirm locked or screen-off cases produce health-only evidence, commonly
+   `mobile.screen_capture_health` or health-only screen context with
+   `capture_pause_reason=locked` or `screen_off`, rather than rich text or
+   screenshots.
+11. Confirm no runtime action, reply, or proactive intervention is triggered by
    these observations during M17.5 acceptance.
+
+Content-viewer acceptance notes:
+
+- Treat `generated_at` as the viewer time and compare it to the newest
+  `observed_at` values. During active unlocked phone use, fresh observations
+  should normally be seconds old.
+- Use `Latest Accepted Ingress Events` to verify transport and Gateway
+  acceptance.
+- Use `Latest Normalized Observations` to verify runtime storage and field
+  normalization.
+- Use `Current Snapshot Evidence Only`, `Latest Agent Turn Snapshot Contract`,
+  and `Latest Prompt Context` to verify whether the agent currently sees the
+  observation. For M17.5, screen context being stored but absent from snapshot
+  evidence is expected.
+- If a sensitive banking/payment/login app produces rich text, record that as
+  evidence for M17.8 sensitive-screen capture governance. M17.5 is accepted as
+  the observation transport/passive-evidence baseline, not as the final privacy
+  governance model.
 
 Current automated coverage:
 
