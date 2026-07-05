@@ -15,6 +15,7 @@ import androidx.core.app.NotificationCompat
 
 class AndroidEdgeService : Service() {
     private var client: AndroidEdgeClient? = null
+    private var foregroundStarted = false
 
     override fun onCreate() {
         super.onCreate()
@@ -64,6 +65,7 @@ class AndroidEdgeService : Service() {
                     EdgeDiagnosticsStore.current().copy(serviceState = "stopped")
                 )
                 stopForeground(STOP_FOREGROUND_REMOVE)
+                foregroundStarted = false
                 stopSelf()
             }
         }
@@ -82,6 +84,12 @@ class AndroidEdgeService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun startAsForegroundService() {
+        if (foregroundStarted) {
+            EdgeDiagnosticsStore.update(
+                EdgeDiagnosticsStore.current().copy(serviceState = "foreground")
+            )
+            return
+        }
         val notification = serviceNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
@@ -95,6 +103,7 @@ class AndroidEdgeService : Service() {
         EdgeDiagnosticsStore.update(
             EdgeDiagnosticsStore.current().copy(serviceState = "foreground")
         )
+        foregroundStarted = true
     }
 
     private fun serviceNotification(): Notification {
@@ -111,6 +120,8 @@ class AndroidEdgeService : Service() {
             .setContentText("Presence edge session is running")
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
     }

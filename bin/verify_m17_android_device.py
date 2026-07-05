@@ -139,11 +139,26 @@ def tap_text_with_scroll(serial: str | None, text: str, attempts: int = 3) -> No
     raise RuntimeError(f"could not find UI text after scrolling: {text}")
 
 
-def submit_text_command(serial: str | None, text: str) -> None:
-    tap_text_if_present(serial, "Home")
-    if not tap_text_if_present(serial, "Ask OpenHalo from this phone"):
+def unlock_developer_diagnostics(serial: str | None) -> bool:
+    tap_text_if_present(serial, "Settings")
+    time.sleep(0.5)
+    for _ in range(3):
+        if tap_text_if_present(serial, "Build"):
+            break
         scroll_down(serial)
-        if not tap_text_if_present(serial, "Ask OpenHalo from this phone"):
+    else:
+        return False
+    for _ in range(6):
+        tap_text(serial, "Build")
+    time.sleep(0.5)
+    return tap_text_if_present(serial, "Developer Diagnostics")
+
+
+def submit_text_command(serial: str | None, text: str) -> None:
+    tap_text_if_present(serial, "Global Chat")
+    if not tap_text_if_present(serial, "Message OpenHalo"):
+        scroll_down(serial)
+        if not tap_text_if_present(serial, "Message OpenHalo"):
             # Compose exposes the text field label inconsistently on some devices;
             # this coordinate lands in the command box after one downward scroll.
             tap(serial, 500, 1200)
@@ -229,16 +244,15 @@ def build_evidence(events: list[dict], ui_texts: list[str]) -> DeviceEvidence:
     daily_ui_ready = all(
         marker in ui_joined
         for marker in [
-            "Home",
-            "Notifications",
-            "Diagnostics",
-        "Android Health",
-    ]
+            "Connect",
+            "Global Chat",
+            "Settings",
+        ]
     ) and (
-        "Battery Settings" in ui_joined
-        or "Ask OpenHalo from this phone" in ui_joined
-        or "Reconnect Health" in ui_joined
-        or "Battery/background" in ui_joined
+        "Connection Health" in ui_joined
+        or "Message OpenHalo" in ui_joined
+        or "Android Health" in ui_joined
+        or "Server URL" in ui_joined
     )
     submitted_mobile_input = any(
         event.get("event") == "sent_frame"
@@ -294,11 +308,12 @@ def main() -> None:
     start_app(serial)
     time.sleep(2)
     if args.tap_connect or args.tap_start:
-        if not tap_text_if_present(serial, "Start"):
-            tap_text(serial, "Connect")
+        if not tap_text_if_present(serial, "Connect"):
+            tap_text(serial, "Retry")
         time.sleep(2)
     if args.tap_observations:
-        tap_text_if_present(serial, "Diagnostics")
+        if not unlock_developer_diagnostics(serial):
+            raise SystemExit("could not unlock developer diagnostics")
         time.sleep(0.5)
         tap_text_with_scroll(serial, "Send Observations")
         time.sleep(1)

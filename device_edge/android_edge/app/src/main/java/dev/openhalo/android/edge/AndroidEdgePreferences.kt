@@ -26,6 +26,7 @@ object AndroidEdgePreferences {
     private const val KEY_DEVICE_ID = "device_id"
     private const val KEY_EDGE_TOKEN = "edge_token"
     private const val KEY_EVENT_HISTORY = "event_history"
+    private const val KEY_BACKGROUND_KEEPALIVE = "background_keepalive"
     private const val MAX_HISTORY_ITEMS = 12
 
     fun loadConfig(context: Context): AndroidEdgeConfig {
@@ -49,6 +50,18 @@ object AndroidEdgePreferences {
             .putString(KEY_RUNTIME_URL, config.runtimeUrl)
             .putString(KEY_DEVICE_ID, config.deviceId)
             .putString(KEY_EDGE_TOKEN, config.edgeToken)
+            .apply()
+    }
+
+    fun backgroundKeepAliveEnabled(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_BACKGROUND_KEEPALIVE, true)
+    }
+
+    fun saveBackgroundKeepAliveEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_BACKGROUND_KEEPALIVE, enabled)
             .apply()
     }
 
@@ -109,6 +122,13 @@ object AndroidEdgePreferences {
             .joinToString("\n\n") { item ->
                 "${item.observedAt}\n${item.title}\n${item.body.ifBlank { "No detail" }}"
             }
+    }
+
+    fun clearHistory(context: Context) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .remove(KEY_EVENT_HISTORY)
+            .apply()
     }
 
     private fun formatHistory(history: JSONArray): String {
