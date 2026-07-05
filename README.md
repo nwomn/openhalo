@@ -40,7 +40,6 @@ Core backend layers:
 
 OpenHalo is being built toward a small set of deployment scenes:
 
-- **Development loop**: one local development runtime on port `18765`, plus local host/terminal edges and an emulator or phone edge.
 - **Standard personal deployment**: one public or home server runs `Personal Runtime + host edge`; a computer runs a desktop/terminal edge; an Android phone runs the phone edge APK.
 - **Computer-hosted deployment**: one personal computer runs `Personal Runtime + host edge + desktop/terminal edge`; the Android phone connects to that computer-hosted runtime.
 
@@ -89,6 +88,9 @@ Formal release signing, updater/distribution polish, and packaged three-end
 delivery are tracked as later productization work.
 
 ## Quick Start
+
+The local development loop uses one development runtime on port `18765`, plus
+local host/terminal edges and an emulator or phone edge.
 
 Use the repository root virtual environment:
 
