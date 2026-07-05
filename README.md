@@ -42,6 +42,7 @@ OpenHalo is being built toward a small set of deployment scenes:
 
 - **Standard personal deployment**: one public or home server runs `Personal Runtime + host edge`; a computer runs a desktop/terminal edge; an Android phone runs the phone edge APK.
 - **Computer-hosted deployment**: one personal computer runs `Personal Runtime + host edge + desktop/terminal edge`; the Android phone connects to that computer-hosted runtime.
+- **Future ambient deployment**: phones, computers, smart-home devices, sensors, and small edge-AI nodes participate as a low-presence personal environment, so OpenHalo can understand context and act through the least intrusive nearby surface.
 
 All deployment scenes preserve the same boundary:
 
@@ -65,6 +66,7 @@ fully packaged three-end product.
 | Computer edge | Completed resident terminal edge with foreground user input and runtime-delivered messages | User-facing desktop packaging remains later work |
 | Android phone edge | Completed first product UI slice: `Connect`, `Global Chat`, `Settings`, hidden diagnostics, and preview APK | Formal signing, distribution polish, and deeper mobile observation remain later work |
 | Cross-edge interaction | Public Edge API registration, observations, events, actions, action results, and presence-governed routing are implemented | Broader real-device scenarios and richer capability coverage |
+| Ambient/home edge ecosystem | Long-term direction: smart-home devices, sensors, and small edge-AI nodes become additional `Device Edge` participants | Bridge integrations, device profiles, safety policy, and low-presence ambient interaction design |
 | Mobile observation depth | Planned next Android milestone (`M17.5`), focused on screen/use-context evidence rather than intent decisions | Not part of the completed M17.4 phone UI slice |
 | Product packaging | Planned later milestone (`M21`) | Installable three-end delivery and release-grade packaging |
 
