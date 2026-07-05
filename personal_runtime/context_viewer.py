@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import json
 import time
+from datetime import UTC
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -47,10 +49,15 @@ def build_context_view(
     state_payload: dict,
     diagnostic_events: list[dict] | None = None,
     limit: int = 8,
+    current_time: str | None = None,
 ) -> dict:
     state = RuntimeState.from_dict(state_payload) if state_payload else RuntimeState()
     observations = [observation.to_dict() for observation in state.observations]
-    current_snapshot_contract = build_context_snapshot_contract(state.observations)
+    generated_at = current_time or _utc_now()
+    current_snapshot_contract = build_context_snapshot_contract(
+        state.observations,
+        snapshot_time=generated_at,
+    )
     current_snapshot = {
         field_name: field["value"]
         for field_name, field in current_snapshot_contract["fields"].items()
@@ -80,6 +87,7 @@ def build_context_view(
             }
             for observation in latest_observations
         ],
+        "current_snapshot_evidence": _snapshot_evidence(current_snapshot_contract),
         "current_snapshot": current_snapshot,
         "current_snapshot_contract": current_snapshot_contract,
         "latest_intervention_summary": _intervention_summary(latest_intervention),
@@ -89,29 +97,33 @@ def build_context_view(
         ),
         "latest_prompt_context": latest_prompt_context,
         "latest_diagnostic_events": diagnostic_events or [],
+        "generated_at": generated_at,
     }
 
 
-def format_context_view(view: dict, state_path: Path, diagnostic_path: Path | None = None) -> str:
+def format_context_view(
+    view: dict,
+    state_path: Path,
+    diagnostic_path: Path | None = None,
+    debug_history: bool = False,
+) -> str:
     lines = [
         "OpenHalo Runtime Context Viewer",
         f"state_path: {state_path}",
         f"diagnostic_log_path: {diagnostic_path if diagnostic_path else 'not configured'}",
+        f"generated_at: {view.get('generated_at')}",
         "",
         "Counts:",
         _format_json(view["counts"]),
         "",
-        "Latest Ingress Events:",
-        _format_json(_summarize_events(view["latest_ingress_events"])),
-        "",
-        "Latest Normalized Observations:",
-        _format_json(_summarize_observations(view["latest_observations"])),
-        "",
-        "Current Compact Snapshot:",
+        "Current Agent-Visible Compact Snapshot:",
         _format_json(view["current_snapshot"]),
         "",
         "Current Snapshot Evidence Contract:",
         _format_json(_summarize_snapshot_contract(view["current_snapshot_contract"])),
+        "",
+        "Current Snapshot Evidence Only:",
+        _format_json(_summarize_observations(view["current_snapshot_evidence"])),
         "",
         "Latest Agent Turn:",
         _format_json(view["latest_intervention_summary"]),
@@ -122,11 +134,22 @@ def format_context_view(view: dict, state_path: Path, diagnostic_path: Path | No
         "Latest Prompt Context:",
         _format_json(view["latest_prompt_context"]),
     ]
-    if view.get("latest_diagnostic_events"):
+    if debug_history:
         lines.extend(
             [
                 "",
-                "Latest Diagnostic Events:",
+                "Debug History - Latest Ingress Events:",
+                _format_json(_summarize_events(view["latest_ingress_events"])),
+                "",
+                "Debug History - Latest Normalized Observations:",
+                _format_json(_summarize_observations(view["latest_observations"])),
+            ]
+        )
+    if debug_history and view.get("latest_diagnostic_events"):
+        lines.extend(
+            [
+                "",
+                "Debug History - Latest Diagnostic Events:",
                 _format_json(_summarize_diagnostics(view["latest_diagnostic_events"])),
             ]
         )
@@ -137,6 +160,7 @@ def render_context_view(
     state_path: Path,
     diagnostic_log_path: Path | None = None,
     limit: int = 8,
+    debug_history: bool = False,
 ) -> str:
     state_payload = load_state_payload(state_path)
     diagnostic_events = load_diagnostic_events(diagnostic_log_path, limit)
@@ -149,6 +173,7 @@ def render_context_view(
         view,
         state_path=state_path,
         diagnostic_path=diagnostic_log_path,
+        debug_history=debug_history,
     )
 
 
@@ -189,6 +214,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print the raw viewer model as JSON instead of the readable report.",
     )
+    parser.add_argument(
+        "--debug-history",
+        action="store_true",
+        help="Also show persisted ingress events, latest raw observations, and diagnostic tail.",
+    )
     return parser
 
 
@@ -198,14 +228,20 @@ def main() -> None:
         if args.json:
             payload = load_state_payload(args.state_path)
             diagnostics = load_diagnostic_events(args.diagnostic_log_path, args.limit)
-            text = _format_json(
-                build_context_view(payload, diagnostic_events=diagnostics, limit=args.limit)
+            view = build_context_view(
+                payload,
+                diagnostic_events=diagnostics,
+                limit=args.limit,
             )
+            if not args.debug_history:
+                view = _agent_context_view(view)
+            text = _format_json(view)
         else:
             text = render_context_view(
                 state_path=args.state_path,
                 diagnostic_log_path=args.diagnostic_log_path,
                 limit=args.limit,
+                debug_history=args.debug_history,
             )
         print(text)
         if not args.watch:
@@ -252,6 +288,21 @@ def _snapshot_fields_for_observation(observation: dict, snapshot_contract: dict)
         if any(_observation_key(evidence) == key for evidence in field.get("evidence", [])):
             fields.append(field_name)
     return fields
+
+
+def _snapshot_evidence(snapshot_contract: dict) -> list[dict]:
+    evidence = []
+    for field_name, field in snapshot_contract.get("fields", {}).items():
+        for observation in field.get("evidence", []):
+            evidence.append(
+                {
+                    **observation,
+                    "in_current_snapshot_evidence": True,
+                    "snapshot_fields": [field_name],
+                    "snapshot_field_status": field.get("status"),
+                }
+            )
+    return evidence
 
 
 def _observation_key(observation: dict) -> tuple[str, str, str, str]:
@@ -312,6 +363,7 @@ def _summarize_observations(observations: list[dict]) -> list[dict]:
                 False,
             ),
             "snapshot_fields": observation.get("snapshot_fields", []),
+            "snapshot_field_status": observation.get("snapshot_field_status"),
             "value": _compact_value(observation.get("value")),
         }
         for observation in observations
@@ -384,6 +436,26 @@ def _compact_value(value: Any) -> Any:
 
 def _format_json(payload: Any) -> str:
     return json.dumps(payload, indent=2, ensure_ascii=False)
+
+
+def _agent_context_view(view: dict) -> dict:
+    return {
+        "generated_at": view.get("generated_at"),
+        "counts": view.get("counts", {}),
+        "current_snapshot": view.get("current_snapshot", {}),
+        "current_snapshot_contract": view.get("current_snapshot_contract", {}),
+        "current_snapshot_evidence": view.get("current_snapshot_evidence", []),
+        "latest_intervention_summary": view.get("latest_intervention_summary", {}),
+        "latest_intervention_snapshot_contract": view.get(
+            "latest_intervention_snapshot_contract",
+            {},
+        ),
+        "latest_prompt_context": view.get("latest_prompt_context", {}),
+    }
+
+
+def _utc_now() -> str:
+    return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 if __name__ == "__main__":

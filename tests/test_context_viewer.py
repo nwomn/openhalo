@@ -43,7 +43,10 @@ class ContextViewerTests(unittest.TestCase):
             )
         )
 
-        view = build_context_view(state.to_dict())
+        view = build_context_view(
+            state.to_dict(),
+            current_time="2026-07-05T14:40:30Z",
+        )
 
         self.assertEqual(view["counts"]["observations"], 1)
         self.assertEqual(
@@ -82,7 +85,10 @@ class ContextViewerTests(unittest.TestCase):
             )
         )
 
-        view = build_context_view(state.to_dict())
+        view = build_context_view(
+            state.to_dict(),
+            current_time="2026-07-05T14:41:30Z",
+        )
         latest = view["latest_observations"][-1]
 
         self.assertEqual(latest["name"], "mobile.screen_context")
@@ -122,7 +128,10 @@ class ContextViewerTests(unittest.TestCase):
             }
         )
 
-        view = build_context_view(state.to_dict())
+        view = build_context_view(
+            state.to_dict(),
+            current_time="2026-07-05T14:42:30Z",
+        )
         prompt_context = view["latest_prompt_context"]["prompt_context"]
 
         self.assertEqual(prompt_context["user_text"], "hello runtime")
@@ -170,8 +179,71 @@ class ContextViewerTests(unittest.TestCase):
 
         self.assertIn("OpenHalo Runtime Context Viewer", rendered)
         self.assertIn("runtime.current_health_state", rendered)
-        self.assertIn("Latest Diagnostic Events", rendered)
-        self.assertIn("Received mobile.screen_context observation.", rendered)
+        self.assertNotIn("Latest Diagnostic Events", rendered)
+        self.assertNotIn("Received mobile.screen_context observation.", rendered)
+
+    def test_render_context_view_can_show_debug_history_explicitly(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = Path(directory) / "state.json"
+            diagnostic_path = Path(directory) / "runtime.jsonl"
+            state = RuntimeState()
+            state.events.append(
+                {
+                    "type": "event_push",
+                    "device_id": "old-android-edge",
+                    "capability": "mobile.context",
+                    "payload": {},
+                }
+            )
+            JsonStateStore(state_path).save(state)
+            diagnostic_path.write_text(
+                json.dumps(
+                    {
+                        "module": "Gateway",
+                        "operation": "receive_frame",
+                        "summary": "old diagnostic event",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            rendered = render_context_view(
+                state_path=state_path,
+                diagnostic_log_path=diagnostic_path,
+                debug_history=True,
+            )
+
+        self.assertIn("Debug History - Latest Ingress Events", rendered)
+        self.assertIn("old-android-edge", rendered)
+        self.assertIn("Debug History - Latest Diagnostic Events", rendered)
+        self.assertIn("old diagnostic event", rendered)
+
+    def test_current_view_treats_old_observations_as_stale_at_view_time(self) -> None:
+        state = RuntimeState()
+        state.record_observation(
+            RuntimeObservation(
+                name="terminal.activity_state",
+                value="active",
+                source_device_id="terminal-edge-1",
+                source_capability="terminal.context",
+                source_event_id="event-4",
+                observed_at="2026-07-05T14:00:00Z",
+                confidence=1.0,
+            )
+        )
+
+        view = build_context_view(
+            state.to_dict(),
+            current_time="2026-07-05T14:10:01Z",
+        )
+
+        field = view["current_snapshot_contract"]["fields"][
+            "terminal.current_activity_state"
+        ]
+        self.assertEqual(view["current_snapshot"]["terminal.current_activity_state"], "unknown")
+        self.assertEqual(field["status"], "stale")
+        self.assertEqual(view["current_snapshot_evidence"][0]["snapshot_field_status"], "stale")
 
     def test_load_diagnostic_events_tolerates_malformed_lines(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
