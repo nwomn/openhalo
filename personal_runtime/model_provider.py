@@ -14,6 +14,7 @@ from personal_runtime.prompt_context import build_prompt_context_package
 
 
 DEFAULT_CONFIG_PATH = Path("config/runtime-config.toml")
+PROVIDER_RESPONSE_SHAPE_MAX_ATTEMPTS = 3
 PROPOSAL_OUTPUT_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
@@ -676,6 +677,7 @@ def build_deterministic_post_action_proposal_plan(
     grounding: dict | None = None,
     provider_name: str | None = None,
     model_id: str | None = None,
+    interaction: dict | None = None,
 ) -> ProposalPlan:
     details = result.get("details", {})
     if not isinstance(details, dict):
@@ -706,12 +708,14 @@ def build_deterministic_post_action_proposal_plan(
         "used_deterministic_fallback": True,
         "fallback_reason": fallback_reason,
         "proposal_rationale": rationale,
+        **_post_action_lineage_metadata(interaction),
     }
 
     if parent_action_capability == "notification.show" and result.get("status") == "ok":
         rationale["summary"] = (
-            "No intervention needed because the user-visible notification was already delivered."
+            "Deterministic fallback cannot decide cross-surface action-loop semantics."
         )
+        metadata["post_action_semantics"] = "fallback_no_action_loop_decision"
         return ProposalPlan(
             proposal_type="no_intervention",
             response_text="",
@@ -858,9 +862,11 @@ def generate_post_action_proposal_plan(
     profile_name: str = "proposal_formation",
     config_path: Path | None = None,
     transport=None,
+    interaction: dict | None = None,
 ) -> ProposalPlan:
     user_text = _build_post_action_user_text(
         interaction_id=interaction_id,
+        interaction=interaction,
         prior_proposal=prior_proposal,
         result=result,
     )
@@ -891,11 +897,13 @@ def generate_post_action_proposal_plan(
                     provider_request_format=provider_request_format,
                 ),
                 interaction_id=interaction_id,
+                interaction=interaction,
                 prior_proposal=prior_proposal,
                 result=result,
             )
         return build_deterministic_post_action_proposal_plan(
             interaction_id=interaction_id,
+            interaction=interaction,
             prior_proposal=prior_proposal,
             result=result,
             profile_name=fallback_profile_name,
@@ -909,7 +917,7 @@ def generate_post_action_proposal_plan(
     attempt_count = 0
     retried_shapes: list[str] = []
     started_at = time.monotonic()
-    max_attempts = 2
+    max_attempts = PROVIDER_RESPONSE_SHAPE_MAX_ATTEMPTS
     try:
         for attempt_index in range(max_attempts):
             attempt_count = attempt_index + 1
@@ -952,6 +960,7 @@ def generate_post_action_proposal_plan(
                 return _with_post_action_metadata(
                     plan,
                     interaction_id=interaction_id,
+                    interaction=interaction,
                     prior_proposal=prior_proposal,
                     result=result,
                 )
@@ -991,11 +1000,13 @@ def generate_post_action_proposal_plan(
             return _with_post_action_metadata(
                 plan,
                 interaction_id=interaction_id,
+                interaction=interaction,
                 prior_proposal=prior_proposal,
                 result=result,
             )
         return build_deterministic_post_action_proposal_plan(
             interaction_id=interaction_id,
+            interaction=interaction,
             prior_proposal=prior_proposal,
             result=result,
             profile_name=fallback_profile_name,
@@ -1067,7 +1078,7 @@ def generate_post_observation_proposal_plan(
     attempt_count = 0
     retried_shapes: list[str] = []
     started_at = time.monotonic()
-    max_attempts = 2
+    max_attempts = PROVIDER_RESPONSE_SHAPE_MAX_ATTEMPTS
     try:
         for attempt_index in range(max_attempts):
             attempt_count = attempt_index + 1
@@ -1167,6 +1178,7 @@ def generate_post_observation_proposal_plan(
 
 def _build_post_action_user_text(
     interaction_id: str,
+    interaction: dict | None,
     prior_proposal: dict,
     result: dict,
 ) -> str:
@@ -1182,6 +1194,7 @@ def _build_post_action_user_text(
             ),
             "trigger": "action_result",
             "interaction_id": interaction_id,
+            "interaction_lineage": interaction or {},
             "prior_proposal": prior_proposal,
             "action_result": result,
         },
@@ -1216,6 +1229,7 @@ def _build_post_observation_user_text(
 def _with_post_action_metadata(
     plan: ProposalPlan,
     interaction_id: str,
+    interaction: dict | None,
     prior_proposal: dict,
     result: dict,
 ) -> ProposalPlan:
@@ -1230,6 +1244,7 @@ def _with_post_action_metadata(
             )
             or result.get("capability"),
             "post_action_result_status": result.get("status"),
+            **_post_action_lineage_metadata(interaction),
         }
     )
     return ProposalPlan(
@@ -1239,6 +1254,24 @@ def _with_post_action_metadata(
         action_payload=dict(plan.action_payload),
         metadata=metadata,
     )
+
+
+def _post_action_lineage_metadata(interaction: dict | None) -> dict:
+    if not interaction:
+        return {
+            "source_device_id": None,
+            "previous_target_device_id": None,
+            "participant_device_ids": [],
+            "lineage_status": "missing",
+        }
+    return {
+        "source_device_id": interaction.get("source_device_id"),
+        "previous_target_device_id": (
+            interaction.get("primary_action") or {}
+        ).get("target_device_id"),
+        "participant_device_ids": list(interaction.get("participant_device_ids", [])),
+        "lineage_status": "ok",
+    }
 
 
 def _with_post_observation_metadata(
@@ -1520,7 +1553,7 @@ def generate_text_proposal_plan(
     attempt_count = 0
     retried_shapes: list[str] = []
     started_at = time.monotonic()
-    max_attempts = 2
+    max_attempts = PROVIDER_RESPONSE_SHAPE_MAX_ATTEMPTS
     try:
         for attempt_index in range(max_attempts):
             attempt_count = attempt_index + 1
@@ -1692,7 +1725,7 @@ def probe_model_provider(
         ),
     }
     started_at = time.monotonic()
-    max_attempts = 2
+    max_attempts = PROVIDER_RESPONSE_SHAPE_MAX_ATTEMPTS
     retried_shapes: list[str] = []
     try:
         for attempt_index in range(max_attempts):

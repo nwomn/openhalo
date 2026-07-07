@@ -300,6 +300,53 @@ Current automated coverage:
 - `GatewayTests.test_mobile_screen_context_observation_is_passive_evidence`
   covers passive runtime storage without intervention.
 
+## 7. M17.6 Multi-Edge Lineage And Fail-Fast Semantics Acceptance
+
+M17.6 is a runtime-semantics hardening pass for active cross-edge
+interactions. It does not add a new Android capability. It verifies that a
+terminal-originated command routed to the phone keeps enough lineage for
+post-action deliberation to know both surfaces: the phone performs the action,
+and each `action_result` re-enters proposal formation until the proposal
+explicitly continues or completes the action loop.
+
+Automated verifier:
+
+```powershell
+.\.venv\Scripts\python.exe -B bin\verify_m17_mobile_edge.py
+```
+
+Passing output must include:
+
+- `proposal_harness_calls` with both the phone action result and the terminal
+  acknowledgement result re-entering proposal formation
+- `source_acknowledgement.device_id=terminal-edge-1`
+- `source_acknowledgement.semantics=source_ack`
+- lineage fields showing `source_device_id=terminal-edge-1`,
+  `previous_target_device_id=android-edge-1`, and both participant devices
+- `terminal_result_reply_types` without a follow-up `action_request` after the
+  harness proposal returns `loop_decision=complete`
+- `lineage_error.code=lineage_missing` for an intentionally unknown
+  `action_result`
+
+The automated verifier uses an injected proposal-formation harness for the
+post-action loop. It must not be read as proof that deterministic runtime
+fallback can decide source acknowledgement or loop completion semantics.
+
+Manual live-chain acceptance:
+
+1. Keep the long-running runtime/server edge available.
+2. Connect the Android phone edge and confirm it can receive
+   `notification.show`.
+3. From the terminal edge, send a command such as `send hello to my phone`.
+4. Pass when the phone receives the visible notification and the terminal
+   source receives a visible acknowledgement or failure explanation generated
+   by the normal model-backed proposal path.
+5. Use context/chain inspection to confirm the post-action proposal metadata
+   records source, previous target, participant devices, and
+   `post_action_semantics`, and that loop completion follows an explicit
+   proposal such as `no_intervention` / `loop_decision=complete` rather than a
+   deterministic runtime shortcut.
+
 ## Current Practice By Change Type
 
 - Runtime routing/planning change: run runtime-side Python tests and

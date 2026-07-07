@@ -60,6 +60,7 @@ class RuntimeGateway:
         self.diagnostic_recorder = diagnostic_recorder
         self.runtime_instance_id = runtime_instance_id
         self.orchestrator = RuntimeOrchestrator(self)
+        self._action_request_counter = count(1)
         self.proposal_formation = ProposalFormation(
             diagnostic_recorder=diagnostic_recorder,
             runtime_instance_id=runtime_instance_id,
@@ -84,6 +85,9 @@ class RuntimeGateway:
 
     def _next_interaction_id(self) -> str:
         return f"interaction-{next(self._interaction_counter)}"
+
+    def _next_action_request_id(self) -> str:
+        return f"action-{next(self._action_request_counter)}"
 
     def _build_interaction_record(
         self,

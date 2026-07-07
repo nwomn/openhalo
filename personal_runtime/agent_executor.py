@@ -334,6 +334,7 @@ def build_post_action_proposal(
     )
     proposal_plan = generate_post_action_proposal_plan(
         interaction_id=interaction_id,
+        interaction=interaction,
         prior_proposal=prior_proposal,
         result=result,
         snapshot=_snapshot,
@@ -359,6 +360,11 @@ def build_post_action_proposal(
         "parent_action_capability": prior_proposal.get("action_capability")
         or result.get("capability"),
         "result_status": result.get("status"),
+        "source_device_id": interaction.get("source_device_id"),
+        "previous_target_device_id": (
+            interaction.get("primary_action") or {}
+        ).get("target_device_id"),
+        "participant_device_ids": list(interaction.get("participant_device_ids", [])),
         "snapshot_fields": sorted(_snapshot.keys()),
         **grounding_metadata_from_bundle(grounding_bundle),
         **prompt_context_metadata_from_package(
