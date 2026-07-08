@@ -299,6 +299,8 @@ def _proposal_summary(proposal: dict) -> str:
     proposal_type = proposal.get("proposal_type")
     if proposal_type in {"reply", "clarification"}:
         return proposal.get("action_payload", {}).get("message", "")
+    if proposal_type == "provider_failure":
+        return proposal.get("message") or proposal.get("response_text", "")
     if proposal_type == "no_intervention":
         rationale = proposal.get("metadata", {}).get("proposal_rationale", {})
         return rationale.get("summary", "")

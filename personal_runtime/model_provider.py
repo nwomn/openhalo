@@ -864,6 +864,19 @@ def generate_post_action_proposal_plan(
     transport=None,
     interaction: dict | None = None,
 ) -> ProposalPlan:
+    provider_failure_observed = _post_action_contains_provider_failure(
+        {
+            "interaction": interaction or {},
+            "prior_proposal": prior_proposal,
+            "action_result": result,
+        }
+    )
+    if provider_failure_observed:
+        return _build_observed_provider_failure_post_action_plan(
+            interaction_id=interaction_id,
+            prior_proposal=prior_proposal,
+            result=result,
+        )
     user_text = _build_post_action_user_text(
         interaction_id=interaction_id,
         interaction=interaction,
@@ -1182,23 +1195,110 @@ def _build_post_action_user_text(
     prior_proposal: dict,
     result: dict,
 ) -> str:
-    return json.dumps(
+    lineage = interaction or {}
+    source_device_id = lineage.get("source_device_id")
+    target_device_id = (lineage.get("primary_action") or {}).get("target_device_id")
+    result_status = result.get("status")
+    provider_failure_observed = _post_action_contains_provider_failure(
         {
-            "instruction": (
-                "Post-action deliberation: inspect the action_result and prior "
-                "interaction lineage, then choose one proposal_type. Prefer a "
-                "natural user-facing summary when the result is useful, a follow-up "
-                "action when the result explicitly requires another runtime action, "
-                "clarification when the next step needs user input, or no_intervention "
-                "when the action already completed visibly."
-            ),
-            "trigger": "action_result",
-            "interaction_id": interaction_id,
-            "interaction_lineage": interaction or {},
+            "interaction": lineage,
             "prior_proposal": prior_proposal,
             "action_result": result,
+        }
+    )
+    source_ack_required = bool(
+        source_device_id
+        and target_device_id
+        and source_device_id != target_device_id
+        and result_status == "ok"
+    )
+    evidence = {
+        "trigger": "action_result",
+        "interaction_id": interaction_id,
+        "interaction": lineage,
+        "prior_proposal": prior_proposal,
+        "action_result": result,
+    }
+    return "\n".join(
+        [
+            "Decision task:",
+            "A target device action has completed. Decide whether this interaction needs another proposal.",
+            "",
+            "Obligations:",
+            f"- source_device_id: {source_device_id or 'unknown'}",
+            f"- target_device_id: {target_device_id or 'unknown'}",
+            f"- target_action_status: {result_status or 'unknown'}",
+            f"- source_ack_required: {str(source_ack_required).lower()}",
+            f"- provider_failure_observed: {str(provider_failure_observed).lower()}",
+            "- source_surface_satisfied: false"
+            if source_ack_required
+            else "- source_surface_satisfied: unknown",
+            "- target_surface_satisfied: true"
+            if result_status == "ok"
+            else "- target_surface_satisfied: false",
+            "",
+            "Rule:",
+            "If source_ack_required is true and source_surface_satisfied is false, do not choose no_intervention.",
+            "If provider_failure_observed is true, do not copy raw provider failure text into response_text or action payload.",
+            "Forbidden raw provider failure text includes: Real model reply unavailable, provider returned an incompatible response shape, codex_agent_envelope_empty_output.",
+            "When a provider failure needs user visibility, use a short friendly failure explanation to the source surface instead of routing provider internals as normal notification content.",
+            "",
+            "Evidence appendix:",
+            json.dumps(evidence, sort_keys=True),
+        ]
+    )
+
+
+def _post_action_contains_provider_failure(value: dict) -> bool:
+    rendered = json.dumps(value or {}, sort_keys=True).lower()
+    return (
+        "real model reply unavailable" in rendered
+        or "provider returned an incompatible response shape" in rendered
+        or "codex_agent_envelope_empty_output" in rendered
+    )
+
+
+def _build_observed_provider_failure_post_action_plan(
+    interaction_id: str,
+    prior_proposal: dict,
+    result: dict,
+) -> ProposalPlan:
+    metadata = {
+        "runtime_message_channel": "provider_failure",
+        "provider_failure_observed": True,
+        "provider_failure_behavior": "contained",
+        "provider_failure_class": (
+            prior_proposal.get("metadata", {}).get("provider_failure_class")
+            or "protocol_shape"
+        ),
+        "provider_failure_type": (
+            prior_proposal.get("metadata", {}).get("provider_failure_type")
+            or "ObservedProviderFailure"
+        ),
+        "provider_failure_contained": True,
+        "model_unavailable": True,
+        "proposal_rationale": {
+            "summary": (
+                "A model-provider failure was already observed in this interaction, "
+                "so the runtime completed the failure path without routing provider "
+                "internals as a normal notification."
+            ),
+            "intent_signals": ["provider_failure_observed"],
+            "grounding_signals": [
+                f"interaction_id:{interaction_id}",
+                f"result_status:{result.get('status', 'unknown')}",
+            ],
         },
-        sort_keys=True,
+    }
+    return ProposalPlan(
+        proposal_type="provider_failure",
+        response_text=(
+            "I hit a model-provider issue while handling that step. "
+            "Please retry shortly."
+        ),
+        action_capability=None,
+        action_payload={},
+        metadata=metadata,
     )
 
 
@@ -1405,6 +1505,7 @@ def build_provider_failure_proposal_plan(
         "provider_failure_type": error.__class__.__name__,
         "provider_attempt_count": attempt_count,
         "provider_retry_count": max(attempt_count - 1, 0),
+        "runtime_message_channel": "provider_failure",
         "model_unavailable": True,
         "proposal_rationale": {
             "summary": (
@@ -1421,9 +1522,9 @@ def build_provider_failure_proposal_plan(
     if retried_shapes:
         metadata["provider_retried_shapes"] = list(retried_shapes)
     return ProposalPlan(
-        proposal_type="reply",
+        proposal_type="provider_failure",
         response_text=f"Real model reply unavailable: {user_visible_reason}",
-        action_capability="notification.show",
+        action_capability=None,
         action_payload={},
         metadata=metadata,
     )

@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON_BIN="$ROOT_DIR/.venv/bin/python"
+LOG_PREFIX="[verify-proposal-harness]"
+
+DRY_RUN=0
+STATE_PATH=""
+PROVIDER_REPLAY=0
+RUNTIME_CONFIG_PATH="config/runtime-config.openai-local.toml"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    --state)
+      STATE_PATH="$2"
+      shift 2
+      ;;
+    --provider-replay)
+      PROVIDER_REPLAY=1
+      shift
+      ;;
+    --runtime-config-path|--llm-config-path)
+      RUNTIME_CONFIG_PATH="$2"
+      shift 2
+      ;;
+    *)
+      echo "$LOG_PREFIX unknown argument: $1" >&2
+      exit 2
+      ;;
+  esac
+done
+
+HARNESS_CMD=(
+  "$PYTHON_BIN" -m personal_runtime.proposal_harness_cli
+  --fixture m17-6-terminal-phone
+)
+if [[ -n "$STATE_PATH" ]]; then
+  HARNESS_CMD+=(--state "$STATE_PATH")
+fi
+if [[ "$PROVIDER_REPLAY" -eq 1 ]]; then
+  HARNESS_CMD+=(--provider-replay --runtime-config-path "$RUNTIME_CONFIG_PATH")
+fi
+
+print_cmd() {
+  local label="$1"
+  shift
+  printf "%s %s:" "$LOG_PREFIX" "$label"
+  printf " %q" "$@"
+  printf "\n"
+}
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  if [[ -n "$STATE_PATH" ]]; then
+    if [[ "$PROVIDER_REPLAY" -eq 1 ]]; then
+      print_cmd "proposal-harness-provider-replay" "${HARNESS_CMD[@]}"
+    else
+      print_cmd "proposal-harness-state" "${HARNESS_CMD[@]}"
+    fi
+  else
+    print_cmd "proposal-harness-fixture" "${HARNESS_CMD[@]}"
+    printf "%s variants: raw_json decision_brief\n" "$LOG_PREFIX"
+  fi
+  exit 0
+fi
+
+"${HARNESS_CMD[@]}"

@@ -653,7 +653,7 @@ class CliEntryTests(unittest.TestCase):
         self.assertEqual(proposal["proposal_type"], "no_intervention")
         self.assertIsNone(proposal["action_capability"])
 
-    def test_local_cli_session_surfaces_provider_failure_reason_in_visible_reply_mode(
+    def test_local_cli_session_isolates_provider_failure_from_normal_action_path(
         self,
     ) -> None:
         session = LocalCliSession(
@@ -665,16 +665,21 @@ class CliEntryTests(unittest.TestCase):
         result = session.send_text("hello runtime")
         proposal = _latest_non_post_action_proposal(session.gateway.state.interventions)
 
-        self.assertEqual(result["result"]["status"], "ok")
-        self.assertEqual(proposal["proposal_type"], "reply")
-        self.assertEqual(proposal["action_capability"], "notification.show")
+        self.assertEqual(result["result"]["status"], "completed")
+        self.assertEqual(proposal["proposal_type"], "provider_failure")
+        self.assertIsNone(proposal["action_capability"])
         self.assertIn(
             "Real model reply unavailable",
-            proposal["action_payload"]["message"],
+            result["result"]["details"]["message"],
         )
         self.assertIn(
             "missing provider credential: openai_main",
-            proposal["action_payload"]["message"],
+            result["result"]["details"]["message"],
+        )
+        self.assertEqual(proposal["action_payload"], {})
+        self.assertEqual(
+            proposal["metadata"]["runtime_message_channel"],
+            "provider_failure",
         )
         self.assertEqual(
             proposal["metadata"]["provider_failure_behavior"],

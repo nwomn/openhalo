@@ -204,7 +204,9 @@ def build_intervention_proposal(
         if action_capability is not None
         else None,
         action_payload=action_payload,
-        message=user_text,
+        message=proposal_plan.response_text
+        if proposal_plan.proposal_type == "provider_failure"
+        else user_text,
         metadata={
             "trigger": "text.input",
             "snapshot_fields": sorted(_snapshot.keys()),
