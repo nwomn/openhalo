@@ -1372,9 +1372,8 @@ def _build_post_observation_user_text(
                 "Post-observation deliberation: inspect the fresh observations in "
                 "the context of an open interaction and choose one proposal_type. "
                 "Prefer a follow-up action when the observation materially changes "
-                "the current interaction, a natural user-facing summary when useful, "
-                "clarification when user input is required, or no_intervention when "
-                "the observation should only update context."
+                "the current interaction or user-visible output is useful, and "
+                "choose no_intervention when the observation should only update context."
             ),
             "trigger": "observation",
             "interaction_id": interaction_id,

@@ -108,10 +108,8 @@ def build_post_action_prompt_variant(case: dict, variant: str) -> str:
         "instruction": (
             "Post-action deliberation: inspect the action_result and prior "
             "interaction context, then choose one proposal_type. Prefer a natural "
-            "user-facing summary when the result is useful, a follow-up action "
-            "when the result explicitly requires another runtime action, "
-            "clarification when the next step needs user input, or no_intervention "
-            "when the action already completed visibly."
+            "user-facing action when the result is useful or the next step needs "
+            "user input, and no_intervention when the action already completed visibly."
         ),
         "trigger": "action_result",
         "interaction_id": interaction_id,
@@ -307,7 +305,7 @@ def build_m17_6_terminal_phone_fixture_cases() -> list[dict]:
                 "primary_action": {"target_device_id": "android-edge-1"},
             },
             prior_proposal={
-                "proposal_type": "reply",
+                "proposal_type": "action",
                 "action_capability": "notification.show",
             },
             action_result={
@@ -428,7 +426,7 @@ def run_fixture_prompt_variant_comparison() -> dict:
     def decision_brief_runner(case):
         prompt = build_post_action_prompt_variant(case, variant="decision_brief")
         return ProposalPlan(
-            proposal_type="reply",
+            proposal_type="action",
             response_text="Delivered hello to your phone.",
             action_capability="notification.show",
             action_payload={"message": "Delivered hello to your phone."},

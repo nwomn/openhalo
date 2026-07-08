@@ -608,7 +608,7 @@ class CliEntryTests(unittest.TestCase):
         proposal = _latest_non_post_action_proposal(session.gateway.state.interventions)
 
         self.assertEqual(result["result"]["status"], "ok")
-        self.assertEqual(proposal["proposal_type"], "reply")
+        self.assertEqual(proposal["proposal_type"], "action")
         self.assertEqual(proposal["metadata"]["llm_profile"], "proposal_formation")
         self.assertTrue(proposal["metadata"]["used_deterministic_fallback"])
         self.assertIn("proposal_rationale", proposal["metadata"])
@@ -624,7 +624,7 @@ class CliEntryTests(unittest.TestCase):
         )
         self.assertEqual(proposal["action_payload"]["message"], "Runtime heard: hello runtime")
 
-    def test_local_cli_session_can_form_clarification_proposal_from_user_text(self) -> None:
+    def test_local_cli_session_can_form_visible_action_from_help_text(self) -> None:
         session = LocalCliSession(
             token="dev-token",
             trace=True,
@@ -635,7 +635,7 @@ class CliEntryTests(unittest.TestCase):
         proposal = _latest_non_post_action_proposal(session.gateway.state.interventions)
 
         self.assertEqual(result["result"]["status"], "ok")
-        self.assertEqual(proposal["proposal_type"], "clarification")
+        self.assertEqual(proposal["proposal_type"], "action")
         self.assertEqual(proposal["action_capability"], "notification.show")
         self.assertIn("proposal_rationale", proposal["metadata"])
 
@@ -791,7 +791,7 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
         def slow_generate_text_proposal_plan(*_args, **_kwargs):
             time.sleep(0.5)
             return ProposalPlan(
-                proposal_type="reply",
+                proposal_type="action",
                 response_text="Slow model reply.",
                 action_capability="notification.show",
                 action_payload={},

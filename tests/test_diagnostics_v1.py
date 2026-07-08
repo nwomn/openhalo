@@ -137,7 +137,7 @@ class DiagnosticsV1Tests(unittest.TestCase):
             module="Execution Planning",
             operation="plan_action",
             correlation={"trace_id": "trace-terminal-edge-1-1"},
-            input_payload={"proposal_type": "reply"},
+            input_payload={"proposal_type": "action"},
             summary="Planned runtime execution outcome.",
         ) as boundary:
             boundary.output({"kind": "action"})
@@ -163,7 +163,7 @@ class DiagnosticsV1Tests(unittest.TestCase):
                 module="Execution Planning",
                 operation="plan_action",
                 correlation={"trace_id": "trace-terminal-edge-1-1"},
-                input_payload={"proposal_type": "reply"},
+                input_payload={"proposal_type": "action"},
                 summary="Execution planning failed.",
             ):
                 raise ValueError("bad plan")

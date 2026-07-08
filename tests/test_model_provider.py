@@ -255,7 +255,7 @@ class ModelProviderConfigTests(unittest.TestCase):
             },
         )
 
-        self.assertEqual(plan.proposal_type, "reply")
+        self.assertEqual(plan.proposal_type, "action")
         self.assertEqual(plan.action_capability, "notification.show")
         self.assertIn("android-edge-1", plan.response_text)
         self.assertIn("not connected", plan.response_text)
@@ -266,7 +266,7 @@ class ModelProviderConfigTests(unittest.TestCase):
         plan = build_deterministic_post_action_proposal_plan(
             interaction_id="interaction-1",
             prior_proposal={
-                "proposal_type": "reply",
+                "proposal_type": "action",
                 "action_capability": "notification.show",
             },
             result={
@@ -297,7 +297,7 @@ class ModelProviderConfigTests(unittest.TestCase):
                             {
                                 "type": "output_text",
                                 "text": (
-                                    '{"proposal_type":"reply",'
+                                    '{"proposal_type":"action",'
                                     '"response_text":"The runtime is running and using about 27 MB RSS.",'
                                     '"action":{"capability":"notification.show","payload":{"message":"The runtime is running and using about 27 MB RSS."}},'
                                     '"rationale":{"summary":"Summarized runtime.status action_result including memory.",'
@@ -331,7 +331,7 @@ class ModelProviderConfigTests(unittest.TestCase):
             transport=transport,
         )
 
-        self.assertEqual(plan.proposal_type, "reply")
+        self.assertEqual(plan.proposal_type, "action")
         self.assertEqual(plan.action_capability, "notification.show")
         self.assertEqual(
             plan.response_text,
@@ -359,7 +359,7 @@ class ModelProviderConfigTests(unittest.TestCase):
                             {
                                 "type": "output_text",
                                 "text": (
-                                    '{"proposal_type":"reply",'
+                                    '{"proposal_type":"action",'
                                     '"response_text":"Delivered hello to your phone.",'
                                     '"action":{"capability":"notification.show","payload":{}},'
                                     '"rationale":{"summary":"Acknowledged the source terminal.",'
@@ -381,7 +381,7 @@ class ModelProviderConfigTests(unittest.TestCase):
                 "primary_action": {"target_device_id": "android-edge-1"},
             },
             prior_proposal={
-                "proposal_type": "reply",
+                "proposal_type": "action",
                 "action_capability": "notification.show",
             },
             result={
@@ -512,7 +512,7 @@ class ModelProviderConfigTests(unittest.TestCase):
                 },
             },
             prior_proposal={
-                "proposal_type": "reply",
+                "proposal_type": "action",
                 "action_capability": "notification.show",
             },
             result={
@@ -549,7 +549,7 @@ class ModelProviderConfigTests(unittest.TestCase):
                 },
             },
             prior_proposal={
-                "proposal_type": "reply",
+                "proposal_type": "action",
                 "action_capability": "notification.show",
             },
             result={
@@ -586,7 +586,7 @@ class ModelProviderConfigTests(unittest.TestCase):
                 "primary_action": {"target_device_id": "android-edge-1"},
             },
             prior_proposal={
-                "proposal_type": "reply",
+                "proposal_type": "action",
                 "action_capability": "notification.show",
                 "metadata": {"provider_failure_class": "protocol_shape"},
             },
@@ -739,7 +739,7 @@ class ModelProviderConfigTests(unittest.TestCase):
         schema = text_config["format"]["schema"]
         self.assertEqual(
             schema["properties"]["proposal_type"]["enum"],
-            ["reply", "action", "clarification", "no_intervention"],
+            ["action", "no_intervention"],
         )
         self.assertIn("action", schema["required"])
 
@@ -886,7 +886,7 @@ class ModelProviderConfigTests(unittest.TestCase):
                             {
                                 "type": "output_text",
                                 "text": (
-                                    '{"proposal_type":"reply",'
+                                    '{"proposal_type":"action",'
                                     '"response_text":"Hello!",'
                                     '"action":"respond",'
                                     '"rationale":"The user greeted the runtime."}'
@@ -901,7 +901,7 @@ class ModelProviderConfigTests(unittest.TestCase):
             model_id="gpt-5.5",
         )
 
-        self.assertEqual(plan.proposal_type, "reply")
+        self.assertEqual(plan.proposal_type, "action")
         self.assertEqual(plan.action_capability, "notification.show")
         self.assertEqual(plan.response_text, "Hello!")
         self.assertEqual(
@@ -909,7 +909,7 @@ class ModelProviderConfigTests(unittest.TestCase):
             "The user greeted the runtime.",
         )
 
-    def test_parse_openai_compatible_proposal_response_defaults_reply_to_notification_show_when_action_missing(
+    def test_parse_openai_compatible_proposal_response_maps_legacy_clarification_to_action(
         self,
     ) -> None:
         plan = parse_openai_compatible_proposal_response(
@@ -921,7 +921,7 @@ class ModelProviderConfigTests(unittest.TestCase):
                             {
                                 "type": "output_text",
                                 "text": (
-                                    '{"proposal_type":"clarification",'
+                                    '{"proposal_type":"action",'
                                     '"response_text":"Please clarify.",'
                                     '"rationale":{"summary":"Need clarification."}}'
                                 ),
@@ -935,7 +935,7 @@ class ModelProviderConfigTests(unittest.TestCase):
             model_id="gpt-5.5",
         )
 
-        self.assertEqual(plan.proposal_type, "clarification")
+        self.assertEqual(plan.proposal_type, "action")
         self.assertEqual(plan.action_capability, "notification.show")
         self.assertEqual(plan.response_text, "Please clarify.")
 
@@ -982,7 +982,7 @@ class ModelProviderConfigTests(unittest.TestCase):
                             {
                                 "type": "output_text",
                                 "text": (
-                                    '{"proposal_type":"clarification",'
+                                    '{"proposal_type":"action",'
                                     '"response_text":"你是想让我再试着给手机发送通知吗？",'
                                     '"target_device_hint":"android-edge-782d0247",'
                                     '"action":{"capability":"notification.show",'
@@ -1031,11 +1031,11 @@ class ModelProviderConfigTests(unittest.TestCase):
             model_id="gpt-5.5",
         )
 
-        self.assertEqual(plan.proposal_type, "reply")
+        self.assertEqual(plan.proposal_type, "action")
         self.assertEqual(plan.response_text, "Hello! How can I help?")
         self.assertEqual(plan.action_capability, "notification.show")
 
-    def test_parse_openai_compatible_proposal_response_treats_plain_output_text_as_reply(
+    def test_parse_openai_compatible_proposal_response_treats_plain_output_text_as_action(
         self,
     ) -> None:
         plan = parse_openai_compatible_proposal_response(
@@ -1057,7 +1057,7 @@ class ModelProviderConfigTests(unittest.TestCase):
             model_id="gpt-5.4",
         )
 
-        self.assertEqual(plan.proposal_type, "reply")
+        self.assertEqual(plan.proposal_type, "action")
         self.assertEqual(plan.response_text, "你好！我在，有什么我可以帮你的吗？")
         self.assertEqual(plan.action_capability, "notification.show")
         self.assertFalse(plan.metadata["used_deterministic_fallback"])
@@ -1171,7 +1171,7 @@ class ModelProviderConfigTests(unittest.TestCase):
                             {
                                 "type": "output_text",
                                 "text": (
-                                    '{"proposal_type":"reply",'
+                                    '{"proposal_type":"action",'
                                     '"response_text":"Hello after retry.",'
                                     '"action":null,'
                                     '"rationale":{"summary":"Retry recovered."}}'
@@ -1224,7 +1224,7 @@ class ModelProviderConfigTests(unittest.TestCase):
                             {
                                 "type": "output_text",
                                 "text": (
-                                    '{"proposal_type":"reply",'
+                                    '{"proposal_type":"action",'
                                     '"response_text":"Recovered from empty output.",'
                                     '"action":null,'
                                     '"rationale":{"summary":"Retry recovered."}}'
@@ -1624,7 +1624,7 @@ class ModelProviderConfigTests(unittest.TestCase):
                             {
                                 "type": "output_text",
                                 "text": (
-                                    '{"proposal_type":"reply",'
+                                    '{"proposal_type":"action",'
                                     '"response_text":"probe ok",'
                                     '"action":null,'
                                     '"rationale":{"summary":"probe",'
@@ -1699,7 +1699,7 @@ class ModelProviderConfigTests(unittest.TestCase):
                             {
                                 "type": "output_text",
                                 "text": (
-                                    '{"proposal_type":"reply",'
+                                    '{"proposal_type":"action",'
                                     '"response_text":"probe recovered",'
                                     '"action":null,'
                                     '"rationale":{"summary":"probe retry",'

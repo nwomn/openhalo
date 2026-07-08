@@ -101,7 +101,7 @@ class ContextViewerTests(unittest.TestCase):
             {
                 "interaction_id": "interaction-1",
                 "proposal": {
-                    "proposal_type": "reply",
+                    "proposal_type": "action",
                     "source": "normal",
                     "message": "hello runtime",
                 },

@@ -17,11 +17,11 @@ def _register_surface(
 
 
 class ExecutionPlanningTests(unittest.TestCase):
-    def test_reply_proposal_with_allow_decision_yields_planned_action(self) -> None:
+    def test_visible_action_proposal_with_allow_decision_yields_planned_action(self) -> None:
         outcome = build_execution_outcome(
             source_device_id="terminal-edge-1",
             proposal={
-                "proposal_type": "reply",
+                "proposal_type": "action",
                 "action_capability": "notification.show",
                 "action_payload": {"message": "hello"},
                 "visibility_intent": "visible",
@@ -70,7 +70,7 @@ class ExecutionPlanningTests(unittest.TestCase):
         outcome = build_execution_outcome(
             source_device_id="terminal-edge-1",
             proposal={
-                "proposal_type": "reply",
+                "proposal_type": "action",
                 "action_capability": "notification.show",
                 "action_payload": {"message": "hello"},
                 "visibility_intent": "visible",
@@ -100,7 +100,7 @@ class ExecutionPlanningTests(unittest.TestCase):
         outcome = planner.plan_action(
             source_device_id="terminal-edge-1",
             proposal={
-                "proposal_type": "reply",
+                "proposal_type": "action",
                 "action_capability": "notification.show",
                 "action_payload": {"message": "hello"},
                 "visibility_intent": "visible",
@@ -185,7 +185,7 @@ class ExecutionPlanningTests(unittest.TestCase):
         outcome = planner.plan_action(
             source_device_id="terminal-edge-1",
             proposal={
-                "proposal_type": "reply",
+                "proposal_type": "action",
                 "action_capability": "notification.show",
                 "action_payload": {"message": "private reminder"},
                 "visibility_intent": "visible",
@@ -224,7 +224,7 @@ class ExecutionPlanningTests(unittest.TestCase):
         outcome = planner.plan_action(
             source_device_id="terminal-edge-1",
             proposal={
-                "proposal_type": "reply",
+                "proposal_type": "action",
                 "action_capability": "notification.show",
                 "action_payload": {"message": "hello"},
                 "visibility_intent": "visible",

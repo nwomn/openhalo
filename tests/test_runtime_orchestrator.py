@@ -203,7 +203,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
 
                 return InterventionProposal(
                     kind="notify",
-                    proposal_type="reply",
+                    proposal_type="action",
                     source="post_action",
                     action_capability="notification.show",
                     required_capability="notification.show",
@@ -465,7 +465,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
         self.assertEqual(proposal_event.operation, "build_proposal")
         self.assertEqual(presence_event.operation, "choose_presence_decision")
         self.assertEqual(execution_event.operation, "plan_action")
-        self.assertEqual(proposal_event.output["proposal_type"], "reply")
+        self.assertEqual(proposal_event.output["proposal_type"], "action")
 
     def test_proposal_formation_records_own_module_boundary(self) -> None:
         diagnostics = InMemoryDiagnosticRecorder(
@@ -487,7 +487,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
             correlation={"trace_id": "trace-terminal-edge-1-1"},
         )
 
-        self.assertEqual(proposal.proposal_type, "reply")
+        self.assertEqual(proposal.proposal_type, "action")
         self.assertEqual(len(diagnostics.events), 1)
         self.assertEqual(diagnostics.events[0].module, "Proposal Formation")
         self.assertEqual(diagnostics.events[0].operation, "build_proposal")
@@ -507,7 +507,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
             devices={},
             online_device_ids=set(),
             required_capability="notification.show",
-            proposal={"proposal_type": "reply"},
+            proposal={"proposal_type": "action"},
             intervention_history=[],
             now_timestamp="2026-06-30T12:00:00Z",
             correlation={"trace_id": "trace-terminal-edge-1-1"},

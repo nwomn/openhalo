@@ -738,7 +738,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(
             gateway.state.interventions[-1]["proposal"]["proposal_type"],
-            "reply",
+            "action",
         )
         self.assertIn(
             "proposal_rationale",
@@ -1004,7 +1004,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(gateway.state.interventions[-1]["target_device_id"], "desktop-dev-2")
         self.assertEqual(gateway.state.interventions[-1]["proposal"]["action_capability"], "notification.show")
         self.assertEqual(gateway.state.interventions[-1]["proposal"]["kind"], "notify")
-        self.assertEqual(gateway.state.interventions[-1]["proposal"]["proposal_type"], "reply")
+        self.assertEqual(gateway.state.interventions[-1]["proposal"]["proposal_type"], "action")
 
     async def test_normal_text_can_form_runtime_status_action_proposal(self) -> None:
         gateway = RuntimeGateway(
@@ -1537,7 +1537,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             "no_intervention",
         )
 
-    async def test_normal_text_can_form_clarification_proposal(self) -> None:
+    async def test_normal_text_can_form_visible_action_proposal(self) -> None:
         gateway = RuntimeGateway(
             shared_token="dev-token",
             persist_state=False,
@@ -1568,7 +1568,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNotNone(action_request)
         self.assertEqual(action_request["action"]["capability"], "notification.show")
-        self.assertEqual(proposal["proposal_type"], "clarification")
+        self.assertEqual(proposal["proposal_type"], "action")
         self.assertEqual(proposal["action_capability"], "notification.show")
         self.assertIn("proposal_rationale", proposal["metadata"])
 
@@ -2509,7 +2509,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(gateway.state.interventions[-1]["reason"], "context_clear")
         self.assertEqual(
             gateway.state.interventions[-1]["proposal"]["proposal_type"],
-            "reply",
+            "action",
         )
 
     async def test_records_host_observations_with_runtime_provenance(self) -> None:
@@ -2831,7 +2831,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ) -> InterventionProposal:
                 return InterventionProposal(
                     kind="notify",
-                    proposal_type="reply",
+                    proposal_type="action",
                     source="post_action",
                     action_capability="notification.show",
                     required_capability="notification.show",
@@ -2977,7 +2977,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                 if len(self.calls) == 1:
                     return InterventionProposal(
                         kind="notify",
-                        proposal_type="reply",
+                        proposal_type="action",
                         source="post_action",
                         action_capability="notification.show",
                         required_capability="notification.show",
