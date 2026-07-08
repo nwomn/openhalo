@@ -8,10 +8,30 @@ from openhalo_common.diagnostics import DiagnosticBoundaryRecorder
 from openhalo_common.diagnostics import DiagnosticEvent
 from openhalo_common.diagnostics import InMemoryDiagnosticRecorder
 from openhalo_common.diagnostics import JsonlDiagnosticRecorder
+from openhalo_common.diagnostics import add_correlation_to_frame
 from openhalo_common.diagnostics import build_trace_id
 
 
 class DiagnosticsV1Tests(unittest.TestCase):
+    def test_add_correlation_to_frame_preserves_frame_identity_fields(self) -> None:
+        frame = {
+            "type": "action_request",
+            "request_id": "action-2",
+            "interaction_id": "interaction-1",
+        }
+        correlated = add_correlation_to_frame(
+            frame,
+            {
+                "trace_id": "trace-1",
+                "request_id": "action-1",
+                "interaction_id": "interaction-1",
+            },
+        )
+
+        self.assertEqual(correlated["request_id"], "action-2")
+        self.assertEqual(correlated["trace_id"], "trace-1")
+        self.assertEqual(correlated["interaction_id"], "interaction-1")
+
     def test_diagnostic_event_serializes_required_boundary_fields(self) -> None:
         event = DiagnosticEvent(
             timestamp="2026-06-30T12:00:00Z",
@@ -117,7 +137,7 @@ class DiagnosticsV1Tests(unittest.TestCase):
             module="Execution Planning",
             operation="plan_action",
             correlation={"trace_id": "trace-terminal-edge-1-1"},
-            input_payload={"proposal_type": "reply"},
+            input_payload={"proposal_type": "action"},
             summary="Planned runtime execution outcome.",
         ) as boundary:
             boundary.output({"kind": "action"})
@@ -143,7 +163,7 @@ class DiagnosticsV1Tests(unittest.TestCase):
                 module="Execution Planning",
                 operation="plan_action",
                 correlation={"trace_id": "trace-terminal-edge-1-1"},
-                input_payload={"proposal_type": "reply"},
+                input_payload={"proposal_type": "action"},
                 summary="Execution planning failed.",
             ):
                 raise ValueError("bad plan")

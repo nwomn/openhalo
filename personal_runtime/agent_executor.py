@@ -193,6 +193,12 @@ def build_intervention_proposal(
     action_payload = dict(proposal_plan.action_payload)
     if action_capability == "notification.show":
         action_payload.setdefault("message", proposal_plan.response_text)
+    target_device_hint = proposal_plan.target_device_hint
+    if target_device_hint is None:
+        target_device_hint = _infer_target_device_hint_from_text(
+            user_text=user_text,
+            grounding_bundle=grounding_bundle,
+        )
     proposal = InterventionProposal(
         kind=kind,
         proposal_type=proposal_plan.proposal_type,
@@ -217,6 +223,7 @@ def build_intervention_proposal(
             ),
             **proposal_plan.metadata,
         },
+        target_device_hint=target_device_hint,
         interaction_type="pull",
         visibility_intent="visible"
         if proposal_plan.proposal_type != "no_intervention"
@@ -235,6 +242,28 @@ def build_intervention_proposal(
             action_capability=proposal.action_capability or "none",
         )
     return proposal
+
+
+def _infer_target_device_hint_from_text(
+    user_text: str,
+    grounding_bundle: dict | None,
+) -> str | None:
+    normalized_text = user_text.strip().lower()
+    if not any(token in normalized_text for token in ("phone", "手机")):
+        return None
+    known_device_ids = (
+        (grounding_bundle or {})
+        .get("durable_state_summary", {})
+        .get("known_device_ids", [])
+    )
+    phone_candidates = [
+        device_id
+        for device_id in known_device_ids
+        if "android" in device_id.lower() or "phone" in device_id.lower()
+    ]
+    if len(phone_candidates) != 1:
+        return None
+    return phone_candidates[0]
 
 
 def build_agent_initiative_proposal(
@@ -265,9 +294,7 @@ def build_agent_initiative_proposal(
         kind="runtime_control"
         if action_capability.startswith("runtime.")
         else "notify",
-        proposal_type="action"
-        if action_capability.startswith("runtime.")
-        else "reply",
+        proposal_type="action",
         source="agent_initiative",
         action_capability=action_capability,
         required_capability=required_device_capability_for_action(
@@ -362,6 +389,11 @@ def build_post_action_proposal(
         "parent_action_capability": prior_proposal.get("action_capability")
         or result.get("capability"),
         "result_status": result.get("status"),
+        "source_device_id": interaction.get("source_device_id"),
+        "previous_target_device_id": (
+            interaction.get("primary_action") or {}
+        ).get("target_device_id"),
+        "participant_device_ids": list(interaction.get("participant_device_ids", [])),
         "snapshot_fields": sorted(_snapshot.keys()),
         **grounding_metadata_from_bundle(grounding_bundle),
         **prompt_context_metadata_from_package(

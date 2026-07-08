@@ -8,6 +8,7 @@ from websockets.frames import Close
 
 from device_edge.shared.session_client import SessionClient
 from edge_api.protocol import API_VERSION
+from personal_runtime.agent_executor import InterventionProposal
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.runtime_state import RuntimeState
 
@@ -26,6 +27,13 @@ def _last_action_request(replies: list[dict]) -> dict | None:
 def _last_interaction_update(replies: list[dict]) -> dict | None:
     return next(
         (item for item in reversed(replies) if item["type"] == "interaction_update"),
+        None,
+    )
+
+
+def _last_error(replies: list[dict]) -> dict | None:
+    return next(
+        (item for item in reversed(replies) if item["type"] == "error"),
         None,
     )
 
@@ -730,7 +738,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(
             gateway.state.interventions[-1]["proposal"]["proposal_type"],
-            "reply",
+            "action",
         )
         self.assertIn(
             "proposal_rationale",
@@ -996,7 +1004,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(gateway.state.interventions[-1]["target_device_id"], "desktop-dev-2")
         self.assertEqual(gateway.state.interventions[-1]["proposal"]["action_capability"], "notification.show")
         self.assertEqual(gateway.state.interventions[-1]["proposal"]["kind"], "notify")
-        self.assertEqual(gateway.state.interventions[-1]["proposal"]["proposal_type"], "reply")
+        self.assertEqual(gateway.state.interventions[-1]["proposal"]["proposal_type"], "action")
 
     async def test_normal_text_can_form_runtime_status_action_proposal(self) -> None:
         gateway = RuntimeGateway(
@@ -1529,7 +1537,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             "no_intervention",
         )
 
-    async def test_normal_text_can_form_clarification_proposal(self) -> None:
+    async def test_normal_text_can_form_visible_action_proposal(self) -> None:
         gateway = RuntimeGateway(
             shared_token="dev-token",
             persist_state=False,
@@ -1560,7 +1568,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNotNone(action_request)
         self.assertEqual(action_request["action"]["capability"], "notification.show")
-        self.assertEqual(proposal["proposal_type"], "clarification")
+        self.assertEqual(proposal["proposal_type"], "action")
         self.assertEqual(proposal["action_capability"], "notification.show")
         self.assertIn("proposal_rationale", proposal["metadata"])
 
@@ -2501,7 +2509,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(gateway.state.interventions[-1]["reason"], "context_clear")
         self.assertEqual(
             gateway.state.interventions[-1]["proposal"]["proposal_type"],
-            "reply",
+            "action",
         )
 
     async def test_records_host_observations_with_runtime_provenance(self) -> None:
@@ -2806,6 +2814,357 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                 for reply in result_replies
             )
         )
+
+    async def test_m17_6_cross_edge_notification_result_acknowledges_source_edge(
+        self,
+    ) -> None:
+        class SourceAckProposalFormation:
+            def build_post_action_proposal(
+                self,
+                interaction: dict,
+                prior_proposal: dict,
+                result: dict,
+                turn_index: int,
+                snapshot: dict,
+                grounding_bundle: dict | None = None,
+                correlation: dict | None = None,
+            ) -> InterventionProposal:
+                return InterventionProposal(
+                    kind="notify",
+                    proposal_type="action",
+                    source="post_action",
+                    action_capability="notification.show",
+                    required_capability="notification.show",
+                    action_payload={"message": "Sent to your phone."},
+                    message="Sent to your phone.",
+                    metadata={
+                        "trigger": "action_result",
+                        "interaction_id": interaction["interaction_id"],
+                        "post_action_semantics": "source_ack",
+                        "loop_decision": "continue",
+                        "source_device_id": interaction.get("source_device_id"),
+                        "previous_target_device_id": (
+                            interaction.get("primary_action") or {}
+                        ).get("target_device_id"),
+                        "participant_device_ids": list(
+                            interaction.get("participant_device_ids", [])
+                        ),
+                    },
+                    target_device_hint=interaction.get("source_device_id"),
+                    interaction_type=interaction.get("interaction_type", "pull"),
+                    visibility_intent="visible",
+                    candidate_surface_hints=["source_device"],
+                )
+
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        terminal = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                terminal.build_connect_frame(),
+                terminal.build_capability_announce_frame(),
+                {
+                    "api_version": API_VERSION,
+                    "type": "connect",
+                    "device": {
+                        "device_id": "android-edge-1",
+                        "device_type": "android-phone",
+                        "role": "interactive_surface",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "capability_announce",
+                    "device_id": "android-edge-1",
+                    "capabilities": ["notification.show"],
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "event_push",
+                    "device_id": "terminal-edge-1",
+                    "capability": "text.input",
+                    "payload": {
+                        "text": "send hello to my phone",
+                        "observed_at": "2026-07-06T09:00:00Z",
+                    },
+                },
+            ]
+        )
+        phone_action = _last_action_request(replies)
+        self.assertIsNotNone(phone_action)
+        self.assertEqual(phone_action["device_id"], "android-edge-1")
+
+        gateway.proposal_formation = SourceAckProposalFormation()
+        result_replies = await gateway.handle_test_frames(
+            [
+                {
+                    "api_version": API_VERSION,
+                    "type": "action_result",
+                    "request_id": phone_action["request_id"],
+                    "interaction_id": phone_action["interaction_id"],
+                    "device_id": "android-edge-1",
+                    "result": {
+                        "status": "ok",
+                        "capability": "notification.show",
+                        "observed_at": "2026-07-06T09:00:02Z",
+                        "details": {
+                            "message": phone_action["action"]["payload"]["message"],
+                            "delivered_via": "android.urgent_alert",
+                        },
+                    },
+                }
+            ]
+        )
+
+        source_ack = _last_action_request(result_replies)
+        self.assertIsNotNone(source_ack)
+        self.assertEqual(source_ack["interaction_id"], phone_action["interaction_id"])
+        self.assertEqual(source_ack["device_id"], "terminal-edge-1")
+        self.assertEqual(source_ack["action"]["capability"], "notification.show")
+        self.assertNotIn("notification.show", source_ack["action"]["payload"]["message"])
+        self.assertNotIn("android-edge-1", source_ack["action"]["payload"]["message"])
+        proposal = gateway.state.interventions[-1]["proposal"]
+        self.assertEqual(proposal["source"], "post_action")
+        self.assertEqual(proposal["metadata"]["post_action_semantics"], "source_ack")
+        self.assertEqual(
+            proposal["metadata"]["source_device_id"],
+            "terminal-edge-1",
+        )
+        self.assertEqual(
+            proposal["metadata"]["previous_target_device_id"],
+            "android-edge-1",
+        )
+        self.assertEqual(
+            proposal["metadata"]["participant_device_ids"],
+            ["terminal-edge-1", "android-edge-1"],
+        )
+
+    async def test_m17_6_action_result_loop_reenters_proposal_until_model_stops(
+        self,
+    ) -> None:
+        class HarnessProposalFormation:
+            def __init__(self) -> None:
+                self.calls = []
+
+            def build_post_action_proposal(
+                self,
+                interaction: dict,
+                prior_proposal: dict,
+                result: dict,
+                turn_index: int,
+                snapshot: dict,
+                grounding_bundle: dict | None = None,
+                correlation: dict | None = None,
+            ) -> InterventionProposal:
+                self.calls.append(
+                    {
+                        "interaction": dict(interaction),
+                        "prior_proposal": dict(prior_proposal),
+                        "result": dict(result),
+                        "turn_index": turn_index,
+                    }
+                )
+                if len(self.calls) == 1:
+                    return InterventionProposal(
+                        kind="notify",
+                        proposal_type="action",
+                        source="post_action",
+                        action_capability="notification.show",
+                        required_capability="notification.show",
+                        action_payload={"message": "Sent to your phone."},
+                        message="Sent to your phone.",
+                        metadata={
+                            "trigger": "action_result",
+                            "interaction_id": interaction["interaction_id"],
+                            "post_action_semantics": "source_ack",
+                            "loop_decision": "continue",
+                        },
+                        target_device_hint=interaction.get("source_device_id"),
+                        interaction_type=interaction.get("interaction_type", "pull"),
+                        visibility_intent="visible",
+                        candidate_surface_hints=["source_device"],
+                    )
+                return InterventionProposal(
+                    kind="no_intervention",
+                    proposal_type="no_intervention",
+                    source="post_action",
+                    action_capability=None,
+                    required_capability=None,
+                    action_payload={},
+                    message="",
+                    metadata={
+                        "trigger": "action_result",
+                        "interaction_id": interaction["interaction_id"],
+                        "post_action_semantics": "model_stopped_action_loop",
+                        "loop_decision": "complete",
+                    },
+                    interaction_type=interaction.get("interaction_type", "pull"),
+                    visibility_intent="silent",
+                    candidate_surface_hints=["background"],
+                )
+
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        terminal = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                terminal.build_connect_frame(),
+                terminal.build_capability_announce_frame(),
+                {
+                    "api_version": API_VERSION,
+                    "type": "connect",
+                    "device": {
+                        "device_id": "android-edge-1",
+                        "device_type": "android-phone",
+                        "role": "interactive_surface",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "capability_announce",
+                    "device_id": "android-edge-1",
+                    "capabilities": ["notification.show"],
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "event_push",
+                    "device_id": "terminal-edge-1",
+                    "capability": "text.input",
+                    "payload": {
+                        "text": "send hello to my phone",
+                        "observed_at": "2026-07-06T09:00:00Z",
+                    },
+                },
+            ]
+        )
+        phone_action = _last_action_request(replies)
+        self.assertIsNotNone(phone_action)
+        self.assertEqual(phone_action["device_id"], "android-edge-1")
+
+        harness = HarnessProposalFormation()
+        gateway.proposal_formation = harness
+
+        phone_result_replies = await gateway.handle_test_frames(
+            [
+                {
+                    "api_version": API_VERSION,
+                    "type": "action_result",
+                    "request_id": phone_action["request_id"],
+                    "interaction_id": phone_action["interaction_id"],
+                    "device_id": "android-edge-1",
+                    "result": {
+                        "status": "ok",
+                        "capability": "notification.show",
+                        "observed_at": "2026-07-06T09:00:02Z",
+                        "details": {
+                            "message": phone_action["action"]["payload"]["message"],
+                            "delivered_via": "android.urgent_alert",
+                        },
+                    },
+                }
+            ]
+        )
+        source_ack = _last_action_request(phone_result_replies)
+        self.assertIsNotNone(source_ack)
+        self.assertNotEqual(source_ack["request_id"], phone_action["request_id"])
+        self.assertEqual(source_ack["device_id"], "terminal-edge-1")
+        self.assertEqual(source_ack["action"]["payload"]["message"], "Sent to your phone.")
+
+        terminal_result_replies = await gateway.handle_test_frames(
+            [
+                {
+                    "api_version": API_VERSION,
+                    "type": "action_result",
+                    "request_id": source_ack["request_id"],
+                    "interaction_id": source_ack["interaction_id"],
+                    "device_id": "terminal-edge-1",
+                    "result": {
+                        "status": "ok",
+                        "capability": "notification.show",
+                        "observed_at": "2026-07-06T09:00:03Z",
+                        "details": {
+                            "message": source_ack["action"]["payload"]["message"],
+                            "delivered_via": "terminal.stdout",
+                        },
+                    },
+                }
+            ]
+        )
+
+        self.assertIsNone(_last_action_request(terminal_result_replies))
+        interaction_update = _last_interaction_update(terminal_result_replies)
+        self.assertIsNotNone(interaction_update)
+        self.assertEqual(interaction_update["interaction"]["status"], "completed")
+        self.assertEqual(len(harness.calls), 2)
+        self.assertEqual(harness.calls[0]["result"]["device_id"], "android-edge-1")
+        self.assertEqual(harness.calls[1]["result"]["device_id"], "terminal-edge-1")
+        self.assertEqual(harness.calls[0]["result"]["details"]["delivered_via"], "android.urgent_alert")
+        self.assertEqual(harness.calls[1]["result"]["details"]["delivered_via"], "terminal.stdout")
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["metadata"]["loop_decision"],
+            "complete",
+        )
+
+    async def test_m17_6_unknown_action_result_lineage_returns_public_error(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "api_version": API_VERSION,
+                    "type": "connect",
+                    "device": {
+                        "device_id": "android-edge-1",
+                        "device_type": "android-phone",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "action_result",
+                    "request_id": "action-missing",
+                    "interaction_id": "interaction-missing",
+                    "device_id": "android-edge-1",
+                    "result": {
+                        "status": "ok",
+                        "capability": "notification.show",
+                        "observed_at": "2026-07-06T09:00:02Z",
+                        "details": {"message": "hello"},
+                    },
+                },
+            ]
+        )
+
+        error = _last_error(replies)
+        self.assertIsNotNone(error)
+        self.assertEqual(error["code"], "lineage_missing")
+        self.assertEqual(error["interaction_id"], "interaction-missing")
+        self.assertEqual(error["device_id"], "android-edge-1")
 
 
 if __name__ == "__main__":

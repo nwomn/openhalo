@@ -14,16 +14,26 @@ from personal_runtime.prompt_context import build_prompt_context_package
 
 
 DEFAULT_CONFIG_PATH = Path("config/runtime-config.toml")
+PROVIDER_RESPONSE_SHAPE_MAX_ATTEMPTS = 3
 PROPOSAL_OUTPUT_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["proposal_type", "response_text", "action", "rationale"],
+    "required": [
+        "proposal_type",
+        "response_text",
+        "target_device_hint",
+        "action",
+        "rationale",
+    ],
     "properties": {
         "proposal_type": {
             "type": "string",
-            "enum": ["reply", "action", "clarification", "no_intervention"],
+            "enum": ["action", "no_intervention"],
         },
         "response_text": {"type": "string"},
+        "target_device_hint": {
+            "anyOf": [{"type": "string"}, {"type": "null"}],
+        },
         "action": {
             "anyOf": [
                 {
@@ -112,6 +122,7 @@ class ProposalPlan:
     action_capability: str | None
     action_payload: dict
     metadata: dict
+    target_device_hint: str | None = None
 
 
 class ProviderResponseShapeError(ValueError):
@@ -261,12 +272,12 @@ def build_openai_compatible_proposal_request(
                         "text": (
                             "You are the proposal formation planner for a personal runtime. "
                             "Return exactly one JSON object and no surrounding prose. "
-                            "The object must include proposal_type, response_text, action, and rationale. "
-                            "proposal_type must be one of: reply, action, clarification, no_intervention. "
+                            "The object must include proposal_type, response_text, target_device_hint, action, and rationale. "
+                            "proposal_type must be one of: action, no_intervention. "
                             "Use action when the user explicitly asks the runtime to do something, "
-                            "including runtime control such as runtime.status. "
-                            "Use reply for conversational responses, clarification when the request is underspecified, "
-                            "and no_intervention for acknowledgements or closures that should stay silent."
+                            "including runtime control such as runtime.status, or when the runtime "
+                            "should show a user-visible message. Use no_intervention only for "
+                            "acknowledgements or closures that should stay silent."
                         ),
                     }
                 ],
@@ -283,8 +294,9 @@ def build_openai_compatible_proposal_request(
                             f"Grounding bundle: {json.dumps(grounding or {}, sort_keys=True)}\n"
                             "Return exactly one JSON object in this shape:\n"
                             '{'
-                            '"proposal_type":"reply|action|clarification|no_intervention",'
+                            '"proposal_type":"action|no_intervention",'
                             '"response_text":"...",'
+                            '"target_device_hint":"device-id or null",'
                             '"action":{"capability":"notification.show|runtime.status|...","payload":{}}'
                             ' or null,'
                             '"rationale":{"summary":"...",'
@@ -292,7 +304,13 @@ def build_openai_compatible_proposal_request(
                             '"grounding_signals":["..."]}'
                             '}\n'
                             "If the request is to check runtime status, prefer "
-                            '{"proposal_type":"action","action":{"capability":"runtime.status","payload":{}}}.'
+                            '{"proposal_type":"action","response_text":"Checking runtime status.",'
+                            '"target_device_hint":null,'
+                            '"action":{"capability":"runtime.status","payload":{}},'
+                            '"rationale":{"summary":"...","intent_signals":["runtime status"],'
+                            '"grounding_signals":["..."]}}.'
+                            " If the user explicitly targets a known device such as a phone, set "
+                            "target_device_hint to that exact known device_id from the grounding bundle."
                         ),
                     }
                 ],
@@ -389,7 +407,7 @@ def parse_openai_compatible_proposal_response(
                 payload = json.loads(text)
             except json.JSONDecodeError:
                 return ProposalPlan(
-                    proposal_type="reply",
+                    proposal_type="action",
                     response_text=text,
                     action_capability="notification.show",
                     action_payload={},
@@ -406,6 +424,7 @@ def parse_openai_compatible_proposal_response(
                             )
                         },
                     },
+                    target_device_hint=None,
                 )
             provider_proposal_type = payload["proposal_type"]
             proposal_type = _normalize_proposal_type(provider_proposal_type)
@@ -414,6 +433,9 @@ def parse_openai_compatible_proposal_response(
                 proposal_type=proposal_type,
                 action=payload.get("action"),
                 response_text=response_text,
+            )
+            target_device_hint = _normalize_target_device_hint(
+                payload.get("target_device_hint")
             )
             return ProposalPlan(
                 proposal_type=proposal_type,
@@ -430,6 +452,7 @@ def parse_openai_compatible_proposal_response(
                         payload.get("rationale", {})
                     ),
                 },
+                target_device_hint=target_device_hint,
             )
     raise ValueError(
         "openai_compatible response did not contain structured proposal output_text"
@@ -484,21 +507,23 @@ def _normalize_proposal_type(raw_value: str) -> str:
         raise ValueError("provider proposal_type must be a string")
     normalized = raw_value.strip().lower()
     if normalized in {
+        "action",
+        "runtime_control",
+        "control",
         "reply",
         "response",
         "message",
         "notify",
         "direct_response",
         "assistant_message",
+        "clarification",
+        "clarify",
+        "question",
     }:
-        return "reply"
-    if normalized in {"action", "runtime_control", "control"}:
         return "action"
-    if normalized in {"clarification", "clarify", "question"}:
-        return "clarification"
     if normalized in {"no_intervention", "none", "ignore", "no_action"}:
         return "no_intervention"
-    return "reply"
+    return "action"
 
 
 def _extract_provider_response_text(payload: dict) -> str:
@@ -533,7 +558,7 @@ def _normalize_provider_action(
         if normalized in {"none", "no_action", "no_intervention", "ignore", ""}:
             return None, {}
 
-    if proposal_type in {"reply", "clarification"} and response_text:
+    if proposal_type == "action" and response_text:
         return "notification.show", {}
     return None, {}
 
@@ -544,6 +569,13 @@ def _normalize_provider_rationale(rationale) -> dict:
     if isinstance(rationale, str):
         return {"summary": rationale}
     return {}
+
+
+def _normalize_target_device_hint(value) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip()
+    return normalized or None
 
 
 def build_deterministic_reply_plan(
@@ -612,7 +644,7 @@ def build_deterministic_proposal_plan(
             "Clarify the request because it is underspecified and needs disambiguation."
         )
         return ProposalPlan(
-            proposal_type="clarification",
+            proposal_type="action",
             response_text=(
                 "Please clarify what you want me to do. You can ask for a reply or a runtime action such as status."
             ),
@@ -651,7 +683,7 @@ def build_deterministic_proposal_plan(
         "Reply proposal selected because the user text looks like a normal conversational request."
     )
     return ProposalPlan(
-        proposal_type="reply",
+        proposal_type="action",
         response_text=f"Runtime heard: {user_text}",
         action_capability="notification.show",
         action_payload={},
@@ -676,6 +708,7 @@ def build_deterministic_post_action_proposal_plan(
     grounding: dict | None = None,
     provider_name: str | None = None,
     model_id: str | None = None,
+    interaction: dict | None = None,
 ) -> ProposalPlan:
     details = result.get("details", {})
     if not isinstance(details, dict):
@@ -706,12 +739,14 @@ def build_deterministic_post_action_proposal_plan(
         "used_deterministic_fallback": True,
         "fallback_reason": fallback_reason,
         "proposal_rationale": rationale,
+        **_post_action_lineage_metadata(interaction),
     }
 
     if parent_action_capability == "notification.show" and result.get("status") == "ok":
         rationale["summary"] = (
-            "No intervention needed because the user-visible notification was already delivered."
+            "Deterministic fallback cannot decide cross-surface action-loop semantics."
         )
+        metadata["post_action_semantics"] = "fallback_no_action_loop_decision"
         return ProposalPlan(
             proposal_type="no_intervention",
             response_text="",
@@ -743,11 +778,39 @@ def build_deterministic_post_action_proposal_plan(
             "Reply proposal selected because the runtime status action returned user-relevant state."
         )
         return ProposalPlan(
-            proposal_type="reply",
+            proposal_type="action",
             response_text=message,
             action_capability="notification.show",
             action_payload={"message": message},
             metadata=metadata,
+        )
+
+    if result.get("reason") == "target_missing":
+        target_device_id = (
+            details.get("target_device_id")
+            or result.get("device_id")
+            or (
+                interaction.get("primary_action", {}).get("target_device_id")
+                if isinstance(interaction, dict)
+                else None
+            )
+            or "target device"
+        )
+        message = f"Could not deliver to {target_device_id}: target device is not connected."
+        rationale["summary"] = (
+            "Reply proposal selected because the requested target device is not connected."
+        )
+        return ProposalPlan(
+            proposal_type="action",
+            response_text=message,
+            action_capability="notification.show",
+            action_payload={"message": message},
+            metadata=metadata,
+            target_device_hint=(
+                interaction.get("source_device_id")
+                if isinstance(interaction, dict)
+                else None
+            ),
         )
 
     if result.get("status") not in {"ok", "success", None}:
@@ -759,7 +822,7 @@ def build_deterministic_post_action_proposal_plan(
             "Reply proposal selected because the action result reported a non-ok status."
         )
         return ProposalPlan(
-            proposal_type="reply",
+            proposal_type="action",
             response_text=message,
             action_capability="notification.show",
             action_payload={"message": message},
@@ -906,11 +969,13 @@ def generate_post_action_proposal_plan(
                     provider_request_format=provider_request_format,
                 ),
                 interaction_id=interaction_id,
+                interaction=interaction,
                 prior_proposal=prior_proposal,
                 result=result,
             )
         return build_deterministic_post_action_proposal_plan(
             interaction_id=interaction_id,
+            interaction=interaction,
             prior_proposal=prior_proposal,
             result=result,
             profile_name=fallback_profile_name,
@@ -924,7 +989,7 @@ def generate_post_action_proposal_plan(
     attempt_count = 0
     retried_shapes: list[str] = []
     started_at = time.monotonic()
-    max_attempts = 2
+    max_attempts = PROVIDER_RESPONSE_SHAPE_MAX_ATTEMPTS
     try:
         for attempt_index in range(max_attempts):
             attempt_count = attempt_index + 1
@@ -967,6 +1032,7 @@ def generate_post_action_proposal_plan(
                 return _with_post_action_metadata(
                     plan,
                     interaction_id=interaction_id,
+                    interaction=interaction,
                     prior_proposal=prior_proposal,
                     result=result,
                 )
@@ -1006,11 +1072,13 @@ def generate_post_action_proposal_plan(
             return _with_post_action_metadata(
                 plan,
                 interaction_id=interaction_id,
+                interaction=interaction,
                 prior_proposal=prior_proposal,
                 result=result,
             )
         return build_deterministic_post_action_proposal_plan(
             interaction_id=interaction_id,
+            interaction=interaction,
             prior_proposal=prior_proposal,
             result=result,
             profile_name=fallback_profile_name,
@@ -1082,7 +1150,7 @@ def generate_post_observation_proposal_plan(
     attempt_count = 0
     retried_shapes: list[str] = []
     started_at = time.monotonic()
-    max_attempts = 2
+    max_attempts = PROVIDER_RESPONSE_SHAPE_MAX_ATTEMPTS
     try:
         for attempt_index in range(max_attempts):
             attempt_count = attempt_index + 1
@@ -1304,9 +1372,8 @@ def _build_post_observation_user_text(
                 "Post-observation deliberation: inspect the fresh observations in "
                 "the context of an open interaction and choose one proposal_type. "
                 "Prefer a follow-up action when the observation materially changes "
-                "the current interaction, a natural user-facing summary when useful, "
-                "clarification when user input is required, or no_intervention when "
-                "the observation should only update context."
+                "the current interaction or user-visible output is useful, and "
+                "choose no_intervention when the observation should only update context."
             ),
             "trigger": "observation",
             "interaction_id": interaction_id,
@@ -1320,6 +1387,7 @@ def _build_post_observation_user_text(
 def _with_post_action_metadata(
     plan: ProposalPlan,
     interaction_id: str,
+    interaction: dict | None,
     prior_proposal: dict,
     result: dict,
 ) -> ProposalPlan:
@@ -1334,6 +1402,7 @@ def _with_post_action_metadata(
             )
             or result.get("capability"),
             "post_action_result_status": result.get("status"),
+            **_post_action_lineage_metadata(interaction),
         }
     )
     return ProposalPlan(
@@ -1343,6 +1412,24 @@ def _with_post_action_metadata(
         action_payload=dict(plan.action_payload),
         metadata=metadata,
     )
+
+
+def _post_action_lineage_metadata(interaction: dict | None) -> dict:
+    if not interaction:
+        return {
+            "source_device_id": None,
+            "previous_target_device_id": None,
+            "participant_device_ids": [],
+            "lineage_status": "missing",
+        }
+    return {
+        "source_device_id": interaction.get("source_device_id"),
+        "previous_target_device_id": (
+            interaction.get("primary_action") or {}
+        ).get("target_device_id"),
+        "participant_device_ids": list(interaction.get("participant_device_ids", [])),
+        "lineage_status": "ok",
+    }
 
 
 def _with_post_observation_metadata(
@@ -1625,7 +1712,7 @@ def generate_text_proposal_plan(
     attempt_count = 0
     retried_shapes: list[str] = []
     started_at = time.monotonic()
-    max_attempts = 2
+    max_attempts = PROVIDER_RESPONSE_SHAPE_MAX_ATTEMPTS
     try:
         for attempt_index in range(max_attempts):
             attempt_count = attempt_index + 1
@@ -1797,7 +1884,7 @@ def probe_model_provider(
         ),
     }
     started_at = time.monotonic()
-    max_attempts = 2
+    max_attempts = PROVIDER_RESPONSE_SHAPE_MAX_ATTEMPTS
     retried_shapes: list[str] = []
     try:
         for attempt_index in range(max_attempts):

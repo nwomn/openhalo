@@ -172,6 +172,14 @@ def resolve_capability_provider(
                 decision=decision,
             ),
         }
+        if (
+            candidate["device_id"] == decision.get("target_device_id")
+            and candidate["device_id"] not in online_device_ids
+        ):
+            scored["score_reasons"] = [
+                *scored["score_reasons"],
+                "target_offline",
+            ]
         survivors.append(scored)
 
     survivors.sort(key=lambda item: (-item["score"], item["device_id"], item["capability_name"]))
@@ -228,9 +236,12 @@ def _filter_reasons(
     metadata = candidate["metadata"]
     requirements = _planning_requirements(proposal, decision)
     reasons = []
-    if candidate["device_id"] not in online_device_ids:
-        reasons.append("device_offline")
     target_device_id = requirements.get("target_device_id")
+    explicit_target_candidate = (
+        target_device_id is not None and candidate["device_id"] == target_device_id
+    )
+    if candidate["device_id"] not in online_device_ids and not explicit_target_candidate:
+        reasons.append("device_offline")
     if target_device_id and candidate["device_id"] != target_device_id:
         reasons.append(f"target_mismatch:{target_device_id}")
     action_hint = requirements["action_hint"]
@@ -297,7 +308,7 @@ def _score_candidate(
 
 def _proposal_summary(proposal: dict) -> str:
     proposal_type = proposal.get("proposal_type")
-    if proposal_type in {"reply", "clarification"}:
+    if proposal_type == "action":
         return proposal.get("action_payload", {}).get("message", "")
     if proposal_type == "provider_failure":
         return proposal.get("message") or proposal.get("response_text", "")

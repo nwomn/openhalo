@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from edge_api.protocol import with_api_version
 from openhalo_common.diagnostics import correlation_from_frame
 from personal_runtime.action_layer import build_action_request
 from personal_runtime.context_snapshot import build_context_snapshot
@@ -53,6 +54,7 @@ class RuntimeOrchestrator:
             build_action_request(
                 execution_outcome["target_device_id"],
                 execution_outcome["action"],
+                request_id=self.gateway._next_action_request_id(),
                 trace_recorder=self.gateway.trace_recorder,
                 correlation=correlation,
             )
@@ -176,6 +178,7 @@ class RuntimeOrchestrator:
         planned_action = build_action_request(
             execution_outcome["target_device_id"],
             execution_outcome["action"],
+            request_id=self.gateway._next_action_request_id(),
             trace_recorder=self.gateway.trace_recorder,
             correlation=correlation,
         )
@@ -302,6 +305,7 @@ class RuntimeOrchestrator:
             planned_action = build_action_request(
                 execution_outcome["target_device_id"],
                 execution_outcome["action"],
+                request_id=self.gateway._next_action_request_id(),
                 trace_recorder=self.gateway.trace_recorder,
                 correlation=correlation,
             )
@@ -337,8 +341,27 @@ class RuntimeOrchestrator:
             None,
         )
         if interaction is None or intervention is None:
-            return []
-        result = frame["result"]
+            return [
+                with_api_version(
+                    {
+                        "type": "error",
+                        "code": "lineage_missing",
+                        "message": (
+                            "Action result cannot be applied because the active "
+                            "interaction lineage is missing."
+                        ),
+                        "device_id": frame.get("device_id"),
+                        "request_id": frame.get("request_id"),
+                        "interaction_id": interaction_id,
+                    }
+                )
+            ]
+        result = {
+            **frame["result"],
+            "device_id": frame.get("device_id"),
+            "request_id": frame.get("request_id"),
+            "interaction_id": interaction_id,
+        }
         decision_time = self.gateway._action_result_timestamp(frame)
         snapshot = build_context_snapshot(
             self.gateway.state.observations,
@@ -426,6 +449,7 @@ class RuntimeOrchestrator:
             planned_action = build_action_request(
                 execution_outcome["target_device_id"],
                 execution_outcome["action"],
+                request_id=self.gateway._next_action_request_id(),
                 trace_recorder=self.gateway.trace_recorder,
                 correlation=correlation,
             )

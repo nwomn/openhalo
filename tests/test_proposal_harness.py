@@ -27,7 +27,7 @@ class ProposalHarnessTests(unittest.TestCase):
                 "participant_device_ids": ["terminal-edge-1", "android-edge-1"],
                 "primary_action": {"target_device_id": "android-edge-1"},
             },
-            prior_proposal={"proposal_type": "reply", "action_capability": "notification.show"},
+            prior_proposal={"proposal_type": "action", "action_capability": "notification.show"},
             action_result={
                 "status": "ok",
                 "capability": "notification.show",
@@ -58,7 +58,7 @@ class ProposalHarnessTests(unittest.TestCase):
                 "primary_action": {"target_device_id": "android-edge-1"},
             },
             "prior_proposal": {
-                "proposal_type": "reply",
+                "proposal_type": "action",
                 "action_capability": "notification.show",
             },
             "action_result": {
@@ -123,7 +123,7 @@ class ProposalHarnessTests(unittest.TestCase):
                 },
             },
             proposal=ProposalPlan(
-                proposal_type="reply",
+                proposal_type="action",
                 response_text=(
                     "Real model reply unavailable: provider returned an "
                     "incompatible response shape; please retry shortly"
@@ -203,7 +203,7 @@ class ProposalHarnessTests(unittest.TestCase):
                     metadata={},
                 )
             return ProposalPlan(
-                proposal_type="reply",
+                proposal_type="action",
                 response_text="Delivered hello to your phone.",
                 action_capability="notification.show",
                 action_payload={"message": "Delivered hello to your phone."},
@@ -241,7 +241,7 @@ class ProposalHarnessTests(unittest.TestCase):
 
         def brief_runner(case):
             return ProposalPlan(
-                proposal_type="reply",
+                proposal_type="action",
                 response_text="Delivered hello to your phone.",
                 action_capability="notification.show",
                 action_payload={"message": "Delivered hello to your phone."},
@@ -291,7 +291,7 @@ class ProposalHarnessTests(unittest.TestCase):
                     "interaction_id": "interaction-2",
                     "proposal": {
                         "source": "post_action",
-                        "proposal_type": "reply",
+                        "proposal_type": "action",
                         "action_capability": "notification.show",
                         "metadata": {
                             "trigger": "action_result",
@@ -301,7 +301,7 @@ class ProposalHarnessTests(unittest.TestCase):
                                 "terminal-edge-1",
                                 "android-edge-1",
                             ],
-                            "parent_proposal_type": "reply",
+                            "parent_proposal_type": "action",
                             "parent_action_capability": "notification.show",
                             "result_status": "ok",
                             "provider_failure_class": "protocol_shape",
@@ -336,7 +336,7 @@ class ProposalHarnessTests(unittest.TestCase):
                     "primary_action": {"target_device_id": "android-edge-1"},
                 },
                 "prior_proposal": {
-                    "proposal_type": "reply",
+                    "proposal_type": "action",
                     "action_capability": "notification.show",
                 },
                 "action_result": {
@@ -364,7 +364,7 @@ class ProposalHarnessTests(unittest.TestCase):
             rendered = repr(request_payload)
             if "Decision task:" in rendered:
                 text = (
-                    '{"proposal_type":"reply",'
+                    '{"proposal_type":"action",'
                     '"response_text":"Delivered hello to your phone.",'
                     '"action":{"capability":"notification.show","payload":{}},'
                     '"rationale":{"summary":"ack source",'

@@ -320,12 +320,12 @@ def correlation_from_frame(frame: dict) -> dict:
 
 def add_correlation_to_frame(frame: dict, correlation: dict) -> dict:
     return {
-        **frame,
         **{
             key: value
             for key, value in correlation.items()
             if value is not None
         },
+        **frame,
     }
 
 

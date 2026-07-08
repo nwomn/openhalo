@@ -138,7 +138,7 @@ def choose_presence_decision(
         _record_decision(decision, trace_recorder)
         return decision
 
-    target_device_id = source_device_id
+    target_device_id = None
     target_capability = required_capability or _proposal.get("action_capability")
     target_device_hint = _proposal.get("target_device_hint")
     terminal_target_locked = _terminal_target_locked(
@@ -149,10 +149,6 @@ def choose_presence_decision(
         if (
             target_device_hint in devices
             and target_capability in devices[target_device_hint]["capabilities"]
-            and (
-                online_device_ids is None
-                or target_device_hint in online_device_ids
-            )
         ):
             target_device_id = target_device_hint
         elif not terminal_target_locked:
@@ -167,6 +163,9 @@ def choose_presence_decision(
                 if target_capability in payload["capabilities"]:
                     target_device_id = device_id
                     break
+
+    if target_device_id is None:
+        target_device_id = source_device_id
 
     if terminal_target_locked and target_device_id != target_device_hint:
         decision = PresenceDecision(

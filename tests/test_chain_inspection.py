@@ -40,7 +40,7 @@ class ChainInspectionTests(unittest.TestCase):
         )
         self.assertEqual(report["proposal"]["kind"], "notify")
         self.assertEqual(report["proposal"]["source"], "sense_first")
-        self.assertEqual(report["proposal"]["proposal_type"], "reply")
+        self.assertEqual(report["proposal"]["proposal_type"], "action")
         self.assertEqual(
             report["proposal"]["metadata"]["llm_profile"],
             "proposal_formation",
@@ -102,7 +102,7 @@ class ChainInspectionTests(unittest.TestCase):
         self.assertIn("Diagnostic Events:", rendered)
         self.assertIn('"llm_profile": "proposal_formation"', rendered)
         self.assertIn('"used_deterministic_fallback": true', rendered)
-        self.assertIn('"proposal_type": "reply"', rendered)
+        self.assertIn('"proposal_type": "action"', rendered)
         self.assertIn('"proposal_rationale"', rendered)
         self.assertIn('"bundle_version": "m10.v1"', rendered)
         self.assertIn('"prompt_context_version"', rendered)
@@ -149,10 +149,10 @@ class ChainInspectionTests(unittest.TestCase):
         self.assertEqual(report["proposal"]["action_capability"], "runtime.status")
         self.assertEqual(report["presence_decision"]["target_device_id"], "host-edge-1")
 
-    def test_inspect_cli_once_can_report_clarification_proposal(self) -> None:
+    def test_inspect_cli_once_can_report_visible_action_for_help(self) -> None:
         report = inspect_cli_once("help", config_path=TEST_LLM_CONFIG)
 
-        self.assertEqual(report["proposal"]["proposal_type"], "clarification")
+        self.assertEqual(report["proposal"]["proposal_type"], "action")
         self.assertEqual(report["proposal"]["action_capability"], "notification.show")
         self.assertIn("proposal_rationale", report["proposal"]["metadata"])
 

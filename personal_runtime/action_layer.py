@@ -1,12 +1,7 @@
 """Minimal action construction for the v0 runtime."""
 
-from itertools import count
-
 from edge_api.protocol import with_api_version
 from openhalo_common.diagnostics import add_correlation_to_frame
-
-
-_action_request_counter = count(1)
 
 
 def build_interaction_update(
@@ -36,6 +31,7 @@ def build_interaction_update(
 def build_action_request(
     target_device_id: str,
     action: dict,
+    request_id: str,
     trace_recorder=None,
     correlation: dict | None = None,
 ) -> dict:
@@ -55,7 +51,7 @@ def build_action_request(
     frame = with_api_version(
         {
             "type": "action_request",
-            "request_id": f"action-{next(_action_request_counter)}",
+            "request_id": request_id,
             "device_id": target_device_id,
             "action": action,
         }
@@ -74,6 +70,7 @@ def required_device_capability_for_action(action_capability: str) -> str:
 def build_notification_action(
     target_device_id: str,
     message: str,
+    request_id: str,
     trace_recorder=None,
     correlation: dict | None = None,
 ) -> dict:
@@ -89,6 +86,7 @@ def build_notification_action(
             "capability": "notification.show",
             "payload": {"message": message},
         },
+        request_id=request_id,
         trace_recorder=trace_recorder,
         correlation=correlation,
     )
@@ -97,6 +95,7 @@ def build_notification_action(
 def build_planned_action(
     target_device_id: str,
     proposal: dict,
+    request_id: str,
     trace_recorder=None,
     correlation: dict | None = None,
 ) -> dict:
@@ -108,6 +107,7 @@ def build_planned_action(
         return build_notification_action(
             target_device_id,
             message,
+            request_id=request_id,
             trace_recorder=trace_recorder,
             correlation=correlation,
         )
@@ -125,6 +125,7 @@ def build_planned_action(
             "capability": action_capability,
             "payload": proposal["action_payload"],
         },
+        request_id=request_id,
         trace_recorder=trace_recorder,
         correlation=correlation,
     )
