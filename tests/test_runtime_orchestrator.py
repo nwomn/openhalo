@@ -117,6 +117,190 @@ class RuntimeOrchestratorTests(unittest.TestCase):
         self.assertEqual(dispatch_events[0].output["send_status"], "sent")
         self.assertEqual(dispatch_events[0].output["dispatched_to"], "host-edge-1")
 
+    def test_gateway_returns_failed_action_result_when_target_connection_missing(self) -> None:
+        diagnostics = InMemoryDiagnosticRecorder(
+            timestamp_provider=lambda: "2026-06-30T12:00:00Z"
+        )
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            diagnostic_recorder=diagnostics,
+        )
+
+        class FakeWebsocket:
+            def __init__(self) -> None:
+                self.sent_frames: list[str] = []
+
+            async def send(self, payload: str) -> None:
+                self.sent_frames.append(payload)
+
+        source_socket = FakeWebsocket()
+
+        asyncio.run(
+            gateway._dispatch_websocket_replies(
+                "terminal-edge-1",
+                source_socket,
+                [
+                    {
+                        "type": "action_request",
+                        "device_id": "android-edge-1",
+                        "request_id": "action-1",
+                        "interaction_id": "interaction-1",
+                        "trace_id": "trace-terminal-edge-1-1",
+                        "action": {
+                            "capability": "notification.show",
+                            "payload": {"message": "hello"},
+                        },
+                    }
+                ],
+            )
+        )
+
+        sent_frames = [json.loads(frame) for frame in source_socket.sent_frames]
+        failed_result = next(
+            frame for frame in sent_frames if frame["type"] == "action_result"
+        )
+        self.assertEqual(failed_result["device_id"], "android-edge-1")
+        self.assertEqual(failed_result["request_id"], "action-1")
+        self.assertEqual(failed_result["interaction_id"], "interaction-1")
+        self.assertEqual(failed_result["result"]["status"], "failed")
+        self.assertEqual(failed_result["result"]["reason"], "target_missing")
+        self.assertEqual(
+            failed_result["result"]["details"]["target_device_id"],
+            "android-edge-1",
+        )
+        self.assertFalse(
+            any(frame["type"] == "action_request" for frame in sent_frames)
+        )
+
+        dispatch_event = next(
+            event
+            for event in diagnostics.events
+            if event.module == "Gateway" and event.operation == "dispatch_reply"
+        )
+        self.assertEqual(dispatch_event.output["send_status"], "target_missing")
+
+    def test_gateway_records_synthetic_failed_action_result_for_missing_target(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        class FakeProposalFormation:
+            def build_post_action_proposal(
+                self,
+                interaction: dict,
+                prior_proposal: dict,
+                result: dict,
+                turn_index: int,
+                snapshot: dict,
+                grounding_bundle: dict | None = None,
+                correlation: dict | None = None,
+            ):
+                from personal_runtime.agent_executor import InterventionProposal
+
+                return InterventionProposal(
+                    kind="notify",
+                    proposal_type="reply",
+                    source="post_action",
+                    action_capability="notification.show",
+                    required_capability="notification.show",
+                    action_payload={"message": "Phone is offline."},
+                    message="Phone is offline.",
+                    metadata={
+                        "trigger": "action_result",
+                        "result_status": result["status"],
+                        "result_reason": result["reason"],
+                        "previous_target_device_id": result["device_id"],
+                    },
+                    target_device_hint=interaction["source_device_id"],
+                    interaction_type=interaction["interaction_type"],
+                    visibility_intent="visible",
+                    candidate_surface_hints=["source_device"],
+                )
+
+        class FakeWebsocket:
+            def __init__(self) -> None:
+                self.sent_frames: list[str] = []
+
+            async def send(self, payload: str) -> None:
+                self.sent_frames.append(payload)
+
+        gateway.proposal_formation = FakeProposalFormation()
+        gateway.state.register_device("terminal-edge-1", "desktop-cli")
+        gateway.state.register_capability("terminal-edge-1", "notification.show")
+        gateway.state.register_device("android-edge-1", "android-phone")
+        gateway.state.register_capability("android-edge-1", "notification.show")
+        gateway.online_device_ids.add("terminal-edge-1")
+        gateway.state.record_interaction(
+            {
+                "interaction_id": "interaction-1",
+                "status": "planned",
+                "source_device_id": "terminal-edge-1",
+                "participant_device_ids": ["terminal-edge-1", "android-edge-1"],
+                "proposal_type": "action",
+                "interaction_type": "pull",
+                "visibility_intent": "visible",
+                "primary_action": {
+                    "capability": "notification.show",
+                    "target_device_id": "android-edge-1",
+                },
+            }
+        )
+        gateway.state.record_intervention(
+            {
+                "interaction_id": "interaction-1",
+                "source_device_id": "terminal-edge-1",
+                "target_device_id": "android-edge-1",
+                "action_capability": "notification.show",
+                "decision": "allow",
+                "reason": "context_clear",
+                "proposal": {
+                    "proposal_type": "action",
+                    "source": "normal",
+                    "action_capability": "notification.show",
+                    "target_device_hint": "android-edge-1",
+                },
+            }
+        )
+
+        source_socket = FakeWebsocket()
+        asyncio.run(
+            gateway._dispatch_websocket_replies(
+                "terminal-edge-1",
+                source_socket,
+                [
+                    {
+                        "type": "action_request",
+                        "device_id": "android-edge-1",
+                        "request_id": "action-1",
+                        "interaction_id": "interaction-1",
+                        "trace_id": "trace-terminal-edge-1-1",
+                        "action": {
+                            "capability": "notification.show",
+                            "payload": {"message": "hello"},
+                        },
+                    }
+                ],
+            )
+        )
+
+        self.assertEqual(gateway.state.action_results[-1]["status"], "failed")
+        self.assertEqual(gateway.state.action_results[-1]["reason"], "target_missing")
+        self.assertEqual(
+            gateway.state.action_results[-1]["details"]["target_device_id"],
+            "android-edge-1",
+        )
+        sent_frames = [json.loads(frame) for frame in source_socket.sent_frames]
+        self.assertEqual(sent_frames[-1]["type"], "action_request")
+        self.assertEqual(sent_frames[-1]["device_id"], "terminal-edge-1")
+        self.assertEqual(
+            sent_frames[-1]["action"]["payload"]["message"],
+            "Phone is offline.",
+        )
+
     def test_gateway_dispatch_diagnostics_include_error_details(self) -> None:
         diagnostics = InMemoryDiagnosticRecorder(
             timestamp_provider=lambda: "2026-06-30T12:00:00Z"
@@ -333,6 +517,86 @@ class RuntimeOrchestratorTests(unittest.TestCase):
         self.assertEqual(len(diagnostics.events), 1)
         self.assertEqual(diagnostics.events[0].module, "Presence Router")
         self.assertEqual(diagnostics.events[0].operation, "choose_presence_decision")
+
+    def test_presence_router_preserves_explicit_offline_target_hint(self) -> None:
+        router = PresenceRouter()
+
+        decision = router.choose(
+            source_device_id="terminal-edge-1",
+            snapshot={},
+            devices={
+                "terminal-edge-1": {
+                    "device_type": "desktop-cli",
+                    "capabilities": {"notification.show"},
+                },
+                "android-edge-1": {
+                    "device_type": "android-phone",
+                    "capabilities": {"notification.show"},
+                },
+            },
+            online_device_ids={"terminal-edge-1"},
+            required_capability="notification.show",
+            proposal={
+                "proposal_type": "action",
+                "action_capability": "notification.show",
+                "target_device_hint": "android-edge-1",
+            },
+            intervention_history=[],
+            now_timestamp="2026-06-30T12:00:00Z",
+        )
+
+        self.assertEqual(decision.decision, "allow")
+        self.assertEqual(decision.target_device_id, "android-edge-1")
+        self.assertNotEqual(decision.target_device_id, "terminal-edge-1")
+
+    def test_normal_phone_request_targets_known_offline_phone_from_context(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        terminal = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+        gateway.run_roundtrip(
+            [
+                terminal.build_connect_frame(),
+                terminal.build_capability_announce_frame(),
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "android-edge-1",
+                        "device_type": "android-phone",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "capability_announce",
+                    "device_id": "android-edge-1",
+                    "capabilities": ["notification.show"],
+                },
+            ]
+        )
+        gateway.online_device_ids.discard("android-edge-1")
+        gateway.live_connections.pop("android-edge-1", None)
+
+        replies = gateway.run_roundtrip(
+            [terminal.build_text_event("send hello to my phone")]
+        )
+
+        action_request = next(
+            reply for reply in replies if reply["type"] == "action_request"
+        )
+        self.assertEqual(action_request["device_id"], "android-edge-1")
+        intervention = gateway.state.interventions[-1]
+        self.assertEqual(intervention["target_device_id"], "android-edge-1")
+        self.assertEqual(
+            intervention["proposal"]["target_device_hint"],
+            "android-edge-1",
+        )
 
     def test_orchestrator_records_post_action_diagnostics_with_same_trace(self) -> None:
         diagnostics = InMemoryDiagnosticRecorder(

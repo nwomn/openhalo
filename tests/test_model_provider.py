@@ -161,10 +161,10 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertEqual(request_payload["model"], "gpt-5.5")
         self.assertIn("proposal formation planner", rendered)
         self.assertIn("proposal_type", rendered)
-        self.assertIn("reply", rendered)
+        self.assertIn("target_device_hint", rendered)
         self.assertIn("action", rendered)
-        self.assertIn("clarification", rendered)
         self.assertIn("no_intervention", rendered)
+        self.assertNotIn("reply|action|clarification", rendered)
         self.assertIn("check runtime status", rendered)
         self.assertIn("runtime.status", rendered)
         self.assertIn(PROMPT_CONTEXT_VERSION, rendered)
@@ -189,7 +189,7 @@ class ModelProviderConfigTests(unittest.TestCase):
             grounding={"active_goals": [{"goal_id": "goal-1"}]},
         )
 
-        self.assertEqual(plan.proposal_type, "reply")
+        self.assertEqual(plan.proposal_type, "action")
         self.assertEqual(plan.action_capability, "notification.show")
         self.assertEqual(
             plan.action_payload["message"],
@@ -229,6 +229,36 @@ class ModelProviderConfigTests(unittest.TestCase):
             plan.metadata["proposal_rationale"]["summary"],
             "Follow-up runtime status action selected because the prior result requested another check.",
         )
+
+    def test_build_deterministic_post_action_proposal_plan_explains_missing_target(
+        self,
+    ) -> None:
+        plan = build_deterministic_post_action_proposal_plan(
+            interaction_id="interaction-1",
+            prior_proposal={
+                "proposal_type": "action",
+                "action_capability": "notification.show",
+            },
+            result={
+                "status": "failed",
+                "reason": "target_missing",
+                "capability": "notification.show",
+                "device_id": "android-edge-1",
+                "details": {"target_device_id": "android-edge-1"},
+            },
+            profile_name="proposal_formation",
+            fallback_reason="deterministic_post_action",
+            interaction={
+                "source_device_id": "terminal-edge-1",
+                "participant_device_ids": ["terminal-edge-1", "android-edge-1"],
+                "primary_action": {"target_device_id": "android-edge-1"},
+            },
+        )
+
+        self.assertEqual(plan.proposal_type, "reply")
+        self.assertEqual(plan.action_capability, "notification.show")
+        self.assertIn("android-edge-1", plan.response_text)
+        self.assertIn("not connected", plan.response_text)
 
     def test_build_deterministic_post_action_proposal_plan_can_finish_silently(
         self,
@@ -308,6 +338,7 @@ class ModelProviderConfigTests(unittest.TestCase):
             "The runtime is running and using about 27 MB RSS.",
         )
         self.assertFalse(plan.metadata["used_deterministic_fallback"])
+
         self.assertEqual(plan.metadata["post_action_trigger"], "action_result")
         rendered_request = str(calls[0]["input"])
         self.assertIn('"memory_rss_bytes": 28114944', rendered_request)
@@ -811,6 +842,38 @@ class ModelProviderConfigTests(unittest.TestCase):
         )
         self.assertFalse(plan.metadata["used_deterministic_fallback"])
 
+    def test_parse_openai_compatible_proposal_response_preserves_target_device_hint(
+        self,
+    ) -> None:
+        plan = parse_openai_compatible_proposal_response(
+            {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": (
+                                    '{"proposal_type":"action",'
+                                    '"response_text":"Sending hello to your phone.",'
+                                    '"target_device_hint":"android-edge-1",'
+                                    '"action":{"capability":"notification.show","payload":{"message":"hello"}},'
+                                    '"rationale":{"summary":"User explicitly targeted the phone.","intent_signals":["phone"],"grounding_signals":["android-edge-1"]}}'
+                                ),
+                            }
+                        ],
+                    }
+                ]
+            },
+            profile_name="proposal_formation",
+            provider_name="openai_main",
+            model_id="gpt-5.5",
+        )
+
+        self.assertEqual(plan.proposal_type, "action")
+        self.assertEqual(plan.action_capability, "notification.show")
+        self.assertEqual(plan.target_device_hint, "android-edge-1")
+
     def test_parse_openai_compatible_proposal_response_maps_string_reply_action_to_notification_show(
         self,
     ) -> None:
@@ -906,6 +969,41 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertEqual(plan.proposal_type, "action")
         self.assertEqual(plan.action_capability, "runtime.status")
         self.assertEqual(plan.response_text, "Checking runtime status.")
+
+    def test_parse_openai_compatible_proposal_response_promotes_targeted_clarification_action(
+        self,
+    ) -> None:
+        plan = parse_openai_compatible_proposal_response(
+            {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": (
+                                    '{"proposal_type":"clarification",'
+                                    '"response_text":"你是想让我再试着给手机发送通知吗？",'
+                                    '"target_device_hint":"android-edge-782d0247",'
+                                    '"action":{"capability":"notification.show",'
+                                    '"payload":{"message":"你是想让我再试着给手机发送通知吗？"}},'
+                                    '"rationale":{"summary":"User asked to check the phone again.",'
+                                    '"intent_signals":["你再看看呢"],'
+                                    '"grounding_signals":["known phone target"]}}'
+                                ),
+                            }
+                        ],
+                    }
+                ]
+            },
+            profile_name="interactive_reply",
+            provider_name="openai_main",
+            model_id="gpt-5.5",
+        )
+
+        self.assertEqual(plan.proposal_type, "action")
+        self.assertEqual(plan.action_capability, "notification.show")
+        self.assertEqual(plan.target_device_hint, "android-edge-782d0247")
 
     def test_parse_openai_compatible_proposal_response_uses_response_field_for_reply_text(
         self,
@@ -1191,18 +1289,18 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertIn("Codex agent envelope", plan.metadata["provider_failure_reason"])
         self.assertEqual(plan.metadata["provider_attempt_count"], 3)
 
-    def test_build_deterministic_proposal_plan_supports_all_m13_proposal_classes(self) -> None:
-        clarification = build_deterministic_proposal_plan(
+    def test_build_deterministic_proposal_plan_uses_action_for_visible_responses(self) -> None:
+        help_action = build_deterministic_proposal_plan(
             user_text="help",
             profile_name="interactive_reply",
             fallback_reason="provider_unavailable",
             snapshot={"runtime.current_health_state": "healthy"},
             grounding={"active_goals": [{"goal_id": "goal-1"}]},
         )
-        self.assertEqual(clarification.proposal_type, "clarification")
-        self.assertEqual(clarification.action_capability, "notification.show")
-        self.assertIn("clarify", clarification.metadata["proposal_rationale"]["summary"].lower())
-        self.assertTrue(clarification.metadata["used_deterministic_fallback"])
+        self.assertEqual(help_action.proposal_type, "action")
+        self.assertEqual(help_action.action_capability, "notification.show")
+        self.assertIn("clarify", help_action.metadata["proposal_rationale"]["summary"].lower())
+        self.assertTrue(help_action.metadata["used_deterministic_fallback"])
 
         action = build_deterministic_proposal_plan(
             user_text="check runtime status",
@@ -1233,7 +1331,7 @@ class ModelProviderConfigTests(unittest.TestCase):
             snapshot={"runtime.current_health_state": "healthy"},
             grounding={"active_goals": [{"goal_id": "goal-1"}]},
         )
-        self.assertEqual(reply.proposal_type, "reply")
+        self.assertEqual(reply.proposal_type, "action")
         self.assertEqual(reply.action_capability, "notification.show")
         self.assertEqual(reply.response_text, "Runtime heard: hello runtime")
 

@@ -158,7 +158,7 @@ class RuntimeGateway:
             if isinstance(delivered_message, str) and delivered_message.strip():
                 return delivered_message.strip()
         proposal_type = proposal.get("proposal_type")
-        if proposal_type in {"reply", "clarification"}:
+        if proposal_type == "action":
             return proposal.get("action_payload", {}).get("message", "")
         if proposal_type == "no_intervention":
             rationale = proposal.get("metadata", {}).get("proposal_rationale", {})
@@ -211,7 +211,7 @@ class RuntimeGateway:
             return proposal.get("visibility_intent", "silent")
 
         if (
-            proposal_type in {"reply", "clarification"}
+            proposal_type == "action"
             and capability == "notification.show"
             and delivered_message
             and target_device_id is not None
@@ -661,6 +661,37 @@ class RuntimeGateway:
     async def _send_frame(self, websocket, frame: dict) -> None:
         await websocket.send(json.dumps(frame))
 
+    @staticmethod
+    def _build_target_missing_action_result(reply: dict) -> dict:
+        action = reply.get("action", {})
+        target_device_id = reply.get("device_id")
+        result = {
+            "status": "failed",
+            "reason": "target_missing",
+            "capability": action.get("capability"),
+            "details": {
+                "target_device_id": target_device_id,
+                "message": "Target device is not connected.",
+            },
+        }
+        failure = {
+            "type": "action_result",
+            "device_id": target_device_id,
+            "request_id": reply.get("request_id"),
+            "interaction_id": reply.get("interaction_id"),
+            "result": result,
+        }
+        for key in (
+            "trace_id",
+            "session_id",
+            "turn_id",
+            "event_id",
+            "parent_event_id",
+        ):
+            if reply.get(key) is not None:
+                failure[key] = reply[key]
+        return with_api_version(failure)
+
     def _record_trace(self, component: str, message: str, **fields: str) -> None:
         if self.trace_recorder is not None:
             self.trace_recorder.record(component, message, **fields)
@@ -729,6 +760,20 @@ class RuntimeGateway:
                     dispatched_to=source_device_id,
                     send_status="target_missing",
                 )
+                if reply["type"] == "action_request":
+                    failed_result = self._build_target_missing_action_result(reply)
+                    await self._send_frame(
+                        websocket,
+                        failed_result,
+                    )
+                    self.state.record_action_result(failed_result["result"])
+                    self._persist_state()
+                    await self._dispatch_websocket_replies(
+                        source_device_id,
+                        websocket,
+                        self._build_action_result_replies(failed_result),
+                    )
+                    continue
             try:
                 await self._send_frame(websocket, reply)
                 if not (

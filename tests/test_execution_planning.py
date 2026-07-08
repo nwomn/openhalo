@@ -242,6 +242,75 @@ class ExecutionPlanningTests(unittest.TestCase):
         self.assertEqual(outcome["kind"], "completion")
         self.assertEqual(outcome["reason"], "no_registered_capability")
 
+    def test_explicit_target_offline_still_plans_action_for_gateway_failure(self) -> None:
+        state = RuntimeState()
+        _register_surface(
+            state,
+            "terminal-edge-1",
+            {
+                "name": "notification.show",
+                "direction": "runtime_to_edge",
+                "kind": "action",
+                "affordances": ["notify_user", "deliver_private_text"],
+                "modality": "visual_text",
+                "content_capacity": "short_text",
+                "privacy": "personal",
+                "input_schema": {
+                    "type": "object",
+                    "required": ["message"],
+                    "properties": {"message": {"type": "string"}},
+                },
+            },
+        )
+        _register_surface(
+            state,
+            "android-edge-1",
+            {
+                "name": "notification.show",
+                "direction": "runtime_to_edge",
+                "kind": "action",
+                "affordances": ["notify_user", "deliver_private_text"],
+                "modality": "visual_text",
+                "content_capacity": "short_text",
+                "privacy": "personal",
+                "input_schema": {
+                    "type": "object",
+                    "required": ["message"],
+                    "properties": {"message": {"type": "string"}},
+                },
+            },
+        )
+
+        outcome = ExecutionPlanner().plan_action(
+            source_device_id="terminal-edge-1",
+            proposal={
+                "proposal_type": "action",
+                "action_capability": "notification.show",
+                "action_payload": {"message": "hello"},
+                "visibility_intent": "visible",
+                "target_device_hint": "android-edge-1",
+            },
+            decision={
+                "decision": "allow",
+                "target_device_id": "android-edge-1",
+                "reason": "context_clear",
+            },
+            interaction_id="interaction-1",
+            runtime_state=state,
+            online_device_ids={"terminal-edge-1"},
+        )
+
+        self.assertEqual(outcome["kind"], "action")
+        self.assertEqual(outcome["target_device_id"], "android-edge-1")
+        self.assertEqual(
+            outcome["planning_record"]["chosen_candidate"]["device_id"],
+            "android-edge-1",
+        )
+        self.assertIn(
+            "target_offline",
+            outcome["planning_record"]["chosen_candidate"]["score_reasons"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
