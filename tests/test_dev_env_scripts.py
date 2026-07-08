@@ -296,6 +296,79 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("clarification", contents)
         self.assertIn("no_intervention", contents)
 
+    def test_proposal_harness_verification_script_exists_and_supports_dry_run(self) -> None:
+        script_path = ROOT / "bin" / "verify-proposal-harness"
+
+        self.assertTrue(script_path.exists())
+        self.assertTrue(os.access(script_path, os.X_OK))
+
+        result = subprocess.run(
+            [str(script_path), "--dry-run"],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+        )
+
+        self.assertIn("proposal-harness-fixture", result.stdout)
+        self.assertIn("raw_json", result.stdout)
+        self.assertIn("decision_brief", result.stdout)
+
+        state_result = subprocess.run(
+            [
+                str(script_path),
+                "--dry-run",
+                "--state",
+                ".runtime/m17_6_acceptance_state.json",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+        )
+
+        self.assertIn("proposal-harness-state", state_result.stdout)
+
+        provider_result = subprocess.run(
+            [
+                str(script_path),
+                "--dry-run",
+                "--state",
+                ".runtime/m17_6_acceptance_state.json",
+                "--provider-replay",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+        )
+
+        self.assertIn("proposal-harness-provider-replay", provider_result.stdout)
+        self.assertIn(
+            "config/runtime-config.openai-local.toml",
+            provider_result.stdout,
+        )
+        self.assertIn(".runtime/m17_6_acceptance_state.json", state_result.stdout)
+
+        provider_result = subprocess.run(
+            [
+                str(script_path),
+                "--dry-run",
+                "--state",
+                ".runtime/m17_6_acceptance_state.json",
+                "--provider-replay",
+                "--runtime-config-path",
+                "config/runtime-config.toml",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+        )
+
+        self.assertIn("proposal-harness-provider-replay", provider_result.stdout)
+        self.assertIn("config/runtime-config.toml", provider_result.stdout)
+
     def test_model_provider_verification_script_exists_and_supports_dry_run(self) -> None:
         script_path = ROOT / "bin" / "verify-model-provider"
 

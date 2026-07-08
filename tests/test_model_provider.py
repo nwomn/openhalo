@@ -313,6 +313,107 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertIn('"memory_rss_bytes": 28114944', rendered_request)
         self.assertIn('"interaction_id": "interaction-1"', rendered_request)
 
+    def test_generate_post_action_proposal_plan_uses_decision_brief_context(
+        self,
+    ) -> None:
+        calls = []
+
+        def transport(_provider, request_payload, *_args):
+            calls.append(request_payload)
+            return {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": (
+                                    '{"proposal_type":"reply",'
+                                    '"response_text":"Delivered hello to your phone.",'
+                                    '"action":{"capability":"notification.show","payload":{}},'
+                                    '"rationale":{"summary":"Acknowledged the source terminal.",'
+                                    '"intent_signals":["source ack"],'
+                                    '"grounding_signals":["decision brief"]}}'
+                                ),
+                            }
+                        ],
+                    }
+                ]
+            }
+
+        generate_post_action_proposal_plan(
+            interaction_id="interaction-1",
+            interaction={
+                "interaction_id": "interaction-1",
+                "source_device_id": "terminal-edge-1",
+                "participant_device_ids": ["terminal-edge-1", "android-edge-1"],
+                "primary_action": {"target_device_id": "android-edge-1"},
+            },
+            prior_proposal={
+                "proposal_type": "reply",
+                "action_capability": "notification.show",
+            },
+            result={
+                "status": "ok",
+                "capability": "notification.show",
+                "details": {"message": "hello"},
+            },
+            snapshot={"runtime.current_health_state": "healthy"},
+            grounding={"active_goals": [{"goal_id": "goal-1"}]},
+            config_path=Path("config/runtime-config.example.toml"),
+            transport=transport,
+        )
+
+        rendered_request = str(calls[0]["input"])
+        self.assertIn("Decision task:", rendered_request)
+        self.assertIn("source_device_id: terminal-edge-1", rendered_request)
+        self.assertIn("target_device_id: android-edge-1", rendered_request)
+        self.assertIn("source_ack_required: true", rendered_request)
+        self.assertNotIn("Post-action deliberation: inspect the action_result", rendered_request)
+
+    def test_generate_post_action_proposal_plan_isolates_observed_provider_failure_before_model(
+        self,
+    ) -> None:
+        calls = []
+
+        plan = generate_post_action_proposal_plan(
+            interaction_id="interaction-1",
+            interaction={
+                "interaction_id": "interaction-1",
+                "source_device_id": "terminal-edge-1",
+                "participant_device_ids": ["terminal-edge-1", "android-edge-1"],
+                "primary_action": {"target_device_id": "android-edge-1"},
+            },
+            prior_proposal={
+                "proposal_type": "reply",
+                "action_capability": "notification.show",
+                "metadata": {"provider_failure_class": "protocol_shape"},
+            },
+            result={
+                "status": "ok",
+                "capability": "notification.show",
+                "details": {
+                    "message": (
+                        "Real model reply unavailable: provider returned an "
+                        "incompatible response shape; please retry shortly"
+                    )
+                },
+            },
+            snapshot={"runtime.current_health_state": "healthy"},
+            grounding={"active_goals": [{"goal_id": "goal-1"}]},
+            config_path=Path("config/runtime-config.example.toml"),
+            transport=lambda *_args: calls.append(True),
+        )
+
+        self.assertEqual(calls, [])
+        self.assertEqual(plan.proposal_type, "provider_failure")
+        self.assertIsNone(plan.action_capability)
+        self.assertEqual(plan.action_payload, {})
+        self.assertEqual(plan.metadata["runtime_message_channel"], "provider_failure")
+        self.assertEqual(plan.metadata["provider_failure_observed"], True)
+        self.assertNotIn("Real model reply unavailable", plan.response_text)
+        self.assertNotIn("incompatible response shape", plan.response_text)
+
     def test_generate_post_observation_proposal_plan_uses_model_backed_observation_context(
         self,
     ) -> None:
@@ -717,9 +818,11 @@ class ModelProviderConfigTests(unittest.TestCase):
             },
         )
 
-        self.assertEqual(plan.proposal_type, "reply")
-        self.assertEqual(plan.action_capability, "notification.show")
+        self.assertEqual(plan.proposal_type, "provider_failure")
+        self.assertIsNone(plan.action_capability)
+        self.assertEqual(plan.action_payload, {})
         self.assertIn("Real model reply unavailable", plan.response_text)
+        self.assertEqual(plan.metadata["runtime_message_channel"], "provider_failure")
         self.assertEqual(plan.metadata["provider_failure_type"], "ValueError")
         self.assertFalse(plan.metadata["used_deterministic_fallback"])
 
@@ -979,7 +1082,7 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertTrue(plan.metadata["used_deterministic_fallback"])
         self.assertEqual(plan.metadata["fallback_reason"], "provider_unavailable")
 
-    def test_generate_text_proposal_plan_can_surface_provider_failure_as_visible_error_reply(
+    def test_generate_text_proposal_plan_isolates_provider_failure_from_normal_reply_action(
         self,
     ) -> None:
         plan = generate_text_proposal_plan(
@@ -990,13 +1093,15 @@ class ModelProviderConfigTests(unittest.TestCase):
             config_path=Path("tests/fixtures/llm-config-missing-key-test.toml"),
         )
 
-        self.assertEqual(plan.proposal_type, "reply")
-        self.assertEqual(plan.action_capability, "notification.show")
+        self.assertEqual(plan.proposal_type, "provider_failure")
+        self.assertIsNone(plan.action_capability)
+        self.assertEqual(plan.action_payload, {})
         self.assertIn("Real model reply unavailable", plan.response_text)
         self.assertIn(
             "missing provider credential: openai_main",
             plan.response_text,
         )
+        self.assertEqual(plan.metadata["runtime_message_channel"], "provider_failure")
         self.assertEqual(
             plan.metadata["provider_failure_behavior"],
             "user_visible_error",
