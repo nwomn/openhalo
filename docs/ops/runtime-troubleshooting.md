@@ -129,6 +129,27 @@ ALL_PROXY=http://127.0.0.1:7890
 Confirm these are present in `/etc/openhalo/runtime.env` and inherited by the
 running service process.
 
+If the variables are present but provider requests still fail with errors such
+as `SSL_ERROR_SYSCALL` or `UNEXPECTED_EOF_WHILE_READING`, verify the selected
+proxy node itself. A local proxy can accept the CONNECT tunnel while the chosen
+upstream node still cannot reach `api.openai.com`.
+
+Useful checks:
+
+```bash
+tr '\0' '\n' < /proc/$(systemctl show -p MainPID --value openhalo-runtime)/environ \
+  | grep PROXY
+
+curl -I --proxy http://127.0.0.1:7890 https://api.openai.com/v1/models
+
+curl -sS http://127.0.0.1:9090/proxies/<proxy-group-name> | jq '{name, now, type}'
+```
+
+If `curl` shows `HTTP/1.1 200 Connection established` followed by a TLS reset or
+timeout, the runtime is reaching the local proxy but the selected node is
+failing. Switch the proxy group to a node that reaches OpenAI and rerun the
+provider probe.
+
 ## Smoke Tests
 
 Verify nginx reaches the runtime through public cleartext WebSocket:

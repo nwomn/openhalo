@@ -90,6 +90,52 @@ Check logs:
 sudo journalctl -u openhalo-runtime -f
 ```
 
+## Updating the Long-Running Runtime
+
+When deploying a new code baseline to the long-running server runtime, treat the
+runtime state as tied to that code baseline unless a migration has been written
+and verified. The default development/acceptance update flow is:
+
+```bash
+sudo systemctl stop openhalo-runtime
+sudo rm -f /var/lib/openhalo/runtime-state.json
+# sync the new repository contents to /opt/openhalo while preserving .venv and
+# /etc/openhalo runtime configuration
+sudo systemctl start openhalo-runtime
+sudo systemctl status openhalo-runtime
+```
+
+Keep diagnostic logs unless they are intentionally being rotated; diagnostics
+are useful for post-update troubleshooting, while `/var/lib/openhalo/runtime-state.json`
+contains the live device, interaction, and context state that may not be
+compatible across early milestone updates.
+
+The long-running service must also inherit the local proxy environment required
+for provider-backed model access:
+
+```text
+HTTPS_PROXY=http://127.0.0.1:7890
+HTTP_PROXY=http://127.0.0.1:7890
+ALL_PROXY=http://127.0.0.1:7890
+```
+
+After updating or changing proxy nodes, verify both the raw OpenAI API path and
+the OpenHalo provider probe:
+
+```bash
+curl -I --proxy http://127.0.0.1:7890 https://api.openai.com/v1/models
+
+sudo -u openhalo \
+  env HTTPS_PROXY=http://127.0.0.1:7890 \
+      HTTP_PROXY=http://127.0.0.1:7890 \
+      ALL_PROXY=http://127.0.0.1:7890 \
+  /opt/openhalo/bin/verify-model-provider \
+  --runtime-config-path /etc/openhalo/runtime-config.toml
+```
+
+The first command should reach OpenAI and return an HTTP response such as `401`
+when no API key is provided by curl. The second command should report `ok: true`.
+
 ## Current Production Edge Endpoint
 
 The current Alibaba Cloud production runtime keeps the Python runtime private

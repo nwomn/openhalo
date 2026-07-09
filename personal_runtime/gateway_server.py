@@ -451,6 +451,18 @@ class RuntimeGateway:
                     "received capability_announce",
                     device_id=frame["device_id"],
                 )
+                if frame["device_id"] not in self.state.devices:
+                    replies.append(
+                        self._build_public_error(
+                            code="unknown_device",
+                            message=(
+                                "Device must connect successfully before "
+                                "announcing capabilities."
+                            ),
+                            device_id=frame["device_id"],
+                        )
+                    )
+                    continue
                 for capability in frame["capabilities"]:
                     self.state.register_capability(frame["device_id"], capability)
                 self._persist_state()
@@ -571,6 +583,27 @@ class RuntimeGateway:
         return None
 
     @staticmethod
+    def _build_public_error(
+        code: str,
+        message: str,
+        device_id: str | None = None,
+        capability: str | None = None,
+        observation: str | None = None,
+    ) -> dict:
+        payload = {
+            "type": "error",
+            "code": code,
+            "message": message,
+        }
+        if device_id is not None:
+            payload["device_id"] = device_id
+        if capability is not None:
+            payload["capability"] = capability
+        if observation is not None:
+            payload["observation"] = observation
+        return with_api_version(payload)
+
+    @staticmethod
     def _build_observation_error(
         code: str,
         message: str,
@@ -578,15 +611,12 @@ class RuntimeGateway:
         capability: str,
         observation: str | None,
     ) -> dict:
-        return with_api_version(
-            {
-                "type": "error",
-                "code": code,
-                "message": message,
-                "device_id": device_id,
-                "capability": capability,
-                "observation": observation,
-            }
+        return RuntimeGateway._build_public_error(
+            code=code,
+            message=message,
+            device_id=device_id,
+            capability=capability,
+            observation=observation,
         )
 
     @classmethod

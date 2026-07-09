@@ -3166,6 +3166,29 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(error["interaction_id"], "interaction-missing")
         self.assertEqual(error["device_id"], "android-edge-1")
 
+    async def test_unknown_capability_announce_returns_public_error(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "api_version": API_VERSION,
+                    "type": "capability_announce",
+                    "device_id": "android-edge-1",
+                    "capabilities": ["notification.show"],
+                }
+            ]
+        )
+
+        error = _last_error(replies)
+        self.assertIsNotNone(error)
+        self.assertEqual(error["code"], "unknown_device")
+        self.assertEqual(error["device_id"], "android-edge-1")
+
 
 if __name__ == "__main__":
     unittest.main()
