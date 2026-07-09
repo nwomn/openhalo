@@ -300,7 +300,11 @@ class M17AndroidEdgeComposeTest {
                     lastReceivedFrame = "{\"type\":\"action_request\",\"capability\":\"notification.show\"}",
                     recentObservations = "Sent mobile.context at test-time",
                     recentActions = "notification.show -> ok at test-time",
-                    reconnectStatus = "connected"
+                    reconnectStatus = "connected",
+                    backgroundObservationState = "heartbeat uploaded",
+                    lastLocalObservationAt = "2026-07-09T15:00:00Z",
+                    lastSuccessfulUploadAt = "2026-07-09T15:00:01Z",
+                    deliveryQueueDepth = 0
                 )
             )
         }
@@ -326,6 +330,12 @@ class M17AndroidEdgeComposeTest {
             .performScrollTo()
             .assertIsDisplayed()
         composeRule.onNodeWithText("notification.show -> ok at test-time", substring = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("background_observation=heartbeat uploaded", substring = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("last_successful_upload=2026-07-09T15:00:01Z", substring = true)
             .performScrollTo()
             .assertIsDisplayed()
     }

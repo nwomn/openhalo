@@ -246,6 +246,7 @@ Expected flow:
    context viewer:
 
    ```bash
+   ssh aliyun_server
    cd /root/openhalo
    .venv/bin/python -m personal_runtime.context_viewer \
      --state-path /var/lib/openhalo/runtime-state.json \
@@ -255,10 +256,14 @@ Expected flow:
 
    For local development runtimes, use the same module with the local state and
    diagnostic paths, or add `--watch` for a continuously refreshing view.
+   From the local Windows development machine, `aliyun_server` is the expected
+   SSH alias for the Alibaba Cloud production runtime host.
 7. Confirm `mobile.screen_context` observations arrive through the normal Edge
    API with `source=accessibility`, `capture_mode=accessibility_tree`,
-   indexed `interactive_elements`, bounded `visible_text_summary`, sensitivity
-   metadata, provenance, and `raw_screenshot_uploaded=false`.
+   structured app identity fields such as `package_name` and
+   `root_class_name`, indexed `interactive_elements`, bounded
+   `visible_text_summary`, sensitivity metadata, provenance, and
+   `raw_screenshot_uploaded=false`.
 8. Confirm the viewer's `Latest Accepted Ingress Events` shows the expected
    Android `device_id` and capability `mobile.screen_context`, proving the
    Gateway accepted the live edge upload.
@@ -395,6 +400,64 @@ The pass criteria are:
   `terminal-edge-1` as a successful phone send
 - terminal-visible failure explanations are expected local delivery results;
   they do not replace the preceding failed phone-targeted `action_result`
+
+## 8. M17.7.1 Background Observation Steady-State Acceptance
+
+Purpose:
+
+- Verify that user-enabled Android observation uses a foreground-service steady
+  state rather than relying on the user reopening the app after it is
+  backgrounded.
+- Confirm the phone edge keeps WebSocket heartbeat delivery and periodic
+  `mobile.context` health observations alive while screen-context observations
+  continue through the accessibility service.
+- Confirm Android battery/background risk is visible to the user instead of
+  hidden as an unexplained runtime silence.
+
+Automated coverage added in the first M17.7.1 slice:
+
+- `AndroidEdgeService` keeps a foreground-service background observation
+  heartbeat scheduled while background keepalive is enabled.
+- `AndroidEdgeClient` records last local observation time, last successful
+  upload time, background observation state, and local delivery queue depth.
+- `AndroidEdgeHealth.backgroundPermissionGuidance` reports battery exemption
+  readiness and manufacturer-specific background-running guidance for common
+  Android vendors.
+- Unit tests cover the bounded background heartbeat interval and manufacturer
+  guidance.
+- Compose diagnostics tests cover display of background observation and last
+  successful upload state.
+
+Manual live-chain acceptance:
+
+1. Install the debug APK and connect the Android edge to the target runtime.
+2. Keep `后台保活` enabled and enable `屏幕上下文` plus the OpenHalo
+   accessibility service.
+3. Confirm the persistent OpenHalo foreground-service notification is visible
+   and low-distraction.
+4. Background OpenHalo without swiping it away, force-stopping it, or revoking
+   permissions.
+5. Interact with normal foreground apps for several minutes.
+6. Confirm the runtime context viewer continues to show fresh
+   `mobile.screen_context` observations during active unlocked phone use.
+7. Confirm periodic `mobile.context` observations continue to refresh even when
+   no rich screen-context event is emitted.
+8. Confirm Developer Diagnostics reports `background_observation`,
+   `last_local_observation`, `last_successful_upload`, and
+   `delivery_queue_depth`.
+9. Open battery/background settings from the app and confirm the displayed
+   guidance matches the device's current restriction state.
+
+Pass criteria:
+
+- Fresh phone observations continue after OpenHalo is backgrounded without
+  reopening the app.
+- The foreground-service notification remains visible while observation is
+  active.
+- WebSocket/reconnect state and periodic observation upload health remain
+  inspectable in the app.
+- Battery/background restrictions are visible as a user-facing risk, not only a
+  hidden log detail.
 
 ## Current Practice By Change Type
 

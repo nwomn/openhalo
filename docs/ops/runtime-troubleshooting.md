@@ -16,6 +16,25 @@ Android Edge
 The runtime itself should stay bound to `127.0.0.1:8765`. Public edge traffic
 should enter through nginx.
 
+## Server Access
+
+From the local Windows development machine, use the user-level SSH alias:
+
+```powershell
+ssh aliyun_server
+```
+
+The alias resolves to the Alibaba Cloud runtime host `8.153.37.167` as `root`
+with the local private key configured outside this repository. Prefer this
+alias for server-side runtime inspection so commands stay stable if the key path
+or user-level SSH config changes.
+
+For a direct non-interactive check:
+
+```powershell
+ssh aliyun_server "systemctl status openhalo-runtime --no-pager"
+```
+
 ## Fast Status Checks
 
 ```bash
@@ -45,6 +64,12 @@ Runtime structured diagnostics:
 tail -f /var/log/openhalo/runtime-diagnostics.jsonl
 ```
 
+One-shot local form:
+
+```powershell
+ssh aliyun_server "tail -n 80 /var/log/openhalo/runtime-diagnostics.jsonl"
+```
+
 nginx access log:
 
 ```bash
@@ -56,6 +81,41 @@ Android local evidence:
 ```bash
 adb logcat
 ```
+
+## Screen Context Receipt Check
+
+To verify whether the production runtime is receiving Android screen-context
+frames from the phone edge:
+
+```powershell
+ssh aliyun_server "python3 - <<'PY'
+import json, datetime
+state_path = '/var/lib/openhalo/runtime-state.json'
+now = datetime.datetime.now(datetime.UTC).replace(microsecond=0)
+data = json.load(open(state_path, encoding='utf-8'))
+screen = [
+    item for item in data.get('observations', [])
+    if item.get('name') in ('mobile.screen_context', 'mobile.screen_capture_health')
+]
+print('server_now_utc', now.isoformat().replace('+00:00', 'Z'))
+print('screen_normalized_count', len(screen))
+for item in screen[-8:]:
+    value = item.get('value') if isinstance(item.get('value'), dict) else {}
+    print(json.dumps({
+        'name': item.get('name'),
+        'observed_at': item.get('observed_at'),
+        'capture_mode': value.get('capture_mode'),
+        'screen_kind': value.get('screen_kind'),
+        'pause_reason': value.get('capture_pause_reason'),
+        'raw_screenshot_uploaded': value.get('raw_screenshot_uploaded'),
+    }, ensure_ascii=False))
+PY"
+```
+
+Pass evidence for M17.7.1 should show recent `mobile.screen_context` or
+`mobile.screen_capture_health` observations from the Android edge, normally
+seconds old during active unlocked phone use, with
+`raw_screenshot_uploaded=false`.
 
 ## Interpret Common Symptoms
 

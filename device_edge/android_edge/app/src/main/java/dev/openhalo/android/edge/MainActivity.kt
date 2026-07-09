@@ -834,7 +834,11 @@ private fun SettingsScreen(
             SettingsDivider()
             PermissionRow(
                 title = "电池策略",
-                value = diagnostics.batteryHealth.ifBlank { "系统设置" },
+                value = AndroidEdgeHealth.backgroundPermissionGuidance(
+                    batteryState = diagnostics.batteryHealth.ifBlank {
+                        AndroidEdgeHealth.batteryOptimizationState(LocalContext.current)
+                    }
+                ),
                 tag = AndroidEdgeTestTags.SETTINGS_BATTERY_ROW,
                 onClick = onOpenBatterySettings
             )
@@ -1374,6 +1378,15 @@ private fun androidHealthSummary(context: Context, diagnostics: EdgeDiagnostics)
         "battery=${diagnostics.batteryHealth.ifBlank {
             AndroidEdgeHealth.batteryOptimizationState(context)
         }}",
+        "background_observation=${diagnostics.backgroundObservationState}",
+        "last_local_observation=${diagnostics.lastLocalObservationAt.ifBlank { "never" }}",
+        "last_successful_upload=${diagnostics.lastSuccessfulUploadAt.ifBlank { "never" }}",
+        "delivery_queue_depth=${diagnostics.deliveryQueueDepth}",
+        "background_guidance=${AndroidEdgeHealth.backgroundPermissionGuidance(
+            batteryState = diagnostics.batteryHealth.ifBlank {
+                AndroidEdgeHealth.batteryOptimizationState(context)
+            }
+        )}",
         "accessibility=${AndroidEdgeHealth.accessibilityServiceState(context)}",
         "screen_context=${diagnostics.screenContextState.ifBlank {
             if (AndroidEdgePreferences.screenContextObservationEnabled(context)) "enabled" else "disabled"

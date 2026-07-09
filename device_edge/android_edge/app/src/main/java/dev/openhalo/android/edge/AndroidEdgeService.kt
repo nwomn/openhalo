@@ -9,13 +9,44 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
 
 class AndroidEdgeService : Service() {
     private var client: AndroidEdgeClient? = null
     private var foregroundStarted = false
+    private val backgroundObservationHandler = Handler(Looper.getMainLooper())
+    private val backgroundObservationTick = object : Runnable {
+        override fun run() {
+            if (!AndroidEdgePreferences.backgroundKeepAliveEnabled(applicationContext)) {
+                EdgeDiagnosticsStore.update(
+                    EdgeDiagnosticsStore.current().copy(
+                        backgroundObservationState = "disabled by user"
+                    )
+                )
+                return
+            }
+            val uploaded = client?.sendCurrentObservations(appVisibility = "background") == true
+            val current = EdgeDiagnosticsStore.current()
+            EdgeDiagnosticsStore.update(
+                current.copy(
+                    serviceState = "foreground",
+                    backgroundObservationState = if (uploaded) {
+                        "heartbeat uploaded"
+                    } else {
+                        "heartbeat queued: websocket disconnected"
+                    }
+                )
+            )
+            backgroundObservationHandler.postDelayed(
+                this,
+                backgroundObservationIntervalMillis()
+            )
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -46,12 +77,14 @@ class AndroidEdgeService : Service() {
                     ?: storedConfig.edgeToken
                 Log.i(LOG_TAG, "OPENHALO_EDGE_EVENT {\"event\":\"service_start_requested\"}")
                 client?.connect(runtimeMode, runtimeUrl, deviceId, edgeToken)
+                scheduleBackgroundObservationHeartbeat()
             }
 
             ACTION_SEND_OBSERVATIONS -> {
                 startAsForegroundService()
                 Log.i(LOG_TAG, "OPENHALO_EDGE_EVENT {\"event\":\"service_observation_requested\"}")
                 client?.sendCurrentObservations()
+                scheduleBackgroundObservationHeartbeat()
             }
 
             ACTION_SUBMIT_TEXT -> {
@@ -65,8 +98,12 @@ class AndroidEdgeService : Service() {
                 Log.i(LOG_TAG, "OPENHALO_EDGE_EVENT {\"event\":\"service_stop_requested\"}")
                 client?.disconnect()
                 EdgeDiagnosticsStore.update(
-                    EdgeDiagnosticsStore.current().copy(serviceState = "stopped")
+                    EdgeDiagnosticsStore.current().copy(
+                        serviceState = "stopped",
+                        backgroundObservationState = "stopped"
+                    )
                 )
+                backgroundObservationHandler.removeCallbacksAndMessages(null)
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 foregroundStarted = false
                 stopSelf()
@@ -78,9 +115,13 @@ class AndroidEdgeService : Service() {
     override fun onDestroy() {
         client?.disconnect()
         client = null
+        backgroundObservationHandler.removeCallbacksAndMessages(null)
         ScreenContextObservationBridge.detach()
         EdgeDiagnosticsStore.update(
-            EdgeDiagnosticsStore.current().copy(serviceState = "stopped")
+            EdgeDiagnosticsStore.current().copy(
+                serviceState = "stopped",
+                backgroundObservationState = "stopped"
+            )
         )
         super.onDestroy()
     }
@@ -105,9 +146,40 @@ class AndroidEdgeService : Service() {
             startForeground(SERVICE_NOTIFICATION_ID, notification)
         }
         EdgeDiagnosticsStore.update(
-            EdgeDiagnosticsStore.current().copy(serviceState = "foreground")
+            EdgeDiagnosticsStore.current().copy(
+                serviceState = "foreground",
+                backgroundObservationState = if (
+                    AndroidEdgePreferences.backgroundKeepAliveEnabled(applicationContext)
+                ) {
+                    "foreground service active"
+                } else {
+                    "disabled by user"
+                }
+            )
         )
         foregroundStarted = true
+    }
+
+    private fun scheduleBackgroundObservationHeartbeat() {
+        backgroundObservationHandler.removeCallbacksAndMessages(null)
+        if (!AndroidEdgePreferences.backgroundKeepAliveEnabled(applicationContext)) {
+            EdgeDiagnosticsStore.update(
+                EdgeDiagnosticsStore.current().copy(
+                    backgroundObservationState = "disabled by user"
+                )
+            )
+            return
+        }
+        EdgeDiagnosticsStore.update(
+            EdgeDiagnosticsStore.current().copy(
+                serviceState = "foreground",
+                backgroundObservationState = "heartbeat scheduled"
+            )
+        )
+        backgroundObservationHandler.postDelayed(
+            backgroundObservationTick,
+            backgroundObservationIntervalMillis()
+        )
     }
 
     private fun serviceNotification(): Notification {
@@ -121,7 +193,7 @@ class AndroidEdgeService : Service() {
         return NotificationCompat.Builder(this, SERVICE_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("OpenHalo Android Edge")
-            .setContentText("Presence edge session is running")
+            .setContentText("Background observation and edge session are active")
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -189,3 +261,5 @@ class AndroidEdgeService : Service() {
             }
     }
 }
+
+fun backgroundObservationIntervalMillis(): Long = 60_000L

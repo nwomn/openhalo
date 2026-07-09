@@ -136,9 +136,32 @@ class EdgeApiFramesTest {
 
         assertEquals("normal", value.getString("sensitivity"))
         assertEquals("accessibility_tree", value.getString("capture_mode"))
+        assertEquals("com.example.messaging", value.getString("package_name"))
+        assertEquals("ChatActivity", value.getString("root_class_name"))
         assertTrue(value.getString("visible_text_summary").contains("Message list"))
         assertEquals(3, value.getJSONArray("interactive_elements").length())
         assertEquals("text_input", value.getJSONArray("interactive_elements").getJSONObject(1).getString("role"))
+    }
+
+    @Test
+    fun screenContextCapabilitySchemaIncludesAppIdentityFields() {
+        val frame = buildCapabilityAnnounceFrame("android-edge-test")
+        val capabilities = frame.getJSONArray("capabilities")
+        val screenContext = (0 until capabilities.length())
+            .map { capabilities.getJSONObject(it) }
+            .first { it.getString("name") == "mobile.screen_context" }
+        val screenObservation = screenContext
+            .getJSONArray("observations")
+            .getJSONObject(0)
+        val schema = screenObservation.getJSONObject("schema")
+        val required = schema.getJSONArray("required")
+        val properties = schema.getJSONObject("properties")
+        val requiredNames = (0 until required.length()).map { required.getString(it) }
+
+        assertTrue(requiredNames.contains("package_name"))
+        assertTrue(requiredNames.contains("root_class_name"))
+        assertEquals("string", properties.getJSONObject("package_name").getString("type"))
+        assertEquals("string", properties.getJSONObject("root_class_name").getString("type"))
     }
 
     @Test
@@ -150,5 +173,33 @@ class EdgeApiFramesTest {
         assertEquals(20_000L, reconnectDelayMillis(4))
         assertEquals(30_000L, reconnectDelayMillis(5))
         assertEquals(30_000L, reconnectDelayMillis(99))
+    }
+
+    @Test
+    fun backgroundObservationHeartbeatUsesBoundedSteadyStateInterval() {
+        assertEquals(60_000L, backgroundObservationIntervalMillis())
+    }
+
+    @Test
+    fun backgroundPermissionGuidanceCallsOutKnownManufacturerRestrictions() {
+        assertEquals(
+            "ready for foreground-service background observation",
+            AndroidEdgeHealth.backgroundPermissionGuidance(
+                manufacturer = "Google",
+                batteryState = "unrestricted"
+            )
+        )
+        assertTrue(
+            AndroidEdgeHealth.backgroundPermissionGuidance(
+                manufacturer = "Xiaomi",
+                batteryState = "may restrict background"
+            ).contains("Autostart")
+        )
+        assertTrue(
+            AndroidEdgeHealth.backgroundPermissionGuidance(
+                manufacturer = "Samsung",
+                batteryState = "may restrict background"
+            ).contains("Sleeping apps")
+        )
     }
 }

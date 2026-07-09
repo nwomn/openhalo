@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import android.text.TextUtils
+import java.util.Locale
 
 object AndroidEdgeHealth {
     fun accessibilityServiceState(context: Context): String {
@@ -35,6 +36,35 @@ object AndroidEdgeHealth {
         } else {
             "may restrict background"
         }
+    }
+
+    fun backgroundPermissionGuidance(
+        manufacturer: String = Build.MANUFACTURER,
+        batteryState: String
+    ): String {
+        if (batteryState == "unrestricted" || batteryState == "not required") {
+            return "ready for foreground-service background observation"
+        }
+        val vendor = manufacturer.lowercase(Locale.US)
+        val vendorHint = when {
+            vendor.contains("xiaomi") || vendor.contains("redmi") -> {
+                "enable Autostart and set Battery saver to No restrictions"
+            }
+            vendor.contains("huawei") || vendor.contains("honor") -> {
+                "allow app launch/background running in Battery settings"
+            }
+            vendor.contains("oppo") || vendor.contains("oneplus") || vendor.contains("realme") -> {
+                "allow background activity and disable app battery optimization"
+            }
+            vendor.contains("vivo") || vendor.contains("iqoo") -> {
+                "allow high background power use and autostart"
+            }
+            vendor.contains("samsung") -> {
+                "remove OpenHalo from Sleeping apps and allow background usage"
+            }
+            else -> "allow unrestricted battery/background usage for OpenHalo"
+        }
+        return "may restrict background; $vendorHint"
     }
 
     fun fullScreenAlertState(context: Context): String {

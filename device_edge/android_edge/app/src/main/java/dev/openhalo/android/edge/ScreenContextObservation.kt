@@ -59,6 +59,8 @@ fun buildScreenContextObservation(capture: ScreenContextCapture, observedAt: Str
         .put("events_coalesced", capture.eventsCoalesced)
         .put("events_dropped", capture.eventsDropped)
         .put("capture_throttled", capture.captureThrottled)
+        .put("package_name", capture.packageName)
+        .put("root_class_name", capture.rootClassName)
         .put("package_category", packageCategory(capture.packageName))
         .put("screen_kind", screenKind(capture))
         .put("user_action_observed", userActionObserved(capture.eventKind))

@@ -37,7 +37,11 @@ data class EdgeDiagnostics(
     val notificationHealth: String = "",
     val fullScreenAlertHealth: String = "",
     val batteryHealth: String = "",
-    val screenContextState: String = "disabled"
+    val screenContextState: String = "disabled",
+    val backgroundObservationState: String = "inactive",
+    val lastLocalObservationAt: String = "",
+    val lastSuccessfulUploadAt: String = "",
+    val deliveryQueueDepth: Int = 0
 )
 
 class AndroidEdgeClient(
@@ -130,7 +134,7 @@ class AndroidEdgeClient(
         }
     }
 
-    fun sendCurrentObservations(appVisibility: String = "foreground") {
+    fun sendCurrentObservations(appVisibility: String = "foreground"): Boolean {
         sendFrame(
             buildObservationPushFrame(
                 deviceId = state.deviceId,
@@ -139,6 +143,7 @@ class AndroidEdgeClient(
                 connectionState = state.connectionState
             )
         )
+        return state.connectionState == "connected" && webSocket != null
     }
 
     fun submitTextCommand(text: String) {
@@ -171,7 +176,9 @@ class AndroidEdgeClient(
             publish(
                 state.copy(
                     screenContextState = "queued: websocket disconnected",
-                    lastError = "Screen context observation skipped because WebSocket is not connected."
+                    lastError = "Screen context observation skipped because WebSocket is not connected.",
+                    lastLocalObservationAt = nowIso(),
+                    deliveryQueueDepth = state.deliveryQueueDepth + 1
                 )
             )
             return
@@ -180,6 +187,7 @@ class AndroidEdgeClient(
         publish(
             state.copy(
                 screenContextState = "sent at ${nowIso()}",
+                lastLocalObservationAt = nowIso(),
                 recentEvents = AndroidEdgePreferences.appendHistory(
                     context,
                     "Sent mobile.screen_context",
@@ -361,6 +369,8 @@ class AndroidEdgeClient(
 
     private fun sendFrame(frame: JSONObject) {
         val text = frame.toString()
+        val isObservation = frame.optString("type") == "observation_push"
+        val observedAt = nowIso()
         if (webSocket?.send(text) == true) {
             logEvent(
                 "sent_frame",
@@ -371,12 +381,15 @@ class AndroidEdgeClient(
             publish(
                 state.copy(
                     lastSentFrame = pretty(redactSecrets(text)),
-                    recentObservations = if (frame.optString("type") == "observation_push") {
-                        "Sent ${frame.optString("capability")} at ${nowIso()}"
+                    recentObservations = if (isObservation) {
+                        "Sent ${frame.optString("capability")} at $observedAt"
                     } else {
                         state.recentObservations
                     },
-                    recentEvents = if (frame.optString("type") == "observation_push") {
+                    lastLocalObservationAt = if (isObservation) observedAt else state.lastLocalObservationAt,
+                    lastSuccessfulUploadAt = if (isObservation) observedAt else state.lastSuccessfulUploadAt,
+                    deliveryQueueDepth = if (isObservation) 0 else state.deliveryQueueDepth,
+                    recentEvents = if (isObservation) {
                         AndroidEdgePreferences.appendHistory(
                             context,
                             "Sent ${frame.optString("capability")}"
@@ -392,7 +405,13 @@ class AndroidEdgeClient(
                 "frame_type" to frame.optString("type"),
                 "error" to "websocket_not_connected"
             )
-            publish(state.copy(lastError = "WebSocket is not connected."))
+            publish(
+                state.copy(
+                    lastError = "WebSocket is not connected.",
+                    lastLocalObservationAt = if (isObservation) observedAt else state.lastLocalObservationAt,
+                    deliveryQueueDepth = if (isObservation) state.deliveryQueueDepth + 1 else state.deliveryQueueDepth
+                )
+            )
         }
     }
 
