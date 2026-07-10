@@ -39,6 +39,87 @@ def _last_error(replies: list[dict]) -> dict | None:
 
 
 class GatewayTests(unittest.IsolatedAsyncioTestCase):
+    async def test_dispatch_to_source_uses_current_connection_after_reconnect(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        class FakeWebSocket:
+            def __init__(self) -> None:
+                self.sent_frames = []
+
+            async def send(self, frame: str) -> None:
+                self.sent_frames.append(json.loads(frame))
+
+        old_websocket = FakeWebSocket()
+        current_websocket = FakeWebSocket()
+        gateway.live_connections["android-edge-1"] = current_websocket
+
+        await gateway._dispatch_websocket_replies(
+            "android-edge-1",
+            old_websocket,
+            [{"type": "event_ack"}],
+        )
+
+        self.assertEqual(old_websocket.sent_frames, [])
+        self.assertEqual(current_websocket.sent_frames[-1]["type"], "event_ack")
+
+    async def test_replaced_websocket_close_does_not_clear_current_connection(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        class ReplacementWebSocket:
+            def __init__(self) -> None:
+                self.sent_frames = []
+
+            async def send(self, frame: str) -> None:
+                self.sent_frames.append(json.loads(frame))
+
+        replacement_websocket = ReplacementWebSocket()
+
+        class ReplacedDisconnectWebSocket:
+            def __init__(self) -> None:
+                self.sent_frames = []
+
+            def __aiter__(self):
+                async def frames():
+                    yield json.dumps(
+                        {
+                            "api_version": API_VERSION,
+                            "type": "connect",
+                            "device": {
+                                "device_id": "android-edge-1",
+                                "device_type": "android-phone",
+                            },
+                            "auth": {"token": "dev-token"},
+                        }
+                    )
+                    gateway.live_connections["android-edge-1"] = replacement_websocket
+                    gateway.online_device_ids.add("android-edge-1")
+                    raise ConnectionClosedOK(Close(1000, "normal close"), None)
+
+                return frames()
+
+            async def send(self, frame: str) -> None:
+                self.sent_frames.append(json.loads(frame))
+
+        websocket = ReplacedDisconnectWebSocket()
+
+        await gateway._websocket_handler(websocket)
+
+        self.assertEqual(websocket.sent_frames[-1]["type"], "connect_ok")
+        self.assertIs(gateway.live_connections["android-edge-1"], replacement_websocket)
+        self.assertIn("android-edge-1", gateway.online_device_ids)
+
     async def test_websocket_handler_treats_disconnect_as_closed_session(
         self,
     ) -> None:

@@ -26,12 +26,14 @@ object AndroidEdgePreferences {
     private const val KEY_DEVICE_ID = "device_id"
     private const val KEY_EDGE_TOKEN = "edge_token"
     private const val KEY_EVENT_HISTORY = "event_history"
+    private const val KEY_CONVERSATION_HISTORY = "conversation_history"
     private const val KEY_BACKGROUND_KEEPALIVE = "background_keepalive"
     private const val KEY_SCREEN_CONTEXT_OBSERVATION = "screen_context_observation"
     private const val KEY_ACCESSIBILITY_OBSERVED_ENABLED = "accessibility_observed_enabled"
     private const val KEY_ACCESSIBILITY_DISABLED_NOTICE_DISMISSED =
         "accessibility_disabled_notice_dismissed"
     private const val MAX_HISTORY_ITEMS = 12
+    private const val MAX_CONVERSATION_ITEMS = 40
 
     fun loadConfig(context: Context): AndroidEdgeConfig {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -118,17 +120,25 @@ object AndroidEdgePreferences {
             .put("title", title)
             .put("body", body)
             .put("kind", kind)
-        val existing = runCatching {
-            JSONArray(prefs.getString(KEY_EVENT_HISTORY, "[]"))
-        }.getOrDefault(JSONArray())
-        val next = JSONArray().put(nextItem)
-        for (index in 0 until minOf(existing.length(), MAX_HISTORY_ITEMS - 1)) {
-            val existingItem = existing.optJSONObject(index)
-            if (existingItem != null) {
-                next.put(existingItem)
-            }
+        val next = appendBounded(
+            existing = runCatching {
+                JSONArray(prefs.getString(KEY_EVENT_HISTORY, "[]"))
+            }.getOrDefault(JSONArray()),
+            item = nextItem,
+            maxItems = MAX_HISTORY_ITEMS
+        )
+        val edit = prefs.edit().putString(KEY_EVENT_HISTORY, next.toString())
+        if (isConversationHistoryItem(title, kind)) {
+            val nextConversation = appendBounded(
+                existing = runCatching {
+                    JSONArray(prefs.getString(KEY_CONVERSATION_HISTORY, "[]"))
+                }.getOrDefault(JSONArray()),
+                item = nextItem,
+                maxItems = MAX_CONVERSATION_ITEMS
+            )
+            edit.putString(KEY_CONVERSATION_HISTORY, nextConversation.toString())
         }
-        prefs.edit().putString(KEY_EVENT_HISTORY, next.toString()).apply()
+        edit.apply()
         return formatHistory(next)
     }
 
@@ -144,6 +154,23 @@ object AndroidEdgePreferences {
         val history = runCatching {
             JSONArray(prefs.getString(KEY_EVENT_HISTORY, "[]"))
         }.getOrDefault(JSONArray())
+        return parseHistoryItems(history)
+    }
+
+    fun conversationHistoryItems(context: Context): List<AndroidEdgeHistoryItem> {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val conversation = runCatching {
+            JSONArray(prefs.getString(KEY_CONVERSATION_HISTORY, "[]"))
+        }.getOrDefault(JSONArray())
+        if (conversation.length() > 0) {
+            return parseHistoryItems(conversation)
+        }
+        return historyItems(context).filter {
+            isConversationHistoryItem(it.title, it.kind)
+        }
+    }
+
+    private fun parseHistoryItems(history: JSONArray): List<AndroidEdgeHistoryItem> {
         val items = mutableListOf<AndroidEdgeHistoryItem>()
         for (index in 0 until history.length()) {
             val item = history.optJSONObject(index) ?: continue
@@ -169,8 +196,25 @@ object AndroidEdgePreferences {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .remove(KEY_EVENT_HISTORY)
+            .remove(KEY_CONVERSATION_HISTORY)
             .apply()
     }
+
+    private fun appendBounded(existing: JSONArray, item: JSONObject, maxItems: Int): JSONArray {
+        val next = JSONArray().put(item)
+        for (index in 0 until minOf(existing.length(), maxItems - 1)) {
+            val existingItem = existing.optJSONObject(index)
+            if (existingItem != null) {
+                next.put(existingItem)
+            }
+        }
+        return next
+    }
+
+    private fun isConversationHistoryItem(title: String, kind: String): Boolean =
+        title.contains("mobile.input") ||
+            kind == "notification" ||
+            kind == "reply"
 
     private fun formatHistory(history: JSONArray): String {
         val lines = mutableListOf<String>()

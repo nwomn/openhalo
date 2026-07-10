@@ -599,8 +599,7 @@ private fun GlobalChatScreen(
     val imeBottom = with(density) { WindowInsets.ime.getBottom(this).toDp() }
     val bottomReserve = if (imeBottom > 0.dp) imeBottom else 108.dp
     val history = remember(historyVersion, diagnostics.recentEvents, diagnostics.inAppReply) {
-        AndroidEdgePreferences.historyItems(context.applicationContext)
-            .filter(::isConversationHistoryItem)
+        AndroidEdgePreferences.conversationHistoryItems(context.applicationContext)
     }
     val chatScrollState = rememberScrollState()
     val renderedMessageCount = history.size + if (diagnostics.inAppReply.isNotBlank()) 1 else 0

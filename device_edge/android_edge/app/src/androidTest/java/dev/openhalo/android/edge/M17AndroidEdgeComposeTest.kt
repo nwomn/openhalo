@@ -204,7 +204,42 @@ class M17AndroidEdgeComposeTest {
         assertTrue(
             composeRule.onAllNodesWithText("Hello from runtime", substring = true)
                 .fetchSemanticsNodes()
-            .isNotEmpty()
+                .isNotEmpty()
+        )
+    }
+
+    @Test
+    fun globalChatConversationSurvivesHighFrequencyObservationHistory() {
+        val appContext = InstrumentationRegistry.getInstrumentation().targetContext
+        AndroidEdgePreferences.appendHistory(
+            appContext,
+            title = "Submitted mobile.input",
+            body = "你好",
+            kind = "event"
+        )
+        AndroidEdgePreferences.appendHistory(
+            appContext,
+            title = "notification.show -> ok",
+            body = "你好！有什么我可以帮你的吗？",
+            kind = "notification"
+        )
+        repeat(20) { index ->
+            AndroidEdgePreferences.appendHistory(
+                appContext,
+                title = "Sent mobile.screen_context",
+                body = "screen-$index",
+                kind = "event"
+            )
+        }
+
+        composeRule.onNodeWithTag(AndroidEdgeTestTags.GLOBAL_CHAT_TAB).performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("你好").assertIsDisplayed()
+        composeRule.onNodeWithText("你好！有什么我可以帮你的吗？").assertIsDisplayed()
+        assertEquals(
+            listOf("notification.show -> ok", "Submitted mobile.input"),
+            AndroidEdgePreferences.conversationHistoryItems(appContext).map { it.title }
         )
     }
 

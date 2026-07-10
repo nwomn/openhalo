@@ -754,7 +754,13 @@ class RuntimeGateway:
         if self.runtime_event_emitter is not None:
             self.runtime_event_emitter(message)
 
+    def _current_source_websocket(self, source_device_id: str, websocket):
+        if source_device_id is None:
+            return websocket
+        return self.live_connections.get(source_device_id) or websocket
+
     async def _dispatch_websocket_replies(self, source_device_id: str, websocket, replies: list[dict]) -> None:
+        source_websocket = self._current_source_websocket(source_device_id, websocket)
         for reply in replies:
             target_device_id = reply.get("device_id")
             if (
@@ -793,19 +799,19 @@ class RuntimeGateway:
                 if reply["type"] == "action_request":
                     failed_result = self._build_target_missing_action_result(reply)
                     await self._send_frame(
-                        websocket,
+                        source_websocket,
                         failed_result,
                     )
                     self.state.record_action_result(failed_result["result"])
                     self._persist_state()
                     await self._dispatch_websocket_replies(
                         source_device_id,
-                        websocket,
+                        source_websocket,
                         self._build_action_result_replies(failed_result),
                     )
                     continue
             try:
-                await self._send_frame(websocket, reply)
+                await self._send_frame(source_websocket, reply)
                 if not (
                     reply["type"] in {"action_request", "interaction_update"}
                     and target_device_id != source_device_id
@@ -911,7 +917,7 @@ class RuntimeGateway:
                 current = self.live_connections.get(registered_device_id)
                 if current is websocket:
                     del self.live_connections[registered_device_id]
-                self.online_device_ids.discard(registered_device_id)
+                    self.online_device_ids.discard(registered_device_id)
 
     @asynccontextmanager
     async def run_test_server(self):
