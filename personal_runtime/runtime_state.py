@@ -16,6 +16,7 @@ class RuntimeState:
         self.observations = []
         self.interventions = []
         self.model_health = {}
+        self.mobile_liveness = {}
 
     def register_device(
         self,
@@ -178,6 +179,7 @@ class RuntimeState:
             ],
             "interventions": self.interventions,
             "model_health": self.model_health,
+            "mobile_liveness": self.mobile_liveness,
         }
 
     @classmethod
@@ -201,6 +203,7 @@ class RuntimeState:
         ]
         state.interventions = list(payload.get("interventions", []))
         state.model_health = dict(payload.get("model_health", {}))
+        state.mobile_liveness = dict(payload.get("mobile_liveness", {}))
         return state
 
 

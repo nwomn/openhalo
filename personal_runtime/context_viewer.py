@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from personal_runtime.context_snapshot import build_context_snapshot_contract
+from personal_runtime.mobile_liveness import build_mobile_liveness_view
 from personal_runtime.prompt_context import build_behavior_contract
 from personal_runtime.prompt_context import build_prompt_context_package
 from personal_runtime.runtime_state import RuntimeState
@@ -50,6 +51,7 @@ def build_context_view(
     diagnostic_events: list[dict] | None = None,
     limit: int = 8,
     current_time: str | None = None,
+    online_device_ids: set[str] | None = None,
 ) -> dict:
     state = RuntimeState.from_dict(state_payload) if state_payload else RuntimeState()
     observations = [observation.to_dict() for observation in state.observations]
@@ -66,6 +68,11 @@ def build_context_view(
     latest_prompt_context = _build_latest_prompt_context(latest_intervention)
     snapshot_evidence_keys = _snapshot_evidence_keys(current_snapshot_contract)
     latest_observations = observations[-limit:]
+    mobile_liveness = build_mobile_liveness_view(
+        state,
+        online_device_ids=online_device_ids or set(),
+        current_time=generated_at,
+    )
     return {
         "counts": {
             "events": len(state.events),
@@ -95,6 +102,7 @@ def build_context_view(
             "snapshot_contract",
             {},
         ),
+        "mobile_liveness": mobile_liveness,
         "latest_prompt_context": latest_prompt_context,
         "latest_diagnostic_events": diagnostic_events or [],
         "generated_at": generated_at,
@@ -136,6 +144,9 @@ def format_context_view(
         "",
         "Latest Agent Turn Snapshot Contract:",
         _format_json(_summarize_snapshot_contract(view["latest_intervention_snapshot_contract"])),
+        "",
+        "Mobile Observation Liveness:",
+        _format_json(_summarize_mobile_liveness(view.get("mobile_liveness", {}))),
         "",
         "Latest Prompt Context:",
         _format_json(view["latest_prompt_context"]),
@@ -400,6 +411,24 @@ def _summarize_snapshot_contract(contract: dict) -> dict:
     }
 
 
+def _summarize_mobile_liveness(mobile_liveness: dict) -> list[dict]:
+    return [
+        {
+            "device_id": payload.get("device_id", device_id),
+            "state": payload.get("state"),
+            "online": payload.get("online"),
+            "expected_active_observation": payload.get(
+                "expected_active_observation"
+            ),
+            "last_screen_context_at": payload.get("last_screen_context_at"),
+            "silence_seconds": payload.get("silence_seconds"),
+            "wake_recovery_eligible": payload.get("wake_recovery_eligible"),
+            "last_recovery_attempt": payload.get("last_recovery_attempt"),
+        }
+        for device_id, payload in sorted(mobile_liveness.items())
+    ]
+
+
 def _summarize_diagnostics(events: list[dict]) -> list[dict]:
     summarized = []
     for event in events:
@@ -455,6 +484,7 @@ def _agent_context_view(view: dict) -> dict:
             "latest_intervention_snapshot_contract",
             {},
         ),
+        "mobile_liveness": view.get("mobile_liveness", {}),
         "latest_prompt_context": view.get("latest_prompt_context", {}),
     }
 

@@ -63,6 +63,21 @@ class ContextViewerTests(unittest.TestCase):
     def test_marks_mobile_screen_context_as_stored_but_not_snapshot_evidence(self) -> None:
         state = RuntimeState()
         state.register_device("android-edge-1", "android-phone")
+        state.register_capability(
+            "android-edge-1",
+            {
+                "name": "mobile.screen_context",
+                "direction": "edge_to_runtime",
+                "kind": "observation_provider",
+                "observations": [
+                    {
+                        "name": "mobile.screen_context",
+                        "schema": {"type": "object"},
+                        "freshness_seconds": 30,
+                    }
+                ],
+            },
+        )
         state.record_observation(
             RuntimeObservation(
                 name="mobile.screen_context",
@@ -88,12 +103,18 @@ class ContextViewerTests(unittest.TestCase):
         view = build_context_view(
             state.to_dict(),
             current_time="2026-07-05T14:41:30Z",
+            online_device_ids={"android-edge-1"},
         )
         latest = view["latest_observations"][-1]
 
         self.assertEqual(latest["name"], "mobile.screen_context")
         self.assertFalse(latest["in_current_snapshot_evidence"])
         self.assertEqual(latest["snapshot_fields"], [])
+        self.assertEqual(
+            view["mobile_liveness"]["android-edge-1"]["state"],
+            "fresh",
+        )
+        self.assertTrue(view["mobile_liveness"]["android-edge-1"]["online"])
 
     def test_includes_latest_agent_prompt_context_from_intervention(self) -> None:
         state = RuntimeState()

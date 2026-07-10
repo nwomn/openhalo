@@ -613,6 +613,14 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(gateway.state.observations), 1)
         self.assertEqual(gateway.state.observations[-1].name, "mobile.screen_context")
         self.assertEqual(gateway.state.interventions, [])
+        self.assertEqual(
+            gateway.state.mobile_liveness["android-edge-1"]["last_session"]["status"],
+            "connected",
+        )
+        self.assertEqual(
+            gateway.state.mobile_liveness["android-edge-1"]["last_view"]["state"],
+            "fresh",
+        )
 
     async def test_external_edge_uses_public_api_frames_for_full_turn(self) -> None:
         gateway = RuntimeGateway(

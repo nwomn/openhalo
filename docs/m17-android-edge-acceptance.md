@@ -459,6 +459,63 @@ Pass criteria:
 - Battery/background restrictions are visible as a user-facing risk, not only a
   hidden log detail.
 
+## 9. M17.7.2 Runtime Mobile Observation Liveness Acceptance
+
+Purpose:
+
+- Verify that the backend treats phone observation freshness as an explicit
+  runtime state rather than only as raw observation history.
+- Confirm inspection surfaces expose whether mobile observation is `fresh`,
+  `degraded`, `wake_requested`, `stale`, or `unavailable`.
+- Confirm wake/recovery requests are bounded, auditable, and do not carry raw
+  screen context or sensitive summaries.
+
+Automated coverage added in the M17.7.2 runtime liveness slice:
+
+- `personal_runtime.mobile_liveness.build_mobile_liveness_view` classifies a
+  registered Android phone edge with recent `mobile.screen_context` evidence as
+  `fresh`.
+- Expected-active phone silence is classified as `degraded` while the device is
+  still online.
+- Offline stale expected-active phone observation can produce a bounded
+  `wake_requested` recovery audit with a TTL and privacy-preserving payload.
+- Repeated wake requests are rate-limited.
+- Recent degraded runtime/server health suppresses phone wake requests so
+  network-wide or backend failures are not misclassified as a phone-only
+  observation failure.
+- Stale buffered screen-context replay after a wake request remains `stale`
+  instead of restoring `fresh`; fresh post-wake phone health/screen evidence
+  records recovery provenance.
+- `Gateway` updates persisted `mobile_liveness` metadata on phone connect,
+  disconnect, and mobile observation ingress.
+- `runtime-context-viewer` includes `mobile_liveness` inspection output without
+  promoting M17.5/M17.7 screen-context evidence into the compact snapshot.
+- The watchdog entry point can issue a configured transport wake request while
+  stripping screen context and visible summaries from the persisted transport
+  audit.
+
+Manual live-chain acceptance still required:
+
+1. Run the Android edge in background observation mode against a runtime with
+   this liveness slice.
+2. Confirm the context viewer reports `fresh` while screen-context evidence is
+   arriving within the registered freshness window.
+3. Interrupt observation delivery without making the whole runtime unhealthy,
+   then confirm the runtime reports `degraded` or `stale` as appropriate.
+4. With mobile wake transport configured, confirm one bounded wake/recovery
+   attempt is recorded, the payload contains only the recovery reason, and
+   repeated attempts are rate-limited.
+5. Reconnect or wake the phone and confirm fresh health evidence restores the
+   liveness state before treating new screen context as current.
+
+Pass criteria:
+
+- Runtime-side mobile liveness state is visible and timestamped enough for
+  later M18 snapshot consumption.
+- Wake recovery attempts are auditable, TTL-bound, rate-limited, and
+  privacy-preserving.
+- Recovery after reconnect distinguishes newly fresh context from stale replay.
+
 ## Current Practice By Change Type
 
 - Runtime routing/planning change: run runtime-side Python tests and

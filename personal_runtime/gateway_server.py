@@ -3,6 +3,7 @@
 import json
 import asyncio
 from contextlib import asynccontextmanager
+from datetime import UTC
 from datetime import datetime
 from itertools import count
 from pathlib import Path
@@ -16,6 +17,8 @@ from personal_runtime.action_layer import build_interaction_update
 from personal_runtime.agent_executor import ProposalFormation
 from personal_runtime.context_contracts import RuntimeObservation
 from personal_runtime.execution_planning import ExecutionPlanner
+from personal_runtime.mobile_liveness import record_mobile_session_state
+from personal_runtime.mobile_liveness import update_mobile_liveness_after_observations
 from personal_runtime.presence_router import PresenceRouter
 from personal_runtime.runtime_orchestrator import RuntimeOrchestrator
 from personal_runtime.runtime_state import RuntimeState
@@ -438,6 +441,12 @@ class RuntimeGateway:
                     device_id=frame["device"]["device_id"],
                 )
                 self.online_device_ids.add(frame["device"]["device_id"])
+                record_mobile_session_state(
+                    self.state,
+                    frame["device"]["device_id"],
+                    status="connected",
+                    observed_at=_utc_now(),
+                )
                 self._persist_state()
                 self._emit_runtime_event(
                     "Edge connected: "
@@ -478,7 +487,15 @@ class RuntimeGateway:
                     replies.append(validation_error)
                     continue
                 self.state.events.append(frame)
-                self.state.record_observations(self._extract_runtime_observations(frame))
+                self.state.record_observations(
+                    self._extract_runtime_observations(frame)
+                )
+                update_mobile_liveness_after_observations(
+                    self.state,
+                    device_id=frame["device_id"],
+                    online_device_ids=set(self.online_device_ids),
+                    current_time=self._observation_timestamp(frame),
+                )
                 self._record_trace(
                     "STATE",
                     "recorded event_push",
@@ -918,6 +935,13 @@ class RuntimeGateway:
                 if current is websocket:
                     del self.live_connections[registered_device_id]
                     self.online_device_ids.discard(registered_device_id)
+                    record_mobile_session_state(
+                        self.state,
+                        registered_device_id,
+                        status="disconnected",
+                        observed_at=_utc_now(),
+                    )
+                    self._persist_state()
 
     @asynccontextmanager
     async def run_test_server(self):
@@ -937,3 +961,7 @@ class RuntimeGateway:
         finally:
             server.close()
             await server.wait_closed()
+
+
+def _utc_now() -> str:
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
