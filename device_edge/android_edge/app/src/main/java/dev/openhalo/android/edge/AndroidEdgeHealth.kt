@@ -1,5 +1,7 @@
 package dev.openhalo.android.edge
 
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.ComponentName
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
@@ -7,21 +9,37 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
-import android.text.TextUtils
+import android.view.accessibility.AccessibilityManager
 import java.util.Locale
 
 object AndroidEdgeHealth {
     fun accessibilityServiceState(context: Context): String {
-        val expected = "${context.packageName}/${OpenHaloAccessibilityService::class.java.name}"
+        return if (isAccessibilityServiceEnabled(context)) "enabled" else "disabled"
+    }
+
+    fun isAccessibilityServiceEnabled(context: Context): Boolean {
+        val expected = ComponentName(context, OpenHaloAccessibilityService::class.java)
+        val accessibilityManager = context.getSystemService(AccessibilityManager::class.java)
+        val enabledByManager = accessibilityManager
+            ?.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+            ?.any { service ->
+                val serviceInfo = service.resolveInfo.serviceInfo
+                serviceInfo.packageName == expected.packageName &&
+                    serviceInfo.name == expected.className
+            } == true
+        if (enabledByManager) {
+            return true
+        }
+
         val enabled = Settings.Secure.getString(
             context.contentResolver,
             Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        ) ?: return "disabled"
-        return if (enabled.split(':').any { TextUtils.equals(it, expected) }) {
-            "enabled"
-        } else {
-            "disabled"
-        }
+        ) ?: return false
+        return accessibilityServiceEnabledInSettingsList(
+            enabledServices = enabled,
+            packageName = expected.packageName,
+            className = expected.className
+        )
     }
 
     fun accessibilitySettingsIntent(): Intent =
@@ -104,6 +122,23 @@ object AndroidEdgeHealth {
             }
         } else {
             appNotificationSettingsIntent(context)
+        }
+    }
+}
+
+internal fun accessibilityServiceEnabledInSettingsList(
+    enabledServices: String,
+    packageName: String,
+    className: String
+): Boolean {
+    val shortClassName = className.removePrefix(packageName).takeIf { it.startsWith(".") }
+    return enabledServices.split(':').any { rawComponent ->
+        val component = ComponentName.unflattenFromString(rawComponent)
+        if (component != null) {
+            component.packageName == packageName && component.className == className
+        } else {
+            rawComponent == "$packageName/$className" ||
+                (shortClassName != null && rawComponent == "$packageName/$shortClassName")
         }
     }
 }

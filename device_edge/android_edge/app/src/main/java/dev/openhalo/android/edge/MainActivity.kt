@@ -10,6 +10,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Canvas
@@ -134,6 +136,7 @@ object AndroidEdgeTestTags {
     const val SETTINGS_KEEPALIVE_ROW = "openhalo.settings.keepalive.row"
     const val SETTINGS_SCREEN_CONTEXT_ROW = "openhalo.settings.screen_context.row"
     const val SETTINGS_ACCESSIBILITY_ROW = "openhalo.settings.accessibility.row"
+    const val ACCESSIBILITY_DISABLED_NOTICE = "openhalo.accessibility.disabled_notice"
     const val SETTINGS_BATTERY_ROW = "openhalo.settings.battery.row"
     const val SETTINGS_LOCAL_NETWORK_ROW = "openhalo.settings.local_network.row"
     const val SETTINGS_BUILD_ROW = "openhalo.settings.build_row"
@@ -165,6 +168,10 @@ fun M17BootstrapScreen(
     var screenContextObservation by remember {
         mutableStateOf(AndroidEdgePreferences.screenContextObservationEnabled(appContext))
     }
+    var accessibilityServiceState by remember {
+        mutableStateOf(AndroidEdgeHealth.accessibilityServiceState(appContext))
+    }
+    var showAccessibilityDisabledNotice by remember { mutableStateOf(false) }
     var selectedView by remember { mutableStateOf(normalizeInitialView(initialView)) }
     var diagnosticsUnlocked by remember { mutableStateOf(false) }
     var diagnosticsOpen by remember { mutableStateOf(initialView == "Diagnostics") }
@@ -178,6 +185,24 @@ fun M17BootstrapScreen(
         startEdgeService(appContext, AndroidEdgeService.sendObservationsIntent(appContext))
     }
 
+    fun refreshAccessibilityState() {
+        val nextState = AndroidEdgeHealth.accessibilityServiceState(appContext)
+        accessibilityServiceState = nextState
+        if (nextState == "enabled") {
+            AndroidEdgePreferences.markAccessibilityServiceObservedEnabled(appContext)
+            showAccessibilityDisabledNotice = false
+        } else {
+            showAccessibilityDisabledNotice = shouldShowAccessibilityDisabledNotice(
+                screenContextObservation = screenContextObservation,
+                accessibilityServiceState = nextState,
+                accessibilityWasObservedEnabled =
+                    AndroidEdgePreferences.accessibilityServiceWasObservedEnabled(appContext),
+                noticeDismissed =
+                    AndroidEdgePreferences.accessibilityDisabledNoticeDismissed(appContext)
+            )
+        }
+    }
+
     DisposableEffect(Unit) {
         val unsubscribe = EdgeDiagnosticsStore.subscribe { next ->
             (context as? ComponentActivity)?.runOnUiThread {
@@ -189,6 +214,22 @@ fun M17BootstrapScreen(
             }
         }
         onDispose { unsubscribe() }
+    }
+
+    DisposableEffect(context) {
+        val activity = context as? ComponentActivity
+        if (activity == null) {
+            onDispose { }
+        } else {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    refreshAccessibilityState()
+                }
+            }
+            activity.lifecycle.addObserver(observer)
+            refreshAccessibilityState()
+            onDispose { activity.lifecycle.removeObserver(observer) }
+        }
     }
 
     val currentNotificationState = notificationState(appContext)
@@ -291,6 +332,7 @@ fun M17BootstrapScreen(
                 notificationState = currentNotificationState,
                 backgroundKeepAlive = backgroundKeepAlive,
                 screenContextObservation = screenContextObservation,
+                accessibilityServiceState = accessibilityServiceState,
                 diagnosticsUnlocked = diagnosticsUnlocked,
                 onRuntimeUrlChanged = {
                     runtimeUrl = it
@@ -314,15 +356,26 @@ fun M17BootstrapScreen(
                     openSettings(appContext, AndroidEdgeHealth.batterySettingsIntent(appContext))
                 },
                 onOpenAccessibilitySettings = {
+                    accessibilityServiceState = AndroidEdgeHealth.accessibilityServiceState(appContext)
                     openSettings(appContext, AndroidEdgeHealth.accessibilitySettingsIntent())
                 },
-                onBackgroundKeepAliveChanged = {
-                    backgroundKeepAlive = it
-                    AndroidEdgePreferences.saveBackgroundKeepAliveEnabled(appContext, it)
+                onBackgroundKeepAliveChanged = { enabled ->
+                    backgroundKeepAlive = enabled
+                    AndroidEdgePreferences.saveBackgroundKeepAliveEnabled(appContext, enabled)
                 },
-                onScreenContextObservationChanged = {
-                    screenContextObservation = it
-                    AndroidEdgePreferences.saveScreenContextObservationEnabled(appContext, it)
+                onScreenContextObservationChanged = { enabled ->
+                    screenContextObservation = enabled
+                    AndroidEdgePreferences.saveScreenContextObservationEnabled(appContext, enabled)
+                    if (enabled && accessibilityServiceState != "enabled") {
+                        showAccessibilityDisabledNotice = shouldShowAccessibilityDisabledNotice(
+                            screenContextObservation = true,
+                            accessibilityServiceState = accessibilityServiceState,
+                            accessibilityWasObservedEnabled =
+                                AndroidEdgePreferences.accessibilityServiceWasObservedEnabled(appContext),
+                            noticeDismissed =
+                                AndroidEdgePreferences.accessibilityDisabledNoticeDismissed(appContext)
+                        )
+                    }
                     startEdgeService(appContext, AndroidEdgeService.sendObservationsIntent(appContext))
                 },
                 onResetConnection = {
@@ -355,7 +408,47 @@ fun M17BootstrapScreen(
                 }
             )
         }
+        if (showAccessibilityDisabledNotice) {
+            AccessibilityDisabledNoticeDialog(
+                onOpenSettings = {
+                    AndroidEdgePreferences.dismissAccessibilityDisabledNotice(appContext)
+                    showAccessibilityDisabledNotice = false
+                    openSettings(appContext, AndroidEdgeHealth.accessibilitySettingsIntent())
+                },
+                onDismiss = {
+                    AndroidEdgePreferences.dismissAccessibilityDisabledNotice(appContext)
+                    showAccessibilityDisabledNotice = false
+                }
+            )
+        }
     }
+}
+
+@Composable
+private fun AccessibilityDisabledNoticeDialog(
+    onOpenSettings: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        modifier = Modifier.testTag(AndroidEdgeTestTags.ACCESSIBILITY_DISABLED_NOTICE),
+        onDismissRequest = onDismiss,
+        title = { Text("无障碍观察已关闭") },
+        text = {
+            Text(
+                "系统已关闭 OpenHalo 的无障碍观察。MIUI 手动划掉或清理应用可能会强停 Edge 并取消该授权；需要重新在系统无障碍设置中开启。"
+            )
+        },
+        confirmButton = {
+            Button(onClick = onOpenSettings) {
+                Text("去开启")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("稍后")
+            }
+        }
+    )
 }
 
 private fun normalizeInitialView(initialView: String): String =
@@ -364,6 +457,17 @@ private fun normalizeInitialView(initialView: String): String =
         MainActivity.VIEW_SETTINGS, "Diagnostics" -> MainActivity.VIEW_SETTINGS
         else -> MainActivity.VIEW_CONNECT
     }
+
+internal fun shouldShowAccessibilityDisabledNotice(
+    screenContextObservation: Boolean,
+    accessibilityServiceState: String,
+    accessibilityWasObservedEnabled: Boolean,
+    noticeDismissed: Boolean
+): Boolean =
+    screenContextObservation &&
+        accessibilityServiceState != "enabled" &&
+        accessibilityWasObservedEnabled &&
+        !noticeDismissed
 
 @Composable
 private fun ConnectScreen(
@@ -735,6 +839,7 @@ private fun SettingsScreen(
     notificationState: String,
     backgroundKeepAlive: Boolean,
     screenContextObservation: Boolean,
+    accessibilityServiceState: String,
     diagnosticsUnlocked: Boolean,
     onRuntimeUrlChanged: (String) -> Unit,
     onDeviceIdChanged: (String) -> Unit,
@@ -808,26 +913,26 @@ private fun SettingsScreen(
                 title = "推送通知",
                 checked = notificationState == "granted",
                 tag = AndroidEdgeTestTags.SETTINGS_NOTIFICATION_ROW,
-                onClick = onOpenNotificationSettings
+                onCheckedChange = { onOpenNotificationSettings() }
             )
             SettingsDivider()
             ToggleSettingsRow(
                 title = "后台保活",
                 checked = backgroundKeepAlive,
                 tag = AndroidEdgeTestTags.SETTINGS_KEEPALIVE_ROW,
-                onClick = { onBackgroundKeepAliveChanged(!backgroundKeepAlive) }
+                onCheckedChange = onBackgroundKeepAliveChanged
             )
             SettingsDivider()
             ToggleSettingsRow(
                 title = "屏幕上下文",
                 checked = screenContextObservation,
                 tag = AndroidEdgeTestTags.SETTINGS_SCREEN_CONTEXT_ROW,
-                onClick = { onScreenContextObservationChanged(!screenContextObservation) }
+                onCheckedChange = onScreenContextObservationChanged
             )
             SettingsDivider()
             PermissionRow(
                 title = "无障碍观察",
-                value = AndroidEdgeHealth.accessibilityServiceState(LocalContext.current),
+                value = accessibilityServiceState,
                 tag = AndroidEdgeTestTags.SETTINGS_ACCESSIBILITY_ROW,
                 onClick = onOpenAccessibilitySettings
             )
@@ -1048,12 +1153,17 @@ private fun StaticSettingsRow(
 }
 
 @Composable
-private fun ToggleSettingsRow(title: String, checked: Boolean, tag: String, onClick: () -> Unit) {
+private fun ToggleSettingsRow(
+    title: String,
+    checked: Boolean,
+    tag: String,
+    onCheckedChange: (Boolean) -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(52.dp)
-            .clickable(onClick = onClick)
+            .clickable { onCheckedChange(!checked) }
             .testTag(tag),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -1061,7 +1171,7 @@ private fun ToggleSettingsRow(title: String, checked: Boolean, tag: String, onCl
         Text(title, color = Ink, fontSize = 22.sp)
         Switch(
             checked = checked,
-            onCheckedChange = { onClick() },
+            onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
                 checkedTrackColor = Ink,

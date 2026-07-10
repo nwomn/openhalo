@@ -28,6 +28,9 @@ object AndroidEdgePreferences {
     private const val KEY_EVENT_HISTORY = "event_history"
     private const val KEY_BACKGROUND_KEEPALIVE = "background_keepalive"
     private const val KEY_SCREEN_CONTEXT_OBSERVATION = "screen_context_observation"
+    private const val KEY_ACCESSIBILITY_OBSERVED_ENABLED = "accessibility_observed_enabled"
+    private const val KEY_ACCESSIBILITY_DISABLED_NOTICE_DISMISSED =
+        "accessibility_disabled_notice_dismissed"
     private const val MAX_HISTORY_ITEMS = 12
 
     fun loadConfig(context: Context): AndroidEdgeConfig {
@@ -63,7 +66,7 @@ object AndroidEdgePreferences {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putBoolean(KEY_BACKGROUND_KEEPALIVE, enabled)
-            .apply()
+            .commit()
     }
 
     fun screenContextObservationEnabled(context: Context): Boolean {
@@ -75,7 +78,32 @@ object AndroidEdgePreferences {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putBoolean(KEY_SCREEN_CONTEXT_OBSERVATION, enabled)
-            .apply()
+            .commit()
+    }
+
+    fun markAccessibilityServiceObservedEnabled(context: Context) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_ACCESSIBILITY_OBSERVED_ENABLED, true)
+            .putBoolean(KEY_ACCESSIBILITY_DISABLED_NOTICE_DISMISSED, false)
+            .commit()
+    }
+
+    fun accessibilityServiceWasObservedEnabled(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_ACCESSIBILITY_OBSERVED_ENABLED, false)
+    }
+
+    fun accessibilityDisabledNoticeDismissed(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_ACCESSIBILITY_DISABLED_NOTICE_DISMISSED, false)
+    }
+
+    fun dismissAccessibilityDisabledNotice(context: Context) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_ACCESSIBILITY_DISABLED_NOTICE_DISMISSED, true)
+            .commit()
     }
 
     fun appendHistory(

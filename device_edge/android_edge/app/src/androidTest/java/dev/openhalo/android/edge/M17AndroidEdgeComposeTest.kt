@@ -163,6 +163,28 @@ class M17AndroidEdgeComposeTest {
     }
 
     @Test
+    fun screenContextObservationPreferenceSurvivesActivityRecreate() {
+        val appContext = InstrumentationRegistry.getInstrumentation().targetContext
+
+        composeRule.onNodeWithTag(AndroidEdgeTestTags.SETTINGS_TAB).performClick()
+        composeRule.onNodeWithTag(AndroidEdgeTestTags.SETTINGS_SCREEN_CONTEXT_ROW)
+            .performScrollTo()
+            .performClick()
+        composeRule.waitForIdle()
+
+        assertTrue(AndroidEdgePreferences.screenContextObservationEnabled(appContext))
+
+        composeRule.activityRule.scenario.recreate()
+        composeRule.waitForIdle()
+
+        assertTrue(AndroidEdgePreferences.screenContextObservationEnabled(appContext))
+        composeRule.onNodeWithTag(AndroidEdgeTestTags.SETTINGS_TAB).performClick()
+        composeRule.onNodeWithTag(AndroidEdgeTestTags.SETTINGS_SCREEN_CONTEXT_ROW)
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
+    @Test
     fun globalChatProjectsNotificationHistoryAsConversationActivity() {
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
         AndroidEdgePreferences.appendHistory(
@@ -221,6 +243,78 @@ class M17AndroidEdgeComposeTest {
         assertEquals("dev.openhalo.android.edge", appContext.packageName)
         assertTrue(AndroidEdgeHealth.fullScreenAlertState(appContext).isNotBlank())
         assertTrue(AndroidEdgeHealth.batteryOptimizationState(appContext).isNotBlank())
+    }
+
+    @Test
+    fun accessibilitySettingsListParserAcceptsFullAndShortComponentNames() {
+        val packageName = "dev.openhalo.android.edge"
+        val className = "dev.openhalo.android.edge.OpenHaloAccessibilityService"
+
+        assertTrue(
+            accessibilityServiceEnabledInSettingsList(
+                enabledServices = "$packageName/$className",
+                packageName = packageName,
+                className = className
+            )
+        )
+        assertTrue(
+            accessibilityServiceEnabledInSettingsList(
+                enabledServices = "$packageName/.OpenHaloAccessibilityService",
+                packageName = packageName,
+                className = className
+            )
+        )
+        assertFalse(
+            accessibilityServiceEnabledInSettingsList(
+                enabledServices = "other.package/.OtherAccessibilityService",
+                packageName = packageName,
+                className = className
+            )
+        )
+    }
+
+    @Test
+    fun accessibilityDisabledNoticeRequiresPriorEnabledObservationAndActiveScreenContext() {
+        assertTrue(
+            shouldShowAccessibilityDisabledNotice(
+                screenContextObservation = true,
+                accessibilityServiceState = "disabled",
+                accessibilityWasObservedEnabled = true,
+                noticeDismissed = false
+            )
+        )
+        assertFalse(
+            shouldShowAccessibilityDisabledNotice(
+                screenContextObservation = false,
+                accessibilityServiceState = "disabled",
+                accessibilityWasObservedEnabled = true,
+                noticeDismissed = false
+            )
+        )
+        assertFalse(
+            shouldShowAccessibilityDisabledNotice(
+                screenContextObservation = true,
+                accessibilityServiceState = "enabled",
+                accessibilityWasObservedEnabled = true,
+                noticeDismissed = false
+            )
+        )
+        assertFalse(
+            shouldShowAccessibilityDisabledNotice(
+                screenContextObservation = true,
+                accessibilityServiceState = "disabled",
+                accessibilityWasObservedEnabled = false,
+                noticeDismissed = false
+            )
+        )
+        assertFalse(
+            shouldShowAccessibilityDisabledNotice(
+                screenContextObservation = true,
+                accessibilityServiceState = "disabled",
+                accessibilityWasObservedEnabled = true,
+                noticeDismissed = true
+            )
+        )
     }
 
     @Test
