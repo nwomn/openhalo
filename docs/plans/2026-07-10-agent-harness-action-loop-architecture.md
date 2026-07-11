@@ -8,7 +8,7 @@ The current milestone sequence should continue to finish the already-defined fun
 
 ## Architecture Decision
 
-OpenHalo should preserve its top-level `Device Edge -> Gateway -> Personal Runtime -> Presence Router -> Action Layer` worldview, but its agent execution core should mature toward a Hermes-style agent harness.
+OpenHalo should preserve its top-level `Device Edge -> Gateway -> Personal Runtime -> Presence Router -> Action Layer` worldview, but its agent execution core should mature toward a Hermes-backed agent harness.
 
 The key distinction is that OpenHalo has two nested loops:
 
@@ -56,6 +56,11 @@ It should cover:
 - Memory consolidation, including summarization, fact distillation, and explicit decisions about what becomes durable memory.
 - Internal model/tool/action loop handling, including action-result re-entry, loop limits, retry/failure behavior, and terminal outcome selection.
 
+If Hermes is used as the implementation source, the reusable core should stay inside the harness boundary and be wrapped by an OpenHalo adapter. That adapter should split tool usage into two classes:
+
+- agent-private tools: search, retrieval, compression, summarization, local diagnostics, and other reasoning helpers that stay inside the harness loop
+- runtime-governed actions: edge notifications, cross-device control, or any other user-visible side effect, which must exit the harness as an OpenHalo action intent and pass through `Presence Router` and `Action Layer`
+
 ## Relationship To Existing OpenHalo Layers
 
 This future architecture should not collapse OpenHalo back into a generic chat-agent framework.
@@ -82,6 +87,8 @@ trace
 ```
 
 Current OpenHalo pieces such as diagnostics, chain inspection, and the M17.6.1 proposal harness are early slices of this loop. A later refactor should make the loop systematic: real prompt/context packages, action results, failures, and terminal outcomes should become replayable and outcome-classified evidence before prompt, configuration, or memory-policy changes are promoted.
+
+Hermes is the preferred first reusable implementation candidate for this layer because it already has a stateful agent core, prompt building, provider resolution, tool dispatch, session persistence, compaction, and tool hooks. The intended OpenHalo use is selective reuse behind an adapter, not a direct takeover of the runtime boundary.
 
 ## Phasing
 
