@@ -610,8 +610,9 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(replies[0], {"api_version": API_VERSION, "type": "connect_ok"})
         self.assertEqual(replies[-1], {"api_version": API_VERSION, "type": "event_ack"})
-        self.assertEqual(len(gateway.state.observations), 1)
-        self.assertEqual(gateway.state.observations[-1].name, "mobile.screen_context")
+        self.assertEqual(len(gateway.state.observations), 2)
+        self.assertEqual(gateway.state.observations[0].name, "mobile.screen_context")
+        self.assertEqual(gateway.state.observations[-1].name, "mobile.observation_liveness")
         self.assertEqual(gateway.state.interventions, [])
         self.assertEqual(
             gateway.state.mobile_liveness["android-edge-1"]["last_session"]["status"],

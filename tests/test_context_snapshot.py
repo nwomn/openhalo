@@ -236,6 +236,11 @@ class ContextSnapshotTests(unittest.TestCase):
         snapshot = build_context_snapshot([])
 
         self.assertEqual(snapshot["user.current_location"], "unknown")
+        self.assertEqual(snapshot["mobile.current_app_visibility"], "unknown")
+        self.assertEqual(snapshot["mobile.current_notification_permission"], "unknown")
+        self.assertEqual(snapshot["mobile.current_connection_state"], "unknown")
+        self.assertEqual(snapshot["mobile.current_observation_liveness"], "unknown")
+        self.assertEqual(snapshot["mobile.current_screen_context"], "unknown")
         self.assertEqual(snapshot["terminal.current_activity_state"], "unknown")
         self.assertEqual(snapshot["runtime.current_health_state"], "unknown")
         self.assertEqual(snapshot["runtime.current_process_pid"], "unknown")
@@ -246,6 +251,82 @@ class ContextSnapshotTests(unittest.TestCase):
         self.assertEqual(snapshot["host.current_memory_available_bytes"], "unknown")
         self.assertEqual(snapshot["host.current_memory_used_bytes"], "unknown")
         self.assertEqual(snapshot["host.current_memory_pressure"], "unknown")
+
+    def test_maps_mobile_core_observations_into_m18_decision_snapshot_fields(self) -> None:
+        contract = build_context_snapshot_contract(
+            [
+                RuntimeObservation(
+                    name="mobile.app_visibility",
+                    value="foreground",
+                    source_device_id="android-edge-1",
+                    source_capability="mobile.context",
+                    source_event_id="evt-mobile-1",
+                    observed_at="2026-07-11T10:08:00Z",
+                    confidence=1.0,
+                ),
+                RuntimeObservation(
+                    name="mobile.notification_permission",
+                    value="granted",
+                    source_device_id="android-edge-1",
+                    source_capability="mobile.context",
+                    source_event_id="evt-mobile-1",
+                    observed_at="2026-07-11T10:08:00Z",
+                    confidence=1.0,
+                ),
+                RuntimeObservation(
+                    name="mobile.connection_state",
+                    value="connected",
+                    source_device_id="android-edge-1",
+                    source_capability="mobile.context",
+                    source_event_id="evt-mobile-1",
+                    observed_at="2026-07-11T10:08:00Z",
+                    confidence=1.0,
+                ),
+                RuntimeObservation(
+                    name="mobile.observation_liveness",
+                    value="fresh",
+                    source_device_id="android-edge-1",
+                    source_capability="mobile.liveness",
+                    source_event_id="evt-mobile-live-1",
+                    observed_at="2026-07-11T10:09:00Z",
+                    confidence=1.0,
+                ),
+                RuntimeObservation(
+                    name="mobile.screen_context",
+                    value={
+                        "screen_state": "unlocked",
+                        "capture_mode": "accessibility_tree",
+                        "screen_kind": "conversation_or_feed",
+                        "sensitivity": "normal",
+                        "raw_screenshot_uploaded": False,
+                    },
+                    source_device_id="android-edge-1",
+                    source_capability="mobile.screen_context",
+                    source_event_id="evt-screen-1",
+                    observed_at="2026-07-11T10:09:30Z",
+                    confidence=0.82,
+                ),
+            ],
+            snapshot_time="2026-07-11T10:10:00Z",
+        )
+
+        fields = contract["fields"]
+        self.assertEqual(fields["mobile.current_app_visibility"]["value"], "foreground")
+        self.assertEqual(fields["mobile.current_app_visibility"]["status"], "fresh")
+        self.assertEqual(
+            fields["mobile.current_notification_permission"]["value"],
+            "granted",
+        )
+        self.assertEqual(fields["mobile.current_connection_state"]["value"], "connected")
+        self.assertEqual(fields["mobile.current_observation_liveness"]["value"], "fresh")
+        self.assertEqual(
+            fields["mobile.current_screen_context"]["value"]["screen_kind"],
+            "conversation_or_feed",
+        )
+        self.assertEqual(
+            fields["mobile.current_screen_context"]["evidence"][0]["name"],
+            "mobile.screen_context",
+        )
 
     def test_returns_ambiguous_when_recent_location_evidence_conflicts_tightly(self) -> None:
         snapshot = build_context_snapshot(

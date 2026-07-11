@@ -1,6 +1,7 @@
 import unittest
 
 from personal_runtime.context_contracts import RuntimeObservation
+from personal_runtime.context_snapshot import build_context_snapshot
 from personal_runtime.mobile_liveness import build_mobile_liveness_view
 from personal_runtime.mobile_liveness import evaluate_mobile_liveness_recovery
 from personal_runtime.mobile_liveness import record_mobile_session_state
@@ -240,6 +241,41 @@ class MobileObservationLivenessTests(unittest.TestCase):
         ]
         self.assertEqual(recovery["status"], "recovered")
         self.assertEqual(recovery["recovered_at"], "2026-07-10T10:06:20Z")
+
+    def test_records_liveness_state_as_snapshot_consumable_observation(self) -> None:
+        state = RuntimeState()
+        _register_phone(state)
+        state.record_observation(
+            RuntimeObservation(
+                name="mobile.screen_context",
+                value={"screen_kind": "launcher"},
+                source_device_id="android-edge-1",
+                source_capability="mobile.screen_context",
+                source_event_id="event-screen",
+                observed_at="2026-07-10T10:06:20Z",
+                confidence=0.9,
+            )
+        )
+
+        update_mobile_liveness_after_observations(
+            state,
+            device_id="android-edge-1",
+            online_device_ids={"android-edge-1"},
+            current_time="2026-07-10T10:06:25Z",
+        )
+        snapshot = build_context_snapshot(
+            state.observations,
+            snapshot_time="2026-07-10T10:06:30Z",
+        )
+
+        self.assertEqual(snapshot["mobile.current_observation_liveness"], "fresh")
+        self.assertTrue(
+            any(
+                observation.name == "mobile.observation_liveness"
+                and observation.source_capability == "mobile.liveness"
+                for observation in state.observations
+            )
+        )
 
     def test_stale_buffered_replay_does_not_restore_freshness_after_wake(self) -> None:
         state = RuntimeState()

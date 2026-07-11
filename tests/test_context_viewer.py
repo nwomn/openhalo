@@ -60,7 +60,7 @@ class ContextViewerTests(unittest.TestCase):
             ["terminal.current_activity_state"],
         )
 
-    def test_marks_mobile_screen_context_as_stored_but_not_snapshot_evidence(self) -> None:
+    def test_marks_mobile_screen_context_as_current_snapshot_evidence(self) -> None:
         state = RuntimeState()
         state.register_device("android-edge-1", "android-phone")
         state.register_capability(
@@ -108,8 +108,15 @@ class ContextViewerTests(unittest.TestCase):
         latest = view["latest_observations"][-1]
 
         self.assertEqual(latest["name"], "mobile.screen_context")
-        self.assertFalse(latest["in_current_snapshot_evidence"])
-        self.assertEqual(latest["snapshot_fields"], [])
+        self.assertTrue(latest["in_current_snapshot_evidence"])
+        self.assertEqual(
+            latest["snapshot_fields"],
+            ["mobile.current_screen_context"],
+        )
+        self.assertEqual(
+            view["current_snapshot"]["mobile.current_screen_context"]["screen_kind"],
+            "conversation_or_feed",
+        )
         self.assertEqual(
             view["mobile_liveness"]["android-edge-1"]["state"],
             "fresh",

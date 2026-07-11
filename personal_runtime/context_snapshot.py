@@ -4,6 +4,11 @@ from personal_runtime.context_contracts import RuntimeObservation
 
 
 LOCATION_FRESHNESS_MINUTES = 5
+MOBILE_APP_VISIBILITY_FRESHNESS_MINUTES = 5
+MOBILE_NOTIFICATION_PERMISSION_FRESHNESS_MINUTES = 5
+MOBILE_CONNECTION_STATE_FRESHNESS_MINUTES = 5
+MOBILE_OBSERVATION_LIVENESS_FRESHNESS_MINUTES = 5
+MOBILE_SCREEN_CONTEXT_FRESHNESS_MINUTES = 5
 TERMINAL_ACTIVITY_FRESHNESS_MINUTES = 5
 RUNTIME_HEALTH_FRESHNESS_MINUTES = 5
 RUNTIME_PROCESS_PID_FRESHNESS_MINUTES = 5
@@ -182,6 +187,101 @@ def _ordered_observations(
             observation.confidence,
         ),
         reverse=True,
+    )
+
+
+def _reduce_latest_observation_value(
+    observations: list[RuntimeObservation],
+    observation_name: str,
+    freshness_minutes: int,
+    snapshot_time: str | None = None,
+):
+    matching_observations = [
+        observation
+        for observation in observations
+        if observation.name == observation_name
+    ]
+    if snapshot_time is not None:
+        matching_observations = [
+            observation
+            for observation in matching_observations
+            if _within_freshness_window(
+                observed_at=observation.observed_at,
+                snapshot_time=snapshot_time,
+                freshness_minutes=freshness_minutes,
+            )
+        ]
+    if not matching_observations:
+        return "unknown"
+
+    ordered = sorted(
+        matching_observations,
+        key=lambda observation: (
+            observation.observed_at,
+            observation.confidence,
+        ),
+        reverse=True,
+    )
+    return ordered[0].value
+
+
+def _reduce_mobile_app_visibility(
+    observations: list[RuntimeObservation],
+    snapshot_time: str | None = None,
+) -> str:
+    return _reduce_latest_observation_value(
+        observations,
+        observation_name="mobile.app_visibility",
+        freshness_minutes=MOBILE_APP_VISIBILITY_FRESHNESS_MINUTES,
+        snapshot_time=snapshot_time,
+    )
+
+
+def _reduce_mobile_notification_permission(
+    observations: list[RuntimeObservation],
+    snapshot_time: str | None = None,
+) -> str:
+    return _reduce_latest_observation_value(
+        observations,
+        observation_name="mobile.notification_permission",
+        freshness_minutes=MOBILE_NOTIFICATION_PERMISSION_FRESHNESS_MINUTES,
+        snapshot_time=snapshot_time,
+    )
+
+
+def _reduce_mobile_connection_state(
+    observations: list[RuntimeObservation],
+    snapshot_time: str | None = None,
+) -> str:
+    return _reduce_latest_observation_value(
+        observations,
+        observation_name="mobile.connection_state",
+        freshness_minutes=MOBILE_CONNECTION_STATE_FRESHNESS_MINUTES,
+        snapshot_time=snapshot_time,
+    )
+
+
+def _reduce_mobile_observation_liveness(
+    observations: list[RuntimeObservation],
+    snapshot_time: str | None = None,
+) -> str:
+    return _reduce_latest_observation_value(
+        observations,
+        observation_name="mobile.observation_liveness",
+        freshness_minutes=MOBILE_OBSERVATION_LIVENESS_FRESHNESS_MINUTES,
+        snapshot_time=snapshot_time,
+    )
+
+
+def _reduce_mobile_screen_context(
+    observations: list[RuntimeObservation],
+    snapshot_time: str | None = None,
+) -> dict | str:
+    return _reduce_latest_observation_value(
+        observations,
+        observation_name="mobile.screen_context",
+        freshness_minutes=MOBILE_SCREEN_CONTEXT_FRESHNESS_MINUTES,
+        snapshot_time=snapshot_time,
     )
 
 
@@ -530,6 +630,36 @@ def _snapshot_field_specs():
             "user.location",
             _reduce_current_location,
             LOCATION_FRESHNESS_MINUTES,
+        ),
+        (
+            "mobile.current_app_visibility",
+            "mobile.app_visibility",
+            _reduce_mobile_app_visibility,
+            MOBILE_APP_VISIBILITY_FRESHNESS_MINUTES,
+        ),
+        (
+            "mobile.current_notification_permission",
+            "mobile.notification_permission",
+            _reduce_mobile_notification_permission,
+            MOBILE_NOTIFICATION_PERMISSION_FRESHNESS_MINUTES,
+        ),
+        (
+            "mobile.current_connection_state",
+            "mobile.connection_state",
+            _reduce_mobile_connection_state,
+            MOBILE_CONNECTION_STATE_FRESHNESS_MINUTES,
+        ),
+        (
+            "mobile.current_observation_liveness",
+            "mobile.observation_liveness",
+            _reduce_mobile_observation_liveness,
+            MOBILE_OBSERVATION_LIVENESS_FRESHNESS_MINUTES,
+        ),
+        (
+            "mobile.current_screen_context",
+            "mobile.screen_context",
+            _reduce_mobile_screen_context,
+            MOBILE_SCREEN_CONTEXT_FRESHNESS_MINUTES,
         ),
         (
             "terminal.current_activity_state",

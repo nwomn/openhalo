@@ -6,6 +6,7 @@ from collections.abc import Callable
 from datetime import UTC
 from datetime import datetime
 
+from personal_runtime.context_contracts import RuntimeObservation
 from personal_runtime.runtime_state import RuntimeState
 
 FRESH_FALLBACK_SECONDS = 60
@@ -87,6 +88,18 @@ def update_mobile_liveness_after_observations(
     ).get(device_id)
     if view is None:
         return {}
+    if _has_liveness_evidence(view):
+        state.record_observation(
+            RuntimeObservation(
+                name="mobile.observation_liveness",
+                value=view["state"],
+                source_device_id=device_id,
+                source_capability="mobile.liveness",
+                source_event_id=f"mobile-liveness:{device_id}:{current_time}",
+                observed_at=current_time,
+                confidence=1.0,
+            )
+        )
     record = state.mobile_liveness.setdefault(device_id, {})
     record["last_view"] = view
     last_attempt = dict(record.get("last_recovery_attempt", {}))
@@ -245,6 +258,14 @@ def _mobile_device_ids(state: RuntimeState) -> list[str]:
         ):
             device_ids.add(device_id)
     return sorted(device_ids)
+
+
+def _has_liveness_evidence(view: dict) -> bool:
+    return bool(
+        view.get("last_screen_context_at")
+        or view.get("last_health_at")
+        or view.get("last_recovery_attempt")
+    )
 
 
 def _latest_observation(state: RuntimeState, device_id: str, name: str):
