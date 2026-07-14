@@ -8,7 +8,9 @@ The current milestone sequence should continue to finish the already-defined fun
 
 ## Architecture Decision
 
-OpenHalo should preserve its top-level `Device Edge -> Gateway -> Personal Runtime -> Presence Router -> Action Layer` worldview, but its agent execution core should mature toward a Hermes-backed agent harness.
+OpenHalo should preserve its top-level `Device Edge -> Gateway -> Personal Runtime -> Presence Router -> Action Layer` worldview, but M20 should replace the current agent-execution implementation with a Hermes-backed agent harness behind an OpenHalo adapter.
+
+This is a reuse decision, not a request to recreate a generic agent framework. M20 must adopt a pinned Hermes agent-core dependency or a vendored Hermes agent-core subset as the default harness implementation. It must not create a parallel greenfield implementation of the agent loop, prompt builder, memory/session loop, provider loop, or general tool runner merely because a local rewrite appears more convenient.
 
 The key distinction is that OpenHalo has two nested loops:
 
@@ -56,10 +58,24 @@ It should cover:
 - Memory consolidation, including summarization, fact distillation, and explicit decisions about what becomes durable memory.
 - Internal model/tool/action loop handling, including action-result re-entry, loop limits, retry/failure behavior, and terminal outcome selection.
 
-If Hermes is used as the implementation source, the reusable core should stay inside the harness boundary and be wrapped by an OpenHalo adapter. That adapter should split tool usage into two classes:
+Hermes is the implementation source for the harness boundary and must be wrapped by an OpenHalo adapter. The adapter is the only intended new core implementation work. It should translate OpenHalo runtime input into Hermes-compatible harness input, translate harness output into OpenHalo proposal/action-intent contracts, attach interaction lineage and diagnostics, and split tool usage into two classes:
 
-- agent-private tools: search, retrieval, compression, summarization, local diagnostics, and other reasoning helpers that stay inside the harness loop
-- runtime-governed actions: edge notifications, cross-device control, or any other user-visible side effect, which must exit the harness as an OpenHalo action intent and pass through `Presence Router` and `Action Layer`
+- agent-private tools: search, retrieval, compression, summarization, local diagnostics, and other reasoning helpers that stay inside the harness loop. They may be auto-approved only when explicitly classified as bounded, non-user-visible, and non-side-effectful; network or data-egress tools still require OpenHalo-owned allowlist, budget, timeout, audit, and prompt-injection controls.
+- runtime-governed actions: edge notifications, cross-device control, durable memory/policy writes, or any other user-visible or side-effectful operation. These must exit the harness as an OpenHalo action intent and pass through `Presence Router`, execution planning, and `Action Layer`.
+
+The adapter must disable or replace any Hermes default that would directly execute an OpenHalo-governed action. Hermes may decide that it wants an action; it cannot become the authority that dispatches an edge action.
+
+## Hermes Reuse Contract
+
+M20 should reuse Hermes capabilities wherever they match the harness boundary, including the stateful agent loop, prompt/context construction, provider resolution, session/history handling, tool-call lifecycle, compaction, retries, and tool hooks. OpenHalo should only add the smallest adapter surfaces needed to preserve its runtime model.
+
+The following work is explicitly disallowed unless a documented reuse audit proves adapter-level integration is infeasible:
+
+- a second OpenHalo-native general agent loop that competes with the Hermes loop
+- a second prompt-builder/provider/session/tool-runner stack that duplicates Hermes without a concrete boundary reason
+- bypassing Hermes just to preserve an existing implementation detail inside `personal_runtime`
+
+An approved exception must identify the Hermes component, the concrete incompatibility, why an adapter cannot resolve it, the replacement contract, and equivalent regression coverage. "Simpler to rewrite" is not a sufficient reason.
 
 ## Relationship To Existing OpenHalo Layers
 
@@ -88,7 +104,7 @@ trace
 
 Current OpenHalo pieces such as diagnostics, chain inspection, and the M17.6.1 proposal harness are early slices of this loop. A later refactor should make the loop systematic: real prompt/context packages, action results, failures, and terminal outcomes should become replayable and outcome-classified evidence before prompt, configuration, or memory-policy changes are promoted.
 
-Hermes is the preferred first reusable implementation candidate for this layer because it already has a stateful agent core, prompt building, provider resolution, tool dispatch, session persistence, compaction, and tool hooks. The intended OpenHalo use is selective reuse behind an adapter, not a direct takeover of the runtime boundary.
+Hermes is the selected reusable implementation source for this layer because it already has a stateful agent core, prompt building, provider resolution, tool dispatch, session persistence, compaction, and tool hooks. The intended OpenHalo use is selective reuse behind an adapter, not a direct takeover of the runtime boundary.
 
 ## Phasing
 
