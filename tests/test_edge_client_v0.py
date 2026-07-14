@@ -118,6 +118,7 @@ class EdgeClientTests(unittest.TestCase):
                 "turn_id": "turn-terminal-edge-1-1",
                 "request_id": "action-1",
                 "interaction_id": "interaction-1",
+                "interaction_turn_id": "interaction-turn-1",
                 "device_id": "terminal-edge-1",
                 "action": {
                     "capability": "notification.show",
@@ -140,6 +141,7 @@ class EdgeClientTests(unittest.TestCase):
         )
 
         self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["capability"], "notification.show")
 
     def test_builds_connect_and_capability_frames(self) -> None:
         client = SessionClient(
@@ -222,6 +224,7 @@ class EdgeClientTests(unittest.TestCase):
                 "turn_id": "turn-desktop-dev-1-1",
                 "request_id": "action-1",
                 "interaction_id": "interaction-1",
+                "interaction_turn_id": "interaction-turn-1",
                 "device_id": "desktop-dev-1",
                 "action": {
                     "capability": "notification.show",
@@ -235,6 +238,7 @@ class EdgeClientTests(unittest.TestCase):
         self.assertEqual(result["turn_id"], "turn-desktop-dev-1-1")
         self.assertEqual(result["request_id"], "action-1")
         self.assertEqual(result["interaction_id"], "interaction-1")
+        self.assertEqual(result["interaction_turn_id"], "interaction-turn-1")
 
     def test_builds_direct_action_event(self) -> None:
         client = SessionClient(

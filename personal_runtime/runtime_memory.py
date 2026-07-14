@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from personal_runtime.context_snapshot import sanitize_observation_driven_snapshot
+
 
 GROUNDING_BUNDLE_VERSION = "m10.v1"
 ACTIVE_GOAL_LIMIT = 3
@@ -57,6 +59,25 @@ def grounding_metadata_from_bundle(grounding_bundle: dict | None) -> dict:
         "grounding_has_edge_history": returned_entries > 0,
         "grounding_edge_history_entries": returned_entries,
     }
+
+
+def sanitize_observation_driven_grounding_bundle(
+    grounding_bundle: dict | None,
+    snapshot: dict | None = None,
+) -> dict:
+    raw_grounding = grounding_bundle if isinstance(grounding_bundle, dict) else {}
+    source_snapshot = snapshot
+    if source_snapshot is None:
+        source_snapshot = raw_grounding.get("snapshot")
+    sanitized = dict(raw_grounding)
+    sanitized["snapshot"] = sanitize_observation_driven_snapshot(source_snapshot)
+    sanitized["edge_history"] = {
+        "history_kind": "excluded_for_observation_driven_proposal",
+        "entries": [],
+        "available_entries": 0,
+        "returned_entries": 0,
+    }
+    return sanitized
 
 
 def _collect_active_goals(state) -> list[dict]:
@@ -146,4 +167,5 @@ __all__ = [
     "GROUNDING_BUNDLE_VERSION",
     "build_model_grounding_bundle",
     "grounding_metadata_from_bundle",
+    "sanitize_observation_driven_grounding_bundle",
 ]

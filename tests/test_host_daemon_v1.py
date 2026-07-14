@@ -201,6 +201,7 @@ class HostDaemonTests(unittest.TestCase):
                 "device_id": "host-edge-1",
                 "request_id": "action-1",
                 "interaction_id": "interaction-1",
+                "interaction_turn_id": "interaction-turn-1",
                 "trace_id": "trace-terminal-edge-1-3",
                 "session_id": "session-terminal-edge-1",
                 "turn_id": "turn-terminal-edge-1-3",
@@ -220,6 +221,10 @@ class HostDaemonTests(unittest.TestCase):
         self.assertEqual(action_events[0].correlation.trace_id, "trace-terminal-edge-1-3")
         self.assertEqual(action_events[0].output["result"]["status"], "ok")
         self.assertEqual(action_events[0].output["frame"]["request_id"], "action-1")
+        self.assertEqual(
+            action_events[0].output["frame"]["interaction_turn_id"],
+            "interaction-turn-1",
+        )
 
     def test_records_bounded_local_observation_history_and_returns_it(self) -> None:
         captured_histories: list[dict] = []

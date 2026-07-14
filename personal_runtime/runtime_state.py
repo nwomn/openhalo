@@ -13,6 +13,9 @@ class RuntimeState:
         self.tasks = []
         self.action_results = []
         self.interactions = []
+        self.interaction_sequence = 0
+        self.interaction_turn_sequence = 0
+        self.proactive_trigger_state = {}
         self.observations = []
         self.interventions = []
         self.model_health = {}
@@ -71,6 +74,20 @@ class RuntimeState:
 
     def record_interaction(self, interaction: dict) -> None:
         self.interactions.append(interaction)
+
+    def allocate_interaction_id(self) -> str:
+        existing_ids = {
+            interaction.get("interaction_id") for interaction in self.interactions
+        }
+        next_index = self.interaction_sequence + 1
+        while f"interaction-{next_index}" in existing_ids:
+            next_index += 1
+        self.interaction_sequence = next_index
+        return f"interaction-{next_index}"
+
+    def allocate_interaction_turn_id(self) -> str:
+        self.interaction_turn_sequence += 1
+        return f"interaction-turn-{self.interaction_turn_sequence}"
 
     def update_interaction(
         self,
@@ -174,6 +191,9 @@ class RuntimeState:
             "tasks": self.tasks,
             "action_results": self.action_results,
             "interactions": self.interactions,
+            "interaction_sequence": self.interaction_sequence,
+            "interaction_turn_sequence": self.interaction_turn_sequence,
+            "proactive_trigger_state": self.proactive_trigger_state,
             "observations": [
                 observation.to_dict() for observation in self.observations
             ],
@@ -197,6 +217,13 @@ class RuntimeState:
         state.tasks = list(payload.get("tasks", []))
         state.action_results = list(payload.get("action_results", []))
         state.interactions = list(payload.get("interactions", []))
+        state.interaction_sequence = int(payload.get("interaction_sequence", 0))
+        state.interaction_turn_sequence = int(
+            payload.get("interaction_turn_sequence", 0)
+        )
+        state.proactive_trigger_state = dict(
+            payload.get("proactive_trigger_state", {})
+        )
         state.observations = [
             RuntimeObservation.from_dict(observation_payload)
             for observation_payload in payload.get("observations", [])

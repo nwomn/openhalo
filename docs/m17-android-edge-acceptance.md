@@ -346,7 +346,7 @@ server process on `8765`:
 .venv/bin/python -m personal_runtime.main \
   --host 127.0.0.1 \
   --port 18765 \
-  --runtime-config-path config/runtime-config.openai-local.toml
+  --runtime-config-path config/runtime-config.toml
 ```
 
 Start the terminal edge against the same port:

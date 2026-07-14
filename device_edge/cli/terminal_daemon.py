@@ -377,6 +377,8 @@ class TerminalEdgeDaemon:
                 action_result["request_id"] = frame["request_id"]
             if frame.get("interaction_id"):
                 action_result["interaction_id"] = frame["interaction_id"]
+            if frame.get("interaction_turn_id"):
+                action_result["interaction_turn_id"] = frame["interaction_turn_id"]
             for key in (
                 "trace_id",
                 "session_id",

@@ -20,6 +20,28 @@ HOST_MEMORY_AVAILABLE_FRESHNESS_MINUTES = 5
 HOST_MEMORY_USED_FRESHNESS_MINUTES = 5
 HOST_MEMORY_PRESSURE_FRESHNESS_MINUTES = 5
 EVIDENCE_LIMIT = 2
+OBSERVATION_DRIVEN_SCREEN_CONTEXT_FIELDS = frozenset(
+    {
+        "screen_state",
+        "capture_mode",
+        "capture_pause_reason",
+        "screen_kind",
+        "sensitivity",
+        "raw_screenshot_uploaded",
+        "can_observe_foreground_app",
+        "background_capture_allowed",
+        "capture_throttled",
+        "user_action_observed",
+        "interaction_state",
+        "openhalo_app_visibility",
+        "edge_service_state",
+        "accessibility_service_state",
+        "capture_queue_depth",
+        "events_coalesced",
+        "events_dropped",
+        "confidence",
+    }
+)
 
 
 def build_context_snapshot(
@@ -33,6 +55,83 @@ def build_context_snapshot(
     return {
         field_name: field_contract["value"]
         for field_name, field_contract in contract["fields"].items()
+    }
+
+
+def sanitize_observation_driven_snapshot(snapshot: dict | None) -> dict:
+    sanitized = dict(snapshot) if isinstance(snapshot, dict) else {}
+    screen_context = sanitized.get("mobile.current_screen_context")
+    if not isinstance(screen_context, dict):
+        sanitized.pop("mobile.current_screen_context", None)
+        return sanitized
+
+    safe_screen_context = {
+        key: value
+        for key, value in screen_context.items()
+        if key in OBSERVATION_DRIVEN_SCREEN_CONTEXT_FIELDS
+        and isinstance(value, (str, bool, int, float, type(None)))
+    }
+    if safe_screen_context:
+        sanitized["mobile.current_screen_context"] = safe_screen_context
+    else:
+        sanitized.pop("mobile.current_screen_context", None)
+    return sanitized
+
+
+def sanitize_observation_driven_snapshot_contract(
+    snapshot_contract: dict | None,
+) -> dict:
+    raw_contract = snapshot_contract if isinstance(snapshot_contract, dict) else {}
+    raw_fields = raw_contract.get("fields", {})
+    sanitized_fields = {}
+    for field_name, field_contract in raw_fields.items():
+        if not isinstance(field_contract, dict):
+            continue
+        if field_name != "mobile.current_screen_context":
+            sanitized_fields[field_name] = dict(field_contract)
+            continue
+        sanitized_fields[field_name] = {
+            **field_contract,
+            "value": _sanitize_observation_driven_screen_context_value(
+                field_contract.get("value"),
+            ),
+            "evidence": [
+                _sanitize_observation_driven_screen_context_evidence(evidence)
+                for evidence in field_contract.get("evidence", [])
+                if isinstance(evidence, dict)
+            ],
+        }
+    return {
+        "snapshot_time": raw_contract.get("snapshot_time"),
+        "fields": sanitized_fields,
+    }
+
+
+def _sanitize_observation_driven_screen_context_value(value):
+    sanitized = sanitize_observation_driven_snapshot(
+        {"mobile.current_screen_context": value},
+    )
+    return sanitized.get("mobile.current_screen_context", "unknown")
+
+
+def _sanitize_observation_driven_screen_context_evidence(evidence: dict) -> dict:
+    return {
+        key: evidence.get(key)
+        for key in (
+            "name",
+            "source_device_id",
+            "source_capability",
+            "source_event_id",
+            "observed_at",
+            "confidence",
+            "parent_event_id",
+            "reentry_parent",
+        )
+        if evidence.get(key) is not None
+    } | {
+        "value": _sanitize_observation_driven_screen_context_value(
+            evidence.get("value"),
+        )
     }
 
 

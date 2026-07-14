@@ -14,6 +14,7 @@ from personal_runtime.model_provider import (
     build_deterministic_post_action_proposal_plan,
     build_deterministic_proposal_plan,
     execute_openai_compatible_request,
+    generate_observation_driven_proposal_plan,
     generate_post_observation_proposal_plan,
     generate_post_action_proposal_plan,
     generate_text_proposal_plan,
@@ -671,6 +672,309 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertIn('"runtime.health_state"', rendered_request)
         self.assertIn('"value": "degraded"', rendered_request)
         self.assertIn('"interaction_id": "interaction-1"', rendered_request)
+
+    def test_generate_observation_driven_proposal_describes_passive_evidence(
+        self,
+    ) -> None:
+        calls = []
+
+        def transport(_provider, request_payload, *_args):
+            calls.append(request_payload)
+            return {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": (
+                                    '{"proposal_type":"action",'
+                                    '"response_text":"Checking runtime status after a health failure.",'
+                                    '"action":{"capability":"runtime.status","payload":{}},'
+                                    '"rationale":{"summary":"Fresh runtime health evidence warrants a check.",'
+                                    '"intent_signals":["runtime.health_state"],'
+                                    '"grounding_signals":["runtime.current_health_state"]}}'
+                                ),
+                            }
+                        ],
+                    }
+                ]
+            }
+
+        plan = generate_observation_driven_proposal_plan(
+            interaction_id="interaction-1",
+            admission={
+                "reason_code": "runtime_health_failure",
+                "evidence_refs": [
+                    {
+                        "source_device_id": "host-edge-1",
+                        "source_event_id": "health-1",
+                        "observation_name": "runtime.health_state",
+                        "observed_at": "2026-07-13T10:00:00Z",
+                    }
+                ],
+            },
+            observations=[
+                {
+                    "name": "runtime.health_state",
+                    "value": "degraded",
+                    "source_device_id": "host-edge-1",
+                    "source_event_id": "health-1",
+                    "observed_at": "2026-07-13T10:00:00Z",
+                }
+            ],
+            snapshot={"runtime.current_health_state": "degraded"},
+            grounding={"active_goals": [{"goal_id": "goal-1"}]},
+            config_path=Path("tests/fixtures/llm-config-visible-error-test.toml"),
+            transport=transport,
+        )
+
+        self.assertEqual(plan.proposal_type, "action")
+        self.assertEqual(plan.action_capability, "runtime.status")
+        self.assertEqual(
+            plan.metadata["observation_driven_reason_code"],
+            "runtime_health_failure",
+        )
+        rendered_request = str(calls[0]["input"])
+        self.assertIn("passive observation evidence", rendered_request.lower())
+        self.assertIn("not an explicit user command", rendered_request.lower())
+        self.assertNotIn("User text:", rendered_request)
+        self.assertIn('"source_event_id": "health-1"', rendered_request)
+
+    def test_observation_driven_provider_request_redacts_raw_mobile_screen_context(
+        self,
+    ) -> None:
+        calls = []
+        raw_snapshot = {
+            "runtime.current_health_state": "degraded",
+            "mobile.current_screen_context": {
+                "screen_kind": "conversation_or_feed",
+                "screen_state": "unlocked",
+                "capture_mode": "accessibility_tree",
+                "sensitivity": "normal",
+                "package_name": "com.example.private",
+                "visible_text_summary": "secret screen text",
+                "ui_affordances": ["secret reply affordance"],
+                "interactive_elements": [{"label": "secret button"}],
+            },
+        }
+
+        def transport(_provider, request_payload, *_args):
+            calls.append(request_payload)
+            return {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": (
+                                    '{"proposal_type":"no_intervention",'
+                                    '"response_text":"",'
+                                    '"target_device_hint":null,'
+                                    '"action":null,'
+                                    '"rationale":{"summary":"No proactive action.",'
+                                    '"intent_signals":[],"grounding_signals":[]}}'
+                                ),
+                            }
+                        ],
+                    }
+                ]
+            }
+
+        generate_observation_driven_proposal_plan(
+            interaction_id="interaction-1",
+            admission={
+                "reason_code": "runtime_health_failure",
+                "evidence_refs": [
+                    {
+                        "source_device_id": "host-edge-1",
+                        "source_event_id": "health-1",
+                        "observation_name": "runtime.health_state",
+                        "observed_at": "2026-07-13T10:00:00Z",
+                    }
+                ],
+            },
+            observations=[
+                {
+                    "name": "runtime.health_state",
+                    "value": "degraded",
+                    "source_device_id": "host-edge-1",
+                    "source_event_id": "health-1",
+                    "observed_at": "2026-07-13T10:00:00Z",
+                }
+            ],
+            snapshot=raw_snapshot,
+            grounding={
+                "bundle_version": "m10.v1",
+                "snapshot": raw_snapshot,
+                "active_goals": [],
+                "recent_memory": {
+                    "user_inputs": [],
+                    "interventions": [],
+                    "action_results": [],
+                },
+                "edge_history": {
+                    "entries": [
+                        {
+                            "visible_text": "secret edge history",
+                            "package_name": "com.example.private",
+                        }
+                    ],
+                    "available_entries": 1,
+                    "returned_entries": 1,
+                },
+            },
+            config_path=Path("tests/fixtures/llm-config-visible-error-test.toml"),
+            transport=transport,
+        )
+
+        rendered_request = str(calls[0]["input"])
+        self.assertIn('"screen_kind": "conversation_or_feed"', rendered_request)
+        self.assertIn('"capture_mode": "accessibility_tree"', rendered_request)
+        self.assertNotIn("com.example.private", rendered_request)
+        self.assertNotIn("secret screen text", rendered_request)
+        self.assertNotIn("secret reply affordance", rendered_request)
+        self.assertNotIn("secret button", rendered_request)
+        self.assertNotIn("secret edge history", rendered_request)
+
+    def test_observation_driven_provider_failure_is_contained(self) -> None:
+        plan = generate_observation_driven_proposal_plan(
+            interaction_id="interaction-1",
+            admission={
+                "reason_code": "runtime_process_missing",
+                "evidence_refs": [
+                    {
+                        "source_device_id": "host-edge-1",
+                        "source_event_id": "process-1",
+                        "observation_name": "runtime.process_present",
+                        "observed_at": "2026-07-13T10:00:00Z",
+                    }
+                ],
+            },
+            observations=[
+                {
+                    "name": "runtime.process_present",
+                    "value": False,
+                    "source_device_id": "host-edge-1",
+                    "source_event_id": "process-1",
+                    "observed_at": "2026-07-13T10:00:00Z",
+                }
+            ],
+            snapshot={"runtime.current_process_present": False},
+            grounding={"active_goals": [{"goal_id": "goal-1"}]},
+            config_path=Path("tests/fixtures/llm-config-missing-key-test.toml"),
+        )
+
+        self.assertEqual(plan.proposal_type, "no_intervention")
+        self.assertIsNone(plan.action_capability)
+        self.assertTrue(plan.metadata["provider_failure_contained"])
+        self.assertTrue(plan.metadata["model_unavailable"])
+
+    def test_observation_driven_invalid_model_config_is_contained(self) -> None:
+        plan = generate_observation_driven_proposal_plan(
+            interaction_id="interaction-1",
+            admission={
+                "reason_code": "runtime_health_failure",
+                "evidence_refs": [
+                    {
+                        "source_device_id": "host-edge-1",
+                        "source_event_id": "health-invalid-config",
+                        "observation_name": "runtime.health_state",
+                        "observed_at": "2026-07-13T10:00:00Z",
+                    }
+                ],
+            },
+            observations=[
+                {
+                    "name": "runtime.health_state",
+                    "value": "degraded",
+                    "source_device_id": "host-edge-1",
+                    "source_event_id": "health-invalid-config",
+                    "observed_at": "2026-07-13T10:00:00Z",
+                }
+            ],
+            config_path=Path("tests/fixtures/llm-config-invalid-test.toml"),
+        )
+
+        self.assertEqual(plan.proposal_type, "no_intervention")
+        self.assertIsNone(plan.action_capability)
+        self.assertTrue(plan.metadata["provider_failure_contained"])
+        self.assertTrue(plan.metadata["model_unavailable"])
+
+    def test_observation_driven_invalid_provider_payload_is_contained(self) -> None:
+        plan = generate_observation_driven_proposal_plan(
+            interaction_id="interaction-1",
+            admission={
+                "reason_code": "runtime_health_failure",
+                "evidence_refs": [
+                    {
+                        "source_device_id": "host-edge-1",
+                        "source_event_id": "health-invalid-payload",
+                        "observation_name": "runtime.health_state",
+                        "observed_at": "2026-07-13T10:00:00Z",
+                    }
+                ],
+            },
+            observations=[
+                {
+                    "name": "runtime.health_state",
+                    "value": "degraded",
+                    "source_device_id": "host-edge-1",
+                    "source_event_id": "health-invalid-payload",
+                    "observed_at": "2026-07-13T10:00:00Z",
+                }
+            ],
+            config_path=Path("tests/fixtures/llm-config-visible-error-test.toml"),
+            transport=lambda *_args: None,
+        )
+
+        self.assertEqual(plan.proposal_type, "no_intervention")
+        self.assertIsNone(plan.action_capability)
+        self.assertTrue(plan.metadata["provider_failure_contained"])
+        self.assertTrue(plan.metadata["model_unavailable"])
+
+    def test_observation_driven_plain_text_is_not_promoted_to_notification(self) -> None:
+        plan = generate_observation_driven_proposal_plan(
+            interaction_id="interaction-1",
+            admission={
+                "reason_code": "runtime_health_failure",
+                "evidence_refs": [
+                    {
+                        "source_device_id": "host-edge-1",
+                        "source_event_id": "health-1",
+                        "observation_name": "runtime.health_state",
+                        "observed_at": "2026-07-13T10:00:00Z",
+                    }
+                ],
+            },
+            observations=[
+                {
+                    "name": "runtime.health_state",
+                    "value": "degraded",
+                    "source_device_id": "host-edge-1",
+                    "source_event_id": "health-1",
+                    "observed_at": "2026-07-13T10:00:00Z",
+                }
+            ],
+            snapshot={"runtime.current_health_state": "degraded"},
+            grounding={"active_goals": [{"goal_id": "goal-1"}]},
+            config_path=Path("tests/fixtures/llm-config-visible-error-test.toml"),
+            transport=lambda *_args: {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {"type": "output_text", "text": "Check it now."}
+                        ],
+                    }
+                ]
+            },
+        )
+
+        self.assertEqual(plan.proposal_type, "no_intervention")
+        self.assertIsNone(plan.action_capability)
+        self.assertTrue(plan.metadata["provider_failure_contained"])
 
     def test_execute_openai_compatible_proposal_request_uses_json_schema_format_when_supported(
         self,
@@ -1375,6 +1679,31 @@ class ModelProviderConfigTests(unittest.TestCase):
             "user_visible_error",
         )
         self.assertEqual(plan.metadata["provider_failure_type"], "OSError")
+        self.assertFalse(plan.metadata["used_deterministic_fallback"])
+
+    def test_generate_text_proposal_plan_surfaces_missing_runtime_config_as_provider_failure(
+        self,
+    ) -> None:
+        missing_config_path = Path(
+            "tests/fixtures/llm-config-does-not-exist.toml"
+        )
+
+        self.assertFalse(missing_config_path.exists())
+
+        plan = generate_text_proposal_plan(
+            user_text="给手机发条hello",
+            snapshot={"runtime.current_health_state": "healthy"},
+            grounding={"active_goals": [{"goal_id": "goal-1"}]},
+            profile_name="proposal_formation",
+            config_path=missing_config_path,
+        )
+
+        self.assertEqual(plan.proposal_type, "provider_failure")
+        self.assertIsNone(plan.action_capability)
+        self.assertEqual(plan.action_payload, {})
+        self.assertIn("Real model reply unavailable", plan.response_text)
+        self.assertEqual(plan.metadata["runtime_message_channel"], "provider_failure")
+        self.assertEqual(plan.metadata["provider_failure_type"], "FileNotFoundError")
         self.assertFalse(plan.metadata["used_deterministic_fallback"])
 
     def test_generate_text_proposal_plan_sends_structured_proposal_request_to_transport(

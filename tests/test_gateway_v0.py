@@ -733,6 +733,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                     "turn_id": action_request["turn_id"],
                     "request_id": action_request["request_id"],
                     "interaction_id": action_request["interaction_id"],
+                    "interaction_turn_id": action_request["interaction_turn_id"],
                     "device_id": "external-display-1",
                     "result": {
                         "status": "ok",
@@ -962,6 +963,76 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(event_ack["type"], "event_ack")
         self.assertEqual(action_request["type"], "action_request")
 
+    async def test_websocket_server_surfaces_missing_runtime_config_without_closing_connection(
+        self,
+    ) -> None:
+        missing_config_path = ROOT / "tests" / "fixtures" / "llm-config-does-not-exist.toml"
+        self.assertFalse(missing_config_path.exists())
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=missing_config_path,
+        )
+
+        async with gateway.run_test_server() as server_info:
+            async with websockets.connect(server_info["url"]) as websocket:
+                await websocket.send(
+                    json.dumps(
+                        {
+                            "type": "connect",
+                            "device": {
+                                "device_id": "desktop-dev-1",
+                                "device_type": "desktop-cli",
+                            },
+                            "auth": {"token": "dev-token"},
+                        }
+                    )
+                )
+                await websocket.send(
+                    json.dumps(
+                        {
+                            "type": "capability_announce",
+                            "device_id": "desktop-dev-1",
+                            "capabilities": ["text.input", "notification.show"],
+                        }
+                    )
+                )
+                await websocket.send(
+                    json.dumps(
+                        {
+                            "type": "event_push",
+                            "device_id": "desktop-dev-1",
+                            "capability": "text.input",
+                            "payload": {"text": "hello"},
+                        }
+                    )
+                )
+
+                connect_ok = json.loads(await websocket.recv())
+                event_ack = json.loads(await websocket.recv())
+                interaction_update = json.loads(await websocket.recv())
+
+        self.assertEqual(connect_ok["type"], "connect_ok")
+        self.assertEqual(event_ack["type"], "event_ack")
+        self.assertEqual(interaction_update["type"], "interaction_update")
+        self.assertEqual(interaction_update["interaction"]["status"], "completed")
+        self.assertEqual(interaction_update["interaction"]["visibility"], "visible")
+        self.assertIn(
+            "Real model reply unavailable",
+            interaction_update["interaction"]["summary"],
+        )
+        proposal = gateway.state.interventions[-1]["proposal"]
+        self.assertEqual(proposal["proposal_type"], "provider_failure")
+        self.assertIsNone(proposal["action_capability"])
+        self.assertEqual(
+            proposal["metadata"]["runtime_message_channel"],
+            "provider_failure",
+        )
+        self.assertEqual(
+            proposal["metadata"]["provider_failure_type"],
+            "FileNotFoundError",
+        )
+
     async def test_protocol_accepts_interaction_update_frame_type(self) -> None:
         gateway = RuntimeGateway(
             shared_token="dev-token",
@@ -1176,8 +1247,11 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                     "type": "action_result",
                     "device_id": "desktop-dev-1",
                     "interaction_id": action_request["interaction_id"],
+                    "interaction_turn_id": action_request["interaction_turn_id"],
+                    "request_id": action_request["request_id"],
                     "result": {
                         "status": "ok",
+                        "capability": action_request["action"]["capability"],
                         "details": {
                             "delivered_via": "terminal.stdout",
                             "message": "Hello! Runtime here.",
@@ -1234,6 +1308,8 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                     "type": "action_result",
                     "device_id": "host-edge-1",
                     "interaction_id": action_request["interaction_id"],
+                    "interaction_turn_id": action_request["interaction_turn_id"],
+                    "request_id": action_request["request_id"],
                     "result": {
                         "status": "ok",
                         "capability": "runtime.status",
@@ -1255,7 +1331,9 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                 {
                     "type": "action_result",
                     "device_id": "desktop-dev-1",
-                    "interaction_id": action_request["interaction_id"],
+                    "interaction_id": follow_up["interaction_id"],
+                    "interaction_turn_id": follow_up["interaction_turn_id"],
+                    "request_id": follow_up["request_id"],
                     "result": {
                         "status": "ok",
                         "capability": "notification.show",
@@ -1322,6 +1400,8 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                     "type": "action_result",
                     "device_id": "host-edge-1",
                     "interaction_id": first_action["interaction_id"],
+                    "interaction_turn_id": first_action["interaction_turn_id"],
+                    "request_id": first_action["request_id"],
                     "result": {
                         "status": "ok",
                         "capability": "runtime.status",
@@ -1402,6 +1482,8 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                     "type": "action_result",
                     "device_id": "host-edge-1",
                     "interaction_id": first_action["interaction_id"],
+                    "interaction_turn_id": first_action["interaction_turn_id"],
+                    "request_id": first_action["request_id"],
                     "result": {
                         "status": "ok",
                         "capability": "runtime.status",
@@ -1479,6 +1561,11 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                     "device_id": "host-edge-1",
                     "capability": "runtime.health",
                     "event_id": "host-edge-1-health-1",
+                    "reentry_parent": {
+                        "interaction_id": first_action["interaction_id"],
+                        "interaction_turn_id": first_action["interaction_turn_id"],
+                        "request_id": first_action["request_id"],
+                    },
                     "payload": {
                         "observations": [
                             {
@@ -1535,7 +1622,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                         "observations": [
                             {
                                 "name": "runtime.health_state",
-                                "value": "degraded",
+                                "value": "healthy",
                                 "observed_at": "2026-06-21T10:10:30Z",
                                 "confidence": 1.0,
                             }
@@ -1594,6 +1681,8 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                     "type": "action_result",
                     "device_id": "desktop-dev-1",
                     "interaction_id": first_action["interaction_id"],
+                    "interaction_turn_id": first_action["interaction_turn_id"],
+                    "request_id": first_action["request_id"],
                     "result": {
                         "status": "ok",
                         "capability": "notification.show",
@@ -2873,6 +2962,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                     "type": "action_result",
                     "request_id": action_request["request_id"],
                     "interaction_id": action_request["interaction_id"],
+                    "interaction_turn_id": action_request["interaction_turn_id"],
                     "device_id": "android-edge-1",
                     "result": {
                         "status": "ok",
@@ -3002,6 +3092,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                     "type": "action_result",
                     "request_id": phone_action["request_id"],
                     "interaction_id": phone_action["interaction_id"],
+                    "interaction_turn_id": phone_action["interaction_turn_id"],
                     "device_id": "android-edge-1",
                     "result": {
                         "status": "ok",
@@ -3161,6 +3252,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                     "type": "action_result",
                     "request_id": phone_action["request_id"],
                     "interaction_id": phone_action["interaction_id"],
+                    "interaction_turn_id": phone_action["interaction_turn_id"],
                     "device_id": "android-edge-1",
                     "result": {
                         "status": "ok",
@@ -3187,6 +3279,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                     "type": "action_result",
                     "request_id": source_ack["request_id"],
                     "interaction_id": source_ack["interaction_id"],
+                    "interaction_turn_id": source_ack["interaction_turn_id"],
                     "device_id": "terminal-edge-1",
                     "result": {
                         "status": "ok",
@@ -3239,6 +3332,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                     "type": "action_result",
                     "request_id": "action-missing",
                     "interaction_id": "interaction-missing",
+                    "interaction_turn_id": "interaction-turn-missing",
                     "device_id": "android-edge-1",
                     "result": {
                         "status": "ok",
@@ -3255,6 +3349,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(error["code"], "lineage_missing")
         self.assertEqual(error["interaction_id"], "interaction-missing")
         self.assertEqual(error["device_id"], "android-edge-1")
+        self.assertEqual(gateway.state.action_results, [])
 
     async def test_unknown_capability_announce_returns_public_error(self) -> None:
         gateway = RuntimeGateway(

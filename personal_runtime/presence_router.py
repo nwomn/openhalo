@@ -145,6 +145,7 @@ def choose_presence_decision(
         proposal=_proposal,
         devices=devices,
     )
+    inactive_terminal_candidate = False
     if devices and target_capability:
         if (
             target_device_hint in devices
@@ -160,12 +161,42 @@ def choose_presence_decision(
                     and device_id not in online_device_ids
                 ):
                     continue
+                if _terminal_notification_candidate_is_inactive(
+                    snapshot=snapshot,
+                    proposal=_proposal,
+                    device_id=device_id,
+                    devices=devices,
+                ):
+                    inactive_terminal_candidate = True
+                    continue
                 if target_capability in payload["capabilities"]:
                     target_device_id = device_id
                     break
 
     if target_device_id is None:
+        if inactive_terminal_candidate:
+            decision = PresenceDecision(
+                decision="suppress",
+                target_device_id=None,
+                reason="terminal_inactive",
+            )
+            _record_decision(decision, trace_recorder)
+            return decision
         target_device_id = source_device_id
+
+    if _terminal_notification_candidate_is_inactive(
+        snapshot=snapshot,
+        proposal=_proposal,
+        device_id=target_device_id,
+        devices=devices,
+    ):
+        decision = PresenceDecision(
+            decision="suppress",
+            target_device_id=None,
+            reason="terminal_inactive",
+        )
+        _record_decision(decision, trace_recorder)
+        return decision
 
     if terminal_target_locked and target_device_id != target_device_hint:
         decision = PresenceDecision(
@@ -190,14 +221,30 @@ def _terminal_push_suppressed(
     proposal: dict,
     devices: dict | None,
 ) -> bool:
-    if proposal.get("source") != "agent_initiative":
+    target_device_hint = proposal.get("target_device_hint")
+    if not target_device_hint:
+        return False
+    return _terminal_notification_candidate_is_inactive(
+        snapshot=snapshot,
+        proposal=proposal,
+        device_id=target_device_hint,
+        devices=devices,
+    )
+
+
+def _terminal_notification_candidate_is_inactive(
+    snapshot: dict,
+    proposal: dict,
+    device_id: str,
+    devices: dict | None,
+) -> bool:
+    if not _is_proactive_proposal(proposal):
         return False
     if proposal.get("action_capability") != "notification.show":
         return False
-    target_device_hint = proposal.get("target_device_hint")
-    if not target_device_hint or not devices or target_device_hint not in devices:
+    if not devices or device_id not in devices:
         return False
-    target_device = devices[target_device_hint]
+    target_device = devices[device_id]
     if "terminal.context" not in target_device.get("capabilities", set()):
         return False
     return snapshot.get("terminal.current_activity_state") != "active"
@@ -207,7 +254,7 @@ def _terminal_target_locked(
     proposal: dict,
     devices: dict | None,
 ) -> bool:
-    if proposal.get("source") != "agent_initiative":
+    if not _is_proactive_proposal(proposal):
         return False
     if proposal.get("action_capability") != "notification.show":
         return False
@@ -216,6 +263,10 @@ def _terminal_target_locked(
         return False
     target_device = devices[target_device_hint]
     return "terminal.context" in target_device.get("capabilities", set())
+
+
+def _is_proactive_proposal(proposal: dict) -> bool:
+    return proposal.get("source") in {"agent_initiative", "observation_driven"}
 
 
 def _record_decision(decision: PresenceDecision, trace_recorder) -> None:

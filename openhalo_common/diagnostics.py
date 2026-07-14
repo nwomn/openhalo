@@ -23,6 +23,7 @@ class DiagnosticCorrelation:
     event_id: str | None = None
     request_id: str | None = None
     interaction_id: str | None = None
+    interaction_turn_id: str | None = None
     parent_event_id: str | None = None
 
     def to_dict(self) -> dict:
@@ -314,6 +315,7 @@ def correlation_from_frame(frame: dict) -> dict:
         "event_id": frame.get("event_id"),
         "request_id": frame.get("request_id"),
         "interaction_id": frame.get("interaction_id"),
+        "interaction_turn_id": frame.get("interaction_turn_id"),
         "parent_event_id": frame.get("parent_event_id"),
     }
 
@@ -354,6 +356,7 @@ def _build_diagnostic_event(
             event_id=correlation.get("event_id"),
             request_id=correlation.get("request_id"),
             interaction_id=correlation.get("interaction_id"),
+            interaction_turn_id=correlation.get("interaction_turn_id"),
             parent_event_id=correlation.get("parent_event_id"),
         )
     return DiagnosticEvent(

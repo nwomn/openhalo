@@ -9,11 +9,16 @@ def execute_action(
 ) -> dict:
     capability = action["capability"]
     if capability != "notification.show":
-        return {"status": "error", "reason": "unsupported"}
+        return {
+            "status": "error",
+            "capability": capability,
+            "reason": "unsupported",
+        }
 
     print(f"{message_prefix}{action['payload']['message']}", file=output_stream)
     return {
         "status": "ok",
+        "capability": capability,
         "details": {
             "delivered_via": delivered_via,
             "message": action["payload"]["message"],

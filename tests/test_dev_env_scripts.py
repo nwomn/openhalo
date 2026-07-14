@@ -35,7 +35,7 @@ class DevEnvWorkflowTests(unittest.TestCase):
         contents = script_path.read_text(encoding="utf-8")
         self.assertIn("18765", contents)
         self.assertIn(".runtime/android-openai-dev-state.json", contents)
-        self.assertIn("config/runtime-config.openai-local.toml", contents)
+        self.assertIn("config/runtime-config.toml", contents)
         self.assertIn("personal_runtime.main", contents)
 
     def test_runtime_deploy_document_and_systemd_examples_exist(self) -> None:
@@ -345,7 +345,7 @@ class DevEnvWorkflowTests(unittest.TestCase):
 
         self.assertIn("proposal-harness-provider-replay", provider_result.stdout)
         self.assertIn(
-            "config/runtime-config.openai-local.toml",
+            "config/runtime-config.toml",
             provider_result.stdout,
         )
         self.assertIn(".runtime/m17_6_acceptance_state.json", state_result.stdout)

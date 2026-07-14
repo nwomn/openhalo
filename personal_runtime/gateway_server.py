@@ -7,6 +7,7 @@ from datetime import UTC
 from datetime import datetime
 from itertools import count
 from pathlib import Path
+from uuid import uuid4
 
 import websockets
 from websockets.exceptions import ConnectionClosedError
@@ -17,9 +18,11 @@ from personal_runtime.action_layer import build_interaction_update
 from personal_runtime.agent_executor import ProposalFormation
 from personal_runtime.context_contracts import RuntimeObservation
 from personal_runtime.execution_planning import ExecutionPlanner
+from personal_runtime.interaction_pool import InteractionPool
 from personal_runtime.mobile_liveness import record_mobile_session_state
 from personal_runtime.mobile_liveness import update_mobile_liveness_after_observations
 from personal_runtime.presence_router import PresenceRouter
+from personal_runtime.proactive_trigger_gate import ProactiveTriggerGate
 from personal_runtime.runtime_orchestrator import RuntimeOrchestrator
 from personal_runtime.runtime_state import RuntimeState
 from personal_runtime.runtime_state import _compatibility_capability_registration
@@ -28,8 +31,6 @@ from personal_runtime.trace_recorder import TraceRecorder
 
 
 class RuntimeGateway:
-    _interaction_counter = count(1)
-
     def __init__(
         self,
         shared_token: str,
@@ -53,6 +54,8 @@ class RuntimeGateway:
             self.state = RuntimeState()
         else:
             self.state = self.state_store.load()
+        self.interaction_pool = InteractionPool(self.state, max_pending_actions=2)
+        self.proactive_trigger_gate = ProactiveTriggerGate()
         self.online_device_ids: set[str] = set()
         self.live_connections: dict[str, object] = {}
         self.trace_recorder = trace_recorder
@@ -87,10 +90,141 @@ class RuntimeGateway:
         self.state_store.save(self.state)
 
     def _next_interaction_id(self) -> str:
-        return f"interaction-{next(self._interaction_counter)}"
+        return self.state.allocate_interaction_id()
 
     def _next_action_request_id(self) -> str:
         return f"action-{next(self._action_request_counter)}"
+
+    def _next_interaction_turn_id(self) -> str:
+        return self.state.allocate_interaction_turn_id()
+
+    def _register_interaction_for_frame(self, frame: dict):
+        payload = frame.get("payload", {})
+        origin = (
+            "agent_initiative"
+            if payload.get("agent_initiative") is not None
+            else "user_event"
+        )
+        source_event_id = frame.get("event_id")
+        provenance_token = source_event_id or f"ingress-{uuid4().hex}"
+        causal_scope = {
+            "key": (
+                f"{origin}:{frame['device_id']}:"
+                f"{frame['capability']}:{provenance_token}"
+            ),
+            "source_device_id": frame["device_id"],
+            "source_capability": frame["capability"],
+            "source_event_id": source_event_id,
+        }
+        trigger = {
+            "frame_type": frame["type"],
+            "source_event_id": source_event_id,
+            "observed_at": payload.get("observed_at")
+            or frame.get("observed_at"),
+        }
+        if origin == "agent_initiative":
+            trigger["initiative_reason"] = payload["agent_initiative"].get("reason")
+        return self.interaction_pool.register(
+            origin=origin,
+            causal_scope=causal_scope,
+            trigger=trigger,
+            participant_device_ids=[frame["device_id"]],
+            source_device_id=frame["device_id"],
+        )
+
+    def _interaction_payload(self, interaction_id: str) -> dict | None:
+        return next(
+            (
+                interaction
+                for interaction in self.state.interactions
+                if interaction.get("interaction_id") == interaction_id
+            ),
+            None,
+        )
+
+    def _intervention_for_turn(
+        self,
+        interaction_id: str,
+        interaction_turn_id: str,
+    ) -> dict | None:
+        return next(
+            (
+                intervention
+                for intervention in reversed(self.state.interventions)
+                if intervention.get("interaction_id") == interaction_id
+                and intervention.get("interaction_turn_id") == interaction_turn_id
+            ),
+            None,
+        )
+
+    def _update_intervention_for_turn(
+        self,
+        interaction_id: str,
+        interaction_turn_id: str,
+        **changes,
+    ) -> dict | None:
+        intervention = self._intervention_for_turn(
+            interaction_id,
+            interaction_turn_id,
+        )
+        if intervention is not None:
+            intervention.update(changes)
+        return intervention
+
+    def _normalize_action_result_correlation(self, frame: dict) -> dict:
+        return frame
+
+    @staticmethod
+    def _action_result_capability_matches_intervention(
+        frame: dict,
+        intervention: dict,
+    ) -> bool:
+        expected_capability = intervention.get(
+            "requested_action_capability",
+            intervention.get("action_capability"),
+        )
+        return frame.get("result", {}).get("capability") == expected_capability
+
+    def _can_record_action_result(self, frame: dict) -> bool:
+        interaction_id = frame.get("interaction_id")
+        if interaction_id is None:
+            return True
+        interaction_turn_id = frame.get("interaction_turn_id")
+        request_id = frame.get("request_id")
+        if not interaction_turn_id or not request_id:
+            return False
+        if (
+            self.interaction_pool.get_for_action_result(
+                interaction_id,
+                interaction_turn_id,
+                request_id,
+            )
+            is None
+        ):
+            return False
+        intervention = self._intervention_for_turn(
+            interaction_id,
+            interaction_turn_id,
+        )
+        return (
+            intervention is not None
+            and intervention.get("target_device_id") == frame.get("device_id")
+            and self._action_result_capability_matches_intervention(
+                frame,
+                intervention,
+            )
+        )
+
+    def _record_action_result_frame(self, frame: dict) -> dict:
+        result = {
+            **frame["result"],
+            "device_id": frame.get("device_id"),
+            "request_id": frame.get("request_id"),
+            "interaction_id": frame.get("interaction_id"),
+            "interaction_turn_id": frame.get("interaction_turn_id"),
+        }
+        self.state.record_action_result(result)
+        return frame
 
     def _build_interaction_record(
         self,
@@ -293,6 +427,7 @@ class RuntimeGateway:
         source_device_id: str,
         initiative_request: dict,
         observed_at: str,
+        initiative_id: str | None = None,
     ) -> list[dict]:
         self._record_trace(
             "GATEWAY",
@@ -304,6 +439,11 @@ class RuntimeGateway:
             "type": "event_push",
             "device_id": source_device_id,
             "capability": "agent.initiative",
+            "event_id": (
+                initiative_id
+                or initiative_request.get("initiative_id")
+                or f"initiative-{uuid4().hex}"
+            ),
             "payload": {
                 "observed_at": observed_at,
                 "agent_initiative": initiative_request,
@@ -316,11 +456,13 @@ class RuntimeGateway:
         source_device_id: str,
         initiative_request: dict,
         observed_at: str,
+        initiative_id: str | None = None,
     ) -> list[dict]:
         replies = self.trigger_agent_initiative(
             source_device_id=source_device_id,
             initiative_request=initiative_request,
             observed_at=observed_at,
+            initiative_id=initiative_id,
         )
         for reply in replies:
             if reply["type"] != "action_request":
@@ -362,6 +504,98 @@ class RuntimeGateway:
             if source_device_id in participant_device_ids:
                 return interaction
         return None
+
+    def _resolve_observation_reentry(self, frame: dict) -> tuple[dict, dict] | None:
+        payload = frame.get("payload", {})
+        reentry_parent = frame.get("reentry_parent") or payload.get(
+            "reentry_parent"
+        )
+        if isinstance(reentry_parent, dict):
+            interaction_id = reentry_parent.get("interaction_id")
+            interaction_turn_id = reentry_parent.get("interaction_turn_id")
+            request_id = reentry_parent.get("request_id")
+            if not interaction_id or not interaction_turn_id or not request_id:
+                return None
+            if (
+                self.interaction_pool.get_for_action_result(
+                    interaction_id,
+                    interaction_turn_id,
+                    request_id,
+                )
+                is None
+            ):
+                return None
+            interaction = self._interaction_payload(interaction_id)
+            intervention = self._intervention_for_turn(
+                interaction_id,
+                interaction_turn_id,
+            )
+            if (
+                interaction is None
+                or intervention is None
+                or intervention.get("target_device_id") != frame.get("device_id")
+            ):
+                return None
+            return interaction, intervention
+
+        parent_event_id = frame.get("parent_event_id") or payload.get(
+            "parent_event_id"
+        )
+        if not parent_event_id:
+            return None
+        interactions = [
+            interaction
+            for interaction in self.state.interactions
+            if interaction.get("status") != "completed"
+            and interaction.get("causal_scope", {}).get("source_event_id")
+            == parent_event_id
+        ]
+        if len(interactions) != 1:
+            return None
+        interaction = interactions[0]
+        pool_interaction = self.interaction_pool.get(interaction["interaction_id"])
+        if pool_interaction is None:
+            return None
+        pending_turn_ids = {
+            turn.interaction_turn_id
+            for turn in pool_interaction.turns
+            if turn.action_status == "pending"
+        }
+        interventions = [
+            intervention
+            for intervention in self.state.interventions
+            if intervention.get("interaction_id") == interaction["interaction_id"]
+            and intervention.get("interaction_turn_id") in pending_turn_ids
+            and intervention.get("target_device_id") == frame.get("device_id")
+        ]
+        if len(interventions) != 1:
+            return None
+        return interaction, interventions[0]
+
+    def _observation_reentry_is_processed(
+        self,
+        interaction: dict,
+        frame: dict,
+    ) -> bool:
+        event_id = frame.get("event_id")
+        if not event_id:
+            return True
+        return event_id in interaction.get("observation_reentry_event_ids", [])
+
+    def _record_observation_reentry(self, interaction_id: str, frame: dict) -> None:
+        event_id = frame.get("event_id")
+        if not event_id:
+            return
+        interaction = self._interaction_payload(interaction_id)
+        if interaction is None:
+            return
+        event_ids = list(interaction.get("observation_reentry_event_ids", []))
+        if event_id not in event_ids:
+            event_ids.append(event_id)
+        self.state.update_interaction(
+            interaction_id,
+            observation_reentry_event_ids=event_ids[-20:],
+        )
 
     def _observations_relevant_to_open_interaction(
         self,
@@ -504,18 +738,21 @@ class RuntimeGateway:
                 self._persist_state()
                 replies.extend(self._build_event_replies(frame))
             elif frame["type"] == "action_result":
+                recordable = self._can_record_action_result(frame)
+                if recordable:
+                    frame = self._record_action_result_frame(frame)
                 self._record_trace(
                     "GATEWAY",
                     "received action_result",
                     device_id=frame["device_id"],
                 )
-                self.state.record_action_result(frame["result"])
-                self._record_trace(
-                    "STATE",
-                    "recorded action_result",
-                    status=frame["result"]["status"],
-                )
-                self._persist_state()
+                if recordable:
+                    self._record_trace(
+                        "STATE",
+                        "recorded action_result",
+                        status=frame["result"]["status"],
+                    )
+                    self._persist_state()
                 replies.extend(self._build_action_result_replies(frame))
             elif frame["type"] == "interaction_update":
                 self.state.record_interaction(frame["interaction"])
@@ -541,6 +778,12 @@ class RuntimeGateway:
     def _extract_runtime_observations(self, frame: dict) -> list[RuntimeObservation]:
         observations = frame["payload"].get("observations", [])
         event_id = frame.get("event_id", "")
+        parent_event_id = frame.get("parent_event_id") or frame["payload"].get(
+            "parent_event_id"
+        )
+        reentry_parent = frame.get("reentry_parent") or frame["payload"].get(
+            "reentry_parent"
+        )
         return [
             RuntimeObservation(
                 name=observation_payload["name"],
@@ -550,6 +793,10 @@ class RuntimeGateway:
                 source_event_id=event_id,
                 observed_at=observation_payload["observed_at"],
                 confidence=observation_payload["confidence"],
+                parent_event_id=parent_event_id,
+                reentry_parent=dict(reentry_parent)
+                if isinstance(reentry_parent, dict)
+                else None,
             )
             for observation_payload in observations
         ]
@@ -726,6 +973,7 @@ class RuntimeGateway:
             "device_id": target_device_id,
             "request_id": reply.get("request_id"),
             "interaction_id": reply.get("interaction_id"),
+            "interaction_turn_id": reply.get("interaction_turn_id"),
             "result": result,
         }
         for key in (
@@ -819,7 +1067,8 @@ class RuntimeGateway:
                         source_websocket,
                         failed_result,
                     )
-                    self.state.record_action_result(failed_result["result"])
+                    if self._can_record_action_result(failed_result):
+                        failed_result = self._record_action_result_frame(failed_result)
                     self._persist_state()
                     await self._dispatch_websocket_replies(
                         source_device_id,
@@ -873,6 +1122,7 @@ class RuntimeGateway:
                     "event_id",
                     "request_id",
                     "interaction_id",
+                    "interaction_turn_id",
                     "parent_event_id",
                 )
                 if reply.get(key) is not None

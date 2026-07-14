@@ -19,7 +19,13 @@ The helper defaults to:
 - `OPENHALO_DEV_EDGE_TOKEN=dev-token`
 - `OPENHALO_DEV_STATE_PATH=.runtime/android-openai-dev-state.json`
 - `OPENHALO_DEV_DIAGNOSTIC_LOG_PATH=.runtime/android-openai-dev-diagnostics.jsonl`
-- `OPENHALO_DEV_RUNTIME_CONFIG_PATH=config/runtime-config.openai-local.toml`
+- `OPENHALO_DEV_RUNTIME_CONFIG_PATH=config/runtime-config.toml`
+
+`config/runtime-config.toml` is the local, ignored development default and is
+currently aligned with the OpenAI configuration. A worktree does not contain an
+ignored `*-local.toml` automatically; use an explicit absolute
+`OPENHALO_DEV_RUNTIME_CONFIG_PATH` only when the desired local config lives in
+another checkout.
 
 The deliberate default port is `18765`, not `8765`. Keep `8765` available for
 the long-running Personal Runtime while using `18765` for development and

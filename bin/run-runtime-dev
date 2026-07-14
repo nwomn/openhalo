@@ -6,7 +6,7 @@ PORT="${OPENHALO_DEV_RUNTIME_PORT:-18765}"
 TOKEN="${OPENHALO_DEV_EDGE_TOKEN:-dev-token}"
 STATE_PATH="${OPENHALO_DEV_STATE_PATH:-.runtime/android-openai-dev-state.json}"
 DIAGNOSTIC_LOG_PATH="${OPENHALO_DEV_DIAGNOSTIC_LOG_PATH:-.runtime/android-openai-dev-diagnostics.jsonl}"
-RUNTIME_CONFIG_PATH="${OPENHALO_DEV_RUNTIME_CONFIG_PATH:-config/runtime-config.openai-local.toml}"
+RUNTIME_CONFIG_PATH="${OPENHALO_DEV_RUNTIME_CONFIG_PATH:-config/runtime-config.toml}"
 
 exec .venv/bin/python -m personal_runtime.main \
   --host "${HOST}" \

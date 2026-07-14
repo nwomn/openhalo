@@ -122,12 +122,29 @@ relevant to what the agent can see now or most recently saw:
 - only the observations that currently participate in snapshot evidence
 - latest agent turn summary, snapshot contract, and prompt/context package
 
+### M18 offline admission replay
+
+To review whether M18 noticed the right observation points without contacting a
+model provider or dispatching an action, replay a persisted state file through
+only the deterministic admission gate and Interaction Pool:
+
+```bash
+.venv/bin/python -m personal_runtime.m18_replay_cli --state .runtime/state.json
+```
+
+The command is read-only: it reconstructs observations chronologically in
+memory, groups a shared source event as one ingress batch, and reports every
+`skip`, `defer`, and `trigger` decision with safe evidence references and causal
+scope. It never starts an Android build, calls a provider, or dispatches an
+action. Use the report with reviewer labels for points that deserved attention
+and points that should remain silent.
+
 This is the preferred way to confirm whether a live edge observation, such as
 `mobile.screen_context`, reached the runtime, how it was normalized, and whether
-it is currently represented in compact snapshot evidence. For M17.5,
-`mobile.screen_context` may be stored as passive evidence while still showing
-`in_current_snapshot_evidence: false`; that is expected until M18 adds the
-observation-driven intent reducers/policy path.
+it is currently represented in compact snapshot evidence. A standalone
+`mobile.screen_context` observation remains passive by default and the M18 Gate
+may defer it, while its allowlisted structural signals can contribute as
+sanitized context evidence after another M18 trigger has been admitted.
 
 For a long-running server runtime, run the viewer directly on the server against
 the supervised runtime's persisted state and diagnostic log. The current
@@ -216,7 +233,9 @@ The repository keeps a tracked template in `config/runtime-config.example.toml`;
 
 When you want to use a non-default provider config, pass it explicitly with `--runtime-config-path` instead of relying on an implicit local override file. The older `--llm-config-path` spelling remains a compatibility alias.
 
-For a side-by-side official OpenAI comparison without replacing the current relay baseline, use an ignored local file such as `config/runtime-config.openai-local.toml`. Keep the same provider/model/profile shape, set `base_url = "https://api.openai.com/v1"`, and place the rotated OpenAI API key only in that ignored local file.
+The local default `config/runtime-config.toml` is currently aligned with the
+official OpenAI provider configuration. Keep its OpenAI API key only in that
+ignored local file; do not add it to the tracked template or a worktree command.
 
 When you want to test a real `openai_compatible` provider path later, keep the same command shape but provide:
 
@@ -231,10 +250,10 @@ Before starting the full live path, run the provider probe:
 bin/verify-model-provider
 ```
 
-For an official OpenAI comparison config, pass the file explicitly:
+To probe the current OpenAI default explicitly:
 
 ```bash
-bin/verify-model-provider --runtime-config-path config/runtime-config.openai-local.toml
+bin/verify-model-provider --runtime-config-path config/runtime-config.toml
 ```
 
 Acceptance requires `ok: true`. If the first structured-output request hits a
@@ -270,12 +289,12 @@ so the long-running server runtime can keep port `8765`; see
 OPENHALO_DEV_RUNTIME_HOST=127.0.0.1 bin/run-runtime-dev
 ```
 
-When validating a non-default provider such as the official OpenAI local config,
-`bin/run-runtime-dev` already uses
-`config/runtime-config.openai-local.toml` and
-`.runtime/android-openai-dev-state.json` by default. Override
-`OPENHALO_DEV_RUNTIME_CONFIG_PATH` or `OPENHALO_DEV_STATE_PATH` when you need to
-keep evidence from separate provider runs apart.
+`bin/run-runtime-dev` now reads `config/runtime-config.toml` by default, which
+is the local OpenAI configuration for this development environment. Override
+`OPENHALO_DEV_RUNTIME_CONFIG_PATH` only for a separate provider configuration;
+an ignored `config/runtime-config.openai-local.toml` is not assumed to exist in
+every worktree. Override `OPENHALO_DEV_STATE_PATH` when separate runs need
+separate evidence.
 
 ```bash
 .venv/bin/python -u -m device_edge.host.host_daemon \
@@ -442,7 +461,7 @@ Use `bin/verify-action-loop` for the bounded M16 post-action action-loop accepta
 
 Use `bin/verify-action-loop --dry-run` first when you want to inspect the scripted checks without running them. The acceptance run exercises a `runtime.status` result that re-enters `Agent Runtime` and produces a governed follow-up reply, a fresh observation that re-enters the same open interaction and plans a follow-up action, a post-action result that plans another follow-up action in the same interaction, and a delivered notification result that completes silently while preserving `post_action` and `post_observation` intervention lineage.
 
-For real model-backed M16 acceptance, first run `bin/verify-model-provider --runtime-config-path config/runtime-config.openai-local.toml`, then run `bin/verify-action-loop --runtime-config-path config/runtime-config.openai-local.toml --require-model-backed`. The model-backed run must show `model-backed-post-action ok`, proving the post-action proposal came from provider-backed proposal formation rather than deterministic formatting.
+For real model-backed M16 acceptance, first run `bin/verify-model-provider --runtime-config-path config/runtime-config.toml`, then run `bin/verify-action-loop --runtime-config-path config/runtime-config.toml --require-model-backed`. The model-backed run must show `model-backed-post-action ok`, proving the post-action proposal came from provider-backed proposal formation rather than deterministic formatting.
 
 When you need to inspect the M6 initiative path as one human-readable chain, use:
 Preferred command shape: `.venv/bin/python -m device_edge.cli.cli_edge --inspect-agent-initiative`

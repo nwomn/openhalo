@@ -266,6 +266,7 @@ Runtime-to-edge actions use `action_request`.
   "type": "action_request",
   "request_id": "action-1",
   "interaction_id": "interaction-1",
+  "interaction_turn_id": "interaction-turn-1",
   "device_id": "terminal-1",
   "action": {
     "capability": "notification.show",
@@ -278,6 +279,8 @@ Runtime-to-edge actions use `action_request`.
 
 `request_id` identifies one action request. `interaction_id` identifies the
 larger interaction lifecycle, including post-action re-entry.
+`interaction_turn_id` identifies the runtime deliberation turn that issued the
+request; it is distinct from edge-side `turn_id` diagnostics.
 
 ## Action Results
 
@@ -289,6 +292,7 @@ Edges return action completion with `action_result`.
   "type": "action_result",
   "request_id": "action-1",
   "interaction_id": "interaction-1",
+  "interaction_turn_id": "interaction-turn-1",
   "device_id": "terminal-1",
   "result": {
     "status": "ok",
@@ -303,9 +307,15 @@ Edges return action completion with `action_result`.
 
 When an `interaction_id` is present, the runtime records lineage and may re-enter
 post-action proposal formation before deciding whether to issue another action
-or complete the interaction. Action results must report a capability that the
-resulting device registered as a compatible runtime-to-edge action provider for
-the request lineage.
+or complete the interaction. Edges must echo the additive
+`(interaction_id, interaction_turn_id, request_id)` correlation fields from a
+runtime-issued action request; the runtime uses that exact pending triple rather
+than a most-recent-interaction lookup. Frames missing either correlation field
+are rejected for lineage-bearing results. The reporting `device_id` must also
+match the target device selected for that action request; a matching triple from
+another connected edge is rejected. Action results must report a capability that
+exactly matches the originating `action_request.action.capability`; a device
+registered for a different compatible capability cannot resolve that request.
 
 ## Interaction Updates
 

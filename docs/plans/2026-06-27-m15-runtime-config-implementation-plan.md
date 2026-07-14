@@ -35,7 +35,7 @@ The initial config is deliberately local and file-based. Encryption, login UI, p
 ## Current Manual Acceptance Notes
 
 - The current relay baseline is `https://api-dmit.cubence.com/v1` with `gpt-5.5`
-- The relay baseline remains in ignored local `config/runtime-config.toml`; official OpenAI comparison runs should use a separate ignored local file such as `config/runtime-config.openai-local.toml` and pass it with `--runtime-config-path`
+- The ignored local `config/runtime-config.toml` is the OpenAI-aligned default for current development and manual acceptance; an ignored `config/runtime-config.openai-local.toml` is optional local backup material rather than a path a worktree may assume exists
 - `gpt-5.4` can pass a narrow provider probe but is not accepted for the terminal live path because it can return a Codex-agent envelope with empty output after compact snapshot fields are present
 - Host-plus-terminal acceptance should include one normal terminal reply, one `runtime.status` action routed through host edge, and one follow-up context question after that status result
 - The gateway now runs WebSocket frame handling in serialized background-thread execution so slow provider calls do not block WebSocket ping/pong keepalive handling

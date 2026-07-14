@@ -140,6 +140,7 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
                 "type": "action_request",
                 "request_id": "action-2",
                 "interaction_id": "interaction-1",
+                "interaction_turn_id": "interaction-turn-1",
                 "trace_id": "trace-terminal-edge-1-3",
                 "session_id": "session-terminal-edge-1",
                 "turn_id": "turn-terminal-edge-1-3",
@@ -154,6 +155,7 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
 
         self.assertEqual(result["request_id"], "action-2")
         self.assertEqual(result["interaction_id"], "interaction-1")
+        self.assertEqual(result["interaction_turn_id"], "interaction-turn-1")
         self.assertEqual(result["trace_id"], "trace-terminal-edge-1-3")
         self.assertEqual(result["session_id"], "session-terminal-edge-1")
         self.assertEqual(result["turn_id"], "turn-terminal-edge-1-3")

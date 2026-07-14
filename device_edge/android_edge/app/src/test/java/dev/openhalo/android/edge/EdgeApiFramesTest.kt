@@ -25,6 +25,7 @@ class EdgeApiFramesTest {
         val request = JSONObject()
             .put("request_id", "request-1")
             .put("interaction_id", "interaction-1")
+            .put("interaction_turn_id", "interaction-turn-1")
         val details = JSONObject().put("message", "delivered")
 
         val frame = buildActionResultFrame(
@@ -40,6 +41,7 @@ class EdgeApiFramesTest {
         assertEquals("action_result", frame.getString("type"))
         assertEquals("request-1", frame.getString("request_id"))
         assertEquals("interaction-1", frame.getString("interaction_id"))
+        assertEquals("interaction-turn-1", frame.getString("interaction_turn_id"))
         assertEquals("android-edge-test", frame.getString("device_id"))
         assertEquals("ok", result.getString("status"))
         assertEquals("notification.show", result.getString("capability"))

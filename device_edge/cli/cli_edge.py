@@ -88,7 +88,7 @@ class LocalCliSession:
         if action_request["action"]["capability"].startswith("runtime."):
             result = _InspectionRuntimeStatusAdapter().execute_action_request(
                 action_request,
-                self.client.device_id,
+                action_request["device_id"],
             )
             follow_up = self.gateway.run_roundtrip([result])
             follow_up_action = next(
@@ -420,6 +420,10 @@ class _InspectionRuntimeStatusAdapter:
         }
         if frame.get("interaction_id"):
             result["interaction_id"] = frame["interaction_id"]
+        if frame.get("interaction_turn_id"):
+            result["interaction_turn_id"] = frame["interaction_turn_id"]
+        if frame.get("request_id"):
+            result["request_id"] = frame["request_id"]
         return result
 
     def execute(self, action: dict) -> dict:

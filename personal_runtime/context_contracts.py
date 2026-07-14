@@ -29,6 +29,8 @@ class RuntimeObservation:
     source_event_id: str
     observed_at: str
     confidence: float
+    parent_event_id: str | None = None
+    reentry_parent: dict | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)

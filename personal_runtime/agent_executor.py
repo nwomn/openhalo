@@ -8,12 +8,15 @@ from pathlib import Path
 from openhalo_common.diagnostics import DiagnosticBoundaryRecorder
 from personal_runtime.model_provider import generate_text_reply_plan
 from personal_runtime.model_provider import generate_text_proposal_plan
+from personal_runtime.model_provider import generate_observation_driven_proposal_plan
 from personal_runtime.model_provider import generate_post_action_proposal_plan
 from personal_runtime.model_provider import generate_post_observation_proposal_plan
 from personal_runtime.prompt_context import build_behavior_contract
 from personal_runtime.prompt_context import build_prompt_context_package
 from personal_runtime.prompt_context import prompt_context_metadata_from_package
+from personal_runtime.context_snapshot import sanitize_observation_driven_snapshot
 from personal_runtime.runtime_memory import grounding_metadata_from_bundle
+from personal_runtime.runtime_memory import sanitize_observation_driven_grounding_bundle
 from personal_runtime.action_layer import required_device_capability_for_action
 
 
@@ -148,6 +151,42 @@ class ProposalFormation:
             proposal = build_post_observation_proposal(
                 interaction=interaction,
                 prior_proposal=prior_proposal,
+                observations=observations,
+                turn_index=turn_index,
+                snapshot=snapshot,
+                grounding_bundle=grounding_bundle,
+                trace_recorder=self.trace_recorder,
+                config_path=self.config_path,
+            )
+            boundary.output(proposal.to_dict())
+            return proposal
+
+    def build_observation_driven_proposal(
+        self,
+        interaction: dict,
+        admission: dict,
+        observations: list[dict],
+        turn_index: int,
+        snapshot: dict,
+        grounding_bundle: dict | None = None,
+        correlation: dict | None = None,
+    ) -> InterventionProposal:
+        with self.diagnostics.boundary(
+            module="Proposal Formation",
+            operation="build_observation_driven_proposal",
+            correlation=correlation or {},
+            input_payload={
+                "interaction_id": interaction.get("interaction_id"),
+                "reason_code": admission.get("reason_code"),
+                "evidence_refs": admission.get("evidence_refs", []),
+                "observation_count": len(observations),
+                "turn_index": turn_index,
+            },
+            summary="Built observation-driven proposal.",
+        ) as boundary:
+            proposal = build_observation_driven_proposal(
+                interaction=interaction,
+                admission=admission,
                 observations=observations,
                 turn_index=turn_index,
                 snapshot=snapshot,
@@ -539,6 +578,109 @@ def build_post_observation_proposal(
         trace_recorder.record(
             "AGENT",
             "built post-observation proposal",
+            source=proposal.source,
+            kind=proposal.kind,
+            proposal_type=proposal.proposal_type,
+            action_capability=proposal.action_capability or "none",
+            interaction_id=interaction_id,
+        )
+    return proposal
+
+
+def build_observation_driven_proposal(
+    interaction: dict,
+    admission: dict,
+    observations: list[dict],
+    turn_index: int,
+    snapshot: dict | None = None,
+    grounding_bundle: dict | None = None,
+    trace_recorder=None,
+    config_path: Path | None = None,
+) -> InterventionProposal:
+    _snapshot = sanitize_observation_driven_snapshot(snapshot)
+    safe_grounding_bundle = sanitize_observation_driven_grounding_bundle(
+        grounding_bundle,
+        snapshot=_snapshot,
+    )
+    interaction_id = interaction["interaction_id"]
+    observation_driven_text = json.dumps(
+        {
+            "trigger": "observation_driven",
+            "reason_code": admission.get("reason_code"),
+            "causal_scope": admission.get("causal_scope", {}),
+            "evidence_refs": admission.get("evidence_refs", []),
+        },
+        sort_keys=True,
+    )
+    prompt_context_package = build_prompt_context_package(
+        user_text=observation_driven_text,
+        snapshot=_snapshot,
+        grounding_bundle=safe_grounding_bundle,
+    )
+    behavior_contract = build_behavior_contract(
+        prompt_context_package=prompt_context_package,
+        grounding_bundle=safe_grounding_bundle,
+    )
+    proposal_plan = generate_observation_driven_proposal_plan(
+        interaction_id=interaction_id,
+        admission=admission,
+        observations=observations,
+        snapshot=_snapshot,
+        grounding=safe_grounding_bundle,
+        profile_name="proposal_formation",
+        config_path=config_path,
+    )
+    action_capability = proposal_plan.action_capability
+    if proposal_plan.proposal_type == "no_intervention":
+        kind = "no_intervention"
+    elif action_capability and action_capability.startswith("runtime."):
+        kind = "runtime_control"
+    else:
+        kind = "notify"
+    action_payload = dict(proposal_plan.action_payload)
+    if action_capability == "notification.show":
+        action_payload.setdefault("message", proposal_plan.response_text)
+    metadata = {
+        "trigger": "observation_driven",
+        "interaction_id": interaction_id,
+        "turn_index": turn_index,
+        "reason_code": admission.get("reason_code"),
+        "evidence_refs": admission.get("evidence_refs", []),
+        "causal_scope": admission.get("causal_scope", {}),
+        "snapshot_fields": sorted(_snapshot.keys()),
+        **grounding_metadata_from_bundle(safe_grounding_bundle),
+        **prompt_context_metadata_from_package(
+            prompt_context_package,
+            behavior_contract,
+        ),
+        **proposal_plan.metadata,
+    }
+    proposal = InterventionProposal(
+        kind=kind,
+        proposal_type=proposal_plan.proposal_type,
+        source="observation_driven",
+        action_capability=action_capability,
+        required_capability=required_device_capability_for_action(
+            action_capability
+        )
+        if action_capability is not None
+        else None,
+        action_payload=action_payload,
+        message=proposal_plan.response_text,
+        metadata=metadata,
+        target_device_hint=proposal_plan.target_device_hint,
+        interaction_type="push",
+        visibility_intent="silent"
+        if proposal_plan.proposal_type == "no_intervention"
+        else "visible",
+        candidate_surface_hints=["available_surface"]
+        if proposal_plan.proposal_type != "no_intervention"
+        else ["background"],
+    )
+    if trace_recorder is not None:
+        trace_recorder.record(
+            "AGENT",
+            "built observation-driven proposal",
             source=proposal.source,
             kind=proposal.kind,
             proposal_type=proposal.proposal_type,

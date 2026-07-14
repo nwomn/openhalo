@@ -8,7 +8,7 @@ LOG_PREFIX="[verify-proposal-harness]"
 DRY_RUN=0
 STATE_PATH=""
 PROVIDER_REPLAY=0
-RUNTIME_CONFIG_PATH="config/runtime-config.openai-local.toml"
+RUNTIME_CONFIG_PATH="config/runtime-config.toml"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

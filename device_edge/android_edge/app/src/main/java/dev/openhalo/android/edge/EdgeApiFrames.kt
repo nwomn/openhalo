@@ -353,6 +353,7 @@ fun buildActionResultFrame(
         .put("type", "action_result")
         .put("request_id", actionRequest.optString("request_id"))
         .put("interaction_id", actionRequest.optString("interaction_id"))
+        .put("interaction_turn_id", actionRequest.optString("interaction_turn_id"))
         .put("device_id", deviceId)
         .put(
             "result",
