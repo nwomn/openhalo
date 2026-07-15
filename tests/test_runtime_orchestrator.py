@@ -675,6 +675,169 @@ class RuntimeOrchestratorTests(unittest.TestCase):
             "terminal_inactive",
         )
 
+    def test_observation_driven_notification_completes_after_action_result(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        class ProactiveProposalFormation:
+            def build_observation_driven_proposal(
+                self,
+                interaction: dict,
+                admission: dict,
+                observations: list[dict],
+                turn_index: int,
+                snapshot: dict,
+                grounding_bundle: dict | None = None,
+                correlation: dict | None = None,
+            ):
+                from personal_runtime.agent_executor import InterventionProposal
+
+                return InterventionProposal(
+                    kind="notify",
+                    proposal_type="action",
+                    source="observation_driven",
+                    action_capability="notification.show",
+                    required_capability="notification.show",
+                    action_payload={"message": "Runtime health needs attention."},
+                    message="Runtime health needs attention.",
+                    metadata={"reason_code": admission["reason_code"]},
+                    target_device_hint="terminal-edge-1",
+                    interaction_type="push",
+                    visibility_intent="visible",
+                    candidate_surface_hints=["target_device"],
+                )
+
+            def build_post_action_proposal(
+                self,
+                interaction: dict,
+                prior_proposal: dict,
+                result: dict,
+                turn_index: int,
+                snapshot: dict,
+                grounding_bundle: dict | None = None,
+                correlation: dict | None = None,
+            ):
+                from personal_runtime.agent_executor import InterventionProposal
+
+                return InterventionProposal(
+                    kind="no_intervention",
+                    proposal_type="no_intervention",
+                    source="post_action",
+                    action_capability=None,
+                    required_capability=None,
+                    action_payload={},
+                    message="",
+                    metadata={},
+                    interaction_type="push",
+                    visibility_intent="silent",
+                )
+
+        gateway.proposal_formation = ProactiveProposalFormation()
+        terminal = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show", "terminal.context"],
+        )
+        host = SessionClient(
+            device_id="host-edge-1",
+            device_type="server",
+            token="dev-token",
+            capabilities=["runtime.health", "runtime.control"],
+        )
+        gateway.run_roundtrip(
+            [
+                terminal.build_connect_frame(),
+                terminal.build_capability_announce_frame(),
+                host.build_connect_frame(),
+                host.build_capability_announce_frame(),
+                terminal.build_observation_event(
+                    capability="terminal.context",
+                    observations=[
+                        {
+                            "name": "terminal.activity_state",
+                            "value": "active",
+                            "observed_at": "2026-07-13T09:59:00Z",
+                            "confidence": 1.0,
+                        }
+                    ],
+                ),
+            ]
+        )
+
+        replies = gateway.run_roundtrip(
+            [
+                {
+                    "type": "event_push",
+                    "device_id": "host-edge-1",
+                    "capability": "runtime.health",
+                    "event_id": "runtime-health-degraded-e2e-1",
+                    "payload": {
+                        "observations": [
+                            {
+                                "name": "runtime.health_state",
+                                "value": "degraded",
+                                "observed_at": "2026-07-13T10:00:00Z",
+                                "confidence": 1.0,
+                            }
+                        ]
+                    },
+                }
+            ]
+        )
+
+        action_request = next(
+            reply for reply in replies if reply["type"] == "action_request"
+        )
+        self.assertEqual(action_request["device_id"], terminal.device_id)
+        self.assertEqual(action_request["action"]["capability"], "notification.show")
+        self.assertEqual(
+            gateway.state.interventions[-1]["admission"]["reason_code"],
+            "runtime_health_failure",
+        )
+        self.assertEqual(gateway.state.interventions[-1]["decision"], "allow")
+
+        completion_replies = gateway.run_roundtrip(
+            [
+                {
+                    "type": "action_result",
+                    "device_id": terminal.device_id,
+                    "interaction_id": action_request["interaction_id"],
+                    "interaction_turn_id": action_request["interaction_turn_id"],
+                    "request_id": action_request["request_id"],
+                    "result": {
+                        "status": "ok",
+                        "capability": "notification.show",
+                        "details": {"delivered_via": "terminal.stdout"},
+                    },
+                }
+            ]
+        )
+
+        interaction = next(
+            item
+            for item in gateway.state.interactions
+            if item["interaction_id"] == action_request["interaction_id"]
+        )
+        self.assertEqual(interaction["origin"], "observation_driven")
+        self.assertEqual(interaction["status"], "completed")
+        self.assertEqual(
+            gateway.state.action_results[-1]["request_id"],
+            action_request["request_id"],
+        )
+        self.assertEqual(
+            gateway.state.action_results[-1]["interaction_turn_id"],
+            action_request["interaction_turn_id"],
+        )
+        self.assertTrue(
+            any(reply["type"] == "interaction_update" for reply in completion_replies)
+        )
+
     def test_action_results_use_exact_pending_interaction_turn(self) -> None:
         gateway = RuntimeGateway(
             shared_token="dev-token",
