@@ -1,4 +1,5 @@
 .worktrees/
+/references/hermes-agent/
 __pycache__/
 .pytest_cache/
 *.pyc
