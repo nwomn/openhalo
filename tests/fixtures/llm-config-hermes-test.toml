@@ -1,0 +1,31 @@
+[llm.providers.openai_main]
+adapter_type = "openai_compatible"
+base_url = "https://api.openai.com/v1"
+wire_api = "responses"
+api_key = ""
+timeout_seconds = 30
+
+[llm.models.openai_gpt55]
+provider = "openai_main"
+model_id = "gpt-5.5"
+supports_structured_output = true
+supports_tools = true
+
+[llm.profiles.interactive_reply]
+model_ref = "openai_gpt55"
+reasoning_effort = "medium"
+verbosity = "low"
+provider_failure_behavior = "deterministic"
+
+[llm.profiles.proposal_formation]
+model_ref = "openai_gpt55"
+reasoning_effort = "medium"
+verbosity = "low"
+provider_failure_behavior = "deterministic"
+
+[harness]
+runner = "hermes"
+
+[harness.hermes]
+home = ".runtime/hermes-test"
+allowed_hosts = []

@@ -41,6 +41,131 @@ class ExecutionPlanningTests(unittest.TestCase):
         self.assertEqual(outcome["interaction_id"], "interaction-1")
         self.assertEqual(outcome["correlation"]["trace_id"], "trace-terminal-edge-1-1")
 
+    def test_harness_action_without_allowed_validation_does_not_plan_an_edge_action(
+        self,
+    ) -> None:
+        outcome = build_execution_outcome(
+            source_device_id="terminal-edge-1",
+            proposal={
+                "proposal_type": "action",
+                "action_capability": "notification.show",
+                "action_payload": {"message": "unvalidated harness action"},
+                "visibility_intent": "visible",
+                "metadata": {"harness": {"runner": "hermes"}},
+            },
+            decision={
+                "decision": "allow",
+                "target_device_id": "terminal-edge-1",
+                "reason": "context_clear",
+            },
+            interaction_id="interaction-1",
+            correlation={"trace_id": "trace-terminal-edge-1-1"},
+        )
+
+        self.assertEqual(outcome["kind"], "completion")
+        self.assertEqual(outcome["reason"], "harness_action_not_authorized")
+
+    def test_hermes_sourced_action_without_harness_metadata_does_not_plan_an_edge_action(
+        self,
+    ) -> None:
+        outcome = build_execution_outcome(
+            source_device_id="terminal-edge-1",
+            proposal={
+                "proposal_type": "action",
+                "source": "hermes",
+                "action_capability": "notification.show",
+                "action_payload": {"message": "unbound Hermes action"},
+                "visibility_intent": "visible",
+            },
+            decision={
+                "decision": "allow",
+                "target_device_id": "terminal-edge-1",
+                "reason": "context_clear",
+            },
+            interaction_id="interaction-1",
+            correlation={"trace_id": "trace-terminal-edge-1-1"},
+        )
+
+        self.assertEqual(outcome["kind"], "completion")
+        self.assertEqual(outcome["reason"], "harness_action_not_authorized")
+
+    def test_harness_action_with_mismatched_allowed_intent_does_not_plan_an_edge_action(
+        self,
+    ) -> None:
+        outcome = build_execution_outcome(
+            source_device_id="terminal-edge-1",
+            proposal={
+                "proposal_type": "action",
+                "action_capability": "notification.show",
+                "action_payload": {"message": "forged proposal payload"},
+                "visibility_intent": "visible",
+                "metadata": {
+                    "harness": {"runner": "hermes"},
+                    "harness_validation": {
+                        "decision": "allowed",
+                        "action_intent": {
+                            "executor_kind": "device_edge",
+                            "governance": "runtime_governed",
+                            "side_effect_class": "external",
+                            "visibility": "user_visible",
+                            "capability": "notification.show",
+                            "payload": {"message": "different payload"},
+                        },
+                    },
+                },
+            },
+            decision={
+                "decision": "allow",
+                "target_device_id": "terminal-edge-1",
+                "reason": "context_clear",
+            },
+            interaction_id="interaction-1",
+            correlation={"trace_id": "trace-terminal-edge-1-1"},
+        )
+
+        self.assertEqual(outcome["kind"], "completion")
+        self.assertEqual(outcome["reason"], "harness_action_not_authorized")
+
+    def test_runtime_local_intent_yields_inspectable_placeholder_completion(self) -> None:
+        outcome = build_execution_outcome(
+            source_device_id="terminal-edge-1",
+            proposal={
+                "proposal_type": "action",
+                "action_capability": "notification.show",
+                "action_payload": {"message": "do not route to an edge"},
+                "visibility_intent": "visible",
+                "metadata": {
+                    "harness_validation": {
+                        "action_intent": {
+                            "executor_kind": "runtime_local",
+                            "capability": "notification.show",
+                        }
+                    }
+                },
+            },
+            decision={
+                "decision": "allow",
+                "target_device_id": "terminal-edge-1",
+                "reason": "context_clear",
+            },
+            interaction_id="interaction-1",
+            correlation={"trace_id": "trace-terminal-edge-1-1"},
+        )
+
+        self.assertEqual(outcome["kind"], "completion")
+        self.assertEqual(outcome["reason"], "runtime_local_executor_placeholder")
+        self.assertEqual(
+            outcome["planning_record"],
+            {
+                "executor_route": {
+                    "kind": "runtime_local",
+                    "capability": "notification.show",
+                    "status": "placeholder",
+                    "disposition": "not_dispatched",
+                }
+            },
+        )
+
     def test_no_intervention_yields_completion(self) -> None:
         outcome = build_execution_outcome(
             source_device_id="terminal-edge-1",

@@ -16,6 +16,8 @@ from websockets.exceptions import ConnectionClosedOK
 from edge_api.protocol import validate_frame, with_api_version
 from personal_runtime.action_layer import build_interaction_update
 from personal_runtime.agent_executor import ProposalFormation
+from personal_runtime.agent_harness import LegacyProposalHarness
+from personal_runtime.hermes_adapter import configured_harness_runner
 from personal_runtime.context_contracts import RuntimeObservation
 from personal_runtime.execution_planning import ExecutionPlanner
 from personal_runtime.interaction_pool import InteractionPool
@@ -43,6 +45,7 @@ class RuntimeGateway:
         grounding_edge_history_fetcher=None,
         diagnostic_recorder=None,
         runtime_instance_id: str = "runtime-main",
+        agent_harness=None,
     ) -> None:
         self.shared_token = shared_token
         self.state_store = JsonStateStore(
@@ -72,6 +75,11 @@ class RuntimeGateway:
             runtime_instance_id=runtime_instance_id,
             trace_recorder=trace_recorder,
             config_path=llm_config_path,
+        )
+        legacy_harness = LegacyProposalHarness(lambda: self.proposal_formation)
+        self.agent_harness = agent_harness or configured_harness_runner(
+            config_path=llm_config_path,
+            legacy_runner=legacy_harness,
         )
         self.presence_router = PresenceRouter(
             diagnostic_recorder=diagnostic_recorder,
@@ -223,6 +231,27 @@ class RuntimeGateway:
             "interaction_id": frame.get("interaction_id"),
             "interaction_turn_id": frame.get("interaction_turn_id"),
         }
+        intervention = self._intervention_for_turn(
+            frame.get("interaction_id"),
+            frame.get("interaction_turn_id"),
+        )
+        action_intent = (
+            (intervention or {})
+            .get("proposal", {})
+            .get("metadata", {})
+            .get("harness_validation", {})
+            .get("action_intent")
+        )
+        if action_intent is not None:
+            result["action_envelope"] = {
+                "action_id": action_intent.get("action_id"),
+                "executor_kind": action_intent.get("executor_kind"),
+                "capability": action_intent.get("capability"),
+                "status": result.get("status"),
+                "details": result.get("details", {}),
+                "governance": action_intent.get("governance"),
+                "provenance": action_intent.get("provenance", {}),
+            }
         self.state.record_action_result(result)
         return frame
 
@@ -320,6 +349,7 @@ class RuntimeGateway:
         summary: str,
         visibility: str,
         result_status: str | None = None,
+        terminal_reason: str | None = None,
     ) -> dict:
         return self.state.update_interaction(
             interaction_id,
@@ -329,6 +359,7 @@ class RuntimeGateway:
                 "visibility": visibility,
                 "summary": summary,
                 "result_status": result_status,
+                "terminal_reason": terminal_reason,
             },
         )
 
@@ -472,20 +503,6 @@ class RuntimeGateway:
             if target_websocket is not None:
                 await self._send_frame(target_websocket, reply)
         return replies
-
-    def _build_normal_path_proposal(
-        self,
-        frame: dict,
-        snapshot: dict,
-        grounding_bundle: dict | None = None,
-        correlation: dict | None = None,
-    ):
-        return self.proposal_formation.build_normal_path_proposal(
-            frame,
-            snapshot=snapshot,
-            grounding_bundle=grounding_bundle,
-            correlation=correlation,
-        )
 
     def _build_edge_history_for_grounding(self) -> dict | None:
         if self.grounding_edge_history_fetcher is None:

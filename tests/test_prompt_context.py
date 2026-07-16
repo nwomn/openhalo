@@ -145,6 +145,40 @@ class PromptContextTests(unittest.TestCase):
         self.assertTrue(contract["checks"]["recent_memory_present"]["ok"])
         self.assertTrue(contract["checks"]["edge_evidence_present"]["ok"])
         self.assertTrue(contract["checks"]["grounding_bundle_version_matches"]["ok"])
+        self.assertEqual(
+            contract["allowed_proposal_types"],
+            ["action", "no_intervention", "provider_failure"],
+        )
+        self.assertEqual(
+            contract["required_runtime_inputs"],
+            ["compact_snapshot", "grounding_bundle"],
+        )
+        self.assertEqual(
+            contract["action_governance"]["governed_action_route"],
+            "presence_then_execution_planning",
+        )
+
+    def test_build_prompt_context_package_includes_explicit_harness_memory(self) -> None:
+        package = build_prompt_context_package(
+            user_text="status",
+            snapshot={},
+            grounding_bundle={},
+            harness_memory={
+                "working": {"operation": "normal"},
+                "procedural": [{"memory_id": "procedure-1"}],
+                "semantic": [{"memory_id": "fact-1"}],
+                "episodic": [{"memory_id": "episode-1"}],
+            },
+        )
+
+        self.assertEqual(
+            package["sections"]["harness_memory"]["working"]["operation"],
+            "normal",
+        )
+        self.assertEqual(
+            package["sections"]["harness_memory"]["semantic"][0]["memory_id"],
+            "fact-1",
+        )
 
 
 if __name__ == "__main__":

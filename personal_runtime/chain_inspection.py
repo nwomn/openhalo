@@ -7,6 +7,8 @@ import json
 from personal_runtime.prompt_context import build_behavior_contract
 from personal_runtime.prompt_context import build_prompt_context_package
 from personal_runtime.prompt_replay import build_replay_eval
+from personal_runtime.harness_evaluation import evaluate_harness_traces
+from personal_runtime.harness_evaluation import gate_harness_promotion
 
 
 def build_chain_report(session, action_result: dict) -> dict:
@@ -39,6 +41,21 @@ def build_chain_report(session, action_result: dict) -> dict:
     replay_eval = build_replay_eval(
         prompt_context_package=prompt_context,
         grounding_bundle=intervention.get("grounding_bundle", {}),
+    )
+    harness_traces = [
+        trace
+        for trace in session.gateway.state.harness_traces
+        if trace.get("interaction_id") == intervention.get("interaction_id")
+    ]
+    harness_evaluation = evaluate_harness_traces(harness_traces)
+    interaction_id = intervention.get("interaction_id")
+    internal_tool_events = _related_harness_provenance(
+        session.gateway.state.internal_tool_events,
+        interaction_id,
+    )
+    hermes_memory_events = _related_harness_provenance(
+        session.gateway.state.hermes_memory_events,
+        interaction_id,
     )
     return {
         "trace_lines": session.drain_trace_lines(),
@@ -74,6 +91,11 @@ def build_chain_report(session, action_result: dict) -> dict:
             if item.get("proposal", {}).get("source") == "post_action"
         ],
         "replay_eval": replay_eval,
+        "harness_traces": harness_traces,
+        "internal_tool_events": internal_tool_events,
+        "hermes_memory_events": hermes_memory_events,
+        "harness_evaluation": harness_evaluation,
+        "harness_promotion_gate": gate_harness_promotion(harness_evaluation),
         "action_result": action_result,
     }
 
@@ -95,6 +117,11 @@ def format_chain_report(report: dict) -> str:
         ("Recorded Intervention", report["intervention"]),
         ("Post-Action Interventions", report.get("post_action_interventions", [])),
         ("Replay Eval", report.get("replay_eval", {})),
+        ("Harness Traces", report.get("harness_traces", [])),
+        ("Internal Tool Provenance", report.get("internal_tool_events", [])),
+        ("Hermes Memory Provenance", report.get("hermes_memory_events", [])),
+        ("Harness Evaluation", report.get("harness_evaluation", {})),
+        ("Harness Promotion Gate", report.get("harness_promotion_gate", {})),
         ("Action Result", report["action_result"]),
     ]
     rendered_sections = []
@@ -132,3 +159,16 @@ def _primary_intervention(interventions: list[dict]) -> dict:
         ),
         interventions[-1],
     )
+
+
+def _related_harness_provenance(
+    events: list[dict],
+    interaction_id: str | None,
+) -> list[dict]:
+    if interaction_id is None:
+        return []
+    return [
+        event
+        for event in events
+        if event.get("interaction_id") == interaction_id
+    ]

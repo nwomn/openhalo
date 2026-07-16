@@ -1,5 +1,6 @@
 import asyncio
 import copy
+import hashlib
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -11,13 +12,891 @@ from personal_runtime.runtime_orchestrator import RuntimeOrchestrator
 from openhalo_common.diagnostics import InMemoryDiagnosticRecorder
 from openhalo_common.diagnostics import JsonlDiagnosticRecorder
 from personal_runtime.agent_executor import ProposalFormation
+from personal_runtime.agent_executor import InterventionProposal
+from personal_runtime.agent_harness import ActionExecutorKind
+from personal_runtime.agent_harness import ActionGovernance
+from personal_runtime.agent_harness import ActionSideEffect
+from personal_runtime.agent_harness import ActionVisibility
+from personal_runtime.agent_harness import HarnessOperation
+from personal_runtime.agent_harness import HarnessOutcome
+from personal_runtime.agent_harness import RuntimeActionIntent
+from personal_runtime.hermes_adapter import HermesHarnessRunner
 from personal_runtime.presence_router import PresenceRouter
 
 
 TEST_LLM_CONFIG = Path("tests/fixtures/llm-config-test.toml")
+HERMES_LLM_CONFIG = Path("tests/fixtures/llm-config-hermes-test.toml")
 
 
 class RuntimeOrchestratorTests(unittest.TestCase):
+    @staticmethod
+    def _valid_research_event(
+        *,
+        tool_call_id: str,
+        tool_name: str,
+        content_sha256: str,
+    ) -> dict:
+        return {
+            "tool_call_id": tool_call_id,
+            "tool_name": tool_name,
+            "url": f"https://research.example.test/{tool_call_id}",
+            "content_sha256": content_sha256,
+            "content_chars": 42,
+            "url_sha256": "d" * 64,
+            "policy_version": "m20.research.v1",
+            "egress_decision": "allowed",
+            "duration_ms": 1,
+            "untrusted": True,
+        }
+
+    @staticmethod
+    def _research_ref(research_event: dict) -> dict:
+        return {
+            field_name: research_event[field_name]
+            for field_name in (
+                "tool_call_id",
+                "tool_name",
+                "content_sha256",
+                "untrusted",
+            )
+        }
+
+    def test_orchestrator_routes_registered_mcp_intent_to_placeholder(self) -> None:
+        class McpHarness:
+            def run(self, harness_input):
+                proposal = InterventionProposal(
+                    kind="action",
+                    proposal_type="action",
+                    source="hermes",
+                    action_capability="mcp.invoke",
+                    required_capability=None,
+                    action_payload={"server": "calendar", "method": "create"},
+                    message="Create calendar event",
+                    metadata={},
+                )
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=proposal,
+                    action_intent=RuntimeActionIntent(
+                        action_id="mcp-intent-1",
+                        executor_kind=ActionExecutorKind.MCP,
+                        capability="mcp.invoke",
+                        payload={"server": "calendar", "method": "create"},
+                        side_effect_class=ActionSideEffect.EXTERNAL,
+                        visibility=ActionVisibility.USER_VISIBLE,
+                        governance=ActionGovernance.RUNTIME_GOVERNED,
+                        provenance={"origin": "test"},
+                    ),
+                )
+
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=McpHarness(),
+        )
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+            ]
+        )
+
+        replies = gateway.run_roundtrip([client.build_text_event("create event")])
+
+        self.assertFalse(any(reply["type"] == "action_request" for reply in replies))
+        planning_record = gateway.state.interventions[-1]["planning_record"]
+        self.assertEqual(planning_record["executor_route"]["kind"], "mcp")
+        self.assertEqual(planning_record["executor_route"]["status"], "placeholder")
+        self.assertEqual(
+            gateway.state.interactions[-1]["completion"]["terminal_reason"],
+            "mcp_executor_placeholder",
+        )
+
+    def test_orchestrator_keeps_runtime_local_intent_off_device_edge(self) -> None:
+        class RuntimeLocalHarness:
+            def run(self, harness_input):
+                proposal = InterventionProposal(
+                    kind="action",
+                    proposal_type="action",
+                    source="hermes",
+                    action_capability="notification.show",
+                    required_capability="notification.show",
+                    action_payload={"message": "runtime local only"},
+                    message="runtime local only",
+                    metadata={},
+                )
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=proposal,
+                    action_intent=RuntimeActionIntent(
+                        action_id="runtime-local-intent-1",
+                        executor_kind=ActionExecutorKind.RUNTIME_LOCAL,
+                        capability="notification.show",
+                        payload={"message": "runtime local only"},
+                        side_effect_class=ActionSideEffect.EXTERNAL,
+                        visibility=ActionVisibility.USER_VISIBLE,
+                        governance=ActionGovernance.RUNTIME_GOVERNED,
+                        provenance={"origin": "test"},
+                    ),
+                )
+
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=RuntimeLocalHarness(),
+        )
+        gateway.state.action_registry["notification.show"] = {
+            "executor_kind": "runtime_local",
+            "status": "placeholder",
+        }
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+            ]
+        )
+
+        replies = gateway.run_roundtrip([client.build_text_event("show result")])
+
+        self.assertFalse(any(reply["type"] == "action_request" for reply in replies))
+        self.assertEqual(
+            gateway.state.interventions[-1]["planning_record"]["executor_route"],
+            {
+                "kind": "runtime_local",
+                "capability": "notification.show",
+                "status": "placeholder",
+                "disposition": "not_dispatched",
+            },
+        )
+        self.assertEqual(
+            gateway.state.interactions[-1]["completion"]["terminal_reason"],
+            "runtime_local_executor_placeholder",
+        )
+
+    def test_orchestrator_rejects_unregistered_governed_intent_before_presence(
+        self,
+    ) -> None:
+        class UnregisteredIntentHarness:
+            def run(self, harness_input):
+                proposal = InterventionProposal(
+                    kind="action",
+                    proposal_type="action",
+                    source="hermes",
+                    action_capability="calendar.write",
+                    required_capability="calendar.write",
+                    action_payload={"title": "Do not create"},
+                    message="Do not create",
+                    metadata={},
+                )
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=proposal,
+                    action_intent=RuntimeActionIntent(
+                        action_id="unregistered-intent-1",
+                        executor_kind=ActionExecutorKind.DEVICE_EDGE,
+                        capability="calendar.write",
+                        payload={"title": "Do not create"},
+                        side_effect_class=ActionSideEffect.EXTERNAL,
+                        visibility=ActionVisibility.USER_VISIBLE,
+                        governance=ActionGovernance.RUNTIME_GOVERNED,
+                        provenance={"origin": "test"},
+                    ),
+                )
+
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=UnregisteredIntentHarness(),
+        )
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+            ]
+        )
+        received_by_presence = []
+        original_choose = gateway.presence_router.choose
+
+        def capture_presence_proposal(**kwargs):
+            received_by_presence.append(kwargs["proposal"])
+            return original_choose(**kwargs)
+
+        gateway.presence_router.choose = capture_presence_proposal
+
+        replies = gateway.run_roundtrip([client.build_text_event("create calendar")])
+
+        self.assertFalse(any(reply["type"] == "action_request" for reply in replies))
+        self.assertIsNone(received_by_presence[0]["action_capability"])
+        self.assertEqual(
+            received_by_presence[0]["metadata"]["harness_validation"]["reason"],
+            "unregistered_action_capability",
+        )
+        self.assertEqual(
+            received_by_presence[0]["metadata"]["harness_validation"]["phase"],
+            "pre_presence",
+        )
+
+    def test_orchestrator_rejects_private_harness_intent_before_presence(self) -> None:
+        class InvalidIntentHarness:
+            def run(self, harness_input):
+                proposal = InterventionProposal(
+                    kind="notification",
+                    proposal_type="action",
+                    source="hermes",
+                    action_capability="notification.show",
+                    required_capability="notification.show",
+                    action_payload={"message": "Do not send"},
+                    message="Do not send",
+                    metadata={},
+                )
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=proposal,
+                    action_intent=RuntimeActionIntent(
+                        action_id="unsafe-intent-1",
+                        executor_kind=ActionExecutorKind.RUNTIME_LOCAL,
+                        capability="notification.show",
+                        payload={"message": "Do not send"},
+                        side_effect_class=ActionSideEffect.NONE,
+                        visibility=ActionVisibility.INTERNAL,
+                        governance=ActionGovernance.AGENT_PRIVATE,
+                        provenance={"origin": "test"},
+                    ),
+                )
+
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=InvalidIntentHarness(),
+        )
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+            ]
+        )
+
+        replies = gateway.run_roundtrip([client.build_text_event("notify me")])
+
+        self.assertFalse(
+            any(reply["type"] == "action_request" for reply in replies)
+        )
+        proposal = gateway.state.interventions[-1]["proposal"]
+        self.assertEqual(proposal["proposal_type"], "no_intervention")
+        self.assertEqual(
+            proposal["metadata"]["harness_validation"]["reason"],
+            "private_intent_cannot_be_user_visible",
+        )
+
+    def test_orchestrator_rejects_tainted_action_without_trusted_user_intent(
+        self,
+    ) -> None:
+        research_event = self._valid_research_event(
+            tool_call_id="research-call-1",
+            tool_name="openhalo_web_fetch",
+            content_sha256="a" * 64,
+        )
+        research_ref = self._research_ref(research_event)
+
+        class UnboundResearchHarness:
+            def run(self, harness_input):
+                proposal = InterventionProposal(
+                    kind="notification",
+                    proposal_type="action",
+                    source="hermes",
+                    action_capability="notification.show",
+                    required_capability="notification.show",
+                    action_payload={"message": "Remote instruction"},
+                    message="Remote instruction",
+                    metadata={},
+                )
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=proposal,
+                    metadata={"internal_tool_events": [research_event]},
+                    action_intent=RuntimeActionIntent(
+                        action_id="unbound-research-action-1",
+                        executor_kind=ActionExecutorKind.DEVICE_EDGE,
+                        capability="notification.show",
+                        payload={"message": "Remote instruction"},
+                        side_effect_class=ActionSideEffect.EXTERNAL,
+                        visibility=ActionVisibility.USER_VISIBLE,
+                        governance=ActionGovernance.RUNTIME_GOVERNED,
+                        provenance={
+                            "origin": "test",
+                            "untrusted_input_present": True,
+                            "research_input_refs": [research_ref],
+                        },
+                    ),
+                )
+
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=UnboundResearchHarness(),
+        )
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+            ]
+        )
+
+        replies = gateway.run_roundtrip(
+            [client.build_text_event("research example.com")]
+        )
+
+        self.assertFalse(any(reply["type"] == "action_request" for reply in replies))
+        proposal = gateway.state.interventions[-1]["proposal"]
+        self.assertEqual(proposal["proposal_type"], "no_intervention")
+        self.assertEqual(
+            proposal["metadata"]["harness_validation"]["reason"],
+            "untrusted_research_missing_trusted_user_intent",
+        )
+
+    def test_orchestrator_allows_tainted_user_requested_notification_through_presence(
+        self,
+    ) -> None:
+        research_event = self._valid_research_event(
+            tool_call_id="research-call-2",
+            tool_name="openhalo_web_search",
+            content_sha256="b" * 64,
+        )
+        research_ref = self._research_ref(research_event)
+
+        class ResearchReplyHarness:
+            def run(self, harness_input):
+                user_text = harness_input.frame["payload"]["text"]
+                trusted_intent = {
+                    "version": "m20.trusted-intent.v1",
+                    "kind": "normal_user_request",
+                    "operation": "normal",
+                    "interaction_id": harness_input.interaction_id,
+                    "interaction_turn_id": harness_input.interaction_turn_id,
+                    "source_device_id": harness_input.frame["device_id"],
+                    "source_event_id": harness_input.frame["event_id"],
+                    "source_capability": harness_input.frame["capability"],
+                    "user_text_sha256": hashlib.sha256(
+                        user_text.encode("utf-8")
+                    ).hexdigest(),
+                    "user_text_chars": len(user_text),
+                }
+                proposal = InterventionProposal(
+                    kind="notification",
+                    proposal_type="action",
+                    source="hermes",
+                    action_capability="notification.show",
+                    required_capability="notification.show",
+                    action_payload={"message": "Research result"},
+                    message="Research result",
+                    metadata={},
+                )
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=proposal,
+                    metadata={"internal_tool_events": [research_event]},
+                    action_intent=RuntimeActionIntent(
+                        action_id="research-reply-action-1",
+                        executor_kind=ActionExecutorKind.DEVICE_EDGE,
+                        capability="notification.show",
+                        payload={"message": "Research result"},
+                        side_effect_class=ActionSideEffect.EXTERNAL,
+                        visibility=ActionVisibility.USER_VISIBLE,
+                        governance=ActionGovernance.RUNTIME_GOVERNED,
+                        provenance={
+                            "origin": "test",
+                            "untrusted_input_present": True,
+                            "trusted_user_intent": trusted_intent,
+                            "research_input_refs": [research_ref],
+                        },
+                    ),
+                )
+
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=ResearchReplyHarness(),
+        )
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+            ]
+        )
+
+        replies = gateway.run_roundtrip(
+            [client.build_text_event("Research OpenHalo and tell me the result.")]
+        )
+
+        action_request = next(
+            reply for reply in replies if reply["type"] == "action_request"
+        )
+        self.assertEqual(action_request["action"]["capability"], "notification.show")
+        validation = gateway.state.interventions[-1]["proposal"]["metadata"][
+            "harness_validation"
+        ]
+        self.assertEqual(
+            validation["authorization"],
+            {
+                "decision": "allowed",
+                "source": "trusted_user_intent",
+                "risk": "low",
+                "confirmation": "not_required",
+            },
+        )
+
+    def test_orchestrator_requires_confirmation_for_tainted_high_risk_action(
+        self,
+    ) -> None:
+        research_event = self._valid_research_event(
+            tool_call_id="research-call-3",
+            tool_name="openhalo_web_fetch",
+            content_sha256="c" * 64,
+        )
+        research_ref = self._research_ref(research_event)
+
+        class HighRiskResearchHarness:
+            def run(self, harness_input):
+                user_text = harness_input.frame["payload"]["text"]
+                proposal = InterventionProposal(
+                    kind="runtime_control",
+                    proposal_type="action",
+                    source="hermes",
+                    action_capability="runtime.restart",
+                    required_capability=None,
+                    action_payload={},
+                    message="Restart runtime",
+                    metadata={},
+                )
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=proposal,
+                    metadata={"internal_tool_events": [research_event]},
+                    action_intent=RuntimeActionIntent(
+                        action_id="research-high-risk-action-1",
+                        executor_kind=ActionExecutorKind.RUNTIME_LOCAL,
+                        capability="runtime.restart",
+                        payload={},
+                        side_effect_class=ActionSideEffect.EXTERNAL,
+                        visibility=ActionVisibility.USER_VISIBLE,
+                        governance=ActionGovernance.RUNTIME_GOVERNED,
+                        provenance={
+                            "origin": "test",
+                            "untrusted_input_present": True,
+                            "trusted_user_intent": {
+                                "version": "m20.trusted-intent.v1",
+                                "kind": "normal_user_request",
+                                "operation": "normal",
+                                "interaction_id": harness_input.interaction_id,
+                                "interaction_turn_id": harness_input.interaction_turn_id,
+                                "source_device_id": harness_input.frame["device_id"],
+                                "source_event_id": harness_input.frame["event_id"],
+                                "source_capability": harness_input.frame["capability"],
+                                "user_text_sha256": hashlib.sha256(
+                                    user_text.encode("utf-8")
+                                ).hexdigest(),
+                                "user_text_chars": len(user_text),
+                            },
+                            "research_input_refs": [research_ref],
+                        },
+                    ),
+                )
+
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=HighRiskResearchHarness(),
+        )
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+            ]
+        )
+
+        replies = gateway.run_roundtrip(
+            [client.build_text_event("Research whether the runtime is healthy.")]
+        )
+
+        self.assertFalse(any(reply["type"] == "action_request" for reply in replies))
+        validation = gateway.state.interventions[-1]["proposal"]["metadata"][
+            "harness_validation"
+        ]
+        self.assertEqual(
+            validation["reason"],
+            "untrusted_research_confirmation_required",
+        )
+        self.assertEqual(validation["authorization"]["confirmation"], "required")
+
+    def test_orchestrator_rejects_incomplete_research_audit_before_presence(
+        self,
+    ) -> None:
+        research_ref = {
+            "tool_call_id": "research-call-incomplete",
+            "tool_name": "openhalo_web_fetch",
+            "content_sha256": "e" * 64,
+            "untrusted": True,
+        }
+
+        class IncompleteResearchAuditHarness:
+            def run(self, harness_input):
+                user_text = harness_input.frame["payload"]["text"]
+                proposal = InterventionProposal(
+                    kind="notification",
+                    proposal_type="action",
+                    source="hermes",
+                    action_capability="notification.show",
+                    required_capability="notification.show",
+                    action_payload={"message": "Research result"},
+                    message="Research result",
+                    metadata={},
+                )
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=proposal,
+                    metadata={"internal_tool_events": [research_ref]},
+                    action_intent=RuntimeActionIntent(
+                        action_id="incomplete-research-audit-action-1",
+                        executor_kind=ActionExecutorKind.DEVICE_EDGE,
+                        capability="notification.show",
+                        payload={"message": "Research result"},
+                        side_effect_class=ActionSideEffect.EXTERNAL,
+                        visibility=ActionVisibility.USER_VISIBLE,
+                        governance=ActionGovernance.RUNTIME_GOVERNED,
+                        provenance={
+                            "origin": "test",
+                            "untrusted_input_present": True,
+                            "trusted_user_intent": {
+                                "version": "m20.trusted-intent.v1",
+                                "kind": "normal_user_request",
+                                "operation": "normal",
+                                "interaction_id": harness_input.interaction_id,
+                                "interaction_turn_id": harness_input.interaction_turn_id,
+                                "source_device_id": harness_input.frame["device_id"],
+                                "source_event_id": harness_input.frame["event_id"],
+                                "source_capability": harness_input.frame["capability"],
+                                "user_text_sha256": hashlib.sha256(
+                                    user_text.encode("utf-8")
+                                ).hexdigest(),
+                                "user_text_chars": len(user_text),
+                            },
+                            "research_input_refs": [research_ref],
+                        },
+                    ),
+                )
+
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=IncompleteResearchAuditHarness(),
+        )
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+            ]
+        )
+
+        replies = gateway.run_roundtrip(
+            [client.build_text_event("Research OpenHalo and tell me the result.")]
+        )
+
+        self.assertFalse(any(reply["type"] == "action_request" for reply in replies))
+        validation = gateway.state.interventions[-1]["proposal"]["metadata"][
+            "harness_validation"
+        ]
+        self.assertEqual(
+            validation["reason"],
+            "untrusted_internal_tool_missing_audit",
+        )
+
+    def test_orchestrator_rejects_hermes_action_without_runtime_intent(
+        self,
+    ) -> None:
+        research_event = self._valid_research_event(
+            tool_call_id="research-call-missing-intent",
+            tool_name="openhalo_web_fetch",
+            content_sha256="f" * 64,
+        )
+
+        class MissingIntentResearchHarness:
+            def run(self, harness_input):
+                proposal = InterventionProposal(
+                    kind="notification",
+                    proposal_type="action",
+                    source="hermes",
+                    action_capability="notification.show",
+                    required_capability="notification.show",
+                    action_payload={"message": "Unbound result"},
+                    message="Unbound result",
+                    metadata={},
+                )
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=proposal,
+                    metadata={
+                        "runner": "hermes",
+                        "internal_tool_events": [research_event],
+                    },
+                )
+
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=MissingIntentResearchHarness(),
+        )
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+            ]
+        )
+
+        replies = gateway.run_roundtrip(
+            [client.build_text_event("Research OpenHalo and tell me the result.")]
+        )
+
+        self.assertFalse(any(reply["type"] == "action_request" for reply in replies))
+        validation = gateway.state.interventions[-1]["proposal"]["metadata"][
+            "harness_validation"
+        ]
+        self.assertEqual(validation["reason"], "action_missing_runtime_intent")
+
+    def test_orchestrator_rejects_non_hermes_action_without_runtime_intent(
+        self,
+    ) -> None:
+        class MissingIntentHarness:
+            def run(self, harness_input):
+                proposal = InterventionProposal(
+                    kind="notification",
+                    proposal_type="action",
+                    source="custom_harness",
+                    action_capability="notification.show",
+                    required_capability="notification.show",
+                    action_payload={"message": "Unbound result"},
+                    message="Unbound result",
+                    metadata={},
+                )
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=proposal,
+                    metadata={"runner": "custom"},
+                )
+
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=MissingIntentHarness(),
+        )
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+            ]
+        )
+
+        replies = gateway.run_roundtrip(
+            [client.build_text_event("show the result")]
+        )
+
+        self.assertFalse(any(reply["type"] == "action_request" for reply in replies))
+        validation = gateway.state.interventions[-1]["proposal"]["metadata"][
+            "harness_validation"
+        ]
+        self.assertEqual(validation["reason"], "action_missing_runtime_intent")
+        self.assertEqual(validation["phase"], "pre_presence")
+        trace = gateway.state.harness_traces[-1]
+        self.assertEqual(trace["outcome_intent"], "action")
+        self.assertEqual(trace["validation"]["decision"], "rejected")
+        self.assertEqual(trace["terminal_reason"], "no_intervention")
+
+    def test_post_action_missing_intent_trace_is_terminal_no_intervention(self) -> None:
+        class ReentryMissingIntentHarness:
+            def run(self, harness_input):
+                if harness_input.operation == HarnessOperation.NORMAL:
+                    proposal = InterventionProposal(
+                        kind="notification",
+                        proposal_type="action",
+                        source="hermes",
+                        action_capability="notification.show",
+                        required_capability="notification.show",
+                        action_payload={"message": "first action"},
+                        message="first action",
+                        metadata={},
+                    )
+                    return HarnessOutcome.from_proposal(
+                        operation=harness_input.operation,
+                        proposal=proposal,
+                        action_intent=RuntimeActionIntent(
+                            action_id="first-action",
+                            executor_kind=ActionExecutorKind.DEVICE_EDGE,
+                            capability="notification.show",
+                            payload={"message": "first action"},
+                            side_effect_class=ActionSideEffect.EXTERNAL,
+                            visibility=ActionVisibility.USER_VISIBLE,
+                            governance=ActionGovernance.RUNTIME_GOVERNED,
+                            provenance={"origin": "test"},
+                        ),
+                    )
+                proposal = InterventionProposal(
+                    kind="notification",
+                    proposal_type="action",
+                    source="hermes",
+                    action_capability="notification.show",
+                    required_capability="notification.show",
+                    action_payload={"message": "unbound reentry"},
+                    message="unbound reentry",
+                    metadata={},
+                )
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=proposal,
+                )
+
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=ReentryMissingIntentHarness(),
+        )
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+            ]
+        )
+        action_request = next(
+            reply
+            for reply in gateway.run_roundtrip([client.build_text_event("show result")])
+            if reply["type"] == "action_request"
+        )
+
+        replies = gateway.run_roundtrip([client.handle_action_request(action_request)])
+
+        self.assertFalse(any(reply["type"] == "action_request" for reply in replies))
+        trace = gateway.state.harness_traces[-1]
+        self.assertEqual(trace["operation"], HarnessOperation.POST_ACTION.value)
+        self.assertEqual(trace["outcome_intent"], "action")
+        self.assertEqual(trace["validation"]["reason"], "action_missing_runtime_intent")
+        self.assertEqual(trace["terminal_reason"], "no_intervention")
+        self.assertEqual(
+            gateway.state.interactions[-1]["completion"]["terminal_reason"],
+            "no_intervention",
+        )
+
+    def test_legacy_normal_action_reaches_presence_with_runtime_intent(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+            ]
+        )
+
+        replies = gateway.run_roundtrip([client.build_text_event("hello runtime")])
+
+        action_request = next(
+            reply for reply in replies if reply["type"] == "action_request"
+        )
+        validation = gateway.state.interventions[-1]["proposal"]["metadata"][
+            "harness_validation"
+        ]
+        intent = validation["action_intent"]
+        self.assertEqual(validation["decision"], "allowed")
+        self.assertEqual(intent["action_id"], f"legacy:{action_request['interaction_turn_id']}")
+        self.assertEqual(intent["executor_kind"], "device_edge")
+        self.assertEqual(intent["capability"], "notification.show")
+        self.assertEqual(intent["governance"], "runtime_governed")
+        self.assertEqual(intent["provenance"]["origin"], "legacy_proposal_formation")
+
+        gateway.run_roundtrip([client.handle_action_request(action_request)])
+        envelope = gateway.state.action_results[-1]["action_envelope"]
+        self.assertEqual(envelope["action_id"], intent["action_id"])
+        self.assertEqual(envelope["executor_kind"], "device_edge")
+
+    def test_gateway_selects_hermes_harness_from_runtime_config(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=HERMES_LLM_CONFIG,
+        )
+
+        self.assertIsInstance(gateway.agent_harness, HermesHarnessRunner)
+
     def test_gateway_uses_runtime_orchestrator_for_event_frames(self) -> None:
         gateway = RuntimeGateway(
             shared_token="dev-token",
@@ -67,6 +946,381 @@ class RuntimeOrchestratorTests(unittest.TestCase):
         self.assertIn("Presence Router", modules)
         self.assertIn("Execution Planning", modules)
         self.assertIn("Action Layer", modules)
+
+    def test_orchestrator_uses_harness_for_normal_turn(self) -> None:
+        class CapturingHarness:
+            def __init__(self) -> None:
+                self.inputs = []
+
+            def run(self, harness_input):
+                self.inputs.append(harness_input)
+                proposal = InterventionProposal(
+                    kind="notification",
+                    proposal_type="action",
+                    source="harness",
+                    action_capability="notification.show",
+                    required_capability="notification.show",
+                    action_payload={"message": "Harness result"},
+                    message="Harness result",
+                    metadata={"provider": "harness-test"},
+                )
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=proposal,
+                    metadata={"runner": "capturing"},
+                    action_intent=RuntimeActionIntent(
+                        action_id="capturing-action-1",
+                        executor_kind=ActionExecutorKind.DEVICE_EDGE,
+                        capability="notification.show",
+                        payload={"message": "Harness result"},
+                        side_effect_class=ActionSideEffect.EXTERNAL,
+                        visibility=ActionVisibility.USER_VISIBLE,
+                        governance=ActionGovernance.RUNTIME_GOVERNED,
+                        provenance={"origin": "capturing-harness"},
+                    ),
+                )
+
+        harness = CapturingHarness()
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=harness,
+        )
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+            ]
+        )
+
+        frame = client.build_text_event("ask the harness")
+        replies = gateway.orchestrator.handle_event_frame(frame)
+        action_request = next(
+            reply for reply in replies if reply["type"] == "action_request"
+        )
+
+        self.assertEqual(len(harness.inputs), 1)
+        harness_input = harness.inputs[0]
+        self.assertEqual(harness_input.operation, HarnessOperation.NORMAL)
+        self.assertEqual(harness_input.interaction_id, action_request["interaction_id"])
+        self.assertEqual(
+            harness_input.interaction_turn_id,
+            action_request["interaction_turn_id"],
+        )
+        self.assertEqual(harness_input.correlation["trace_id"], frame["trace_id"])
+        self.assertEqual(action_request["action"]["payload"]["message"], "Harness result")
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["metadata"]["harness"]["runner"],
+            "capturing",
+        )
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["metadata"]["harness"]["operation"],
+            "normal",
+        )
+        gateway.run_roundtrip([client.handle_action_request(action_request)])
+        envelope = gateway.state.action_results[-1]["action_envelope"]
+        self.assertEqual(envelope["action_id"], "capturing-action-1")
+        self.assertEqual(envelope["executor_kind"], "device_edge")
+        self.assertEqual(envelope["provenance"]["origin"], "capturing-harness")
+
+    def test_orchestrator_supplies_explicit_memory_contract_to_harness(self) -> None:
+        class CapturingHarness:
+            durable_memory_engine = "openhalo_legacy"
+
+            def __init__(self) -> None:
+                self.inputs = []
+
+            def run(self, harness_input):
+                self.inputs.append(harness_input)
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=InterventionProposal(
+                        kind="no_intervention",
+                        proposal_type="no_intervention",
+                        source="harness",
+                        action_capability=None,
+                        required_capability=None,
+                        action_payload={},
+                        message="",
+                        metadata={},
+                        visibility_intent="silent",
+                    ),
+                    metadata={"runner": "capturing"},
+                )
+
+        harness = CapturingHarness()
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=harness,
+        )
+        gateway.state.record_harness_memory(
+            "semantic",
+            memory_id="fact-1",
+            content={"fact": "User prefers concise notices."},
+            source_refs=["interaction-1"],
+            recorded_at="2026-07-15T10:00:00Z",
+        )
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+            ]
+        )
+
+        gateway.run_roundtrip([client.build_text_event("stay silent")])
+
+        harness_input = harness.inputs[0]
+        self.assertEqual(harness_input.working_memory["operation"], "normal")
+        self.assertEqual(
+            harness_input.semantic_memory[0]["memory_id"],
+            "fact-1",
+        )
+        candidate = gateway.state.memory_consolidation_candidates[-1]
+        self.assertEqual(candidate["review_status"], "review_required")
+        self.assertEqual(candidate["interaction_id"], harness_input.interaction_id)
+        trace = gateway.state.harness_traces[-1]
+        self.assertEqual(trace["runner"], "capturing")
+        self.assertEqual(trace["validation"]["decision"], "not_applicable")
+        self.assertEqual(trace["terminal_reason"], "no_intervention")
+
+    def test_orchestrator_records_hermes_provenance_without_persisting_bodies(self) -> None:
+        class CapturingHermesHarness(HermesHarnessRunner):
+            def __init__(self) -> None:
+                self.inputs = []
+
+            def run(self, harness_input):
+                self.inputs.append(harness_input)
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=InterventionProposal(
+                        kind="no_intervention",
+                        proposal_type="no_intervention",
+                        source="hermes",
+                        action_capability=None,
+                        required_capability=None,
+                        action_payload={},
+                        message="",
+                        metadata={},
+                        visibility_intent="silent",
+                    ),
+                    metadata={
+                        "runner": "hermes",
+                        "internal_tool_events": [
+                            {
+                                "tool_name": "openhalo_web_fetch",
+                                "content_sha256": "a" * 64,
+                                "content_chars": 8,
+                                "untrusted": True,
+                                "content": "remote body",
+                            }
+                        ],
+                        "hermes_memory_events": [
+                            {
+                                "tool_call_id": "memory-call-1",
+                                "task_id": harness_input.interaction_turn_id,
+                                "action": "add",
+                                "target": "user",
+                                "content_sha256": "b" * 64,
+                                "content": "memory body",
+                            }
+                        ],
+                    },
+                )
+
+        harness = CapturingHermesHarness()
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=harness,
+        )
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+            ]
+        )
+
+        gateway.run_roundtrip([client.build_text_event("remember this")])
+
+        harness_input = harness.inputs[0]
+        tool_event = gateway.state.internal_tool_events[-1]
+        memory_event = gateway.state.hermes_memory_events[-1]
+        self.assertEqual(tool_event["interaction_id"], harness_input.interaction_id)
+        self.assertEqual(memory_event["interaction_turn_id"], harness_input.interaction_turn_id)
+        self.assertNotIn("content", tool_event)
+        self.assertNotIn("content", memory_event)
+        trace = gateway.state.harness_traces[-1]
+        self.assertEqual(trace["internal_tool_events"][0]["content_chars"], 8)
+        self.assertEqual(trace["hermes_memory_events"][0]["target"], "user")
+        self.assertNotIn("remote body", str(gateway.state.to_dict()))
+        self.assertNotIn("memory body", str(gateway.state.to_dict()))
+
+    def test_hermes_runner_does_not_receive_legacy_durable_memory(self) -> None:
+        class CapturingHermesHarness(HermesHarnessRunner):
+            def __init__(self) -> None:
+                self.inputs = []
+
+            def run(self, harness_input):
+                self.inputs.append(harness_input)
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=InterventionProposal(
+                        kind="no_intervention",
+                        proposal_type="no_intervention",
+                        source="hermes",
+                        action_capability=None,
+                        required_capability=None,
+                        action_payload={},
+                        message="",
+                        metadata={},
+                        visibility_intent="silent",
+                    ),
+                    metadata={"runner": "hermes"},
+                )
+
+        harness = CapturingHermesHarness()
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=harness,
+        )
+        gateway.state.record_harness_memory(
+            "semantic",
+            memory_id="legacy-fact-1",
+            content={"fact": "Legacy memory must not enter a Hermes turn."},
+            source_refs=["interaction-legacy-1"],
+            recorded_at="2026-07-15T10:00:00Z",
+        )
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+            ]
+        )
+
+        gateway.run_roundtrip([client.build_text_event("use Hermes memory")])
+
+        harness_input = harness.inputs[0]
+        self.assertIsNone(harness_input.procedural_memory)
+        self.assertIsNone(harness_input.semantic_memory)
+        self.assertIsNone(harness_input.episodic_memory)
+        self.assertEqual(gateway.state.memory_consolidation_candidates, [])
+
+    def test_orchestrator_reenters_harness_after_action_result(self) -> None:
+        class CapturingHarness:
+            def __init__(self) -> None:
+                self.inputs = []
+
+            def run(self, harness_input):
+                self.inputs.append(harness_input)
+                action_intent = None
+                if harness_input.operation == HarnessOperation.NORMAL:
+                    proposal = InterventionProposal(
+                        kind="notification",
+                        proposal_type="action",
+                        source="harness",
+                        action_capability="notification.show",
+                        required_capability="notification.show",
+                        action_payload={"message": "Harness result"},
+                        message="Harness result",
+                        metadata={"provider": "harness-test"},
+                    )
+                    action_intent = RuntimeActionIntent(
+                        action_id="reentry-action-1",
+                        executor_kind=ActionExecutorKind.DEVICE_EDGE,
+                        capability="notification.show",
+                        payload={"message": "Harness result"},
+                        side_effect_class=ActionSideEffect.EXTERNAL,
+                        visibility=ActionVisibility.USER_VISIBLE,
+                        governance=ActionGovernance.RUNTIME_GOVERNED,
+                        provenance={"origin": "capturing-harness"},
+                    )
+                else:
+                    proposal = InterventionProposal(
+                        kind="no_intervention",
+                        proposal_type="no_intervention",
+                        source="harness",
+                        action_capability=None,
+                        required_capability=None,
+                        action_payload={},
+                        message="",
+                        metadata={"provider": "harness-test"},
+                        visibility_intent="silent",
+                    )
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=proposal,
+                    metadata={"runner": "capturing"},
+                    action_intent=action_intent,
+                )
+
+        harness = CapturingHarness()
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=harness,
+        )
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+            ]
+        )
+
+        action_request = next(
+            reply
+            for reply in gateway.run_roundtrip([client.build_text_event("status")])
+            if reply["type"] == "action_request"
+        )
+        gateway.run_roundtrip([client.handle_action_request(action_request)])
+
+        self.assertEqual(
+            [harness_input.operation for harness_input in harness.inputs],
+            [HarnessOperation.NORMAL, HarnessOperation.POST_ACTION],
+        )
+        self.assertEqual(
+            harness.inputs[1].interaction_id,
+            action_request["interaction_id"],
+        )
+        self.assertEqual(
+            harness.inputs[1].action_result["request_id"],
+            action_request["request_id"],
+        )
+        self.assertEqual(
+            gateway.state.interactions[-1]["completion"]["terminal_reason"],
+            "no_intervention",
+        )
 
     def test_orchestrator_registers_user_and_initiative_origins_in_pool(self) -> None:
         gateway = RuntimeGateway(
@@ -205,6 +1459,73 @@ class RuntimeOrchestratorTests(unittest.TestCase):
         self.assertEqual(intervention["decision"], "allow")
         self.assertTrue(
             any(reply["type"] == "interaction_update" for reply in replies)
+        )
+
+    def test_observation_driven_missing_intent_records_terminal_no_intervention(self) -> None:
+        class MissingIntentObservationHarness:
+            def run(self, harness_input):
+                if harness_input.operation != HarnessOperation.OBSERVATION_DRIVEN:
+                    raise AssertionError("expected observation-driven harness input")
+                proposal = InterventionProposal(
+                    kind="notification",
+                    proposal_type="action",
+                    source="hermes",
+                    action_capability="notification.show",
+                    required_capability="notification.show",
+                    action_payload={"message": "unbound observation action"},
+                    message="unbound observation action",
+                    metadata={},
+                )
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=proposal,
+                )
+
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=MissingIntentObservationHarness(),
+        )
+        host = SessionClient(
+            device_id="host-edge-1",
+            device_type="server",
+            token="dev-token",
+            capabilities=["runtime.health", "runtime.control"],
+        )
+        gateway.run_roundtrip(
+            [host.build_connect_frame(), host.build_capability_announce_frame()]
+        )
+
+        replies = gateway.run_roundtrip(
+            [
+                {
+                    "type": "event_push",
+                    "device_id": "host-edge-1",
+                    "capability": "runtime.health",
+                    "event_id": "runtime-health-missing-intent",
+                    "payload": {
+                        "observations": [
+                            {
+                                "name": "runtime.health_state",
+                                "value": "degraded",
+                                "observed_at": "2026-07-13T10:00:00Z",
+                                "confidence": 1.0,
+                            }
+                        ]
+                    },
+                }
+            ]
+        )
+
+        self.assertFalse(any(reply["type"] == "action_request" for reply in replies))
+        self.assertEqual(
+            gateway.state.harness_traces[-1]["terminal_reason"],
+            "no_intervention",
+        )
+        self.assertEqual(
+            gateway.state.interactions[-1]["completion"]["terminal_reason"],
+            "no_intervention",
         )
 
     def test_admitted_observation_persists_interaction_before_proposal_formation(

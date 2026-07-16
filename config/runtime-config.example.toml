@@ -24,6 +24,22 @@ reasoning_effort = "medium"
 verbosity = "low"
 provider_failure_behavior = "user_visible_error"
 
+[harness]
+runner = "hermes"
+
+[harness.hermes]
+home = ".runtime/hermes"
+max_agent_iterations = 6
+allowed_hosts = []
+max_research_calls = 3
+research_timeout_seconds = 10
+max_research_response_bytes = 80000
+# Configure an operator-approved read-only search endpoint when needed.
+# search_url_template = "https://search.example.net/search?q={query}"
+# Read-only research is disabled until an operator sets an explicit public host
+# allowlist. Browser-backed rendering is deliberately deferred from M20.
+# allowed_hosts = ["docs.example.net", ".static.example.net"]
+
 [llm.profiles.initiative_proposal]
 model_ref = "openai_gpt55"
 reasoning_effort = "low"

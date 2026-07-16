@@ -10,6 +10,7 @@ def build_prompt_context_package(
     user_text: str,
     snapshot: dict | None = None,
     grounding_bundle: dict | None = None,
+    harness_memory: dict | None = None,
 ) -> dict:
     grounding = grounding_bundle or {}
     sections = {
@@ -18,6 +19,14 @@ def build_prompt_context_package(
         "recent_memory": dict(grounding.get("recent_memory", {})),
         "edge_evidence": dict(grounding.get("edge_history", {})),
     }
+    if harness_memory is not None:
+        sections["harness_memory"] = {
+            "working": dict(harness_memory.get("working", {})),
+            "procedural": list(harness_memory.get("procedural", [])),
+            "semantic": list(harness_memory.get("semantic", [])),
+            "episodic": list(harness_memory.get("episodic", [])),
+            "lineage": dict(harness_memory.get("lineage", {})),
+        }
     return {
         "version": PROMPT_CONTEXT_VERSION,
         "user_text": user_text,
@@ -61,6 +70,24 @@ def build_behavior_contract(
     return {
         "prompt_context_version": prompt_context_package.get("version"),
         "grounding_bundle_version": grounding.get("bundle_version"),
+        "allowed_proposal_types": [
+            "action",
+            "no_intervention",
+            "provider_failure",
+        ],
+        "required_runtime_inputs": [
+            "compact_snapshot",
+            "grounding_bundle",
+        ],
+        "action_governance": {
+            "governed_action_route": "presence_then_execution_planning",
+            "provider_native_tool_calls": "normalize_to_runtime_action_intent",
+            "agent_private_tool_requirements": [
+                "non_user_visible",
+                "non_side_effectful",
+                "explicitly_allowlisted",
+            ],
+        },
         "checks": checks,
     }
 

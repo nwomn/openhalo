@@ -102,6 +102,44 @@ def build_execution_outcome(
             "correlation": correlation or {},
         }
 
+    if not _harness_action_is_authorized(proposal):
+        return {
+            "kind": "completion",
+            "interaction_id": interaction_id,
+            "reason": "harness_action_not_authorized",
+            "summary": _proposal_summary(proposal),
+            "visibility": proposal.get("visibility_intent", "visible"),
+            "correlation": correlation or {},
+        }
+
+    action_intent = (
+        proposal.get("metadata", {})
+        .get("harness_validation", {})
+        .get("action_intent")
+    )
+    if action_intent is not None and action_intent.get("executor_kind") in {
+        "runtime_local",
+        "mcp",
+        "skill_procedure",
+    }:
+        executor_kind = action_intent["executor_kind"]
+        return {
+            "kind": "completion",
+            "interaction_id": interaction_id,
+            "reason": f"{executor_kind}_executor_placeholder",
+            "summary": _proposal_summary(proposal),
+            "visibility": proposal.get("visibility_intent", "visible"),
+            "correlation": correlation or {},
+            "planning_record": {
+                "executor_route": {
+                    "kind": executor_kind,
+                    "capability": action_intent.get("capability"),
+                    "status": "placeholder",
+                    "disposition": "not_dispatched",
+                }
+            },
+        }
+
     planning_record = None
     if runtime_state is not None:
         planning_record = resolve_capability_provider(
@@ -141,6 +179,40 @@ def build_execution_outcome(
     if planning_record is not None:
         outcome["planning_record"] = planning_record
     return outcome
+
+
+def _harness_action_is_authorized(proposal: dict) -> bool:
+    """Require a complete runtime envelope for action proposals from a harness."""
+
+    metadata = proposal.get("metadata", {})
+    if not isinstance(metadata, dict) or not isinstance(metadata.get("harness"), dict):
+        return proposal.get("source") != "hermes"
+    validation = metadata.get("harness_validation")
+    if not isinstance(validation, dict) or validation.get("decision") != "allowed":
+        return False
+    action_intent = validation.get("action_intent")
+    if not isinstance(action_intent, dict):
+        return False
+    executor_kind = action_intent.get("executor_kind")
+    if executor_kind not in {
+        "device_edge",
+        "runtime_local",
+        "mcp",
+        "skill_procedure",
+    }:
+        return False
+    if (
+        action_intent.get("capability") != proposal.get("action_capability")
+        or action_intent.get("payload") != proposal.get("action_payload", {})
+    ):
+        return False
+    if executor_kind != "device_edge":
+        return True
+    return (
+        action_intent.get("governance") == "runtime_governed"
+        and action_intent.get("side_effect_class") == "external"
+        and action_intent.get("visibility") == "user_visible"
+    )
 
 
 def resolve_capability_provider(
