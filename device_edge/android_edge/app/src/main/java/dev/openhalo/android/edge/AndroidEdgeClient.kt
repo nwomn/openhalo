@@ -301,10 +301,19 @@ class AndroidEdgeClient(
         val action = frame.optJSONObject("action") ?: JSONObject()
         val capability = action.optString("capability")
         val payload = action.optJSONObject("payload") ?: JSONObject()
-        val message = payload.optString("message", payload.toString())
-        val details = JSONObject().put("message", message)
+        val notification = parseNotificationShowPayload(payload)
+        val message = when (capability) {
+            "notification.show" -> notification?.body.orEmpty()
+            else -> payload.optString("message", payload.toString())
+        }
+        val details = when (capability) {
+            "notification.show" -> JSONObject()
+                .put("title", notification?.title.orEmpty())
+                .put("body", notification?.body.orEmpty())
+            else -> JSONObject().put("message", message)
+        }
         val status = when (capability) {
-            "notification.show" -> showNotification(message, details)
+            "notification.show" -> showNotification(notification, details)
             "notification.alert" -> showUrgentNotification(message, details)
             "mobile.reply.render" -> {
                 val history = AndroidEdgePreferences.appendHistory(
@@ -349,8 +358,19 @@ class AndroidEdgeClient(
         sendFrame(buildActionResultFrame(frame, state.deviceId, capability, status, details))
     }
 
-    private fun showNotification(message: String, details: JSONObject): String {
-        val error = RuntimeNotificationPresenter.showUrgent(context, message)
+    private fun showNotification(
+        notification: NotificationShowPayload?,
+        details: JSONObject
+    ): String {
+        if (notification == null) {
+            details.put("error", "notification.show requires a non-empty body")
+            return "error"
+        }
+        val error = RuntimeNotificationPresenter.show(
+            context,
+            notification.title,
+            notification.body
+        )
         if (error.isNotBlank()) {
             details.put("error", error)
             return "error"
@@ -478,6 +498,21 @@ class AndroidEdgeClient(
         private const val LOG_TAG = "OpenHaloEdge"
         private const val MAX_RECONNECT_ATTEMPT = 5
     }
+}
+
+internal data class NotificationShowPayload(
+    val title: String,
+    val body: String
+)
+
+internal fun parseNotificationShowPayload(payload: JSONObject): NotificationShowPayload? {
+    val body = payload.optString("body")
+    if (body.isBlank()) {
+        return null
+    }
+    val title = payload.optString("title", DEFAULT_NOTIFICATION_TITLE)
+        .ifBlank { DEFAULT_NOTIFICATION_TITLE }
+    return NotificationShowPayload(title = title, body = body)
 }
 
 fun reconnectDelayMillis(attempt: Int): Long {

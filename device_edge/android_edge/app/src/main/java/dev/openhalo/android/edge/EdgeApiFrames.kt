@@ -13,6 +13,7 @@ val STABLE_RUNTIME_URL: String = BuildConfig.OPENHALO_STABLE_RUNTIME_URL
 val STABLE_EDGE_TOKEN: String = BuildConfig.OPENHALO_STABLE_EDGE_TOKEN
 val DEFAULT_RUNTIME_URL: String = DEVELOPMENT_RUNTIME_URL
 val DEFAULT_EDGE_TOKEN: String = DEVELOPMENT_EDGE_TOKEN
+const val DEFAULT_NOTIFICATION_TITLE = "OpenHalo"
 private const val SCREEN_CONTEXT_OBSERVATION_SCHEMA_TYPE = "object"
 
 fun runtimeUrlForMode(runtimeMode: String): String =
@@ -67,19 +68,27 @@ fun buildCapabilityAnnounceFrame(deviceId: String): JSONObject =
                         .put("modality", "visual_text")
                         .put("content_capacity", "short_text")
                         .put("privacy", "personal")
-                        .put("interruptiveness", "high")
-                        .put("side_effect", "user_visible_interruptive")
+                        .put("interruptiveness", "medium")
+                        .put("side_effect", "user_visible")
                         .put(
                             "input_schema",
                             JSONObject()
                                 .put("type", "object")
-                                .put("required", JSONArray().put("message"))
+                                .put("required", JSONArray().put("body"))
+                                .put("additionalProperties", false)
                                 .put(
                                     "properties",
-                                    JSONObject().put(
-                                        "message",
-                                        JSONObject().put("type", "string")
-                                    )
+                                    JSONObject()
+                                        .put(
+                                            "title",
+                                            JSONObject().put("type", "string")
+                                        )
+                                        .put(
+                                            "body",
+                                            JSONObject()
+                                                .put("type", "string")
+                                                .put("minLength", 1)
+                                        )
                                 )
                         )
                         .put(

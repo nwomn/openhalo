@@ -67,6 +67,38 @@ class EdgeApiFramesTest {
     }
 
     @Test
+    fun notificationShowCapabilityUsesCanonicalPayloadContract() {
+        val frame = buildCapabilityAnnounceFrame("android-edge-test")
+        val notification = (0 until frame.getJSONArray("capabilities").length())
+            .map { frame.getJSONArray("capabilities").getJSONObject(it) }
+            .first { it.getString("name") == "notification.show" }
+        val schema = notification.getJSONObject("input_schema")
+        val required = schema.getJSONArray("required")
+        val properties = schema.getJSONObject("properties")
+
+        assertEquals("body", required.getString(0))
+        assertTrue(schema.getBoolean("additionalProperties").not())
+        assertEquals("string", properties.getJSONObject("title").getString("type"))
+        assertEquals("string", properties.getJSONObject("body").getString("type"))
+        assertEquals(1, properties.getJSONObject("body").getInt("minLength"))
+        assertEquals("medium", notification.getString("interruptiveness"))
+        assertEquals("user_visible", notification.getString("side_effect"))
+    }
+
+    @Test
+    fun notificationShowPayloadRequiresBodyAndDefaultsOptionalTitle() {
+        val explicit = parseNotificationShowPayload(
+            JSONObject().put("title", "Runtime status").put("body", "Running")
+        )
+        val defaulted = parseNotificationShowPayload(JSONObject().put("body", "Running"))
+
+        assertEquals(NotificationShowPayload("Runtime status", "Running"), explicit)
+        assertEquals(NotificationShowPayload(DEFAULT_NOTIFICATION_TITLE, "Running"), defaulted)
+        assertEquals(null, parseNotificationShowPayload(JSONObject().put("message", "legacy")))
+        assertEquals(null, parseNotificationShowPayload(JSONObject().put("body", "  ")))
+    }
+
+    @Test
     fun screenContextObservationRedactsSensitiveNodesAndNeverUploadsScreenshot() {
         val observation = buildScreenContextObservation(
             ScreenContextCapture(

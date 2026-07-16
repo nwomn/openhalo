@@ -270,7 +270,11 @@ fun M17BootstrapScreen(
                     startEdgeService(appContext, AndroidEdgeService.sendObservationsIntent(appContext))
                 },
                 onTestNotification = {
-                    RuntimeNotificationPresenter.show(appContext, "OpenHalo local banner test")
+                    RuntimeNotificationPresenter.show(
+                        appContext,
+                        DEFAULT_NOTIFICATION_TITLE,
+                        "OpenHalo local banner test"
+                    )
                 },
                 onTestUrgentAlert = {
                     RuntimeNotificationPresenter.showUrgent(appContext, "OpenHalo urgent alert test")
