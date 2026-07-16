@@ -48,7 +48,10 @@ class PromptContextTests(unittest.TestCase):
             {
                 "status": "ok",
                 "capability": "notification.show",
-                "details": {"message": "Runtime heard: hello runtime"},
+                "details": {
+                    "title": "OpenHalo",
+                    "body": "Runtime heard: hello runtime",
+                },
             }
         )
         grounding = build_model_grounding_bundle(

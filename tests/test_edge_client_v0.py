@@ -122,7 +122,7 @@ class EdgeClientTests(unittest.TestCase):
                 "device_id": "terminal-edge-1",
                 "action": {
                     "capability": "notification.show",
-                    "payload": {"message": "hello"},
+                    "payload": {"title": "OpenHalo", "body": "hello"},
                 },
             }
         )
@@ -137,7 +137,10 @@ class EdgeClientTests(unittest.TestCase):
 
     def test_executes_notification_action(self) -> None:
         result = execute_action(
-            {"capability": "notification.show", "payload": {"message": "hello"}}
+            {
+                "capability": "notification.show",
+                "payload": {"title": "OpenHalo", "body": "hello"},
+            }
         )
 
         self.assertEqual(result["status"], "ok")
@@ -201,7 +204,7 @@ class EdgeClientTests(unittest.TestCase):
                 "device_id": "desktop-dev-1",
                 "action": {
                     "capability": "notification.show",
-                    "payload": {"message": "hello"},
+                    "payload": {"title": "OpenHalo", "body": "hello"},
                 },
             }
         )
@@ -228,7 +231,7 @@ class EdgeClientTests(unittest.TestCase):
                 "device_id": "desktop-dev-1",
                 "action": {
                     "capability": "notification.show",
-                    "payload": {"message": "hello"},
+                    "payload": {"title": "OpenHalo", "body": "hello"},
                 },
             }
         )
@@ -249,7 +252,7 @@ class EdgeClientTests(unittest.TestCase):
 
         frame = client.build_direct_action_event(
             capability="notification.show",
-            payload={"message": "urgent ping"},
+            payload={"title": "OpenHalo", "body": "urgent ping"},
         )
 
         self.assertEqual(frame["type"], "event_push")
@@ -260,7 +263,7 @@ class EdgeClientTests(unittest.TestCase):
             "notification.show",
         )
         self.assertEqual(
-            frame["payload"]["direct_action"]["payload"]["message"],
+            frame["payload"]["direct_action"]["payload"]["body"],
             "urgent ping",
         )
 
@@ -357,7 +360,7 @@ class EdgeClientTests(unittest.TestCase):
                 "device_id": "desktop-dev-1",
                 "action": {
                     "capability": "notification.show",
-                    "payload": {"message": "hello"},
+                    "payload": {"title": "OpenHalo", "body": "hello"},
                 },
             }
         )

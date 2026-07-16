@@ -10,6 +10,7 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
+from personal_runtime.action_layer import build_notification_payload
 from personal_runtime.context_snapshot import sanitize_observation_driven_snapshot
 from personal_runtime.prompt_context import build_prompt_context_package
 from personal_runtime.runtime_memory import sanitize_observation_driven_grounding_bundle
@@ -47,7 +48,10 @@ PROPOSAL_OUTPUT_SCHEMA = {
                         "payload": {
                             "type": "object",
                             "additionalProperties": False,
-                            "properties": {},
+                            "properties": {
+                                "title": {"type": "string"},
+                                "body": {"type": "string", "minLength": 1},
+                            },
                             "required": [],
                         },
                     },
@@ -312,7 +316,9 @@ def build_openai_compatible_proposal_request(
                             '"rationale":{"summary":"...","intent_signals":["runtime status"],'
                             '"grounding_signals":["..."]}}.'
                             " If the user explicitly targets a known device such as a phone, set "
-                            "target_device_hint to that exact known device_id from the grounding bundle."
+                            "target_device_hint to that exact known device_id from the grounding bundle. "
+                            "For notification.show, payload must contain body as a non-empty string; "
+                            "OpenHalo owns the title."
                         ),
                     }
                 ],
@@ -386,7 +392,8 @@ def build_openai_compatible_observation_proposal_request(
                             '"intent_signals":["..."],'
                             '"grounding_signals":["..."]}'
                             "}\n"
-                            "When evidence is insufficient or a proposed intervention would be inappropriate, return no_intervention with a concise rationale."
+                            "For notification.show, payload must contain body as a non-empty string; "
+                            "OpenHalo owns the title. When evidence is insufficient or a proposed intervention would be inappropriate, return no_intervention with a concise rationale."
                         ),
                     }
                 ],
@@ -951,7 +958,7 @@ def build_deterministic_post_action_proposal_plan(
             proposal_type="action",
             response_text=message,
             action_capability="notification.show",
-            action_payload={"message": message},
+            action_payload=build_notification_payload(message),
             metadata=metadata,
         )
 
@@ -974,7 +981,7 @@ def build_deterministic_post_action_proposal_plan(
             proposal_type="action",
             response_text=message,
             action_capability="notification.show",
-            action_payload={"message": message},
+            action_payload=build_notification_payload(message),
             metadata=metadata,
             target_device_hint=(
                 interaction.get("source_device_id")
@@ -995,7 +1002,7 @@ def build_deterministic_post_action_proposal_plan(
             proposal_type="action",
             response_text=message,
             action_capability="notification.show",
-            action_payload={"message": message},
+            action_payload=build_notification_payload(message),
             metadata=metadata,
         )
 

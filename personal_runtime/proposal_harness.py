@@ -311,7 +311,7 @@ def build_m17_6_terminal_phone_fixture_cases() -> list[dict]:
             action_result={
                 "status": "ok",
                 "capability": "notification.show",
-                "details": {"message": "hello"},
+                "details": {"title": "OpenHalo", "body": "hello"},
             },
             expected={
                 "requires_source_ack": True,
@@ -429,7 +429,10 @@ def run_fixture_prompt_variant_comparison() -> dict:
             proposal_type="action",
             response_text="Delivered hello to your phone.",
             action_capability="notification.show",
-            action_payload={"message": "Delivered hello to your phone."},
+            action_payload={
+                "title": "OpenHalo",
+                "body": "Delivered hello to your phone.",
+            },
             metadata={
                 "prompt_variant": "decision_brief",
                 "prompt_length": len(prompt),

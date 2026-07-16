@@ -320,12 +320,12 @@ class RuntimeGateway:
         result: dict | None = None,
     ) -> str:
         if result is not None:
-            delivered_message = result.get("details", {}).get("message")
-            if isinstance(delivered_message, str) and delivered_message.strip():
-                return delivered_message.strip()
+            delivered_body = result.get("details", {}).get("body")
+            if isinstance(delivered_body, str) and delivered_body.strip():
+                return delivered_body.strip()
         proposal_type = proposal.get("proposal_type")
         if proposal_type == "action":
-            return proposal.get("action_payload", {}).get("message", "")
+            return proposal.get("action_payload", {}).get("body", "")
         if proposal_type == "no_intervention":
             rationale = proposal.get("metadata", {}).get("proposal_rationale", {})
             return rationale.get("summary", "")
@@ -373,7 +373,7 @@ class RuntimeGateway:
         target_device_id = interaction.get("primary_action", {}).get("target_device_id")
         source_device_id = interaction.get("source_device_id")
         capability = proposal.get("action_capability")
-        delivered_message = result.get("details", {}).get("message")
+        delivered_body = result.get("details", {}).get("body")
 
         if proposal_type == "no_intervention":
             return proposal.get("visibility_intent", "silent")
@@ -381,7 +381,7 @@ class RuntimeGateway:
         if (
             proposal_type == "action"
             and capability == "notification.show"
-            and delivered_message
+            and delivered_body
             and target_device_id is not None
             and target_device_id == source_device_id
         ):

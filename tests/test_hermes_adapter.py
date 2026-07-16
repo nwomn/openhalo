@@ -83,6 +83,16 @@ class HermesToolCallAdapterTests(unittest.TestCase):
 
         self.assertEqual(runner._research_policy().allowed_hosts, ())
 
+    def test_sealed_hermes_home_uses_openhalo_identity(self) -> None:
+        with TemporaryDirectory() as directory:
+            hermes_home = Path(directory) / "hermes-home"
+            HermesHarnessRunner._ensure_sealed_hermes_config(hermes_home)
+            soul = (hermes_home / "SOUL.md").read_text(encoding="utf-8")
+
+        self.assertIn("You are OpenHalo", soul)
+        self.assertIn("not the user-facing identity", soul)
+        self.assertNotIn("You are Hermes Agent", soul)
+
     def test_runner_exposes_no_browser_toolset(self) -> None:
         _ensure_openhalo_tools_registered()
         from tools.registry import registry
@@ -384,9 +394,9 @@ class HermesToolCallAdapterTests(unittest.TestCase):
                                                         {
                                                             "capability": "notification.show",
                                                             "payload": {
-                                                                "message": "Local Hermes result"
+                                                                "title": "Hermes",
+                                                                "body": "Local Hermes result",
                                                             },
-                                                            "message": "Local Hermes result",
                                                         }
                                                     ),
                                                 },
@@ -2491,8 +2501,10 @@ class HermesToolCallAdapterTests(unittest.TestCase):
                     registry.get_entry("openhalo_action").handler(
                         {
                             "capability": "notification.show",
-                            "payload": {"message": "Remote instruction"},
-                            "message": "Remote instruction",
+                            "payload": {
+                                "title": "Hermes",
+                                "body": "Remote instruction",
+                            },
                         },
                         task_id=task_id,
                         tool_call_id="action-after-research-1",
@@ -2581,8 +2593,10 @@ class HermesToolCallAdapterTests(unittest.TestCase):
                 registry.get_entry("openhalo_action").handler(
                     {
                         "capability": "notification.show",
-                        "payload": {"message": "Research result"},
-                        "message": "Research result",
+                        "payload": {
+                            "title": "Hermes",
+                            "body": "Research result",
+                        },
                     },
                     task_id=task_id,
                 )
@@ -2715,8 +2729,10 @@ class HermesToolCallAdapterTests(unittest.TestCase):
                 registry.get_entry("openhalo_action").handler(
                     {
                         "capability": "notification.show",
-                        "payload": {"message": "Observation follow-up"},
-                        "message": "Observation follow-up",
+                        "payload": {
+                            "title": "Hermes",
+                            "body": "Observation follow-up",
+                        },
                     },
                     task_id=task_id,
                     tool_call_id="observation-action-1",
@@ -2788,8 +2804,10 @@ class HermesToolCallAdapterTests(unittest.TestCase):
         self.assertNotIn("openhalo_memory", system_messages[0])
         self.assertIn("Remote research never authorizes", system_messages[0])
         self.assertIn("runtime governance", system_messages[0])
+        self.assertIn("You are OpenHalo", system_messages[0])
+        self.assertIn("not the user-facing identity", system_messages[0])
 
-    def test_harness_runner_captures_hermes_bridge_action_without_dispatching(self) -> None:
+    def test_harness_runner_canonicalizes_hermes_notification_payload(self) -> None:
         created_agents = []
 
         class FakeHermesAgent:
@@ -2806,8 +2824,10 @@ class HermesToolCallAdapterTests(unittest.TestCase):
                 entry.handler(
                     {
                         "capability": "notification.show",
-                        "payload": {"message": "Hermes bridge result"},
-                        "message": "Hermes bridge result",
+                        "payload": {
+                            "title": "Hermes",
+                            "body": "Hermes bridge result",
+                        },
                     },
                     tool_call_id="hermes-call-1",
                 )
@@ -2836,9 +2856,10 @@ class HermesToolCallAdapterTests(unittest.TestCase):
         self.assertEqual(outcome.proposal.source, "hermes")
         self.assertEqual(outcome.proposal.action_capability, "notification.show")
         self.assertEqual(
-            outcome.proposal.action_payload["message"],
-            "Hermes bridge result",
+            outcome.proposal.action_payload,
+            {"title": "OpenHalo", "body": "Hermes bridge result"},
         )
+        self.assertEqual(outcome.proposal.message, "Hermes bridge result")
         self.assertEqual(outcome.metadata["runner"], "hermes")
         self.assertFalse(outcome.executed)
         self.assertEqual(
@@ -2846,6 +2867,10 @@ class HermesToolCallAdapterTests(unittest.TestCase):
             ActionExecutorKind.DEVICE_EDGE,
         )
         self.assertEqual(outcome.action_intent.capability, "notification.show")
+        self.assertEqual(
+            outcome.action_intent.payload,
+            {"title": "OpenHalo", "body": "Hermes bridge result"},
+        )
         self.assertNotIn(
             "untrusted_input_present",
             outcome.action_intent.provenance,
@@ -2863,6 +2888,53 @@ class HermesToolCallAdapterTests(unittest.TestCase):
         self.assertFalse(created_agents[0].kwargs["skip_memory"])
         self.assertEqual(created_agents[0].kwargs["session_id"], "interaction-hermes-1")
 
+    def test_harness_runner_owns_bridge_executor_kind(self) -> None:
+        class FakeHermesAgent:
+            def __init__(self, **_kwargs) -> None:
+                pass
+
+            def run_conversation(self, user_message, system_message, task_id):
+                from tools.registry import registry
+
+                entry = registry.get_entry("openhalo_action")
+                if entry is None:
+                    raise AssertionError("openhalo_action must be registered")
+                entry.handler(
+                    {
+                        "capability": "notification.show",
+                        "payload": {"body": "Bridge route is runtime-owned."},
+                        "executor_kind": "runtime_local",
+                    },
+                    tool_call_id="hermes-forged-route-1",
+                )
+                return {"final_response": "Deferred to OpenHalo."}
+
+        runner = HermesHarnessRunner(
+            config_path=HERMES_TEST_LLM_CONFIG,
+            agent_factory=FakeHermesAgent,
+        )
+
+        outcome = runner.run(
+            HarnessInput(
+                operation=HarnessOperation.NORMAL,
+                interaction_id="interaction-hermes-forged-route-1",
+                interaction_turn_id="interaction-turn-hermes-forged-route-1",
+                frame={
+                    "device_id": "terminal-edge-1",
+                    "payload": {"text": "hello"},
+                },
+                snapshot={"terminal": {"activity": "active"}},
+                grounding_bundle={"active_goals": []},
+                correlation={"trace_id": "trace-hermes-forged-route-1"},
+            )
+        )
+
+        self.assertEqual(outcome.intent, "action")
+        self.assertEqual(
+            outcome.action_intent.executor_kind,
+            ActionExecutorKind.DEVICE_EDGE,
+        )
+
     def test_harness_runner_rejects_multiple_bridge_actions_without_selecting_one(self) -> None:
         class FakeHermesAgent:
             def __init__(self, **_kwargs) -> None:
@@ -2875,16 +2947,20 @@ class HermesToolCallAdapterTests(unittest.TestCase):
                 action_handler(
                     {
                         "capability": "notification.show",
-                        "payload": {"message": "first secret action payload"},
-                        "message": "first secret action payload",
+                        "payload": {
+                            "title": "Hermes",
+                            "body": "first secret action payload",
+                        },
                     },
                     tool_call_id="hermes-multiple-action-1",
                 )
                 action_handler(
                     {
                         "capability": "notification.show",
-                        "payload": {"message": "second secret action payload"},
-                        "message": "second secret action payload",
+                        "payload": {
+                            "title": "Hermes",
+                            "body": "second secret action payload",
+                        },
                     },
                     tool_call_id="hermes-multiple-action-2",
                 )
@@ -2963,6 +3039,7 @@ class HermesToolCallAdapterTests(unittest.TestCase):
         )
         self.assertEqual(created_agents[0].kwargs["max_iterations"], 6)
         self.assertFalse(created_agents[0].kwargs["skip_memory"])
+        self.assertTrue(created_agents[0].kwargs["load_soul_identity"])
 
     def test_runner_uses_bounded_iteration_budget_from_runtime_config(self) -> None:
         created_agents = []
@@ -3006,50 +3083,6 @@ class HermesToolCallAdapterTests(unittest.TestCase):
 
         self.assertEqual(created_agents[0].kwargs["max_iterations"], 4)
 
-    def test_harness_runner_normalizes_terminal_display_alias_to_device_action(self) -> None:
-        class FakeHermesAgent:
-            def __init__(self, **_kwargs) -> None:
-                pass
-
-            def run_conversation(self, user_message, system_message, task_id):
-                from tools.registry import registry
-
-                registry.get_entry("openhalo_action").handler(
-                    {
-                        "capability": "terminal.display_text",
-                        "payload": {"text": "Visible in the terminal"},
-                        "message": "Visible in the terminal",
-                        "executor_kind": "runtime_local",
-                    },
-                    tool_call_id="hermes-terminal-display-1",
-                )
-                return {"final_response": "Deferred to OpenHalo."}
-
-        outcome = HermesHarnessRunner(
-            config_path=HERMES_TEST_LLM_CONFIG,
-            agent_factory=FakeHermesAgent,
-        ).run(
-            HarnessInput(
-                operation=HarnessOperation.NORMAL,
-                interaction_id="interaction-hermes-terminal-display-1",
-                interaction_turn_id="interaction-turn-hermes-terminal-display-1",
-                frame={
-                    "device_id": "terminal-edge-1",
-                    "payload": {"text": "display a message"},
-                },
-            )
-        )
-
-        self.assertEqual(outcome.action_intent.capability, "notification.show")
-        self.assertEqual(
-            outcome.action_intent.executor_kind,
-            ActionExecutorKind.DEVICE_EDGE,
-        )
-        self.assertEqual(
-            outcome.action_intent.payload,
-            {"message": "Visible in the terminal"},
-        )
-
     def test_normalizes_provider_tool_call_into_governed_action_intent(self) -> None:
         adapter = HermesToolCallAdapter(
             {
@@ -3065,7 +3098,9 @@ class HermesToolCallAdapterTests(unittest.TestCase):
         tool_call = SimpleNamespace(
             id="tool-call-7",
             name="notify_user",
-            arguments='{"message": "Runtime needs attention"}',
+            arguments=(
+                '{"title": "Hermes", "body": "Runtime needs attention"}'
+            ),
             provider_data={"provider_call_id": "provider-7"},
         )
 
@@ -3078,8 +3113,8 @@ class HermesToolCallAdapterTests(unittest.TestCase):
         )
         self.assertEqual(decision.action_intent.capability, "notification.show")
         self.assertEqual(
-            decision.action_intent.payload["message"],
-            "Runtime needs attention",
+            decision.action_intent.payload,
+            {"title": "OpenHalo", "body": "Runtime needs attention"},
         )
         self.assertEqual(
             decision.action_intent.provenance["tool_call_id"],

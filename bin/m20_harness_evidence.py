@@ -217,7 +217,7 @@ def _validate_governed_action(
         details = envelope.get("details", {})
         if not isinstance(details, dict):
             continue
-        message = details.get("message")
+        body = details.get("body")
         if (
             result.get("capability") == "notification.show"
             and result.get("device_id") == expected_action_device_id
@@ -227,8 +227,9 @@ def _validate_governed_action(
             and envelope.get("governance") == "runtime_governed"
             and envelope.get("status") == "ok"
             and details.get("delivered_via") == "terminal.stdout"
-            and isinstance(message, str)
-            and hashlib.sha256(message.encode("utf-8")).hexdigest()
+            and details.get("title") == "OpenHalo"
+            and isinstance(body, str)
+            and hashlib.sha256(body.encode("utf-8")).hexdigest()
             == expected_message_hash
         ):
             matches.append(result)

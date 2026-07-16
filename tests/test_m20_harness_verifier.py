@@ -54,7 +54,8 @@ class M20HarnessEvidenceVerifierTests(unittest.TestCase):
                             "status": "ok",
                             "details": {
                                 "delivered_via": "terminal.stdout",
-                                "message": ACTION_MESSAGE,
+                                "title": "OpenHalo",
+                                "body": ACTION_MESSAGE,
                             },
                         },
                     }
@@ -117,7 +118,8 @@ class M20HarnessEvidenceVerifierTests(unittest.TestCase):
                             "status": "ok",
                             "details": {
                                 "delivered_via": "terminal.stdout",
-                                "message": RESEARCH_REPLY_MESSAGE,
+                                "title": "OpenHalo",
+                                "body": RESEARCH_REPLY_MESSAGE,
                             },
                         },
                     }
@@ -298,7 +300,8 @@ class M20HarnessEvidenceVerifierTests(unittest.TestCase):
                             "status": "ok",
                             "details": {
                                 "delivered_via": "terminal.stdout",
-                                "message": MEMORY_RECALL_MESSAGE,
+                                "title": "OpenHalo",
+                                "body": MEMORY_RECALL_MESSAGE,
                             },
                         },
                     }
@@ -665,6 +668,23 @@ class M20HarnessEvidenceVerifierTests(unittest.TestCase):
             action["action_results"][0]["action_envelope"]["details"][
                 "delivered_via"
             ] = "unknown"
+            action_path.write_text(json.dumps(action), encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                EvidenceValidationError,
+                "action_delivery_lineage",
+            ):
+                self._validate(inputs, directory / "evidence.json")
+
+    def test_rejects_action_with_non_openhalo_terminal_title(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            directory = Path(temp_dir)
+            inputs = self._valid_inputs(directory)
+            action_path = Path(inputs["action_state"])
+            action = json.loads(action_path.read_text(encoding="utf-8"))
+            action["action_results"][0]["action_envelope"]["details"][
+                "title"
+            ] = "Hermes"
             action_path.write_text(json.dumps(action), encoding="utf-8")
 
             with self.assertRaisesRegex(

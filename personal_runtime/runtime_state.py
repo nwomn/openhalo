@@ -374,8 +374,12 @@ def _compatibility_capability_registration(capability_name: str) -> dict | None:
             "side_effect": "user_visible",
             "input_schema": {
                 "type": "object",
-                "required": ["message"],
-                "properties": {"message": {"type": "string"}},
+                "required": ["body"],
+                "additionalProperties": False,
+                "properties": {
+                    "title": {"type": "string"},
+                    "body": {"type": "string", "minLength": 1},
+                },
             },
         },
         "text.input": {

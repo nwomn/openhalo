@@ -416,6 +416,9 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("runtime-push-idle", result.stdout)
         self.assertIn("state-check", result.stdout)
         self.assertIn(".runtime/terminal-edge-verify-state.json", result.stdout)
+        self.assertIn("tests/fixtures/llm-config-test.toml", result.stdout)
+        self.assertIn('get("title") == "OpenHalo"', result.stdout)
+        self.assertIn('get("body")', result.stdout)
         self.assertIn("18765", result.stdout)
 
     def test_prompt_contract_verification_script_exists_and_is_executable(self) -> None:

@@ -147,9 +147,11 @@ choose a compatible provider without device-type-specific branches:
   "side_effect": "user_visible",
   "input_schema": {
     "type": "object",
-    "required": ["message"],
+    "required": ["body"],
+    "additionalProperties": false,
     "properties": {
-      "message": {"type": "string"}
+      "title": {"type": "string"},
+      "body": {"type": "string", "minLength": 1}
     }
   }
 }
@@ -271,7 +273,8 @@ Runtime-to-edge actions use `action_request`.
   "action": {
     "capability": "notification.show",
     "payload": {
-      "message": "Runtime status: running."
+      "title": "OpenHalo",
+      "body": "Runtime status: running."
     }
   }
 }
@@ -299,7 +302,8 @@ Edges return action completion with `action_result`.
     "capability": "notification.show",
     "observed_at": "2026-06-29T10:00:02Z",
     "details": {
-      "message": "Runtime status: running."
+      "title": "OpenHalo",
+      "body": "Runtime status: running."
     }
   }
 }

@@ -3,6 +3,27 @@
 from edge_api.protocol import with_api_version
 from openhalo_common.diagnostics import add_correlation_to_frame
 
+DEFAULT_NOTIFICATION_TITLE = "OpenHalo"
+RUNTIME_CONTROL_ACTION_CAPABILITIES = frozenset(
+    {
+        "runtime.status",
+        "runtime.collect_logs",
+        "runtime.reload",
+        "runtime.restart",
+    }
+)
+
+
+def build_notification_payload(body: str) -> dict:
+    """Build the canonical payload shared by notification-capable edges."""
+
+    if not isinstance(body, str) or not body.strip():
+        raise ValueError("notification body must be a non-empty string")
+    return {
+        "title": DEFAULT_NOTIFICATION_TITLE,
+        "body": body,
+    }
+
 
 def build_interaction_update(
     target_device_id: str,
@@ -35,6 +56,13 @@ def build_action_request(
     trace_recorder=None,
     correlation: dict | None = None,
 ) -> dict:
+    if action.get("capability") == "notification.show":
+        payload = action.get("payload")
+        body = payload.get("body") if isinstance(payload, dict) else None
+        action = {
+            **action,
+            "payload": build_notification_payload(body),
+        }
     if trace_recorder is not None:
         if action["capability"] == "notification.show":
             trace_recorder.record(
@@ -59,17 +87,17 @@ def build_action_request(
     return add_correlation_to_frame(frame, correlation or {})
 
 
-def required_device_capability_for_action(action_capability: str) -> str:
-    if action_capability is None:
+def required_device_capability_for_action(action_capability: object) -> str:
+    if not isinstance(action_capability, str):
         return ""
-    if action_capability.startswith("runtime."):
+    if action_capability in RUNTIME_CONTROL_ACTION_CAPABILITIES:
         return "runtime.control"
     return action_capability
 
 
 def build_notification_action(
     target_device_id: str,
-    message: str,
+    body: str,
     request_id: str,
     trace_recorder=None,
     correlation: dict | None = None,
@@ -84,7 +112,7 @@ def build_notification_action(
         target_device_id,
         {
             "capability": "notification.show",
-            "payload": {"message": message},
+            "payload": build_notification_payload(body),
         },
         request_id=request_id,
         trace_recorder=trace_recorder,
@@ -103,10 +131,10 @@ def build_planned_action(
     if action_capability is None:
         raise ValueError("cannot build action request for no_intervention proposal")
     if action_capability == "notification.show":
-        message = proposal["action_payload"].get("message")
+        payload = proposal["action_payload"]
         return build_notification_action(
             target_device_id,
-            message,
+            payload["body"],
             request_id=request_id,
             trace_recorder=trace_recorder,
             correlation=correlation,

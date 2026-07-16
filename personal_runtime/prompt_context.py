@@ -82,6 +82,11 @@ def build_behavior_contract(
         "action_governance": {
             "governed_action_route": "presence_then_execution_planning",
             "provider_native_tool_calls": "normalize_to_runtime_action_intent",
+            "notification_show_payload": {
+                "required": ["body"],
+                "optional": ["title"],
+                "title_owner": "openhalo_or_target_edge",
+            },
             "agent_private_tool_requirements": [
                 "non_user_visible",
                 "non_side_effectful",

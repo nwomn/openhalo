@@ -414,9 +414,10 @@ class RuntimeOrchestrator:
             intent.executor_kind == ActionExecutorKind.DEVICE_EDGE
             and intent.capability == "notification.show"
             and isinstance(payload, dict)
-            and set(payload) == {"message"}
-            and isinstance(payload.get("message"), str)
-            and bool(payload["message"].strip())
+            and set(payload) == {"title", "body"}
+            and isinstance(payload.get("title"), str)
+            and isinstance(payload.get("body"), str)
+            and bool(payload["body"].strip())
             and target_device_hint
             in {None, trusted_intent["source_device_id"]}
         )
@@ -558,7 +559,26 @@ class RuntimeOrchestrator:
             source_device_id=frame["device_id"],
             direct_action=direct_action,
             correlation=correlation,
+            runtime_state=self.gateway.state,
+            online_device_ids=self.gateway.online_device_ids,
         )
+        if execution_outcome["kind"] != "action":
+            return [
+                self.gateway._build_public_error(
+                    code="direct_action_rejected",
+                    message=(
+                        "Direct action does not satisfy the registered "
+                        "capability and payload contract."
+                    ),
+                    device_id=frame["device_id"],
+                    capability=(
+                        direct_action.get("capability")
+                        if isinstance(direct_action, dict)
+                        and isinstance(direct_action.get("capability"), str)
+                        else None
+                    ),
+                )
+            ]
         return [
             build_action_request(
                 execution_outcome["target_device_id"],

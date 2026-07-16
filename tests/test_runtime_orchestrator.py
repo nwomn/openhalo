@@ -127,7 +127,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                     source="hermes",
                     action_capability="notification.show",
                     required_capability="notification.show",
-                    action_payload={"message": "runtime local only"},
+                    action_payload={"title": "OpenHalo", "body": "runtime local only"},
                     message="runtime local only",
                     metadata={},
                 )
@@ -138,7 +138,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                         action_id="runtime-local-intent-1",
                         executor_kind=ActionExecutorKind.RUNTIME_LOCAL,
                         capability="notification.show",
-                        payload={"message": "runtime local only"},
+                        payload={"title": "OpenHalo", "body": "runtime local only"},
                         side_effect_class=ActionSideEffect.EXTERNAL,
                         visibility=ActionVisibility.USER_VISIBLE,
                         governance=ActionGovernance.RUNTIME_GOVERNED,
@@ -263,7 +263,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                     source="hermes",
                     action_capability="notification.show",
                     required_capability="notification.show",
-                    action_payload={"message": "Do not send"},
+                    action_payload={"title": "OpenHalo", "body": "Do not send"},
                     message="Do not send",
                     metadata={},
                 )
@@ -274,7 +274,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                         action_id="unsafe-intent-1",
                         executor_kind=ActionExecutorKind.RUNTIME_LOCAL,
                         capability="notification.show",
-                        payload={"message": "Do not send"},
+                        payload={"title": "OpenHalo", "body": "Do not send"},
                         side_effect_class=ActionSideEffect.NONE,
                         visibility=ActionVisibility.INTERNAL,
                         governance=ActionGovernance.AGENT_PRIVATE,
@@ -330,7 +330,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                     source="hermes",
                     action_capability="notification.show",
                     required_capability="notification.show",
-                    action_payload={"message": "Remote instruction"},
+                    action_payload={"title": "OpenHalo", "body": "Remote instruction"},
                     message="Remote instruction",
                     metadata={},
                 )
@@ -342,7 +342,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                         action_id="unbound-research-action-1",
                         executor_kind=ActionExecutorKind.DEVICE_EDGE,
                         capability="notification.show",
-                        payload={"message": "Remote instruction"},
+                        payload={"title": "OpenHalo", "body": "Remote instruction"},
                         side_effect_class=ActionSideEffect.EXTERNAL,
                         visibility=ActionVisibility.USER_VISIBLE,
                         governance=ActionGovernance.RUNTIME_GOVERNED,
@@ -417,7 +417,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                     source="hermes",
                     action_capability="notification.show",
                     required_capability="notification.show",
-                    action_payload={"message": "Research result"},
+                    action_payload={"title": "OpenHalo", "body": "Research result"},
                     message="Research result",
                     metadata={},
                 )
@@ -429,7 +429,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                         action_id="research-reply-action-1",
                         executor_kind=ActionExecutorKind.DEVICE_EDGE,
                         capability="notification.show",
-                        payload={"message": "Research result"},
+                        payload={"title": "OpenHalo", "body": "Research result"},
                         side_effect_class=ActionSideEffect.EXTERNAL,
                         visibility=ActionVisibility.USER_VISIBLE,
                         governance=ActionGovernance.RUNTIME_GOVERNED,
@@ -589,7 +589,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                     source="hermes",
                     action_capability="notification.show",
                     required_capability="notification.show",
-                    action_payload={"message": "Research result"},
+                    action_payload={"title": "OpenHalo", "body": "Research result"},
                     message="Research result",
                     metadata={},
                 )
@@ -601,7 +601,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                         action_id="incomplete-research-audit-action-1",
                         executor_kind=ActionExecutorKind.DEVICE_EDGE,
                         capability="notification.show",
-                        payload={"message": "Research result"},
+                        payload={"title": "OpenHalo", "body": "Research result"},
                         side_effect_class=ActionSideEffect.EXTERNAL,
                         visibility=ActionVisibility.USER_VISIBLE,
                         governance=ActionGovernance.RUNTIME_GOVERNED,
@@ -675,7 +675,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                     source="hermes",
                     action_capability="notification.show",
                     required_capability="notification.show",
-                    action_payload={"message": "Unbound result"},
+                    action_payload={"title": "OpenHalo", "body": "Unbound result"},
                     message="Unbound result",
                     metadata={},
                 )
@@ -727,7 +727,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                     source="custom_harness",
                     action_capability="notification.show",
                     required_capability="notification.show",
-                    action_payload={"message": "Unbound result"},
+                    action_payload={"title": "OpenHalo", "body": "Unbound result"},
                     message="Unbound result",
                     metadata={},
                 )
@@ -780,7 +780,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                         source="hermes",
                         action_capability="notification.show",
                         required_capability="notification.show",
-                        action_payload={"message": "first action"},
+                        action_payload={"title": "OpenHalo", "body": "first action"},
                         message="first action",
                         metadata={},
                     )
@@ -791,7 +791,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                             action_id="first-action",
                             executor_kind=ActionExecutorKind.DEVICE_EDGE,
                             capability="notification.show",
-                            payload={"message": "first action"},
+                            payload={"title": "OpenHalo", "body": "first action"},
                             side_effect_class=ActionSideEffect.EXTERNAL,
                             visibility=ActionVisibility.USER_VISIBLE,
                             governance=ActionGovernance.RUNTIME_GOVERNED,
@@ -804,7 +804,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                     source="hermes",
                     action_capability="notification.show",
                     required_capability="notification.show",
-                    action_payload={"message": "unbound reentry"},
+                    action_payload={"title": "OpenHalo", "body": "unbound reentry"},
                     message="unbound reentry",
                     metadata={},
                 )
@@ -960,7 +960,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                     source="harness",
                     action_capability="notification.show",
                     required_capability="notification.show",
-                    action_payload={"message": "Harness result"},
+                    action_payload={"title": "OpenHalo", "body": "Harness result"},
                     message="Harness result",
                     metadata={"provider": "harness-test"},
                 )
@@ -972,7 +972,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                         action_id="capturing-action-1",
                         executor_kind=ActionExecutorKind.DEVICE_EDGE,
                         capability="notification.show",
-                        payload={"message": "Harness result"},
+                        payload={"title": "OpenHalo", "body": "Harness result"},
                         side_effect_class=ActionSideEffect.EXTERNAL,
                         visibility=ActionVisibility.USER_VISIBLE,
                         governance=ActionGovernance.RUNTIME_GOVERNED,
@@ -1014,7 +1014,10 @@ class RuntimeOrchestratorTests(unittest.TestCase):
             action_request["interaction_turn_id"],
         )
         self.assertEqual(harness_input.correlation["trace_id"], frame["trace_id"])
-        self.assertEqual(action_request["action"]["payload"]["message"], "Harness result")
+        self.assertEqual(
+            action_request["action"]["payload"],
+            {"title": "OpenHalo", "body": "Harness result"},
+        )
         self.assertEqual(
             gateway.state.interventions[-1]["proposal"]["metadata"]["harness"]["runner"],
             "capturing",
@@ -1246,7 +1249,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                         source="harness",
                         action_capability="notification.show",
                         required_capability="notification.show",
-                        action_payload={"message": "Harness result"},
+                        action_payload={"title": "OpenHalo", "body": "Harness result"},
                         message="Harness result",
                         metadata={"provider": "harness-test"},
                     )
@@ -1254,7 +1257,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                         action_id="reentry-action-1",
                         executor_kind=ActionExecutorKind.DEVICE_EDGE,
                         capability="notification.show",
-                        payload={"message": "Harness result"},
+                        payload={"title": "OpenHalo", "body": "Harness result"},
                         side_effect_class=ActionSideEffect.EXTERNAL,
                         visibility=ActionVisibility.USER_VISIBLE,
                         governance=ActionGovernance.RUNTIME_GOVERNED,
@@ -1472,7 +1475,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                     source="hermes",
                     action_capability="notification.show",
                     required_capability="notification.show",
-                    action_payload={"message": "unbound observation action"},
+                    action_payload={"title": "OpenHalo", "body": "unbound observation action"},
                     message="unbound observation action",
                     metadata={},
                 )
@@ -1924,7 +1927,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                     source="observation_driven",
                     action_capability="notification.show",
                     required_capability="notification.show",
-                    action_payload={"message": "Runtime health changed."},
+                    action_payload={"title": "OpenHalo", "body": "Runtime health changed."},
                     message="Runtime health changed.",
                     metadata={"reason_code": admission["reason_code"]},
                     target_device_hint=None,
@@ -2024,7 +2027,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                     source="observation_driven",
                     action_capability="notification.show",
                     required_capability="notification.show",
-                    action_payload={"message": "Runtime health needs attention."},
+                    action_payload={"title": "OpenHalo", "body": "Runtime health needs attention."},
                     message="Runtime health needs attention.",
                     metadata={"reason_code": admission["reason_code"]},
                     target_device_hint="terminal-edge-1",
@@ -2212,7 +2215,10 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                     "result": {
                         "status": "ok",
                         "capability": "notification.show",
-                        "details": {"message": "missing runtime turn"},
+                        "details": {
+                            "title": "OpenHalo",
+                            "body": "missing runtime turn",
+                        },
                     },
                 }
             ]
@@ -2242,7 +2248,10 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                 "result": {
                     "status": "ok",
                     "capability": capability,
-                    "details": {"message": action["action"]["payload"]["message"]},
+                    "details": {
+                        "title": action["action"]["payload"]["title"],
+                        "body": action["action"]["payload"]["body"],
+                    },
                 },
             }
 
@@ -2948,7 +2957,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                         "trace_id": "trace-terminal-edge-1-1",
                         "action": {
                             "capability": "notification.show",
-                            "payload": {"message": "hello"},
+                            "payload": {"title": "OpenHalo", "body": "hello"},
                         },
                     }
                 ],
@@ -3009,7 +3018,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                     source="post_action",
                     action_capability="notification.show",
                     required_capability="notification.show",
-                    action_payload={"message": "Phone is offline."},
+                    action_payload={"title": "OpenHalo", "body": "Phone is offline."},
                     message="Phone is offline.",
                     metadata={
                         "trigger": "action_result",
@@ -3095,7 +3104,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                         "trace_id": "trace-terminal-edge-1-1",
                         "action": {
                             "capability": "notification.show",
-                            "payload": {"message": "hello"},
+                            "payload": {"title": "OpenHalo", "body": "hello"},
                         },
                     }
                 ],
@@ -3112,8 +3121,8 @@ class RuntimeOrchestratorTests(unittest.TestCase):
         self.assertEqual(sent_frames[-1]["type"], "action_request")
         self.assertEqual(sent_frames[-1]["device_id"], "terminal-edge-1")
         self.assertEqual(
-            sent_frames[-1]["action"]["payload"]["message"],
-            "Phone is offline.",
+            sent_frames[-1]["action"]["payload"],
+            {"title": "OpenHalo", "body": "Phone is offline."},
         )
 
     def test_gateway_dispatch_diagnostics_include_error_details(self) -> None:

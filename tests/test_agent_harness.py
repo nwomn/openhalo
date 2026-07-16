@@ -39,7 +39,7 @@ class AgentHarnessContractTests(unittest.TestCase):
             source="agent",
             action_capability="notification.show",
             required_capability="notification.show",
-            action_payload={"message": "Runtime is healthy"},
+            action_payload={"title": "OpenHalo", "body": "Runtime is healthy"},
             message="Runtime is healthy",
             metadata={"provider": "deterministic"},
         )
@@ -62,7 +62,7 @@ class AgentHarnessContractTests(unittest.TestCase):
             source="agent",
             action_capability="notification.show",
             required_capability="notification.show",
-            action_payload={"message": "Runtime is healthy"},
+            action_payload={"title": "OpenHalo", "body": "Runtime is healthy"},
             message="Runtime is healthy",
             metadata={"provider": "deterministic"},
         )
@@ -250,7 +250,7 @@ class AgentHarnessContractTests(unittest.TestCase):
             source="agent",
             action_capability="notification.show",
             required_capability="notification.show",
-            action_payload={"message": "Runtime needs attention"},
+            action_payload={"title": "OpenHalo", "body": "Runtime needs attention"},
             message="Runtime needs attention",
             metadata={},
         )

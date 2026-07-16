@@ -45,7 +45,10 @@ class RuntimeMemoryTests(unittest.TestCase):
             {
                 "status": "ok",
                 "capability": "notification.show",
-                "details": {"message": "Runtime heard: hello runtime"},
+                "details": {
+                    "title": "OpenHalo",
+                    "body": "Runtime heard: hello runtime",
+                },
             }
         )
 
@@ -141,7 +144,10 @@ class RuntimeMemoryTests(unittest.TestCase):
                 {
                     "status": "ok",
                     "capability": "notification.show",
-                    "details": {"message": f"reply {index}"},
+                    "details": {
+                        "title": "OpenHalo",
+                        "body": f"reply {index}",
+                    },
                 }
             )
 

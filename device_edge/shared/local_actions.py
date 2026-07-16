@@ -15,12 +15,16 @@ def execute_action(
             "reason": "unsupported",
         }
 
-    print(f"{message_prefix}{action['payload']['message']}", file=output_stream)
+    payload = action["payload"]
+    title = payload.get("title") or "OpenHalo"
+    body = payload["body"]
+    print(f"{message_prefix}{body}", file=output_stream)
     return {
         "status": "ok",
         "capability": capability,
         "details": {
             "delivered_via": delivered_via,
-            "message": action["payload"]["message"],
+            "title": title,
+            "body": body,
         },
     }

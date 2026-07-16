@@ -10,6 +10,7 @@ TOKEN="${TERMINAL_EDGE_VERIFY_TOKEN:-dev-token}"
 DEVICE_ID="${TERMINAL_EDGE_VERIFY_DEVICE_ID:-terminal-edge-1}"
 SOURCE_DEVICE_ID="${TERMINAL_EDGE_VERIFY_SOURCE_DEVICE_ID:-desktop-dev-verify}"
 STATE_PATH="${TERMINAL_EDGE_VERIFY_STATE_PATH:-$ROOT_DIR/.runtime/terminal-edge-verify-state.json}"
+RUNTIME_CONFIG_PATH="${TERMINAL_EDGE_VERIFY_RUNTIME_CONFIG_PATH:-$ROOT_DIR/tests/fixtures/llm-config-test.toml}"
 SCRIPTED_TEXT="${TERMINAL_EDGE_VERIFY_SCRIPTED_TEXT:-hello runtime}"
 SCRIPTED_OBSERVED_AT="${TERMINAL_EDGE_VERIFY_SCRIPTED_OBSERVED_AT:-2026-06-22T10:00:00Z}"
 STARTUP_OBSERVED_AT="${TERMINAL_EDGE_VERIFY_STARTUP_OBSERVED_AT:-2026-06-22T09:59:00Z}"
@@ -43,6 +44,7 @@ RUNTIME_CMD=(
   --port "$PORT"
   --token "$TOKEN"
   --state-path "$STATE_PATH"
+  --runtime-config-path "$RUNTIME_CONFIG_PATH"
 )
 TERMINAL_DAEMON_CMD=(
   "$PYTHON_BIN" -u -m device_edge.cli.terminal_daemon
@@ -102,7 +104,10 @@ async def main() -> None:
                         "observed_at": "${PUSH_OBSERVED_AT}",
                         "agent_initiative": {
                             "action_capability": "notification.show",
-                            "action_payload": {"message": "runtime push active"},
+                            "action_payload": {
+                                "title": "OpenHalo",
+                                "body": "runtime push active",
+                            },
                             "reason": "terminal_push_active",
                             "target_device_hint": "${DEVICE_ID}",
                         },
@@ -161,7 +166,10 @@ async def main() -> None:
                         "observed_at": "${PUSH_IDLE_OBSERVED_AT}",
                         "agent_initiative": {
                             "action_capability": "notification.show",
-                            "action_payload": {"message": "runtime push idle"},
+                            "action_payload": {
+                                "title": "OpenHalo",
+                                "body": "runtime push idle",
+                            },
                             "reason": "terminal_push_idle",
                             "target_device_hint": "${DEVICE_ID}",
                         },
@@ -190,6 +198,14 @@ delivered = [
     for item in action_results
     if item.get("details", {}).get("delivered_via") == "terminal.stdout"
 ]
+canonical_deliveries = [
+    item
+    for item in delivered
+    if item.get("capability") == "notification.show"
+    and item.get("details", {}).get("title") == "OpenHalo"
+    and isinstance(item.get("details", {}).get("body"), str)
+    and item["details"]["body"].strip()
+]
 interventions = payload.get("interventions", [])
 allowed_push = [
     item
@@ -211,6 +227,8 @@ terminal_observations = [
 ]
 if not delivered:
     raise SystemExit("expected delivered terminal action results")
+if not canonical_deliveries:
+    raise SystemExit("expected canonical OpenHalo terminal notification details")
 if not allowed_push:
     raise SystemExit("expected allowed active terminal push")
 if not suppressed_push:
@@ -218,6 +236,7 @@ if not suppressed_push:
 if not terminal_observations:
     raise SystemExit("expected terminal activity observations")
 print("terminal_deliveries", len(delivered))
+print("canonical_terminal_deliveries", len(canonical_deliveries))
 print("allowed_pushes", len(allowed_push))
 print("suppressed_pushes", len(suppressed_push))
 print("terminal_activity_observations", len(terminal_observations))

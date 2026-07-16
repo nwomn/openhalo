@@ -103,7 +103,7 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
         self.assertTrue(daemon.quit_requested)
         self.assertIn("Shutting down terminal session", stdout.getvalue())
 
-    def test_render_runtime_action_uses_readable_terminal_prefix(self) -> None:
+    def test_render_runtime_notification_body_uses_readable_terminal_prefix(self) -> None:
         stdout = io.StringIO()
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
@@ -117,13 +117,24 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
                 "device_id": "terminal-edge-1",
                 "action": {
                     "capability": "notification.show",
-                    "payload": {"message": "runtime push"},
+                    "payload": {
+                        "title": "OpenHalo",
+                        "body": "runtime push",
+                    },
                 },
             }
         )
 
         self.assertEqual(result["result"]["status"], "ok")
         self.assertIn("[runtime] runtime push", stdout.getvalue())
+        self.assertEqual(
+            result["result"]["details"],
+            {
+                "delivered_via": "terminal.stdout",
+                "title": "OpenHalo",
+                "body": "runtime push",
+            },
+        )
         self.assertEqual(daemon.runtime_message_count, 1)
         self.assertFalse(daemon.pending_runtime_reply)
 
@@ -148,7 +159,7 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
                 "device_id": "terminal-edge-1",
                 "action": {
                     "capability": "notification.show",
-                    "payload": {"message": "runtime push"},
+                    "payload": {"title": "OpenHalo", "body": "runtime push"},
                 },
             }
         )
@@ -733,7 +744,10 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                         "device_id": "terminal-edge-1",
                         "action": {
                             "capability": "notification.show",
-                            "payload": {"message": "Runtime heard: hello runtime"},
+                            "payload": {
+                                "title": "OpenHalo",
+                                "body": "Runtime heard: hello runtime",
+                            },
                         },
                     }
                 )
@@ -964,7 +978,8 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                             "action": {
                                 "capability": "notification.show",
                                 "payload": {
-                                    "message": f"Runtime heard: {frame['payload']['text']}"
+                                    "title": "OpenHalo",
+                                    "body": f"Runtime heard: {frame['payload']['text']}",
                                 },
                             },
                         }
@@ -986,7 +1001,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(results), 2)
         self.assertEqual(
-            [result["result"]["details"]["message"] for result in results],
+            [result["result"]["details"]["body"] for result in results],
             ["Runtime heard: hello?", "Runtime heard: status?"],
         )
         text_frames = [
@@ -1034,7 +1049,8 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                             "action": {
                                 "capability": "notification.show",
                                 "payload": {
-                                    "message": "Runtime heard: hello runtime"
+                                    "title": "OpenHalo",
+                                    "body": "Runtime heard: hello runtime",
                                 },
                             },
                         }
@@ -1056,7 +1072,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(results), 1)
         self.assertEqual(
-            results[0]["result"]["details"]["message"],
+            results[0]["result"]["details"]["body"],
             "Runtime heard: hello runtime",
         )
 
@@ -1099,14 +1115,15 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                             "action": {
                                 "capability": "notification.show",
                                 "payload": {
-                                    "message": "Runtime heard: hello runtime"
+                                    "title": "OpenHalo",
+                                    "body": "Runtime heard: hello runtime",
                                 },
                             },
                         }
                     )
                 if (
                     frame.get("type") == "action_result"
-                    and frame["result"]["details"]["message"]
+                    and frame["result"]["details"]["body"]
                     == "Runtime heard: hello runtime"
                     and not injected_runtime_push
                 ):
@@ -1117,7 +1134,10 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                             "device_id": "terminal-edge-1",
                             "action": {
                                 "capability": "notification.show",
-                                "payload": {"message": "runtime push active"},
+                                "payload": {
+                                    "title": "OpenHalo",
+                                    "body": "runtime push active",
+                                },
                             },
                         }
                     )
@@ -1137,7 +1157,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(
-            [result["result"]["details"]["message"] for result in results],
+            [result["result"]["details"]["body"] for result in results],
             ["Runtime heard: hello runtime", "runtime push active"],
         )
 
@@ -1176,14 +1196,15 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                             "action": {
                                 "capability": "notification.show",
                                 "payload": {
-                                    "message": "Runtime heard: hello runtime"
+                                    "title": "OpenHalo",
+                                    "body": "Runtime heard: hello runtime",
                                 },
                             },
                         }
                     )
                 if (
                     frame.get("type") == "action_result"
-                    and frame["result"]["details"]["message"]
+                    and frame["result"]["details"]["body"]
                     == "Runtime heard: hello runtime"
                 ):
                     first_reply_delivered.set()
@@ -1201,7 +1222,10 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                     "device_id": "terminal-edge-1",
                     "action": {
                         "capability": "notification.show",
-                        "payload": {"message": "runtime push active"},
+                        "payload": {
+                            "title": "OpenHalo",
+                            "body": "runtime push active",
+                        },
                     },
                 }
             )
@@ -1226,7 +1250,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                 await injector_task
 
         self.assertEqual(
-            [result["result"]["details"]["message"] for result in results],
+            [result["result"]["details"]["body"] for result in results],
             ["Runtime heard: hello runtime", "runtime push active"],
         )
 
@@ -1249,7 +1273,10 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                     "device_id": "terminal-edge-1",
                     "action": {
                         "capability": "notification.show",
-                        "payload": {"message": "Runtime heard: hello runtime"},
+                        "payload": {
+                            "title": "OpenHalo",
+                            "body": "Runtime heard: hello runtime",
+                        },
                     },
                 },
             ]
@@ -1298,7 +1325,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                     "device_id": "terminal-edge-1",
                     "action": {
                         "capability": "notification.show",
-                        "payload": {"message": "runtime push"},
+                        "payload": {"title": "OpenHalo", "body": "runtime push"},
                     },
                 },
             ]
@@ -1474,7 +1501,10 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                             "device_id": "terminal-edge-1",
                             "action": {
                                 "capability": "notification.show",
-                                "payload": {"message": "runtime push"},
+                                "payload": {
+                                    "title": "OpenHalo",
+                                    "body": "runtime push",
+                                },
                             },
                         }
                     )

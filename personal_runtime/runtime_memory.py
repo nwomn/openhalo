@@ -141,7 +141,7 @@ def _collect_recent_action_results(state) -> list[dict]:
             {
                 "status": action_result.get("status", ""),
                 "capability": action_result.get("capability", ""),
-                "message": details.get("message") if isinstance(details, dict) else None,
+                "body": details.get("body") if isinstance(details, dict) else None,
             }
         )
     return results

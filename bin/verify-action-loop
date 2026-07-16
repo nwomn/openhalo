@@ -217,7 +217,8 @@ async def main() -> None:
                     "observed_at": "2026-06-21T10:12:00Z",
                     "details": {
                         "delivered_via": "terminal.stdout",
-                        "message": follow_up_reply["action"]["payload"]["message"],
+                        "title": follow_up_reply["action"]["payload"]["title"],
+                        "body": follow_up_reply["action"]["payload"]["body"],
                     },
                 },
             }
@@ -333,7 +334,7 @@ async def main() -> None:
     if require_model_backed:
         print("model-backed-post-action ok")
         print("model", first_post_action_metadata.get("llm_model"))
-        print("post-action-reply", follow_up_reply["action"]["payload"]["message"])
+        print("post-action-reply", follow_up_reply["action"]["payload"]["body"])
 
 
 asyncio.run(main())
