@@ -5,6 +5,100 @@ from personal_runtime.runtime_state import RuntimeState
 
 
 class RuntimeMemoryTests(unittest.TestCase):
+    def test_build_model_grounding_bundle_projects_online_action_device_roster(self) -> None:
+        state = RuntimeState()
+        state.register_device(
+            "android-edge-1",
+            "android-phone",
+            role="interactive_surface",
+        )
+        state.register_capability(
+            "android-edge-1",
+            {
+                "name": "notification.show",
+                "direction": "runtime_to_edge",
+                "kind": "action",
+                "affordances": ["notify_user", "deliver_private_text"],
+                "modality": "visual_text",
+                "privacy": "personal",
+                "content_capacity": "short_text",
+                "interruptiveness": "medium",
+            },
+        )
+        state.register_capability(
+            "android-edge-1",
+            {
+                "name": "mobile.context",
+                "direction": "edge_to_runtime",
+                "kind": "observation_provider",
+            },
+        )
+        state.register_device("terminal-edge-1", "desktop-cli")
+        state.register_capability(
+            "terminal-edge-1",
+            {
+                "name": "notification.show",
+                "direction": "runtime_to_edge",
+                "kind": "action",
+                "affordances": ["notify_user"],
+                "modality": "visual_text",
+                "privacy": "personal",
+                "content_capacity": "short_text",
+                "interruptiveness": "medium",
+            },
+        )
+
+        grounding = build_model_grounding_bundle(
+            state=state,
+            snapshot={},
+            online_device_ids={"android-edge-1", "terminal-edge-1"},
+            request_source_device_id="terminal-edge-1",
+        )
+
+        self.assertEqual(
+            grounding["device_roster"],
+            {
+                "request_source_device_id": "terminal-edge-1",
+                "devices": [
+                    {
+                        "device_id": "android-edge-1",
+                        "device_type": "android-phone",
+                        "role": "interactive_surface",
+                        "online": True,
+                        "action_capabilities": [
+                            {
+                                "name": "notification.show",
+                                "affordances": [
+                                    "deliver_private_text",
+                                    "notify_user",
+                                ],
+                                "modality": "visual_text",
+                                "privacy": "personal",
+                                "content_capacity": "short_text",
+                                "interruptiveness": "medium",
+                            }
+                        ],
+                    },
+                    {
+                        "device_id": "terminal-edge-1",
+                        "device_type": "desktop-cli",
+                        "role": None,
+                        "online": True,
+                        "action_capabilities": [
+                            {
+                                "name": "notification.show",
+                                "affordances": ["notify_user"],
+                                "modality": "visual_text",
+                                "privacy": "personal",
+                                "content_capacity": "short_text",
+                                "interruptiveness": "medium",
+                            }
+                        ],
+                    },
+                ],
+            },
+        )
+
     def test_build_model_grounding_bundle_includes_snapshot_goals_and_recent_runtime_memory(
         self,
     ) -> None:
@@ -45,7 +139,10 @@ class RuntimeMemoryTests(unittest.TestCase):
             {
                 "status": "ok",
                 "capability": "notification.show",
-                "details": {"message": "Runtime heard: hello runtime"},
+                "details": {
+                    "title": "OpenHalo",
+                    "body": "Runtime heard: hello runtime",
+                },
             }
         )
 
@@ -141,7 +238,10 @@ class RuntimeMemoryTests(unittest.TestCase):
                 {
                     "status": "ok",
                     "capability": "notification.show",
-                    "details": {"message": f"reply {index}"},
+                    "details": {
+                        "title": "OpenHalo",
+                        "body": f"reply {index}",
+                    },
                 }
             )
 

@@ -46,6 +46,9 @@ class InteractionRecord:
     participant_device_ids: list[str]
     source_device_id: str | None
     status: str
+    initiator_kind: str = "legacy"
+    requesting_device_id: str | None = None
+    outcome_delivery_required: bool = False
     turns: list[InteractionTurn] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -56,6 +59,9 @@ class InteractionRecord:
             "trigger": dict(self.trigger),
             "participant_device_ids": list(self.participant_device_ids),
             "source_device_id": self.source_device_id,
+            "initiator_kind": self.initiator_kind,
+            "requesting_device_id": self.requesting_device_id,
+            "outcome_delivery_required": self.outcome_delivery_required,
             "status": self.status,
             "turns": [turn.to_dict() for turn in self.turns],
         }
@@ -72,6 +78,11 @@ class InteractionRecord:
             trigger=dict(payload.get("trigger", {})),
             participant_device_ids=list(payload.get("participant_device_ids", [])),
             source_device_id=payload.get("source_device_id"),
+            initiator_kind=payload.get("initiator_kind", "legacy"),
+            requesting_device_id=payload.get("requesting_device_id"),
+            outcome_delivery_required=bool(
+                payload.get("outcome_delivery_required", False)
+            ),
             status=payload.get("status", "planned"),
             turns=[
                 InteractionTurn.from_dict(turn)
@@ -109,6 +120,9 @@ class InteractionPool:
         trigger: dict,
         participant_device_ids: list[str],
         source_device_id: str | None = None,
+        initiator_kind: str = "legacy",
+        requesting_device_id: str | None = None,
+        outcome_delivery_required: bool = False,
     ) -> InteractionRegistration:
         scope_key = causal_scope.get("key")
         if not isinstance(scope_key, str) or not scope_key:
@@ -125,6 +139,9 @@ class InteractionPool:
             trigger=dict(trigger),
             participant_device_ids=participants,
             source_device_id=source_device_id or (participants[0] if participants else None),
+            initiator_kind=initiator_kind,
+            requesting_device_id=requesting_device_id,
+            outcome_delivery_required=outcome_delivery_required,
             status="planned",
         )
         self.state.interactions.append(record.to_dict())
@@ -254,3 +271,38 @@ class InteractionPool:
             if payload.get("interaction_id") == interaction_id:
                 return payload
         return None
+
+
+def build_action_result_outcome_contract(
+    interaction: dict | InteractionRecord | None,
+    action_result: dict | None,
+) -> dict:
+    """Describe whether a settled action still owes its requester an outcome."""
+    lineage = (
+        interaction.to_dict()
+        if isinstance(interaction, InteractionRecord)
+        else dict(interaction or {})
+    )
+    result = dict(action_result or {})
+    requesting_device_id = lineage.get("requesting_device_id")
+    target_device_id = (lineage.get("primary_action") or {}).get(
+        "target_device_id"
+    )
+    result_device_id = result.get("device_id")
+    outcome_delivery_required = bool(lineage.get("outcome_delivery_required"))
+    source_outcome_required = bool(
+        lineage.get("initiator_kind") == "explicit_user_intent"
+        and outcome_delivery_required
+        and requesting_device_id
+        and (target_device_id or result_device_id)
+        and (target_device_id or result_device_id) != requesting_device_id
+    )
+    return {
+        "initiator_kind": lineage.get("initiator_kind", "legacy"),
+        "requesting_device_id": requesting_device_id,
+        "outcome_delivery_required": outcome_delivery_required,
+        "target_device_id": target_device_id,
+        "result_device_id": result_device_id,
+        "result_status": result.get("status"),
+        "source_outcome_required": source_outcome_required,
+    }

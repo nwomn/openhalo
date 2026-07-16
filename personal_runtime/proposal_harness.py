@@ -9,6 +9,7 @@ from pathlib import Path
 
 from personal_runtime.model_provider import generate_text_proposal_plan
 from personal_runtime.model_provider import ProposalPlan
+from personal_runtime.interaction_pool import build_action_result_outcome_contract
 
 
 SECRET_KEYS = {
@@ -123,23 +124,16 @@ def build_post_action_prompt_variant(case: dict, variant: str) -> str:
     if variant != "decision_brief":
         raise ValueError(f"unsupported prompt variant: {variant}")
 
+    outcome_contract = build_action_result_outcome_contract(interaction, action_result)
     source_device_id = interaction.get("source_device_id")
-    target_device_id = (interaction.get("primary_action") or {}).get(
-        "target_device_id"
-    )
-    result_status = action_result.get("status")
+    target_device_id = outcome_contract["target_device_id"]
+    result_status = outcome_contract["result_status"]
     provider_failure_observed = _contains_provider_error_text(
         {
             "interaction": interaction,
             "prior_proposal": prior_proposal,
             "action_result": action_result,
         }
-    )
-    source_ack_required = bool(
-        source_device_id
-        and target_device_id
-        and source_device_id != target_device_id
-        and result_status == "ok"
     )
     return "\n".join(
         [
@@ -148,19 +142,22 @@ def build_post_action_prompt_variant(case: dict, variant: str) -> str:
             "",
             "Obligations:",
             f"- source_device_id: {source_device_id or 'unknown'}",
+            f"- initiator_kind: {outcome_contract['initiator_kind']}",
+            f"- requesting_device_id: {outcome_contract['requesting_device_id'] or 'unknown'}",
+            f"- outcome_delivery_required: {str(outcome_contract['outcome_delivery_required']).lower()}",
             f"- target_device_id: {target_device_id or 'unknown'}",
             f"- target_action_status: {result_status or 'unknown'}",
-            f"- source_ack_required: {str(source_ack_required).lower()}",
+            f"- source_outcome_required: {str(outcome_contract['source_outcome_required']).lower()}",
             f"- provider_failure_observed: {str(provider_failure_observed).lower()}",
-            "- source_surface_satisfied: false"
-            if source_ack_required
-            else "- source_surface_satisfied: unknown",
+            "- requesting_surface_satisfied: false"
+            if outcome_contract["source_outcome_required"]
+            else "- requesting_surface_satisfied: unknown",
             "- target_surface_satisfied: true"
             if result_status == "ok"
             else "- target_surface_satisfied: false",
             "",
             "Rule:",
-            "If source_ack_required is true and source_surface_satisfied is false, do not choose no_intervention.",
+            "If source_outcome_required is true and requesting_surface_satisfied is false, do not choose no_intervention.",
             "If provider_failure_observed is true, do not copy raw provider failure text into response_text or action payload.",
             "Forbidden raw provider failure text includes: Real model reply unavailable, provider returned an incompatible response shape, codex_agent_envelope_empty_output.",
             "When a provider failure needs user visibility, use a short friendly failure explanation to the source surface instead of routing provider internals as normal notification content.",
@@ -301,6 +298,9 @@ def build_m17_6_terminal_phone_fixture_cases() -> list[dict]:
             interaction={
                 "interaction_id": "interaction-1",
                 "source_device_id": "terminal-edge-1",
+                "initiator_kind": "explicit_user_intent",
+                "requesting_device_id": "terminal-edge-1",
+                "outcome_delivery_required": True,
                 "participant_device_ids": ["terminal-edge-1", "android-edge-1"],
                 "primary_action": {"target_device_id": "android-edge-1"},
             },
@@ -311,7 +311,7 @@ def build_m17_6_terminal_phone_fixture_cases() -> list[dict]:
             action_result={
                 "status": "ok",
                 "capability": "notification.show",
-                "details": {"message": "hello"},
+                "details": {"title": "OpenHalo", "body": "hello"},
             },
             expected={
                 "requires_source_ack": True,
@@ -332,12 +332,18 @@ def load_harness_cases_from_runtime_state(state: dict) -> list[dict]:
         interaction_id = intervention.get("interaction_id") or metadata.get(
             "interaction_id"
         )
+        outcome_contract = dict(metadata.get("outcome_delivery", {}))
         source_device_id = metadata.get("source_device_id")
         previous_target_device_id = metadata.get("previous_target_device_id")
         result_status = metadata.get("result_status")
         interaction = {
             "interaction_id": interaction_id,
             "source_device_id": source_device_id,
+            "initiator_kind": outcome_contract.get("initiator_kind", "legacy"),
+            "requesting_device_id": outcome_contract.get("requesting_device_id"),
+            "outcome_delivery_required": bool(
+                outcome_contract.get("outcome_delivery_required", False)
+            ),
             "participant_device_ids": list(
                 metadata.get("participant_device_ids", [])
             ),
@@ -384,10 +390,7 @@ def load_harness_cases_from_runtime_state(state: dict) -> list[dict]:
             },
         }
         requires_source_ack = bool(
-            source_device_id
-            and previous_target_device_id
-            and source_device_id != previous_target_device_id
-            and result_status == "ok"
+            outcome_contract.get("source_outcome_required", False)
         )
         case = build_proposal_harness_case(
             case_id=f"runtime-state:{interaction_id}:{index}",
@@ -429,7 +432,10 @@ def run_fixture_prompt_variant_comparison() -> dict:
             proposal_type="action",
             response_text="Delivered hello to your phone.",
             action_capability="notification.show",
-            action_payload={"message": "Delivered hello to your phone."},
+            action_payload={
+                "title": "OpenHalo",
+                "body": "Delivered hello to your phone.",
+            },
             metadata={
                 "prompt_variant": "decision_brief",
                 "prompt_length": len(prompt),

@@ -202,9 +202,10 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                             "side_effect": "user_visible",
                             "input_schema": {
                                 "type": "object",
-                                "required": ["message"],
+                                "required": ["body"],
                                 "properties": {
-                                    "message": {"type": "string"},
+                                    "title": {"type": "string"},
+                                    "body": {"type": "string"},
                                 },
                             },
                         },
@@ -740,9 +741,8 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                         "capability": "notification.show",
                         "observed_at": "2026-06-29T10:00:02Z",
                         "details": {
-                            "message": action_request["action"]["payload"][
-                                "message"
-                            ],
+                            "title": action_request["action"]["payload"]["title"],
+                            "body": action_request["action"]["payload"]["body"],
                         },
                     },
                 }
@@ -1094,7 +1094,10 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                         "text": "urgent ping",
                         "direct_action": {
                             "capability": "notification.show",
-                            "payload": {"message": "urgent ping"},
+                            "payload": {
+                                "title": "OpenHalo",
+                                "body": "urgent ping",
+                            },
                         },
                     },
                 },
@@ -1107,11 +1110,216 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(replies[-2]["type"], "event_ack")
         self.assertIsNotNone(action_request)
-        self.assertEqual(action_request["action"]["payload"]["message"], "urgent ping")
         self.assertEqual(
-            persisted["events"][-1]["payload"]["direct_action"]["payload"]["message"],
-            "urgent ping",
+            action_request["action"]["payload"],
+            {"title": "OpenHalo", "body": "urgent ping"},
         )
+        self.assertEqual(
+            persisted["events"][-1]["payload"]["direct_action"]["payload"],
+            {"title": "OpenHalo", "body": "urgent ping"},
+        )
+
+    async def test_direct_notification_action_normalizes_title_before_dispatch(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        client = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {
+                        "text": "urgent ping",
+                        "direct_action": {
+                            "capability": "notification.show",
+                            "payload": {
+                                "title": "Hermes",
+                                "body": "urgent ping",
+                            },
+                        },
+                    },
+                },
+            ]
+        )
+
+        action_request = _last_action_request(replies)
+
+        self.assertIsNotNone(action_request)
+        self.assertEqual(
+            action_request["action"]["payload"],
+            {"title": "OpenHalo", "body": "urgent ping"},
+        )
+
+    async def test_direct_notification_action_rejects_legacy_and_blank_payloads(
+        self,
+    ) -> None:
+        for payload in (
+            {"message": "urgent ping"},
+            {"title": "OpenHalo", "body": "   "},
+        ):
+            with self.subTest(payload=payload):
+                gateway = RuntimeGateway(
+                    shared_token="dev-token",
+                    persist_state=False,
+                    llm_config_path=TEST_LLM_CONFIG,
+                )
+                client = SessionClient(
+                    device_id="desktop-dev-1",
+                    device_type="desktop-cli",
+                    token="dev-token",
+                )
+
+                replies = await gateway.handle_test_frames(
+                    [
+                        client.build_connect_frame(),
+                        client.build_capability_announce_frame(),
+                        {
+                            "type": "event_push",
+                            "device_id": "desktop-dev-1",
+                            "capability": "text.input",
+                            "payload": {
+                                "text": "urgent ping",
+                                "direct_action": {
+                                    "capability": "notification.show",
+                                    "payload": payload,
+                                },
+                            },
+                        },
+                    ]
+                )
+
+                self.assertIsNone(_last_action_request(replies))
+                self.assertEqual(_last_error(replies)["code"], "direct_action_rejected")
+
+    async def test_direct_action_rejects_unknown_capability(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        client = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {
+                        "text": "urgent ping",
+                        "direct_action": {
+                            "capability": "unknown.action",
+                            "payload": {
+                                "title": "OpenHalo",
+                                "body": "urgent ping",
+                            },
+                        },
+                    },
+                },
+            ]
+        )
+
+        self.assertIsNone(_last_action_request(replies))
+        self.assertEqual(_last_error(replies)["code"], "direct_action_rejected")
+
+    async def test_direct_action_rejects_non_object_input(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        client = SessionClient(
+            device_id="desktop-dev-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                client.build_connect_frame(),
+                client.build_capability_announce_frame(),
+                {
+                    "type": "event_push",
+                    "device_id": "desktop-dev-1",
+                    "capability": "text.input",
+                    "payload": {
+                        "text": "urgent ping",
+                        "direct_action": "not-an-object",
+                    },
+                },
+            ]
+        )
+
+        self.assertIsNone(_last_action_request(replies))
+        self.assertEqual(_last_error(replies)["code"], "direct_action_rejected")
+
+    async def test_direct_action_rejects_invalid_capability_variants(self) -> None:
+        for direct_action in (
+            {"capability": {"name": "notification.show"}, "payload": {}},
+            {"capability": "runtime.evil", "payload": {}},
+        ):
+            with self.subTest(direct_action=direct_action):
+                gateway = RuntimeGateway(
+                    shared_token="dev-token",
+                    persist_state=False,
+                    llm_config_path=TEST_LLM_CONFIG,
+                )
+                client = SessionClient(
+                    device_id="desktop-dev-1",
+                    device_type="desktop-cli",
+                    token="dev-token",
+                )
+                host = SessionClient(
+                    device_id="host-edge-1",
+                    device_type="server",
+                    token="dev-token",
+                    capabilities=["runtime.control"],
+                )
+                direct_action = dict(direct_action)
+                direct_action["target_device_id"] = "host-edge-1"
+
+                replies = await gateway.handle_test_frames(
+                    [
+                        client.build_connect_frame(),
+                        client.build_capability_announce_frame(),
+                        host.build_connect_frame(),
+                        host.build_capability_announce_frame(),
+                        {
+                            "type": "event_push",
+                            "device_id": "desktop-dev-1",
+                            "capability": "text.input",
+                            "payload": {
+                                "text": "urgent ping",
+                                "direct_action": direct_action,
+                            },
+                        },
+                    ]
+                )
+
+                self.assertIsNone(_last_action_request(replies))
+                error = _last_error(replies)
+                self.assertEqual(error["code"], "direct_action_rejected")
+                if not isinstance(direct_action["capability"], str):
+                    self.assertNotIn("capability", error)
 
     async def test_normal_path_can_target_other_registered_device(self) -> None:
         gateway = RuntimeGateway(
@@ -1254,7 +1462,8 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                         "capability": action_request["action"]["capability"],
                         "details": {
                             "delivered_via": "terminal.stdout",
-                            "message": "Hello! Runtime here.",
+                            "title": "OpenHalo",
+                            "body": "Hello! Runtime here.",
                         },
                     },
                 },
@@ -1322,8 +1531,11 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         follow_up = _last_action_request(replies)
         self.assertIsNotNone(follow_up)
         self.assertEqual(
-            follow_up["action"]["payload"]["message"],
-            "Runtime status: running (pid 42137).",
+            follow_up["action"]["payload"],
+            {
+                "title": "OpenHalo",
+                "body": "Runtime status: running (pid 42137).",
+            },
         )
 
         replies = await gateway.handle_test_frames(
@@ -1339,7 +1551,8 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                         "capability": "notification.show",
                         "details": {
                             "delivered_via": "terminal.stdout",
-                            "message": "Runtime status: running (pid 42137).",
+                            "title": "OpenHalo",
+                            "body": "Runtime status: running (pid 42137).",
                         },
                     },
                 }
@@ -1418,8 +1631,11 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(follow_up["device_id"], "desktop-dev-1")
         self.assertEqual(follow_up["action"]["capability"], "notification.show")
         self.assertEqual(
-            follow_up["action"]["payload"]["message"],
-            "Runtime status: running (pid 42137).",
+            follow_up["action"]["payload"],
+            {
+                "title": "OpenHalo",
+                "body": "Runtime status: running (pid 42137).",
+            },
         )
         self.assertEqual(gateway.state.interventions[-1]["decision"], "allow")
         self.assertEqual(
@@ -1689,7 +1905,8 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                         "observed_at": "2026-06-21T10:11:00Z",
                         "details": {
                             "delivered_via": "terminal.stdout",
-                            "message": "Hello! Runtime here.",
+                            "title": "OpenHalo",
+                            "body": "Hello! Runtime here.",
                         },
                     },
                 },
@@ -2237,7 +2454,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             "2026-06-21T10:10:00Z",
         )
 
-    async def test_agent_initiative_path_still_respects_presence_cooldown(self) -> None:
+    async def test_agent_initiative_path_is_not_suppressed_by_global_cooldown(self) -> None:
         state = RuntimeState()
         state.record_intervention(
             {
@@ -2294,14 +2511,12 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        interaction_update = _last_interaction_update(replies)
-        self.assertIsNotNone(interaction_update)
-        self.assertEqual(
-            len([reply for reply in replies if reply["type"] == "action_request"]),
-            0,
-        )
-        self.assertEqual(gateway.state.interventions[-1]["decision"], "suppress")
-        self.assertEqual(gateway.state.interventions[-1]["reason"], "cooldown_active")
+        action_request = _last_action_request(replies)
+        self.assertIsNotNone(action_request)
+        self.assertEqual(action_request["device_id"], "host-edge-1")
+        self.assertEqual(action_request["action"]["capability"], "runtime.status")
+        self.assertEqual(gateway.state.interventions[-1]["decision"], "allow")
+        self.assertEqual(gateway.state.interventions[-1]["reason"], "context_clear")
         self.assertEqual(
             gateway.state.interventions[-1]["proposal"]["source"],
             "agent_initiative",
@@ -2400,7 +2615,10 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                         "observed_at": "2026-06-22T10:10:00Z",
                         "agent_initiative": {
                             "action_capability": "notification.show",
-                            "action_payload": {"message": "runtime push"},
+                            "action_payload": {
+                                "title": "OpenHalo",
+                                "body": "runtime push",
+                            },
                             "reason": "manual_terminal_push",
                             "target_device_hint": "terminal-edge-1",
                         },
@@ -2410,7 +2628,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         )
 
         interaction_update = _last_interaction_update(replies)
-        self.assertIsNotNone(interaction_update)
+        self.assertIsNone(interaction_update)
         self.assertEqual(
             len([reply for reply in replies if reply["type"] == "action_request"]),
             0,
@@ -2421,7 +2639,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             "terminal_inactive",
         )
 
-    async def test_agent_initiative_notification_to_terminal_edge_is_allowed_when_terminal_is_active(
+    async def test_agent_initiative_notification_to_active_terminal_normalizes_title(
         self,
     ) -> None:
         gateway = RuntimeGateway(
@@ -2467,7 +2685,10 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                         "observed_at": "2026-06-22T10:10:00Z",
                         "agent_initiative": {
                             "action_capability": "notification.show",
-                            "action_payload": {"message": "runtime push"},
+                            "action_payload": {
+                                "title": "Hermes",
+                                "body": "runtime push",
+                            },
                             "reason": "manual_terminal_push",
                             "target_device_hint": "terminal-edge-1",
                         },
@@ -2481,6 +2702,10 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(action_request)
         self.assertEqual(action_request["device_id"], "terminal-edge-1")
         self.assertEqual(action_request["action"]["capability"], "notification.show")
+        self.assertEqual(
+            action_request["action"]["payload"],
+            {"title": "OpenHalo", "body": "runtime push"},
+        )
         self.assertEqual(gateway.state.interventions[-1]["decision"], "allow")
 
     async def test_agent_initiative_notification_to_offline_idle_terminal_is_suppressed_instead_of_falling_back(
@@ -2545,7 +2770,10 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                         "observed_at": "2026-06-22T10:13:00Z",
                         "agent_initiative": {
                             "action_capability": "notification.show",
-                            "action_payload": {"message": "runtime push idle"},
+                            "action_payload": {
+                                "title": "OpenHalo",
+                                "body": "runtime push idle",
+                            },
                             "reason": "terminal_push_idle",
                             "target_device_hint": "terminal-edge-1",
                         },
@@ -2555,7 +2783,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         )
 
         interaction_update = _last_interaction_update(replies)
-        self.assertIsNotNone(interaction_update)
+        self.assertIsNone(interaction_update)
         self.assertEqual(
             len([reply for reply in replies if reply["type"] == "action_request"]),
             0,
@@ -2566,7 +2794,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             "terminal_inactive",
         )
 
-    async def test_agent_initiative_notification_is_suppressed_during_cooldown(self) -> None:
+    async def test_agent_initiative_notification_is_not_suppressed_by_global_cooldown(self) -> None:
         state = RuntimeState()
         state.record_intervention(
             {
@@ -2620,7 +2848,10 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                         "observed_at": "2026-06-19T10:32:00Z",
                         "agent_initiative": {
                             "action_capability": "notification.show",
-                            "action_payload": {"message": "repeat too soon"},
+                            "action_payload": {
+                                "title": "OpenHalo",
+                                "body": "repeat too soon",
+                            },
                             "reason": "repeat_too_soon",
                             "target_device_hint": "desktop-dev-1",
                         },
@@ -2629,11 +2860,12 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        interaction_update = _last_interaction_update(replies)
-        self.assertIsNotNone(interaction_update)
-        self.assertEqual(len([reply for reply in replies if reply["type"] == "action_request"]), 0)
-        self.assertEqual(gateway.state.interventions[-1]["decision"], "suppress")
-        self.assertEqual(gateway.state.interventions[-1]["reason"], "cooldown_active")
+        action_request = _last_action_request(replies)
+        self.assertIsNotNone(action_request)
+        self.assertEqual(action_request["device_id"], "desktop-dev-1")
+        self.assertEqual(action_request["action"]["capability"], "notification.show")
+        self.assertEqual(gateway.state.interventions[-1]["decision"], "allow")
+        self.assertEqual(gateway.state.interventions[-1]["reason"], "context_clear")
 
     async def test_normal_path_allows_repeated_explicit_user_text_during_cooldown(self) -> None:
         state = RuntimeState()
@@ -2791,8 +3023,11 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                             "side_effect": "user_visible",
                             "input_schema": {
                                 "type": "object",
-                                "required": ["message"],
-                                "properties": {"message": {"type": "string"}},
+                                "required": ["body"],
+                                "properties": {
+                                    "title": {"type": "string"},
+                                    "body": {"type": "string"},
+                                },
                             },
                         },
                         {
@@ -2969,9 +3204,8 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                         "capability": "notification.show",
                         "observed_at": "2026-07-01T03:57:02Z",
                         "details": {
-                            "message": action_request["action"]["payload"][
-                                "message"
-                            ],
+                            "title": action_request["action"]["payload"]["title"],
+                            "body": action_request["action"]["payload"]["body"],
                         },
                     },
                 }
@@ -3015,7 +3249,10 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                     source="post_action",
                     action_capability="notification.show",
                     required_capability="notification.show",
-                    action_payload={"message": "Sent to your phone."},
+                    action_payload={
+                        "title": "OpenHalo",
+                        "body": "Sent to your phone.",
+                    },
                     message="Sent to your phone.",
                     metadata={
                         "trigger": "action_result",
@@ -3099,7 +3336,8 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                         "capability": "notification.show",
                         "observed_at": "2026-07-06T09:00:02Z",
                         "details": {
-                            "message": phone_action["action"]["payload"]["message"],
+                            "title": phone_action["action"]["payload"]["title"],
+                            "body": phone_action["action"]["payload"]["body"],
                             "delivered_via": "android.urgent_alert",
                         },
                     },
@@ -3112,8 +3350,8 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(source_ack["interaction_id"], phone_action["interaction_id"])
         self.assertEqual(source_ack["device_id"], "terminal-edge-1")
         self.assertEqual(source_ack["action"]["capability"], "notification.show")
-        self.assertNotIn("notification.show", source_ack["action"]["payload"]["message"])
-        self.assertNotIn("android-edge-1", source_ack["action"]["payload"]["message"])
+        self.assertNotIn("notification.show", source_ack["action"]["payload"]["body"])
+        self.assertNotIn("android-edge-1", source_ack["action"]["payload"]["body"])
         proposal = gateway.state.interventions[-1]["proposal"]
         self.assertEqual(proposal["source"], "post_action")
         self.assertEqual(proposal["metadata"]["post_action_semantics"], "source_ack")
@@ -3162,7 +3400,10 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                         source="post_action",
                         action_capability="notification.show",
                         required_capability="notification.show",
-                        action_payload={"message": "Sent to your phone."},
+                        action_payload={
+                            "title": "OpenHalo",
+                            "body": "Sent to your phone.",
+                        },
                         message="Sent to your phone.",
                         metadata={
                             "trigger": "action_result",
@@ -3259,7 +3500,8 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                         "capability": "notification.show",
                         "observed_at": "2026-07-06T09:00:02Z",
                         "details": {
-                            "message": phone_action["action"]["payload"]["message"],
+                            "title": phone_action["action"]["payload"]["title"],
+                            "body": phone_action["action"]["payload"]["body"],
                             "delivered_via": "android.urgent_alert",
                         },
                     },
@@ -3270,7 +3512,10 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(source_ack)
         self.assertNotEqual(source_ack["request_id"], phone_action["request_id"])
         self.assertEqual(source_ack["device_id"], "terminal-edge-1")
-        self.assertEqual(source_ack["action"]["payload"]["message"], "Sent to your phone.")
+        self.assertEqual(
+            source_ack["action"]["payload"],
+            {"title": "OpenHalo", "body": "Sent to your phone."},
+        )
 
         terminal_result_replies = await gateway.handle_test_frames(
             [
@@ -3286,7 +3531,8 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                         "capability": "notification.show",
                         "observed_at": "2026-07-06T09:00:03Z",
                         "details": {
-                            "message": source_ack["action"]["payload"]["message"],
+                            "title": source_ack["action"]["payload"]["title"],
+                            "body": source_ack["action"]["payload"]["body"],
                             "delivered_via": "terminal.stdout",
                         },
                     },
@@ -3338,7 +3584,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                         "status": "ok",
                         "capability": "notification.show",
                         "observed_at": "2026-07-06T09:00:02Z",
-                        "details": {"message": "hello"},
+                        "details": {"title": "OpenHalo", "body": "hello"},
                     },
                 },
             ]

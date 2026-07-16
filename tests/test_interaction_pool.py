@@ -10,6 +10,38 @@ from personal_runtime.runtime_state import RuntimeState
 
 
 class InteractionPoolTests(unittest.TestCase):
+    def test_register_preserves_explicit_user_requester_outcome_contract(self) -> None:
+        interaction = InteractionPool(RuntimeState()).register(
+            origin="user_event",
+            causal_scope={"key": "terminal-message:outcome-contract"},
+            trigger={"event_id": "event-outcome-contract"},
+            participant_device_ids=["terminal-1"],
+            source_device_id="terminal-1",
+            initiator_kind="explicit_user_intent",
+            requesting_device_id="terminal-1",
+            outcome_delivery_required=True,
+        ).interaction
+
+        self.assertEqual(interaction.initiator_kind, "explicit_user_intent")
+        self.assertEqual(interaction.requesting_device_id, "terminal-1")
+        self.assertTrue(interaction.outcome_delivery_required)
+
+    def test_register_keeps_passive_observation_without_requester_outcome_contract(self) -> None:
+        interaction = InteractionPool(RuntimeState()).register(
+            origin="observation_driven",
+            causal_scope={"key": "phone-observation:no-outcome-contract"},
+            trigger={"observation_id": "observation-no-outcome-contract"},
+            participant_device_ids=["android-1"],
+            source_device_id="android-1",
+            initiator_kind="passive_observation",
+            requesting_device_id=None,
+            outcome_delivery_required=False,
+        ).interaction
+
+        self.assertEqual(interaction.initiator_kind, "passive_observation")
+        self.assertIsNone(interaction.requesting_device_id)
+        self.assertFalse(interaction.outcome_delivery_required)
+
     def test_register_reports_exact_scope_deduplication(self) -> None:
         pool = InteractionPool(RuntimeState())
 

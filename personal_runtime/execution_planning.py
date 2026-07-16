@@ -3,6 +3,20 @@
 from __future__ import annotations
 
 from openhalo_common.diagnostics import DiagnosticBoundaryRecorder
+from personal_runtime.action_layer import build_notification_payload
+from personal_runtime.action_layer import required_device_capability_for_action
+from personal_runtime.action_layer import RUNTIME_CONTROL_ACTION_CAPABILITIES
+
+
+def _is_dispatchable_action_capability(action_capability: object) -> bool:
+    return (
+        isinstance(action_capability, str)
+        and bool(action_capability)
+        and (
+            not action_capability.startswith("runtime.")
+            or action_capability in RUNTIME_CONTROL_ACTION_CAPABILITIES
+        )
+    )
 
 
 class ExecutionPlanner:
@@ -62,16 +76,9 @@ class ExecutionPlanner:
         source_device_id: str,
         direct_action: dict,
         correlation: dict | None = None,
+        runtime_state=None,
+        online_device_ids: set[str] | None = None,
     ) -> dict:
-        outcome = {
-            "kind": "action",
-            "target_device_id": direct_action.get("target_device_id", source_device_id),
-            "action": {
-                "capability": direct_action["capability"],
-                "payload": direct_action["payload"],
-            },
-            "correlation": correlation or {},
-        }
         with self.diagnostics.boundary(
             module="Execution Planning",
             operation="plan_direct_action",
@@ -79,6 +86,84 @@ class ExecutionPlanner:
             input_payload={"direct_action": direct_action},
             summary="Planned direct action fast path.",
         ) as boundary:
+            if not isinstance(direct_action, dict):
+                outcome = _rejected_direct_action_outcome(
+                    "invalid_direct_action",
+                    correlation,
+                )
+                boundary.output(outcome)
+                return outcome
+            action_capability = direct_action.get("capability")
+            if not _is_dispatchable_action_capability(action_capability):
+                outcome = _rejected_direct_action_outcome(
+                    "invalid_action_capability",
+                    correlation,
+                )
+                boundary.output(outcome)
+                return outcome
+            try:
+                action_payload = _canonical_action_payload(
+                    action_capability,
+                    direct_action.get("payload"),
+                )
+            except ValueError:
+                outcome = {
+                    "kind": "rejected",
+                    "reason": "invalid_action_payload",
+                    "correlation": correlation or {},
+                }
+                boundary.output(outcome)
+                return outcome
+
+            target_device_id = direct_action.get(
+                "target_device_id",
+                source_device_id,
+            )
+            if not isinstance(target_device_id, str) or not target_device_id:
+                outcome = _rejected_direct_action_outcome(
+                    "invalid_target_device",
+                    correlation,
+                )
+                boundary.output(outcome)
+                return outcome
+            planning_record = None
+            if runtime_state is not None:
+                proposal = {
+                    "proposal_type": "action",
+                    "action_capability": action_capability,
+                    "action_payload": action_payload,
+                    "visibility_intent": "visible",
+                }
+                planning_record = _resolve_direct_capability_provider(
+                    source_device_id=source_device_id,
+                    proposal=proposal,
+                    target_device_id=target_device_id,
+                    runtime_state=runtime_state,
+                    online_device_ids=online_device_ids or set(),
+                )
+                chosen = planning_record.get("chosen_candidate")
+                if chosen is None:
+                    outcome = {
+                        "kind": "rejected",
+                        "reason": "no_registered_capability",
+                        "correlation": correlation or {},
+                        "planning_record": planning_record,
+                    }
+                    boundary.output(outcome)
+                    return outcome
+                target_device_id = chosen["device_id"]
+
+            outcome = {
+                "kind": "action",
+                "target_device_id": target_device_id,
+                "action": {
+                    "capability": action_capability,
+                    "payload": action_payload,
+                },
+                "correlation": correlation or {},
+            }
+            if planning_record is not None:
+                outcome["planning_record"] = planning_record
             boundary.output(outcome)
             return outcome
 
@@ -100,6 +185,54 @@ def build_execution_outcome(
             "summary": _proposal_summary(proposal),
             "visibility": proposal.get("visibility_intent", "visible"),
             "correlation": correlation or {},
+        }
+
+    if not _is_dispatchable_action_capability(proposal.get("action_capability")):
+        return {
+            "kind": "completion",
+            "interaction_id": interaction_id,
+            "reason": "invalid_action_capability",
+            "summary": _proposal_summary(proposal),
+            "visibility": proposal.get("visibility_intent", "visible"),
+            "correlation": correlation or {},
+        }
+
+    if not _harness_action_is_authorized(proposal):
+        return {
+            "kind": "completion",
+            "interaction_id": interaction_id,
+            "reason": "harness_action_not_authorized",
+            "summary": _proposal_summary(proposal),
+            "visibility": proposal.get("visibility_intent", "visible"),
+            "correlation": correlation or {},
+        }
+
+    action_intent = (
+        proposal.get("metadata", {})
+        .get("harness_validation", {})
+        .get("action_intent")
+    )
+    if action_intent is not None and action_intent.get("executor_kind") in {
+        "runtime_local",
+        "mcp",
+        "skill_procedure",
+    }:
+        executor_kind = action_intent["executor_kind"]
+        return {
+            "kind": "completion",
+            "interaction_id": interaction_id,
+            "reason": f"{executor_kind}_executor_placeholder",
+            "summary": _proposal_summary(proposal),
+            "visibility": proposal.get("visibility_intent", "visible"),
+            "correlation": correlation or {},
+            "planning_record": {
+                "executor_route": {
+                    "kind": executor_kind,
+                    "capability": action_intent.get("capability"),
+                    "status": "placeholder",
+                    "disposition": "not_dispatched",
+                }
+            },
         }
 
     planning_record = None
@@ -128,19 +261,93 @@ def build_execution_outcome(
         target_device_id = decision.get("target_device_id") or source_device_id
         action_capability = proposal["action_capability"]
 
+    try:
+        action_payload = _canonical_action_payload(
+            action_capability,
+            proposal.get("action_payload", {}),
+        )
+    except ValueError:
+        return {
+            "kind": "completion",
+            "interaction_id": interaction_id,
+            "reason": "invalid_action_payload",
+            "summary": _proposal_summary(proposal),
+            "visibility": proposal.get("visibility_intent", "visible"),
+            "correlation": correlation or {},
+            **({"planning_record": planning_record} if planning_record else {}),
+        }
+
     outcome = {
         "kind": "action",
         "interaction_id": interaction_id,
         "target_device_id": target_device_id,
         "action": {
             "capability": action_capability,
-            "payload": proposal.get("action_payload", {}),
+            "payload": action_payload,
         },
         "correlation": correlation or {},
     }
     if planning_record is not None:
         outcome["planning_record"] = planning_record
     return outcome
+
+
+def _harness_action_is_authorized(proposal: dict) -> bool:
+    """Require a complete runtime envelope for action proposals from a harness."""
+
+    metadata = proposal.get("metadata", {})
+    if proposal.get("source") == "runtime_outcome_fallback":
+        return _runtime_outcome_fallback_is_authorized(proposal, metadata)
+    if not isinstance(metadata, dict) or not isinstance(metadata.get("harness"), dict):
+        return proposal.get("source") != "hermes"
+    validation = metadata.get("harness_validation")
+    if not isinstance(validation, dict) or validation.get("decision") != "allowed":
+        return False
+    action_intent = validation.get("action_intent")
+    if not isinstance(action_intent, dict):
+        return False
+    executor_kind = action_intent.get("executor_kind")
+    if executor_kind not in {
+        "device_edge",
+        "runtime_local",
+        "mcp",
+        "skill_procedure",
+    }:
+        return False
+    if (
+        action_intent.get("capability") != proposal.get("action_capability")
+        or action_intent.get("payload") != proposal.get("action_payload", {})
+    ):
+        return False
+    if executor_kind != "device_edge":
+        return True
+    return (
+        action_intent.get("governance") == "runtime_governed"
+        and action_intent.get("side_effect_class") == "external"
+        and action_intent.get("visibility") == "user_visible"
+    )
+
+
+def _runtime_outcome_fallback_is_authorized(proposal: dict, metadata: object) -> bool:
+    if not isinstance(metadata, dict):
+        return False
+    outcome_delivery = metadata.get("outcome_delivery")
+    if not isinstance(outcome_delivery, dict):
+        return False
+    requester = outcome_delivery.get("requesting_device_id")
+    return (
+        metadata.get("runtime_generated_action") == "outcome_delivery_fallback"
+        and outcome_delivery.get("required") is True
+        and outcome_delivery.get("source_outcome_required") is True
+        and outcome_delivery.get("initiator_kind") == "explicit_user_intent"
+        and isinstance(requester, str)
+        and bool(requester)
+        and proposal.get("target_device_hint") == requester
+        and proposal.get("action_capability") == "notification.show"
+        and isinstance(proposal.get("action_payload"), dict)
+        and isinstance(proposal["action_payload"].get("body"), str)
+        and bool(proposal["action_payload"]["body"].strip())
+    )
 
 
 def resolve_capability_provider(
@@ -216,11 +423,11 @@ def _registered_action_candidates(runtime_state) -> list[dict]:
 
 def _planning_requirements(proposal: dict, decision: dict) -> dict:
     metadata_requirements = proposal.get("metadata", {}).get("requirements", {})
-    message = proposal.get("action_payload", {}).get("message")
+    body = proposal.get("action_payload", {}).get("body")
     return {
         "action_hint": proposal.get("action_capability"),
-        "privacy": metadata_requirements.get("privacy", "personal" if message else None),
-        "content_required": message is not None,
+        "privacy": metadata_requirements.get("privacy", "personal" if body else None),
+        "content_required": body is not None,
         "allowed_modalities": decision.get("allowed_modalities"),
         "blocked_modalities": decision.get("blocked_modalities", []),
         "target_device_id": decision.get("target_device_id"),
@@ -245,12 +452,19 @@ def _filter_reasons(
     if target_device_id and candidate["device_id"] != target_device_id:
         reasons.append(f"target_mismatch:{target_device_id}")
     action_hint = requirements["action_hint"]
-    if action_hint and candidate["capability_name"] != action_hint:
-        if action_hint.startswith("runtime.") and candidate["capability_name"] == "runtime.control":
-            return reasons
-        affordances = set(metadata.get("affordances", []))
-        if "deliver_private_text" not in affordances and "notify_user" not in affordances:
-            reasons.append(f"capability_mismatch:{action_hint}")
+    if not _is_dispatchable_action_capability(action_hint):
+        reasons.append("invalid_action_capability")
+    elif action_hint and candidate["capability_name"] != action_hint:
+        if (
+            required_device_capability_for_action(action_hint)
+            != candidate["capability_name"]
+        ):
+            affordances = set(metadata.get("affordances", []))
+            if (
+                "deliver_private_text" not in affordances
+                and "notify_user" not in affordances
+            ):
+                reasons.append(f"capability_mismatch:{action_hint}")
     blocked_modalities = set(requirements.get("blocked_modalities") or [])
     modality = metadata.get("modality")
     if modality in blocked_modalities:
@@ -275,7 +489,116 @@ def _payload_matches_required_schema(payload: dict, schema: dict) -> bool:
     for key in schema.get("required", []):
         if key not in payload:
             return False
+    properties = schema.get("properties", {})
+    if schema.get("additionalProperties") is False and any(
+        key not in properties for key in payload
+    ):
+        return False
+    for key, value in payload.items():
+        property_schema = properties.get(key)
+        if not isinstance(property_schema, dict):
+            continue
+        if property_schema.get("type") == "string" and not isinstance(value, str):
+            return False
+        minimum_length = property_schema.get("minLength")
+        if (
+            isinstance(minimum_length, int)
+            and isinstance(value, str)
+            and len(value) < minimum_length
+        ):
+            return False
+    if (
+        "body" in schema.get("required", [])
+        and isinstance(payload.get("body"), str)
+        and not payload["body"].strip()
+    ):
+        return False
     return True
+
+
+def _canonical_action_payload(action_capability: object, payload: object) -> dict:
+    if not isinstance(payload, dict):
+        raise ValueError("action payload must be an object")
+    if action_capability == "notification.show":
+        return build_notification_payload(payload.get("body"))
+    return dict(payload)
+
+
+def _rejected_direct_action_outcome(
+    reason: str,
+    correlation: dict | None,
+) -> dict:
+    return {
+        "kind": "rejected",
+        "reason": reason,
+        "correlation": correlation or {},
+    }
+
+
+def _resolve_direct_capability_provider(
+    *,
+    source_device_id: str,
+    proposal: dict,
+    target_device_id: str,
+    runtime_state,
+    online_device_ids: set[str],
+) -> dict:
+    action_capability = proposal["action_capability"]
+    required_capability = required_device_capability_for_action(action_capability)
+    metadata = runtime_state.capability_registry.get(target_device_id, {}).get(
+        required_capability
+    )
+    candidates = []
+    filtered_candidates = []
+    chosen_candidate = None
+    if isinstance(metadata, dict):
+        candidate = {
+            "device_id": target_device_id,
+            "capability_name": required_capability,
+            "metadata": metadata,
+            "registry_ref": f"{target_device_id}:{required_capability}",
+        }
+        candidates.append(candidate)
+        if (
+            metadata.get("direction") not in {"runtime_to_edge", "bidirectional"}
+            or metadata.get("kind") not in {None, "action"}
+        ):
+            filtered_candidates.append(
+                {**candidate, "reasons": ["capability_not_dispatchable"]}
+            )
+        else:
+            reasons = _filter_reasons(
+                candidate,
+                proposal=proposal,
+                decision={
+                    "decision": "allow",
+                    "target_device_id": target_device_id,
+                },
+                online_device_ids=online_device_ids,
+            )
+            if reasons:
+                filtered_candidates.append({**candidate, "reasons": reasons})
+            else:
+                chosen_candidate = {
+                    **candidate,
+                    **_score_candidate(
+                        candidate,
+                        source_device_id=source_device_id,
+                        proposal=proposal,
+                        decision={"target_device_id": target_device_id},
+                    ),
+                }
+    return {
+        "proposal_action_hint": action_capability,
+        "requirements": _planning_requirements(
+            proposal,
+            {"target_device_id": target_device_id},
+        ),
+        "candidates": candidates,
+        "filtered_candidates": filtered_candidates,
+        "chosen_candidate": chosen_candidate,
+        "fallback_candidates": [],
+    }
 
 
 def _score_candidate(
@@ -291,7 +614,7 @@ def _score_candidate(
         score += 20
         reasons.append("matches_action_hint:+20")
     affordances = set(metadata.get("affordances", []))
-    if proposal.get("action_payload", {}).get("message") and "deliver_private_text" in affordances:
+    if proposal.get("action_payload", {}).get("body") and "deliver_private_text" in affordances:
         score += 15
         reasons.append("private_text_affordance:+15")
     if metadata.get("modality") == "visual_text":
@@ -309,7 +632,7 @@ def _score_candidate(
 def _proposal_summary(proposal: dict) -> str:
     proposal_type = proposal.get("proposal_type")
     if proposal_type == "action":
-        return proposal.get("action_payload", {}).get("message", "")
+        return proposal.get("action_payload", {}).get("body", "")
     if proposal_type == "provider_failure":
         return proposal.get("message") or proposal.get("response_text", "")
     if proposal_type == "no_intervention":

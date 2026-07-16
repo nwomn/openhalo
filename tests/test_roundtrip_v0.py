@@ -92,9 +92,11 @@ class RoundtripTests(unittest.IsolatedAsyncioTestCase):
                             "side_effect": "user_visible",
                             "input_schema": {
                                 "type": "object",
-                                "required": ["message"],
+                                "required": ["body"],
+                                "additionalProperties": False,
                                 "properties": {
-                                    "message": {"type": "string"},
+                                    "title": {"type": "string"},
+                                    "body": {"type": "string", "minLength": 1},
                                 },
                             },
                         },
@@ -246,6 +248,7 @@ class RoundtripTests(unittest.IsolatedAsyncioTestCase):
     async def test_user_text_roundtrips_back_to_same_edge(self) -> None:
         gateway = RuntimeGateway(
             shared_token="dev-token",
+            persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
         )
         client = SessionClient(
@@ -391,7 +394,10 @@ class CliEntryTests(unittest.TestCase):
                 "device_id": "terminal-edge-1",
                 "action": {
                     "capability": "notification.show",
-                    "payload": {"message": "Runtime heard: hello runtime"},
+                    "payload": {
+                        "title": "OpenHalo",
+                        "body": "Runtime heard: hello runtime",
+                    },
                 },
             }
         )
@@ -431,7 +437,10 @@ class CliEntryTests(unittest.TestCase):
                 "device_id": "terminal-edge-1",
                 "action": {
                     "capability": "notification.show",
-                    "payload": {"message": "runtime is running"},
+                    "payload": {
+                        "title": "OpenHalo",
+                        "body": "runtime is running",
+                    },
                 },
             }
         )
@@ -618,11 +627,15 @@ class CliEntryTests(unittest.TestCase):
             [
                 "active_goals",
                 "compact_snapshot",
+                "device_roster",
                 "edge_evidence",
                 "recent_memory",
             ],
         )
-        self.assertEqual(proposal["action_payload"]["message"], "Runtime heard: hello runtime")
+        self.assertEqual(
+            proposal["action_payload"],
+            {"title": "OpenHalo", "body": "Runtime heard: hello runtime"},
+        )
 
     def test_local_cli_session_can_form_visible_action_from_help_text(self) -> None:
         session = LocalCliSession(
@@ -696,7 +709,7 @@ class CliEntryTests(unittest.TestCase):
 
         result = session.trigger_agent_initiative(
             action_capability="notification.show",
-            action_payload={"message": "initiative ping"},
+            action_payload={"title": "OpenHalo", "body": "initiative ping"},
             reason="manual_check",
             observed_at="2026-06-21T10:10:00Z",
         )
@@ -725,7 +738,7 @@ class CliEntryTests(unittest.TestCase):
                 "device_id": "terminal-edge-1",
                 "action": {
                     "capability": "notification.show",
-                    "payload": {"message": "runtime push"},
+                    "payload": {"title": "OpenHalo", "body": "runtime push"},
                 },
             }
         )
@@ -768,6 +781,7 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
     async def test_websocket_roundtrip_records_action_result_on_gateway(self) -> None:
         gateway = RuntimeGateway(
             shared_token="dev-token",
+            persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
         )
         client = SessionClient(
@@ -852,13 +866,14 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(event_ack["type"], "event_ack")
         self.assertEqual(action_request["type"], "action_request")
         self.assertEqual(
-            action_request["action"]["payload"]["message"],
+            action_request["action"]["payload"]["body"],
             "Slow model reply.",
         )
 
     async def test_websocket_roundtrip_routes_action_to_other_connected_edge(self) -> None:
         gateway = RuntimeGateway(
             shared_token="dev-token",
+            persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
         )
         source = SessionClient(
@@ -910,6 +925,7 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
     async def test_cli_websocket_helper_uses_real_gateway_server(self) -> None:
         gateway = RuntimeGateway(
             shared_token="dev-token",
+            persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
         )
         async with gateway.run_test_server() as server_info:
@@ -1008,6 +1024,7 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         gateway = RuntimeGateway(
             shared_token="dev-token",
+            persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
         )
 

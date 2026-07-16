@@ -10,6 +10,46 @@ from personal_runtime.runtime_state import RuntimeState
 
 
 class PromptContextTests(unittest.TestCase):
+    def test_prompt_context_exposes_runtime_device_roster_for_semantic_targeting(self) -> None:
+        package = build_prompt_context_package(
+            user_text="请把消息发到我的手机",
+            snapshot={},
+            grounding_bundle={
+                "device_roster": {
+                    "request_source_device_id": "terminal-edge-1",
+                    "devices": [
+                        {
+                            "device_id": "android-edge-1",
+                            "device_type": "android-phone",
+                            "role": "interactive_surface",
+                            "online": True,
+                            "action_capabilities": [
+                                {"name": "notification.show"}
+                            ],
+                        }
+                    ],
+                }
+            },
+        )
+
+        self.assertEqual(
+            package["sections"]["device_roster"],
+            {
+                "request_source_device_id": "terminal-edge-1",
+                "devices": [
+                    {
+                        "device_id": "android-edge-1",
+                        "device_type": "android-phone",
+                        "role": "interactive_surface",
+                        "online": True,
+                        "action_capabilities": [
+                            {"name": "notification.show"}
+                        ],
+                    }
+                ],
+            },
+        )
+
     def test_build_prompt_context_package_exposes_version_and_grounded_sections(self) -> None:
         state = RuntimeState()
         state.upsert_goal(
@@ -48,7 +88,10 @@ class PromptContextTests(unittest.TestCase):
             {
                 "status": "ok",
                 "capability": "notification.show",
-                "details": {"message": "Runtime heard: hello runtime"},
+                "details": {
+                    "title": "OpenHalo",
+                    "body": "Runtime heard: hello runtime",
+                },
             }
         )
         grounding = build_model_grounding_bundle(
@@ -145,6 +188,40 @@ class PromptContextTests(unittest.TestCase):
         self.assertTrue(contract["checks"]["recent_memory_present"]["ok"])
         self.assertTrue(contract["checks"]["edge_evidence_present"]["ok"])
         self.assertTrue(contract["checks"]["grounding_bundle_version_matches"]["ok"])
+        self.assertEqual(
+            contract["allowed_proposal_types"],
+            ["action", "no_intervention", "provider_failure"],
+        )
+        self.assertEqual(
+            contract["required_runtime_inputs"],
+            ["compact_snapshot", "grounding_bundle"],
+        )
+        self.assertEqual(
+            contract["action_governance"]["governed_action_route"],
+            "presence_then_execution_planning",
+        )
+
+    def test_build_prompt_context_package_includes_explicit_harness_memory(self) -> None:
+        package = build_prompt_context_package(
+            user_text="status",
+            snapshot={},
+            grounding_bundle={},
+            harness_memory={
+                "working": {"operation": "normal"},
+                "procedural": [{"memory_id": "procedure-1"}],
+                "semantic": [{"memory_id": "fact-1"}],
+                "episodic": [{"memory_id": "episode-1"}],
+            },
+        )
+
+        self.assertEqual(
+            package["sections"]["harness_memory"]["working"]["operation"],
+            "normal",
+        )
+        self.assertEqual(
+            package["sections"]["harness_memory"]["semantic"][0]["memory_id"],
+            "fact-1",
+        )
 
 
 if __name__ == "__main__":

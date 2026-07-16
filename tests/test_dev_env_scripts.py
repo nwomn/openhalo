@@ -1,5 +1,7 @@
+import base64
+import hashlib
 import os
-import stat
+import re
 import subprocess
 import tempfile
 import unittest
@@ -138,6 +140,202 @@ class DevEnvWorkflowTests(unittest.TestCase):
             (ROOT / ".venv" / "bin" / "python").resolve(),
         )
 
+    def test_m20_harness_verification_script_exists_and_supports_dry_run(self) -> None:
+        script_path = ROOT / "bin" / "verify-m20-harness"
+
+        self.assertTrue(script_path.exists())
+        self.assertTrue(os.access(script_path, os.X_OK))
+        result = subprocess.run(
+            [
+                str(script_path),
+                "--dry-run",
+                "--runtime-config-path",
+                "config/runtime-config.toml",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+        )
+
+        self.assertIn("tests.test_hermes_adapter", result.stdout)
+        self.assertIn("tests.test_execution_planning", result.stdout)
+        self.assertIn("tests.test_m20_harness_verifier", result.stdout)
+        self.assertIn("harness.runner", result.stdout)
+        self.assertIn("governed-gateway-action", result.stdout)
+        self.assertIn("allowed-read-only-research", result.stdout)
+        self.assertIn("research-assisted-governed-reply", result.stdout)
+        self.assertIn("allowed-read-only-search", result.stdout)
+        self.assertIn("prohibited-direct-execution", result.stdout)
+        self.assertIn("hermes-memory-write-recall", result.stdout)
+        self.assertIn("hostile-research-untrusted-no-authorization", result.stdout)
+        self.assertIn("provenance-without-memory-body", result.stdout)
+        self.assertIn("test_runner_disables_hermes_background_review_nudges", result.stdout)
+        self.assertIn(
+            "test_native_memory_audit_allocates_unique_fallback_ids_concurrently",
+            result.stdout,
+        )
+        self.assertIn(
+            "test_harness_action_with_mismatched_allowed_intent_does_not_plan_an_edge_action",
+            result.stdout,
+        )
+        self.assertIn("configured-provider-gateway-terminal", result.stdout)
+        self.assertIn("harness_promotion_gate", result.stdout)
+
+    def test_m20_harness_dry_run_defers_browser_from_current_acceptance(self) -> None:
+        result = subprocess.run(
+            [
+                str(ROOT / "bin" / "verify-m20-harness"),
+                "--dry-run",
+                "--live",
+                "--runtime-config-path",
+                "config/runtime-config.toml",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+        )
+
+        self.assertNotIn("read-only-browser-facade", result.stdout)
+        self.assertNotIn("live-read-only-browser", result.stdout)
+
+    def test_m20_default_hostile_fixture_hash_matches_its_base64_payload(self) -> None:
+        script_path = ROOT / "bin" / "verify-m20-harness"
+        contents = script_path.read_text(encoding="utf-8")
+        url_match = re.search(
+            r'HOSTILE_RESEARCH_URL="\$\{M20_HARNESS_HOSTILE_RESEARCH_URL:-https://httpbingo\.org/base64/([^}]+)\}"',
+            contents,
+        )
+        hash_match = re.search(
+            r'HOSTILE_CONTENT_SHA256="\$\{M20_HARNESS_HOSTILE_CONTENT_SHA256:-([0-9a-f]{64})\}"',
+            contents,
+        )
+
+        self.assertIsNotNone(url_match)
+        self.assertIsNotNone(hash_match)
+        decoded = base64.b64decode(url_match.group(1))
+        self.assertEqual(
+            hashlib.sha256(decoded).hexdigest(),
+            hash_match.group(1),
+        )
+
+    def test_m20_harness_verifier_dry_run_reports_live_acceptance_boundaries(self) -> None:
+        script_path = ROOT / "bin" / "verify-m20-harness"
+        contents = script_path.read_text(encoding="utf-8")
+
+        result = subprocess.run(
+            [
+                str(script_path),
+                "--dry-run",
+                "--live",
+                "--runtime-config-path",
+                "config/runtime-config.toml",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+        )
+
+        self.assertIn("configured-provider-probe", result.stdout)
+        self.assertIn("live-governed-gateway-action", result.stdout)
+        self.assertIn("live-allowed-read-only-research", result.stdout)
+        self.assertIn("live-research-assisted-governed-reply", result.stdout)
+        self.assertIn("live-allowed-read-only-search", result.stdout)
+        self.assertIn("live-hermes-memory-write-recall", result.stdout)
+        self.assertIn("live-hostile-research", result.stdout)
+        self.assertIn("fresh Hermes runner/session", result.stdout)
+        self.assertIn("sanitized-evidence", result.stdout)
+        self.assertNotIn("memory body", result.stdout.lower())
+        self.assertIn("--provider-profile-fingerprint", contents)
+        self.assertIn("M20_HARNESS_KEEP_LIVE_WORK_DIR", contents)
+        self.assertIn("umask 077", contents)
+        self.assertIn(
+            'mktemp -d "${TMPDIR:-/tmp}/openhalo-m20-harness-live.XXXXXX"',
+            contents,
+        )
+        self.assertIn('rm -f -- "$LIVE_CONFIG"', contents)
+        self.assertIn('rm -rf -- "$LIVE_HERMES_HOME"', contents)
+        self.assertIn(
+            "retaining Hermes home for explicit manual review",
+            contents,
+        )
+        self.assertIn(
+            'timeout --foreground "$LIVE_SCENARIO_TIMEOUT_SECONDS" "${LIVE_PROVIDER_PROBE_CMD[@]}"',
+            contents,
+        )
+
+    def test_m20_harness_research_prerequisite_check_requires_explicit_configuration(self) -> None:
+        script_path = ROOT / "bin" / "verify-m20-harness"
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "runtime-config.toml"
+            config_path.write_text(
+                "[harness]\nrunner = \"hermes\"\n\n[harness.hermes]\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [
+                    str(script_path),
+                    "--check-research-prerequisites",
+                    "--runtime-config-path",
+                    str(config_path),
+                    "--research-url",
+                    "https://example.com/research",
+                    "--hostile-research-url",
+                    "https://example.com/hostile",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                cwd=ROOT,
+            )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("research_operator_prerequisite", result.stderr)
+        self.assertIn("allowed_hosts", result.stderr)
+        self.assertIn("search_url_template", result.stderr)
+
+    def test_m20_harness_research_prerequisite_check_accepts_explicit_search_configuration(self) -> None:
+        script_path = ROOT / "bin" / "verify-m20-harness"
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            directory = Path(temp_dir)
+            config_path = directory / "runtime-config.toml"
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "[harness]",
+                        'runner = "hermes"',
+                        "",
+                        "[harness.hermes]",
+                        'allowed_hosts = ["example.com"]',
+                        'search_url_template = "https://example.com/search?q={query}"',
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [
+                    str(script_path),
+                    "--check-research-prerequisites",
+                    "--runtime-config-path",
+                    str(config_path),
+                    "--research-url",
+                    "https://example.com/research",
+                    "--hostile-research-url",
+                    "https://example.com/hostile",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+                cwd=ROOT,
+            )
+
+        self.assertIn("research-prerequisites: ready", result.stdout)
+
     def test_bootstrap_script_creates_local_venv_when_run_explicitly(self) -> None:
         script_path = ROOT / "bin" / "bootstrap-worktree-venv"
 
@@ -218,6 +416,9 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("runtime-push-idle", result.stdout)
         self.assertIn("state-check", result.stdout)
         self.assertIn(".runtime/terminal-edge-verify-state.json", result.stdout)
+        self.assertIn("tests/fixtures/llm-config-test.toml", result.stdout)
+        self.assertIn('get("title") == "OpenHalo"', result.stdout)
+        self.assertIn('get("body")', result.stdout)
         self.assertIn("18765", result.stdout)
 
     def test_prompt_contract_verification_script_exists_and_is_executable(self) -> None:

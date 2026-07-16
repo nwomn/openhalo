@@ -17,13 +17,125 @@ def _register_surface(
 
 
 class ExecutionPlanningTests(unittest.TestCase):
+    def test_notification_show_rejects_legacy_message_payload(self) -> None:
+        state = RuntimeState()
+        state.register_device("terminal-edge-1", "desktop-cli")
+        state.register_capability("terminal-edge-1", "notification.show")
+        planner = ExecutionPlanner()
+        decision = {
+            "decision": "allow",
+            "target_device_id": "terminal-edge-1",
+            "reason": "context_clear",
+        }
+
+        canonical_outcome = planner.plan_action(
+            source_device_id="terminal-edge-1",
+            proposal={
+                "proposal_type": "action",
+                "action_capability": "notification.show",
+                "action_payload": {"title": "OpenHalo", "body": "hello"},
+                "visibility_intent": "visible",
+            },
+            decision=decision,
+            interaction_id="interaction-canonical-notification-1",
+            runtime_state=state,
+            online_device_ids={"terminal-edge-1"},
+        )
+        legacy_outcome = planner.plan_action(
+            source_device_id="terminal-edge-1",
+            proposal={
+                "proposal_type": "action",
+                "action_capability": "notification.show",
+                "action_payload": {"message": "hello"},
+                "visibility_intent": "visible",
+            },
+            decision=decision,
+            interaction_id="interaction-legacy-notification-1",
+            runtime_state=state,
+            online_device_ids={"terminal-edge-1"},
+        )
+
+        self.assertEqual(canonical_outcome["kind"], "action")
+        self.assertEqual(
+            canonical_outcome["action"]["payload"],
+            {"title": "OpenHalo", "body": "hello"},
+        )
+        self.assertEqual(legacy_outcome["kind"], "completion")
+        self.assertEqual(legacy_outcome["reason"], "no_registered_capability")
+        self.assertIn(
+            "schema_mismatch",
+            legacy_outcome["planning_record"]["filtered_candidates"][0]["reasons"],
+        )
+
+    def test_unknown_runtime_action_does_not_fall_back_to_notification(self) -> None:
+        state = RuntimeState()
+        state.register_device("terminal-edge-1", "desktop-cli")
+        state.register_capability("terminal-edge-1", "notification.show")
+        planner = ExecutionPlanner()
+
+        outcome = planner.plan_action(
+            source_device_id="terminal-edge-1",
+            proposal={
+                "proposal_type": "action",
+                "action_capability": "runtime.evil",
+                "action_payload": {
+                    "title": "OpenHalo",
+                    "body": "forged runtime action",
+                },
+                "visibility_intent": "visible",
+            },
+            decision={
+                "decision": "allow",
+                "target_device_id": "terminal-edge-1",
+                "reason": "context_clear",
+            },
+            interaction_id="interaction-unknown-runtime-action-1",
+            runtime_state=state,
+            online_device_ids={"terminal-edge-1"},
+        )
+
+        self.assertEqual(outcome["kind"], "completion")
+        self.assertEqual(outcome["reason"], "invalid_action_capability")
+
+    def test_runtime_control_mapping_still_respects_blocked_modality(self) -> None:
+        state = RuntimeState()
+        state.register_device("host-edge-1", "server")
+        state.register_capability("host-edge-1", "runtime.control")
+        planner = ExecutionPlanner()
+
+        outcome = planner.plan_action(
+            source_device_id="terminal-edge-1",
+            proposal={
+                "proposal_type": "action",
+                "action_capability": "runtime.restart",
+                "action_payload": {},
+                "visibility_intent": "visible",
+            },
+            decision={
+                "decision": "allow",
+                "target_device_id": "host-edge-1",
+                "reason": "context_clear",
+                "blocked_modalities": ["machine_action"],
+            },
+            interaction_id="interaction-runtime-control-modality-1",
+            runtime_state=state,
+            online_device_ids={"host-edge-1"},
+        )
+
+        self.assertEqual(outcome["kind"], "completion")
+        self.assertEqual(outcome["reason"], "no_registered_capability")
+        self.assertIn(
+            "blocked_modality:machine_action",
+            outcome["planning_record"]["filtered_candidates"][0]["reasons"],
+        )
+
     def test_visible_action_proposal_with_allow_decision_yields_planned_action(self) -> None:
         outcome = build_execution_outcome(
             source_device_id="terminal-edge-1",
             proposal={
                 "proposal_type": "action",
                 "action_capability": "notification.show",
-                "action_payload": {"message": "hello"},
+                "action_payload": {"title": "OpenHalo", "body": "hello"},
                 "visibility_intent": "visible",
             },
             decision={
@@ -40,6 +152,219 @@ class ExecutionPlanningTests(unittest.TestCase):
         self.assertEqual(outcome["action"]["capability"], "notification.show")
         self.assertEqual(outcome["interaction_id"], "interaction-1")
         self.assertEqual(outcome["correlation"]["trace_id"], "trace-terminal-edge-1-1")
+
+    def test_harness_action_without_allowed_validation_does_not_plan_an_edge_action(
+        self,
+    ) -> None:
+        outcome = build_execution_outcome(
+            source_device_id="terminal-edge-1",
+            proposal={
+                "proposal_type": "action",
+                "action_capability": "notification.show",
+                "action_payload": {
+                    "title": "OpenHalo",
+                    "body": "unvalidated harness action",
+                },
+                "visibility_intent": "visible",
+                "metadata": {"harness": {"runner": "hermes"}},
+            },
+            decision={
+                "decision": "allow",
+                "target_device_id": "terminal-edge-1",
+                "reason": "context_clear",
+            },
+            interaction_id="interaction-1",
+            correlation={"trace_id": "trace-terminal-edge-1-1"},
+        )
+
+        self.assertEqual(outcome["kind"], "completion")
+        self.assertEqual(outcome["reason"], "harness_action_not_authorized")
+
+    def test_hermes_sourced_action_without_harness_metadata_does_not_plan_an_edge_action(
+        self,
+    ) -> None:
+        outcome = build_execution_outcome(
+            source_device_id="terminal-edge-1",
+            proposal={
+                "proposal_type": "action",
+                "source": "hermes",
+                "action_capability": "notification.show",
+                "action_payload": {
+                    "title": "OpenHalo",
+                    "body": "unbound Hermes action",
+                },
+                "visibility_intent": "visible",
+            },
+            decision={
+                "decision": "allow",
+                "target_device_id": "terminal-edge-1",
+                "reason": "context_clear",
+            },
+            interaction_id="interaction-1",
+            correlation={"trace_id": "trace-terminal-edge-1-1"},
+        )
+
+        self.assertEqual(outcome["kind"], "completion")
+        self.assertEqual(outcome["reason"], "harness_action_not_authorized")
+
+    def test_harness_action_with_mismatched_allowed_intent_does_not_plan_an_edge_action(
+        self,
+    ) -> None:
+        outcome = build_execution_outcome(
+            source_device_id="terminal-edge-1",
+            proposal={
+                "proposal_type": "action",
+                "action_capability": "notification.show",
+                "action_payload": {
+                    "title": "OpenHalo",
+                    "body": "forged proposal payload",
+                },
+                "visibility_intent": "visible",
+                "metadata": {
+                    "harness": {"runner": "hermes"},
+                    "harness_validation": {
+                        "decision": "allowed",
+                        "action_intent": {
+                            "executor_kind": "device_edge",
+                            "governance": "runtime_governed",
+                            "side_effect_class": "external",
+                            "visibility": "user_visible",
+                            "capability": "notification.show",
+                            "payload": {
+                                "title": "OpenHalo",
+                                "body": "different payload",
+                            },
+                        },
+                    },
+                },
+            },
+            decision={
+                "decision": "allow",
+                "target_device_id": "terminal-edge-1",
+                "reason": "context_clear",
+            },
+            interaction_id="interaction-1",
+            correlation={"trace_id": "trace-terminal-edge-1-1"},
+        )
+
+        self.assertEqual(outcome["kind"], "completion")
+        self.assertEqual(outcome["reason"], "harness_action_not_authorized")
+
+    def test_runtime_outcome_fallback_requires_a_complete_runtime_contract(self) -> None:
+        state = RuntimeState()
+        _register_surface(
+            state,
+            "terminal-edge-1",
+            {
+                "name": "notification.show",
+                "direction": "runtime_to_edge",
+                "kind": "action",
+                "affordances": ["notify_user", "deliver_private_text"],
+                "modality": "visual_text",
+                "content_capacity": "short_text",
+                "privacy": "personal",
+                "input_schema": {
+                    "type": "object",
+                    "required": ["body"],
+                    "additionalProperties": False,
+                    "properties": {
+                        "title": {"type": "string"},
+                        "body": {"type": "string", "minLength": 1},
+                    },
+                },
+            },
+        )
+        decision = {
+            "decision": "allow",
+            "target_device_id": "terminal-edge-1",
+            "reason": "context_clear",
+        }
+        proposal = {
+            "proposal_type": "action",
+            "source": "runtime_outcome_fallback",
+            "action_capability": "notification.show",
+            "action_payload": {"title": "OpenHalo", "body": "已发送到目标设备。"},
+            "visibility_intent": "visible",
+            "target_device_hint": "terminal-edge-1",
+            "metadata": {"harness": {"operation": "post_action"}},
+        }
+
+        rejected = build_execution_outcome(
+            source_device_id="terminal-edge-1",
+            proposal=proposal,
+            decision=decision,
+            interaction_id="interaction-outcome-fallback-rejected",
+            runtime_state=state,
+            online_device_ids={"terminal-edge-1"},
+        )
+        accepted = build_execution_outcome(
+            source_device_id="terminal-edge-1",
+            proposal={
+                **proposal,
+                "metadata": {
+                    **proposal["metadata"],
+                    "outcome_delivery": {
+                        "required": True,
+                        "source_outcome_required": True,
+                        "initiator_kind": "explicit_user_intent",
+                        "requesting_device_id": "terminal-edge-1",
+                    },
+                    "runtime_generated_action": "outcome_delivery_fallback",
+                },
+            },
+            decision=decision,
+            interaction_id="interaction-outcome-fallback-accepted",
+            runtime_state=state,
+            online_device_ids={"terminal-edge-1"},
+        )
+
+        self.assertEqual(rejected["kind"], "completion")
+        self.assertEqual(rejected["reason"], "harness_action_not_authorized")
+        self.assertEqual(accepted["kind"], "action")
+        self.assertEqual(accepted["target_device_id"], "terminal-edge-1")
+
+    def test_runtime_local_intent_yields_inspectable_placeholder_completion(self) -> None:
+        outcome = build_execution_outcome(
+            source_device_id="terminal-edge-1",
+            proposal={
+                "proposal_type": "action",
+                "action_capability": "notification.show",
+                "action_payload": {
+                    "title": "OpenHalo",
+                    "body": "do not route to an edge",
+                },
+                "visibility_intent": "visible",
+                "metadata": {
+                    "harness_validation": {
+                        "action_intent": {
+                            "executor_kind": "runtime_local",
+                            "capability": "notification.show",
+                        }
+                    }
+                },
+            },
+            decision={
+                "decision": "allow",
+                "target_device_id": "terminal-edge-1",
+                "reason": "context_clear",
+            },
+            interaction_id="interaction-1",
+            correlation={"trace_id": "trace-terminal-edge-1-1"},
+        )
+
+        self.assertEqual(outcome["kind"], "completion")
+        self.assertEqual(outcome["reason"], "runtime_local_executor_placeholder")
+        self.assertEqual(
+            outcome["planning_record"],
+            {
+                "executor_route": {
+                    "kind": "runtime_local",
+                    "capability": "notification.show",
+                    "status": "placeholder",
+                    "disposition": "not_dispatched",
+                }
+            },
+        )
 
     def test_no_intervention_yields_completion(self) -> None:
         outcome = build_execution_outcome(
@@ -72,7 +397,7 @@ class ExecutionPlanningTests(unittest.TestCase):
             proposal={
                 "proposal_type": "action",
                 "action_capability": "notification.show",
-                "action_payload": {"message": "hello"},
+                "action_payload": {"title": "OpenHalo", "body": "hello"},
                 "visibility_intent": "visible",
             },
             decision={
@@ -102,7 +427,7 @@ class ExecutionPlanningTests(unittest.TestCase):
             proposal={
                 "proposal_type": "action",
                 "action_capability": "notification.show",
-                "action_payload": {"message": "hello"},
+                "action_payload": {"title": "OpenHalo", "body": "hello"},
                 "visibility_intent": "visible",
             },
             decision={
@@ -139,8 +464,12 @@ class ExecutionPlanningTests(unittest.TestCase):
                 "side_effect": "user_visible",
                 "input_schema": {
                     "type": "object",
-                    "required": ["message"],
-                    "properties": {"message": {"type": "string"}},
+                    "required": ["body"],
+                    "additionalProperties": False,
+                    "properties": {
+                        "title": {"type": "string"},
+                        "body": {"type": "string", "minLength": 1},
+                    },
                 },
             },
         )
@@ -187,7 +516,10 @@ class ExecutionPlanningTests(unittest.TestCase):
             proposal={
                 "proposal_type": "action",
                 "action_capability": "notification.show",
-                "action_payload": {"message": "private reminder"},
+                "action_payload": {
+                    "title": "OpenHalo",
+                    "body": "private reminder",
+                },
                 "visibility_intent": "visible",
                 "metadata": {"requirements": {"privacy": "personal"}},
             },
@@ -226,7 +558,7 @@ class ExecutionPlanningTests(unittest.TestCase):
             proposal={
                 "proposal_type": "action",
                 "action_capability": "notification.show",
-                "action_payload": {"message": "hello"},
+                "action_payload": {"title": "OpenHalo", "body": "hello"},
                 "visibility_intent": "visible",
             },
             decision={
@@ -257,8 +589,12 @@ class ExecutionPlanningTests(unittest.TestCase):
                 "privacy": "personal",
                 "input_schema": {
                     "type": "object",
-                    "required": ["message"],
-                    "properties": {"message": {"type": "string"}},
+                    "required": ["body"],
+                    "additionalProperties": False,
+                    "properties": {
+                        "title": {"type": "string"},
+                        "body": {"type": "string", "minLength": 1},
+                    },
                 },
             },
         )
@@ -275,8 +611,12 @@ class ExecutionPlanningTests(unittest.TestCase):
                 "privacy": "personal",
                 "input_schema": {
                     "type": "object",
-                    "required": ["message"],
-                    "properties": {"message": {"type": "string"}},
+                    "required": ["body"],
+                    "additionalProperties": False,
+                    "properties": {
+                        "title": {"type": "string"},
+                        "body": {"type": "string", "minLength": 1},
+                    },
                 },
             },
         )
@@ -286,7 +626,7 @@ class ExecutionPlanningTests(unittest.TestCase):
             proposal={
                 "proposal_type": "action",
                 "action_capability": "notification.show",
-                "action_payload": {"message": "hello"},
+                "action_payload": {"title": "OpenHalo", "body": "hello"},
                 "visibility_intent": "visible",
                 "target_device_hint": "android-edge-1",
             },

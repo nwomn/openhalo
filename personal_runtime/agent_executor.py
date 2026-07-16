@@ -15,8 +15,10 @@ from personal_runtime.prompt_context import build_behavior_contract
 from personal_runtime.prompt_context import build_prompt_context_package
 from personal_runtime.prompt_context import prompt_context_metadata_from_package
 from personal_runtime.context_snapshot import sanitize_observation_driven_snapshot
+from personal_runtime.interaction_pool import build_action_result_outcome_contract
 from personal_runtime.runtime_memory import grounding_metadata_from_bundle
 from personal_runtime.runtime_memory import sanitize_observation_driven_grounding_bundle
+from personal_runtime.action_layer import build_notification_payload
 from personal_runtime.action_layer import required_device_capability_for_action
 
 
@@ -37,6 +39,20 @@ class InterventionProposal:
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+
+def _canonical_notification_action_payload(
+    action_payload: dict,
+    response_text: str,
+) -> dict:
+    """Supply a runtime-owned notification payload only when it is absent."""
+
+    if not action_payload:
+        return build_notification_payload(response_text)
+    body = action_payload.get("body")
+    if isinstance(body, str) and body.strip():
+        return build_notification_payload(body)
+    return action_payload
 
 
 class ProposalFormation:
@@ -231,7 +247,10 @@ def build_intervention_proposal(
         kind = "notify"
     action_payload = dict(proposal_plan.action_payload)
     if action_capability == "notification.show":
-        action_payload.setdefault("message", proposal_plan.response_text)
+        action_payload = _canonical_notification_action_payload(
+            action_payload,
+            proposal_plan.response_text,
+        )
     target_device_hint = proposal_plan.target_device_hint
     if target_device_hint is None:
         target_device_hint = _infer_target_device_hint_from_text(
@@ -381,6 +400,7 @@ def build_post_action_proposal(
 ) -> InterventionProposal:
     _snapshot = snapshot or {}
     interaction_id = interaction["interaction_id"]
+    outcome_contract = build_action_result_outcome_contract(interaction, result)
     post_action_text = json.dumps(
         {
             "trigger": "action_result",
@@ -395,6 +415,7 @@ def build_post_action_proposal(
         user_text=post_action_text,
         snapshot=_snapshot,
         grounding_bundle=grounding_bundle,
+        action_result_context=outcome_contract,
     )
     behavior_contract = build_behavior_contract(
         prompt_context_package=prompt_context_package,
@@ -419,7 +440,10 @@ def build_post_action_proposal(
         kind = "notify"
     action_payload = dict(proposal_plan.action_payload)
     if action_capability == "notification.show":
-        action_payload.setdefault("message", proposal_plan.response_text)
+        action_payload = _canonical_notification_action_payload(
+            action_payload,
+            proposal_plan.response_text,
+        )
     metadata = {
         "trigger": "action_result",
         "interaction_id": interaction_id,
@@ -433,6 +457,7 @@ def build_post_action_proposal(
             interaction.get("primary_action") or {}
         ).get("target_device_id"),
         "participant_device_ids": list(interaction.get("participant_device_ids", [])),
+        "outcome_delivery": outcome_contract,
         "snapshot_fields": sorted(_snapshot.keys()),
         **grounding_metadata_from_bundle(grounding_bundle),
         **prompt_context_metadata_from_package(
@@ -454,8 +479,11 @@ def build_post_action_proposal(
         action_payload=action_payload,
         message=proposal_plan.response_text,
         metadata=metadata,
-        target_device_hint=interaction.get("source_device_id")
-        if action_capability == "notification.show"
+        target_device_hint=outcome_contract["requesting_device_id"]
+        if (
+            action_capability == "notification.show"
+            and outcome_contract["outcome_delivery_required"]
+        )
         else None,
         interaction_type=interaction.get("interaction_type", "pull"),
         visibility_intent="silent"
@@ -534,7 +562,10 @@ def build_post_observation_proposal(
         kind = "notify"
     action_payload = dict(proposal_plan.action_payload)
     if action_capability == "notification.show":
-        action_payload.setdefault("message", proposal_plan.response_text)
+        action_payload = _canonical_notification_action_payload(
+            action_payload,
+            proposal_plan.response_text,
+        )
     metadata = {
         "trigger": "observation",
         "interaction_id": interaction_id,
@@ -639,7 +670,10 @@ def build_observation_driven_proposal(
         kind = "notify"
     action_payload = dict(proposal_plan.action_payload)
     if action_capability == "notification.show":
-        action_payload.setdefault("message", proposal_plan.response_text)
+        action_payload = _canonical_notification_action_payload(
+            action_payload,
+            proposal_plan.response_text,
+        )
     metadata = {
         "trigger": "observation_driven",
         "interaction_id": interaction_id,

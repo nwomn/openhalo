@@ -84,8 +84,11 @@ class ProtocolTests(unittest.TestCase):
             "side_effect": "user_visible",
             "input_schema": {
                 "type": "object",
-                "required": ["message"],
-                "properties": {"message": {"type": "string"}},
+                "required": ["body"],
+                "properties": {
+                    "title": {"type": "string"},
+                    "body": {"type": "string"},
+                },
             },
         }
         observation_provider = {

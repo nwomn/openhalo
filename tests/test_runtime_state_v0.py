@@ -1,5 +1,10 @@
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from threading import Event
+from threading import Lock
+from unittest.mock import patch
 
 from personal_runtime.context_contracts import RuntimeObservation
 from personal_runtime.presence_router import choose_response_device
@@ -41,8 +46,11 @@ class RuntimeStateTests(unittest.TestCase):
                 "side_effect": "user_visible",
                 "input_schema": {
                     "type": "object",
-                    "required": ["message"],
-                    "properties": {"message": {"type": "string"}},
+                    "required": ["body"],
+                    "properties": {
+                        "title": {"type": "string"},
+                        "body": {"type": "string"},
+                    },
                 },
             },
         )
@@ -286,8 +294,107 @@ class RuntimeStateTests(unittest.TestCase):
         self.assertEqual(health["provider_request_format"], "json_schema")
         self.assertEqual(health["last_latency_ms"], 42)
 
+    def test_records_bounded_hermes_provenance_without_tool_or_memory_bodies(self) -> None:
+        state = RuntimeState()
+        self.assertTrue(hasattr(state, "record_internal_tool_events"))
+        secret_body = "never persist this remote or memory body"
+        state.record_internal_tool_events(
+            [
+                {
+                    "tool_name": "openhalo_web_search",
+                    "url": "https://search.example.test?q=openhalo",
+                    "query_sha256": "a" * 64,
+                    "content_sha256": "b" * 64,
+                    "content_chars": 42,
+                    "untrusted": True,
+                    "content": secret_body,
+                    "raw_body": secret_body,
+                }
+            ],
+            interaction_id="interaction-1",
+            interaction_turn_id="interaction-turn-1",
+        )
+        state.record_hermes_memory_events(
+            [
+                {
+                    "tool_call_id": "memory-call-1",
+                    "task_id": "interaction-turn-1",
+                    "action": "add",
+                    "target": "user",
+                    "content_sha256": "c" * 64,
+                    "content": secret_body,
+                }
+            ],
+            interaction_id="interaction-1",
+            interaction_turn_id="interaction-turn-1",
+        )
+        state.record_internal_tool_events(
+            [
+                {
+                    "tool_name": f"tool-{index}",
+                    "content_sha256": f"{index:064x}",
+                    "content_chars": index,
+                    "untrusted": False,
+                }
+                for index in range(129)
+            ],
+            interaction_id="interaction-2",
+            interaction_turn_id="interaction-turn-2",
+        )
+
+        payload = state.to_dict()
+        restored = RuntimeState.from_dict(payload)
+
+        self.assertEqual(
+            len(state.internal_tool_events),
+            128,
+        )
+        self.assertEqual(state.internal_tool_events[-1]["tool_name"], "tool-128")
+        stored_memory_event = state.hermes_memory_events[0]
+        self.assertEqual(stored_memory_event["interaction_id"], "interaction-1")
+        self.assertEqual(stored_memory_event["content_sha256"], "c" * 64)
+        self.assertNotIn("content", stored_memory_event)
+        self.assertNotIn("raw_body", payload["internal_tool_events"][0])
+        self.assertNotIn(secret_body, str(payload))
+        self.assertEqual(restored.hermes_memory_events, state.hermes_memory_events)
+
 
 class JsonStateStoreTests(unittest.TestCase):
+    def test_serializes_concurrent_saves_for_one_store(self) -> None:
+        with TemporaryDirectory() as directory:
+            store = JsonStateStore(Path(directory) / "state.json")
+            state = RuntimeState()
+            first_write_entered = Event()
+            second_write_entered = Event()
+            release_first_write = Event()
+            write_count = 0
+            count_lock = Lock()
+            original_write_text = Path.write_text
+
+            def hold_first_write(path, data, *args, **kwargs):
+                nonlocal write_count
+                with count_lock:
+                    write_count += 1
+                    position = write_count
+                if position == 1:
+                    first_write_entered.set()
+                    release_first_write.wait(timeout=1)
+                else:
+                    second_write_entered.set()
+                return original_write_text(path, data, *args, **kwargs)
+
+            with patch.object(Path, "write_text", new=hold_first_write):
+                with ThreadPoolExecutor(max_workers=2) as executor:
+                    first_save = executor.submit(store.save, state)
+                    self.assertTrue(first_write_entered.wait(timeout=1))
+                    second_save = executor.submit(store.save, state)
+                    try:
+                        self.assertFalse(second_write_entered.wait(timeout=0.05))
+                    finally:
+                        release_first_write.set()
+                    first_save.result(timeout=1)
+                    second_save.result(timeout=1)
+
     def test_saves_and_loads_runtime_state(self) -> None:
         path = RUNTIME_TEST_DIR / "state.json"
         store = JsonStateStore(path)

@@ -1,6 +1,12 @@
 """In-memory runtime state for the v0 single-edge loop."""
 
 from personal_runtime.context_contracts import RuntimeObservation
+from personal_runtime.harness_provenance import RUNTIME_PROVENANCE_HISTORY_LIMIT
+from personal_runtime.harness_provenance import sanitize_hermes_memory_events
+from personal_runtime.harness_provenance import sanitize_internal_tool_events
+
+
+HARNESS_PROVENANCE_HISTORY_LIMIT = RUNTIME_PROVENANCE_HISTORY_LIMIT
 
 
 class RuntimeState:
@@ -20,6 +26,25 @@ class RuntimeState:
         self.interventions = []
         self.model_health = {}
         self.mobile_liveness = {}
+        self.action_registry = {
+            "mcp.invoke": {
+                "executor_kind": "mcp",
+                "status": "placeholder",
+            },
+            "skill.invoke": {
+                "executor_kind": "skill_procedure",
+                "status": "placeholder",
+            },
+        }
+        self.harness_memory = {
+            "procedural": [],
+            "semantic": [],
+            "episodic": [],
+        }
+        self.memory_consolidation_candidates = []
+        self.harness_traces = []
+        self.internal_tool_events = []
+        self.hermes_memory_events = []
 
     def register_device(
         self,
@@ -71,6 +96,77 @@ class RuntimeState:
 
     def record_action_result(self, result: dict) -> None:
         self.action_results.append(result)
+
+    def record_harness_memory(
+        self,
+        kind,
+        *,
+        memory_id: str,
+        content: dict,
+        source_refs: list[str],
+        recorded_at: str,
+    ) -> None:
+        key = getattr(kind, "value", kind)
+        if key not in self.harness_memory:
+            raise ValueError(f"unsupported harness memory kind: {key}")
+        self.harness_memory[key].append(
+            {
+                "memory_id": memory_id,
+                "content": dict(content),
+                "source_refs": list(source_refs),
+                "recorded_at": recorded_at,
+            }
+        )
+
+    def record_memory_consolidation_candidate(self, candidate: dict) -> None:
+        self.memory_consolidation_candidates.append(dict(candidate))
+
+    def record_harness_trace(self, trace: dict) -> None:
+        self.harness_traces.append(dict(trace))
+
+    def record_internal_tool_events(
+        self,
+        events: object,
+        *,
+        interaction_id: str,
+        interaction_turn_id: str,
+    ) -> None:
+        for event in sanitize_internal_tool_events(
+            events,
+            limit=HARNESS_PROVENANCE_HISTORY_LIMIT,
+        ):
+            self.internal_tool_events.append(
+                {
+                    "interaction_id": interaction_id,
+                    "interaction_turn_id": interaction_turn_id,
+                    **event,
+                }
+            )
+        self.internal_tool_events = self.internal_tool_events[
+            -HARNESS_PROVENANCE_HISTORY_LIMIT:
+        ]
+
+    def record_hermes_memory_events(
+        self,
+        events: object,
+        *,
+        interaction_id: str,
+        interaction_turn_id: str,
+    ) -> None:
+        for event in sanitize_hermes_memory_events(
+            events,
+            limit=HARNESS_PROVENANCE_HISTORY_LIMIT,
+        ):
+            self.hermes_memory_events.append(
+                {
+                    "interaction_id": interaction_id,
+                    "interaction_turn_id": interaction_turn_id,
+                    **event,
+                }
+            )
+        self.hermes_memory_events = self.hermes_memory_events[
+            -HARNESS_PROVENANCE_HISTORY_LIMIT:
+        ]
 
     def record_interaction(self, interaction: dict) -> None:
         self.interactions.append(interaction)
@@ -200,6 +296,12 @@ class RuntimeState:
             "interventions": self.interventions,
             "model_health": self.model_health,
             "mobile_liveness": self.mobile_liveness,
+            "action_registry": self.action_registry,
+            "harness_memory": self.harness_memory,
+            "memory_consolidation_candidates": self.memory_consolidation_candidates,
+            "harness_traces": self.harness_traces,
+            "internal_tool_events": self.internal_tool_events,
+            "hermes_memory_events": self.hermes_memory_events,
         }
 
     @classmethod
@@ -231,6 +333,30 @@ class RuntimeState:
         state.interventions = list(payload.get("interventions", []))
         state.model_health = dict(payload.get("model_health", {}))
         state.mobile_liveness = dict(payload.get("mobile_liveness", {}))
+        state.action_registry.update(dict(payload.get("action_registry", {})))
+        stored_harness_memory = dict(payload.get("harness_memory", {}))
+        for kind in state.harness_memory:
+            state.harness_memory[kind] = list(stored_harness_memory.get(kind, []))
+        state.memory_consolidation_candidates = list(
+            payload.get("memory_consolidation_candidates", [])
+        )
+        state.harness_traces = list(payload.get("harness_traces", []))
+        for event in payload.get("internal_tool_events", []):
+            if not isinstance(event, dict):
+                continue
+            state.record_internal_tool_events(
+                [event],
+                interaction_id=event.get("interaction_id", ""),
+                interaction_turn_id=event.get("interaction_turn_id", ""),
+            )
+        for event in payload.get("hermes_memory_events", []):
+            if not isinstance(event, dict):
+                continue
+            state.record_hermes_memory_events(
+                [event],
+                interaction_id=event.get("interaction_id", ""),
+                interaction_turn_id=event.get("interaction_turn_id", ""),
+            )
         return state
 
 
@@ -248,8 +374,12 @@ def _compatibility_capability_registration(capability_name: str) -> dict | None:
             "side_effect": "user_visible",
             "input_schema": {
                 "type": "object",
-                "required": ["message"],
-                "properties": {"message": {"type": "string"}},
+                "required": ["body"],
+                "additionalProperties": False,
+                "properties": {
+                    "title": {"type": "string"},
+                    "body": {"type": "string", "minLength": 1},
+                },
             },
         },
         "text.input": {

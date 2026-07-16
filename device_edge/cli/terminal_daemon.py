@@ -364,7 +364,7 @@ class TerminalEdgeDaemon:
             if result["status"] == "ok":
                 self._append_transcript(
                     "runtime",
-                    frame["action"]["payload"]["message"],
+                    result["details"]["body"],
                 )
             action_result = with_api_version(
                 {

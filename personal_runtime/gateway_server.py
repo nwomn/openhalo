@@ -16,6 +16,8 @@ from websockets.exceptions import ConnectionClosedOK
 from edge_api.protocol import validate_frame, with_api_version
 from personal_runtime.action_layer import build_interaction_update
 from personal_runtime.agent_executor import ProposalFormation
+from personal_runtime.agent_harness import LegacyProposalHarness
+from personal_runtime.hermes_adapter import configured_harness_runner
 from personal_runtime.context_contracts import RuntimeObservation
 from personal_runtime.execution_planning import ExecutionPlanner
 from personal_runtime.interaction_pool import InteractionPool
@@ -43,6 +45,7 @@ class RuntimeGateway:
         grounding_edge_history_fetcher=None,
         diagnostic_recorder=None,
         runtime_instance_id: str = "runtime-main",
+        agent_harness=None,
     ) -> None:
         self.shared_token = shared_token
         self.state_store = JsonStateStore(
@@ -72,6 +75,11 @@ class RuntimeGateway:
             runtime_instance_id=runtime_instance_id,
             trace_recorder=trace_recorder,
             config_path=llm_config_path,
+        )
+        legacy_harness = LegacyProposalHarness(lambda: self.proposal_formation)
+        self.agent_harness = agent_harness or configured_harness_runner(
+            config_path=llm_config_path,
+            legacy_runner=legacy_harness,
         )
         self.presence_router = PresenceRouter(
             diagnostic_recorder=diagnostic_recorder,
@@ -105,6 +113,7 @@ class RuntimeGateway:
             if payload.get("agent_initiative") is not None
             else "user_event"
         )
+        is_explicit_user_intent = origin == "user_event"
         source_event_id = frame.get("event_id")
         provenance_token = source_event_id or f"ingress-{uuid4().hex}"
         causal_scope = {
@@ -130,6 +139,15 @@ class RuntimeGateway:
             trigger=trigger,
             participant_device_ids=[frame["device_id"]],
             source_device_id=frame["device_id"],
+            initiator_kind=(
+                "explicit_user_intent"
+                if is_explicit_user_intent
+                else "agent_initiative"
+            ),
+            requesting_device_id=(
+                frame["device_id"] if is_explicit_user_intent else None
+            ),
+            outcome_delivery_required=is_explicit_user_intent,
         )
 
     def _interaction_payload(self, interaction_id: str) -> dict | None:
@@ -223,6 +241,27 @@ class RuntimeGateway:
             "interaction_id": frame.get("interaction_id"),
             "interaction_turn_id": frame.get("interaction_turn_id"),
         }
+        intervention = self._intervention_for_turn(
+            frame.get("interaction_id"),
+            frame.get("interaction_turn_id"),
+        )
+        action_intent = (
+            (intervention or {})
+            .get("proposal", {})
+            .get("metadata", {})
+            .get("harness_validation", {})
+            .get("action_intent")
+        )
+        if action_intent is not None:
+            result["action_envelope"] = {
+                "action_id": action_intent.get("action_id"),
+                "executor_kind": action_intent.get("executor_kind"),
+                "capability": action_intent.get("capability"),
+                "status": result.get("status"),
+                "details": result.get("details", {}),
+                "governance": action_intent.get("governance"),
+                "provenance": action_intent.get("provenance", {}),
+            }
         self.state.record_action_result(result)
         return frame
 
@@ -291,12 +330,12 @@ class RuntimeGateway:
         result: dict | None = None,
     ) -> str:
         if result is not None:
-            delivered_message = result.get("details", {}).get("message")
-            if isinstance(delivered_message, str) and delivered_message.strip():
-                return delivered_message.strip()
+            delivered_body = result.get("details", {}).get("body")
+            if isinstance(delivered_body, str) and delivered_body.strip():
+                return delivered_body.strip()
         proposal_type = proposal.get("proposal_type")
         if proposal_type == "action":
-            return proposal.get("action_payload", {}).get("message", "")
+            return proposal.get("action_payload", {}).get("body", "")
         if proposal_type == "no_intervention":
             rationale = proposal.get("metadata", {}).get("proposal_rationale", {})
             return rationale.get("summary", "")
@@ -320,6 +359,7 @@ class RuntimeGateway:
         summary: str,
         visibility: str,
         result_status: str | None = None,
+        terminal_reason: str | None = None,
     ) -> dict:
         return self.state.update_interaction(
             interaction_id,
@@ -329,6 +369,7 @@ class RuntimeGateway:
                 "visibility": visibility,
                 "summary": summary,
                 "result_status": result_status,
+                "terminal_reason": terminal_reason,
             },
         )
 
@@ -342,7 +383,7 @@ class RuntimeGateway:
         target_device_id = interaction.get("primary_action", {}).get("target_device_id")
         source_device_id = interaction.get("source_device_id")
         capability = proposal.get("action_capability")
-        delivered_message = result.get("details", {}).get("message")
+        delivered_body = result.get("details", {}).get("body")
 
         if proposal_type == "no_intervention":
             return proposal.get("visibility_intent", "silent")
@@ -350,7 +391,7 @@ class RuntimeGateway:
         if (
             proposal_type == "action"
             and capability == "notification.show"
-            and delivered_message
+            and delivered_body
             and target_device_id is not None
             and target_device_id == source_device_id
         ):
@@ -362,11 +403,14 @@ class RuntimeGateway:
         interaction: dict,
         correlation: dict | None = None,
     ) -> list[dict]:
+        requesting_device_id = interaction.get("requesting_device_id")
+        if not interaction.get("outcome_delivery_required") or not requesting_device_id:
+            return []
         visibility = interaction.get("completion", {}).get("visibility", "visible")
         summary = interaction.get("completion", {}).get("summary", "")
         replies = [
             build_interaction_update(
-                interaction["source_device_id"],
+                requesting_device_id,
                 {
                     "interaction_id": interaction["interaction_id"],
                     "status": interaction["status"],
@@ -472,20 +516,6 @@ class RuntimeGateway:
             if target_websocket is not None:
                 await self._send_frame(target_websocket, reply)
         return replies
-
-    def _build_normal_path_proposal(
-        self,
-        frame: dict,
-        snapshot: dict,
-        grounding_bundle: dict | None = None,
-        correlation: dict | None = None,
-    ):
-        return self.proposal_formation.build_normal_path_proposal(
-            frame,
-            snapshot=snapshot,
-            grounding_bundle=grounding_bundle,
-            correlation=correlation,
-        )
 
     def _build_edge_history_for_grounding(self) -> dict | None:
         if self.grounding_edge_history_fetcher is None:

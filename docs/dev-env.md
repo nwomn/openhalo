@@ -644,3 +644,60 @@ For the current manual `M11` acceptance bar, prefer one real user-scenario foreg
 If you need the plain compatibility path instead of the TUI, run `.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token` and apply the same user-scenario expectations to the line-oriented transcript.
 
 For the current live-terminal baseline, a single `Ctrl+C` in the foreground terminal-daemon session should now terminate the CLI device cleanly during normal TTY use. If manual acceptance still requires repeated interrupt signals, treat that as a terminal-edge interaction regression rather than expected behavior.
+
+## M20 Hermes Harness acceptance
+
+M20 uses Hermes as the internal harness loop while OpenHalo continues to govern
+all user-visible and side-effectful action intents. Hermes-native
+`MEMORY.md`/`USER.md` are the durable memory store; OpenHalo keeps only hashes,
+scope/session references, and replay provenance.
+
+Before a real research acceptance run, configure an operator-approved public
+search endpoint and hosts in local `config/runtime-config.toml`:
+
+```toml
+[harness]
+runner = "hermes"
+
+[harness.hermes]
+# Keep the verifier's default fetch/hostile fixtures, or override both URLs
+# below with operator-controlled HTTPS URLs that match this allowlist.
+allowed_hosts = ["example.com", "httpbingo.org", "research.example.net"]
+search_url_template = "https://research.example.net/search?q={query}"
+```
+
+`search_url_template` must contain `{query}`, and every URL used by the
+verifier must match the explicit `allowed_hosts` policy. The verifier defaults
+to `https://example.com/` for fetch and an `httpbingo.org` hostile fixture, so
+keep those hosts in the allowlist when using its default URLs. Otherwise pass
+matching `--research-url`, `--hostile-research-url`, and
+`--hostile-content-sha256` values. Replace `research.example.net` with the
+operator-approved public search endpoint and include any redirect hosts it
+requires. M20 uses direct bounded HTTPS fetch/search and does not require
+Chromium, a browser process, or a desktop GUI. Browser-backed rendering is
+deferred to a later hardening item.
+
+Run the deterministic gate first, then the configured-provider run:
+
+```bash
+bin/verify-m20-harness --runtime-config-path config/runtime-config.toml
+bin/verify-m20-harness --live --runtime-config-path config/runtime-config.toml
+```
+
+The live run verifies a governed action, fetch, search, a research-assisted
+reply that remains Presence-governed, hostile-content source governance, and
+cross-session Hermes-memory recall. The recall is displayed back to the
+requesting terminal through a low-risk governed `notification.show` action,
+then completes through the normal post-action path; it must not issue research
+or another memory write. Remote content is recorded as untrusted; it cannot
+authorize an action or memory write by itself. It writes only sanitized
+evidence to `.runtime/m20-harness-live-evidence.json`; each new evidence file
+requires human review before it is used to change milestone status, and the
+recorded M20 acceptance has already undergone that review. Positive fetch/search
+runs verify the real provider/network path. The hostile-page run may record its fixture hash or
+safely decline the fetch without side effects; deterministic forced action and
+injected-memory tests are the separate enforcement proof, so a model merely
+ending silently is not accepted as a security-boundary claim. M20 uses
+autonomous native memory only in normal audited turns; re-entry turns retain
+read context but receive no native `memory` write tool. Hermes periodic
+background review remains disabled.

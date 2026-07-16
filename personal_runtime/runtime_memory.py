@@ -8,12 +8,16 @@ from personal_runtime.context_snapshot import sanitize_observation_driven_snapsh
 GROUNDING_BUNDLE_VERSION = "m10.v1"
 ACTIVE_GOAL_LIMIT = 3
 RECENT_MEMORY_LIMIT = 3
+DEVICE_ROSTER_LIMIT = 16
+DEVICE_ROSTER_ACTION_CAPABILITY_LIMIT = 12
 
 
 def build_model_grounding_bundle(
     state,
     snapshot: dict | None,
     edge_history: dict | None = None,
+    online_device_ids: set[str] | None = None,
+    request_source_device_id: str | None = None,
 ) -> dict:
     compact_snapshot = dict(snapshot or {})
     recent_memory = {
@@ -32,7 +36,66 @@ def build_model_grounding_bundle(
             "stored_intervention_count": len(state.interventions),
             "stored_action_result_count": len(state.action_results),
         },
+        "device_roster": _build_device_roster(
+            state,
+            online_device_ids=online_device_ids,
+            request_source_device_id=request_source_device_id,
+        ),
         "edge_history": _normalize_edge_history(edge_history),
+    }
+
+
+def _build_device_roster(
+    state,
+    *,
+    online_device_ids: set[str] | None,
+    request_source_device_id: str | None,
+) -> dict:
+    """Project Runtime-owned device state into a bounded model decision surface."""
+
+    online = set(online_device_ids or ())
+    device_ids = sorted(set(state.devices) | set(state.device_registry))
+    devices = []
+    for device_id in device_ids[:DEVICE_ROSTER_LIMIT]:
+        registered_device = state.device_registry.get(device_id, {})
+        device_state = state.devices.get(device_id, {})
+        action_capabilities = []
+        for capability_name, capability in sorted(
+            state.capability_registry.get(device_id, {}).items()
+        ):
+            if capability.get("direction") not in {
+                "runtime_to_edge",
+                "bidirectional",
+            }:
+                continue
+            if capability.get("kind") not in {None, "action"}:
+                continue
+            action_capabilities.append(
+                {
+                    "name": capability_name,
+                    "affordances": sorted(capability.get("affordances", [])),
+                    "modality": capability.get("modality"),
+                    "privacy": capability.get("privacy"),
+                    "content_capacity": capability.get("content_capacity"),
+                    "interruptiveness": capability.get("interruptiveness"),
+                }
+            )
+        devices.append(
+            {
+                "device_id": device_id,
+                "device_type": registered_device.get(
+                    "device_type", device_state.get("device_type", "unknown")
+                ),
+                "role": registered_device.get("role"),
+                "online": device_id in online,
+                "action_capabilities": action_capabilities[
+                    :DEVICE_ROSTER_ACTION_CAPABILITY_LIMIT
+                ],
+            }
+        )
+    return {
+        "request_source_device_id": request_source_device_id,
+        "devices": devices,
     }
 
 
@@ -141,7 +204,7 @@ def _collect_recent_action_results(state) -> list[dict]:
             {
                 "status": action_result.get("status", ""),
                 "capability": action_result.get("capability", ""),
-                "message": details.get("message") if isinstance(details, dict) else None,
+                "body": details.get("body") if isinstance(details, dict) else None,
             }
         )
     return results

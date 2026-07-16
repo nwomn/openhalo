@@ -193,8 +193,11 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertEqual(plan.proposal_type, "action")
         self.assertEqual(plan.action_capability, "notification.show")
         self.assertEqual(
-            plan.action_payload["message"],
-            "Runtime status: running (pid 42137).",
+            plan.action_payload,
+            {
+                "title": "OpenHalo",
+                "body": "Runtime status: running (pid 42137).",
+            },
         )
         self.assertEqual(
             plan.metadata["proposal_rationale"]["trigger"],
@@ -273,7 +276,10 @@ class ModelProviderConfigTests(unittest.TestCase):
             result={
                 "status": "ok",
                 "capability": "notification.show",
-                "details": {"message": "Hello! Runtime here."},
+                "details": {
+                    "title": "OpenHalo",
+                    "body": "Hello! Runtime here.",
+                },
             },
             profile_name="proposal_formation",
             fallback_reason="deterministic_post_action",
@@ -300,7 +306,7 @@ class ModelProviderConfigTests(unittest.TestCase):
                                 "text": (
                                     '{"proposal_type":"action",'
                                     '"response_text":"The runtime is running and using about 27 MB RSS.",'
-                                    '"action":{"capability":"notification.show","payload":{"message":"The runtime is running and using about 27 MB RSS."}},'
+                                    '"action":{"capability":"notification.show","payload":{"title":"OpenHalo","body":"The runtime is running and using about 27 MB RSS."}},'
                                     '"rationale":{"summary":"Summarized runtime.status action_result including memory.",'
                                     '"intent_signals":["runtime.status"],'
                                     '"grounding_signals":["runtime.current_health_state"]}}'
@@ -362,7 +368,8 @@ class ModelProviderConfigTests(unittest.TestCase):
                                 "text": (
                                     '{"proposal_type":"action",'
                                     '"response_text":"Delivered hello to your phone.",'
-                                    '"action":{"capability":"notification.show","payload":{}},'
+                                    '"action":{"capability":"notification.show",'
+                                    '"payload":{"title":"OpenHalo","body":"Delivered hello to your phone."}},'
                                     '"rationale":{"summary":"Acknowledged the source terminal.",'
                                     '"intent_signals":["source ack"],'
                                     '"grounding_signals":["decision brief"]}}'
@@ -378,6 +385,9 @@ class ModelProviderConfigTests(unittest.TestCase):
             interaction={
                 "interaction_id": "interaction-1",
                 "source_device_id": "terminal-edge-1",
+                "initiator_kind": "explicit_user_intent",
+                "requesting_device_id": "terminal-edge-1",
+                "outcome_delivery_required": True,
                 "participant_device_ids": ["terminal-edge-1", "android-edge-1"],
                 "primary_action": {"target_device_id": "android-edge-1"},
             },
@@ -388,7 +398,7 @@ class ModelProviderConfigTests(unittest.TestCase):
             result={
                 "status": "ok",
                 "capability": "notification.show",
-                "details": {"message": "hello"},
+                "details": {"title": "OpenHalo", "body": "hello"},
             },
             snapshot={"runtime.current_health_state": "healthy"},
             grounding={"active_goals": [{"goal_id": "goal-1"}]},
@@ -400,7 +410,7 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertIn("Decision task:", rendered_request)
         self.assertIn("source_device_id: terminal-edge-1", rendered_request)
         self.assertIn("target_device_id: android-edge-1", rendered_request)
-        self.assertIn("source_ack_required: true", rendered_request)
+        self.assertIn("source_outcome_required: true", rendered_request)
         self.assertNotIn("Post-action deliberation: inspect the action_result", rendered_request)
 
     def test_generate_post_action_proposal_plan_recovers_after_two_bad_shapes(
@@ -450,7 +460,7 @@ class ModelProviderConfigTests(unittest.TestCase):
             result={
                 "status": "ok",
                 "capability": "notification.show",
-                "details": {"message": "hello"},
+                "details": {"title": "OpenHalo", "body": "hello"},
             },
             snapshot={"runtime.current_health_state": "healthy"},
             grounding={"active_goals": [{"goal_id": "goal-1"}]},
@@ -506,6 +516,9 @@ class ModelProviderConfigTests(unittest.TestCase):
             interaction={
                 "interaction_id": "interaction-1",
                 "source_device_id": "terminal-edge-1",
+                "initiator_kind": "explicit_user_intent",
+                "requesting_device_id": "terminal-edge-1",
+                "outcome_delivery_required": True,
                 "participant_device_ids": ["terminal-edge-1", "android-edge-1"],
                 "primary_action": {
                     "capability": "notification.show",
@@ -520,7 +533,8 @@ class ModelProviderConfigTests(unittest.TestCase):
                 "status": "ok",
                 "capability": "notification.show",
                 "details": {
-                    "message": "Sent to your phone.",
+                    "title": "OpenHalo",
+                    "body": "Sent to your phone.",
                     "delivered_via": "terminal.stdout",
                 },
             },
@@ -543,6 +557,9 @@ class ModelProviderConfigTests(unittest.TestCase):
             interaction={
                 "interaction_id": "interaction-1",
                 "source_device_id": "terminal-edge-1",
+                "initiator_kind": "explicit_user_intent",
+                "requesting_device_id": "terminal-edge-1",
+                "outcome_delivery_required": True,
                 "participant_device_ids": ["terminal-edge-1", "android-edge-1"],
                 "primary_action": {
                     "capability": "notification.show",
@@ -557,7 +574,8 @@ class ModelProviderConfigTests(unittest.TestCase):
                 "status": "ok",
                 "capability": "notification.show",
                 "details": {
-                    "message": "hello",
+                    "title": "OpenHalo",
+                    "body": "hello",
                     "delivered_via": "android.urgent_alert",
                 },
             },
@@ -595,7 +613,8 @@ class ModelProviderConfigTests(unittest.TestCase):
                 "status": "ok",
                 "capability": "notification.show",
                 "details": {
-                    "message": (
+                    "title": "OpenHalo",
+                    "body": (
                         "Real model reply unavailable: provider returned an "
                         "incompatible response shape; please retry shortly"
                     )
@@ -1161,7 +1180,7 @@ class ModelProviderConfigTests(unittest.TestCase):
                                     '{"proposal_type":"action",'
                                     '"response_text":"Sending hello to your phone.",'
                                     '"target_device_hint":"android-edge-1",'
-                                    '"action":{"capability":"notification.show","payload":{"message":"hello"}},'
+                                    '"action":{"capability":"notification.show","payload":{"title":"OpenHalo","body":"hello"}},'
                                     '"rationale":{"summary":"User explicitly targeted the phone.","intent_signals":["phone"],"grounding_signals":["android-edge-1"]}}'
                                 ),
                             }
@@ -1177,6 +1196,10 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertEqual(plan.proposal_type, "action")
         self.assertEqual(plan.action_capability, "notification.show")
         self.assertEqual(plan.target_device_hint, "android-edge-1")
+        self.assertEqual(
+            plan.action_payload,
+            {"title": "OpenHalo", "body": "hello"},
+        )
 
     def test_parse_openai_compatible_proposal_response_maps_string_reply_action_to_notification_show(
         self,
@@ -1290,7 +1313,7 @@ class ModelProviderConfigTests(unittest.TestCase):
                                     '"response_text":"你是想让我再试着给手机发送通知吗？",'
                                     '"target_device_hint":"android-edge-782d0247",'
                                     '"action":{"capability":"notification.show",'
-                                    '"payload":{"message":"你是想让我再试着给手机发送通知吗？"}},'
+                                    '"payload":{"title":"OpenHalo","body":"你是想让我再试着给手机发送通知吗？"}},'
                                     '"rationale":{"summary":"User asked to check the phone again.",'
                                     '"intent_signals":["你再看看呢"],'
                                     '"grounding_signals":["known phone target"]}}'
@@ -1308,6 +1331,13 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertEqual(plan.proposal_type, "action")
         self.assertEqual(plan.action_capability, "notification.show")
         self.assertEqual(plan.target_device_hint, "android-edge-782d0247")
+        self.assertEqual(
+            plan.action_payload,
+            {
+                "title": "OpenHalo",
+                "body": "你是想让我再试着给手机发送通知吗？",
+            },
+        )
 
     def test_parse_openai_compatible_proposal_response_uses_response_field_for_reply_text(
         self,

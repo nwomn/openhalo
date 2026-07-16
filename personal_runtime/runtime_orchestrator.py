@@ -2,13 +2,32 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from edge_api.protocol import with_api_version
 from openhalo_common.diagnostics import correlation_from_frame
 from personal_runtime.action_layer import build_action_request
+from personal_runtime.action_layer import required_device_capability_for_action
+from personal_runtime.agent_harness import ActionExecutorKind
+from personal_runtime.agent_harness import ActionGovernance
+from personal_runtime.agent_harness import ActionSideEffect
+from personal_runtime.agent_harness import ActionVisibility
+from personal_runtime.agent_harness import HarnessInput
+from personal_runtime.agent_harness import HarnessOperation
+from personal_runtime.agent_executor import InterventionProposal
 from personal_runtime.context_snapshot import build_context_snapshot
 from personal_runtime.context_snapshot import build_context_snapshot_contract
 from personal_runtime.context_snapshot import sanitize_observation_driven_snapshot
 from personal_runtime.context_snapshot import sanitize_observation_driven_snapshot_contract
+from personal_runtime.harness_memory import build_harness_memory_context
+from personal_runtime.harness_memory import build_memory_consolidation_candidate
+from personal_runtime.harness_evaluation import build_harness_trace
+from personal_runtime.harness_provenance import build_trusted_user_intent_ref
+from personal_runtime.harness_provenance import internal_tool_audit_issue
+from personal_runtime.harness_provenance import sanitize_hermes_memory_events
+from personal_runtime.harness_provenance import sanitize_internal_tool_events
+from personal_runtime.harness_provenance import trusted_user_intent_ref_matches
+from personal_runtime.interaction_pool import build_action_result_outcome_contract
 from personal_runtime.runtime_memory import build_model_grounding_bundle
 from personal_runtime.runtime_memory import sanitize_observation_driven_grounding_bundle
 
@@ -32,6 +51,435 @@ class RuntimeOrchestrator:
             planning_record=planning_record,
         )
         self.gateway._persist_state()
+
+    @staticmethod
+    def _outcome_fallback_proposal(
+        proposal: InterventionProposal,
+        outcome_contract: dict,
+    ) -> InterventionProposal:
+        body = (
+            "已发送到目标设备。"
+            if outcome_contract.get("result_status") == "ok"
+            else "目标设备未能完成操作。"
+        )
+        return InterventionProposal(
+            kind="action",
+            proposal_type="action",
+            source="runtime_outcome_fallback",
+            action_capability="notification.show",
+            required_capability=required_device_capability_for_action(
+                "notification.show"
+            ),
+            action_payload={"title": "OpenHalo", "body": body},
+            message=body,
+            metadata={
+                **proposal.metadata,
+                "runtime_generated_action": "outcome_delivery_fallback",
+                "outcome_delivery": {
+                    **outcome_contract,
+                    "required": True,
+                    "fallback_reason": proposal.proposal_type,
+                },
+            },
+            target_device_hint=outcome_contract["requesting_device_id"],
+            interaction_type="pull",
+            visibility_intent="visible",
+            candidate_surface_hints=["requesting_device"],
+        )
+
+    def _proposal_from_harness(self, harness_input: HarnessInput):
+        if self._uses_legacy_harness_memory():
+            memory_context = build_harness_memory_context(
+                state=self.gateway.state,
+                interaction_id=harness_input.interaction_id,
+                interaction_turn_id=harness_input.interaction_turn_id,
+                working_memory={
+                    "operation": harness_input.operation.value,
+                    "interaction_id": harness_input.interaction_id,
+                    "interaction_turn_id": harness_input.interaction_turn_id,
+                },
+            )
+            harness_input = replace(
+                harness_input,
+                working_memory=memory_context["working"],
+                procedural_memory=memory_context["procedural"],
+                semantic_memory=memory_context["semantic"],
+                episodic_memory=memory_context["episodic"],
+            )
+        outcome = self.gateway.agent_harness.run(harness_input)
+        internal_tool_events = sanitize_internal_tool_events(
+            outcome.metadata.get("internal_tool_events")
+        )
+        hermes_memory_events = sanitize_hermes_memory_events(
+            outcome.metadata.get("hermes_memory_events")
+        )
+        self.gateway.state.record_internal_tool_events(
+            internal_tool_events,
+            interaction_id=harness_input.interaction_id,
+            interaction_turn_id=harness_input.interaction_turn_id,
+        )
+        self.gateway.state.record_hermes_memory_events(
+            hermes_memory_events,
+            interaction_id=harness_input.interaction_id,
+            interaction_turn_id=harness_input.interaction_turn_id,
+        )
+        if self._uses_legacy_harness_memory():
+            self.gateway.state.record_memory_consolidation_candidate(
+                build_memory_consolidation_candidate(
+                    harness_input=harness_input,
+                    outcome=outcome,
+                    terminal_reason=self._terminal_reason_for_harness_outcome(outcome),
+                )
+            )
+        if outcome.proposal is None:
+            raise ValueError(
+                "harness returned no proposal for "
+                f"{harness_input.operation.value} deliberation"
+            )
+        proposal = outcome.proposal
+        validation = self._validate_harness_outcome(outcome, harness_input)
+        self.gateway.state.record_harness_trace(
+            build_harness_trace(
+                harness_input=harness_input,
+                outcome=outcome,
+                validation=validation,
+                terminal_reason=self._terminal_reason_for_harness_outcome(
+                    outcome,
+                    validation=validation,
+                ),
+            )
+        )
+        if validation["reason"] is not None:
+            proposal = InterventionProposal(
+                kind="no_intervention",
+                proposal_type="no_intervention",
+                source=proposal.source,
+                action_capability=None,
+                required_capability=None,
+                action_payload={},
+                message="",
+                metadata={
+                    **proposal.metadata,
+                    "harness_validation": {
+                        "decision": "rejected",
+                        "reason": validation["reason"],
+                        "action_intent": validation["action_intent"],
+                        "authorization": validation["authorization"],
+                        "phase": "pre_presence",
+                    },
+                },
+                interaction_type=proposal.interaction_type,
+                visibility_intent="silent",
+                candidate_surface_hints=proposal.candidate_surface_hints,
+            )
+        elif validation["action_intent"] is not None:
+            proposal.metadata = {
+                **proposal.metadata,
+                "harness_validation": {
+                    "decision": "allowed",
+                    "reason": None,
+                    "action_intent": validation["action_intent"],
+                    "authorization": validation["authorization"],
+                    "phase": "pre_presence",
+                },
+            }
+        proposal_metadata = dict(proposal.metadata)
+        if "internal_tool_events" in proposal_metadata:
+            proposal_metadata["internal_tool_events"] = sanitize_internal_tool_events(
+                proposal_metadata["internal_tool_events"]
+            )
+        if "hermes_memory_events" in proposal_metadata:
+            proposal_metadata["hermes_memory_events"] = sanitize_hermes_memory_events(
+                proposal_metadata["hermes_memory_events"]
+            )
+        proposal.metadata = {
+            **proposal_metadata,
+            "harness": {
+                **outcome.metadata,
+                "internal_tool_events": internal_tool_events,
+                "hermes_memory_events": hermes_memory_events,
+                "operation": outcome.operation.value,
+                "intent": outcome.intent,
+            },
+        }
+        return proposal
+
+    def _uses_legacy_harness_memory(self) -> bool:
+        return (
+            getattr(
+                self.gateway.agent_harness,
+                "durable_memory_engine",
+                None,
+            )
+            == "openhalo_legacy"
+        )
+
+    @staticmethod
+    def _terminal_reason_for_harness_outcome(
+        outcome,
+        *,
+        validation: dict | None = None,
+    ) -> str:
+        if validation is not None and validation["reason"] is not None:
+            return "no_intervention"
+        if outcome.intent == "provider_failure":
+            return "failed"
+        if outcome.intent == "no_intervention":
+            return "no_intervention"
+        if outcome.intent == "action":
+            return "action_pending"
+        return "unsupported_outcome"
+
+    @staticmethod
+    def _terminal_reason_for_execution(proposal, execution_outcome: dict) -> str:
+        if proposal.proposal_type == "no_intervention":
+            return "no_intervention"
+        if proposal.proposal_type == "provider_failure":
+            return "failed"
+        if execution_outcome.get("reason") == "presence_suppressed":
+            return "suppressed"
+        return execution_outcome.get("reason", "complete")
+
+    def _validate_harness_outcome(
+        self,
+        outcome,
+        harness_input: HarnessInput,
+    ) -> dict:
+        intent = outcome.action_intent
+        if intent is None:
+            if outcome.proposal.proposal_type == "action":
+                return {
+                    "reason": "action_missing_runtime_intent",
+                    "action_intent": None,
+                    "authorization": None,
+                }
+            return {
+                "reason": None,
+                "action_intent": None,
+                "authorization": None,
+            }
+        intent_metadata = {
+            "action_id": intent.action_id,
+            "executor_kind": intent.executor_kind.value,
+            "capability": intent.capability,
+            "side_effect_class": intent.side_effect_class.value,
+            "visibility": intent.visibility.value,
+            "governance": intent.governance.value,
+            "payload": intent.payload,
+            "provenance": intent.provenance,
+        }
+        if (
+            intent.governance != ActionGovernance.RUNTIME_GOVERNED
+            or intent.side_effect_class == ActionSideEffect.NONE
+            or intent.visibility != ActionVisibility.USER_VISIBLE
+        ):
+            return {
+                "reason": "private_intent_cannot_be_user_visible",
+                "action_intent": intent_metadata,
+                "authorization": None,
+            }
+        proposal = outcome.proposal
+        if (
+            proposal.proposal_type != "action"
+            or proposal.action_capability != intent.capability
+            or proposal.action_payload != intent.payload
+        ):
+            return {
+                "reason": "action_intent_proposal_mismatch",
+                "action_intent": intent_metadata,
+                "authorization": None,
+            }
+        research_authorization = self._validate_research_assisted_action(
+            outcome=outcome,
+            harness_input=harness_input,
+            intent=intent,
+        )
+        if research_authorization["reason"] is not None:
+            return {
+                "reason": research_authorization["reason"],
+                "action_intent": intent_metadata,
+                "authorization": research_authorization["authorization"],
+            }
+        if (
+            intent.executor_kind == ActionExecutorKind.DEVICE_EDGE
+            and not self._has_registered_device_action(intent.capability)
+        ):
+            return {
+                "reason": "unregistered_action_capability",
+                "action_intent": intent_metadata,
+                "authorization": research_authorization["authorization"],
+            }
+        if (
+            intent.executor_kind != ActionExecutorKind.DEVICE_EDGE
+            and not self._has_registered_runtime_action(intent)
+        ):
+            return {
+                "reason": "unregistered_action_target",
+                "action_intent": intent_metadata,
+                "authorization": research_authorization["authorization"],
+            }
+        return {
+            "reason": None,
+            "action_intent": intent_metadata,
+            "authorization": research_authorization["authorization"],
+        }
+
+    def _validate_research_assisted_action(
+        self,
+        *,
+        outcome,
+        harness_input: HarnessInput,
+        intent,
+    ) -> dict:
+        """Require trusted user scope before untrusted research influences action."""
+
+        provenance = intent.provenance if isinstance(intent.provenance, dict) else {}
+        actual_events = sanitize_internal_tool_events(
+            outcome.metadata.get("internal_tool_events")
+        )
+        for event in actual_events:
+            audit_issue = internal_tool_audit_issue(event)
+            if audit_issue is not None:
+                return {
+                    "reason": audit_issue,
+                    "authorization": {
+                        "decision": "rejected",
+                        "source": "untrusted_research",
+                        "risk": "elevated",
+                        "confirmation": "not_required",
+                    },
+                }
+        actual_refs = [
+            self._research_ref_key(event)
+            for event in actual_events
+            if self._is_untrusted_research_event(event)
+        ]
+        claimed_refs = provenance.get("research_input_refs")
+        claimed_taint = (
+            provenance.get("untrusted_input_present") is True
+            or (isinstance(claimed_refs, list) and bool(claimed_refs))
+        )
+        if not actual_refs and not claimed_taint:
+            return {"reason": None, "authorization": None}
+
+        authorization = {
+            "decision": "rejected",
+            "source": "untrusted_research",
+            "risk": "elevated",
+            "confirmation": "not_required",
+        }
+        if (
+            not actual_refs
+            or provenance.get("untrusted_input_present") is not True
+            or not isinstance(claimed_refs, list)
+            or any(self._research_ref_key(reference) is None for reference in claimed_refs)
+            or sorted(actual_refs) != sorted(
+                self._research_ref_key(reference)
+                for reference in claimed_refs
+            )
+        ):
+            return {
+                "reason": "untrusted_research_missing_provenance",
+                "authorization": authorization,
+            }
+
+        trusted_intent = provenance.get("trusted_user_intent")
+        expected_intent = build_trusted_user_intent_ref(harness_input)
+        if not isinstance(trusted_intent, dict) or expected_intent is None:
+            return {
+                "reason": "untrusted_research_missing_trusted_user_intent",
+                "authorization": authorization,
+            }
+        if not trusted_user_intent_ref_matches(trusted_intent, harness_input):
+            return {
+                "reason": "untrusted_research_trusted_user_intent_mismatch",
+                "authorization": authorization,
+            }
+        if not self._is_low_risk_research_reply(intent, expected_intent):
+            return {
+                "reason": "untrusted_research_confirmation_required",
+                "authorization": {
+                    **authorization,
+                    "decision": "confirmation_required",
+                    "confirmation": "required",
+                },
+            }
+        return {
+            "reason": None,
+            "authorization": {
+                "decision": "allowed",
+                "source": "trusted_user_intent",
+                "risk": "low",
+                "confirmation": "not_required",
+            },
+        }
+
+    @staticmethod
+    def _is_untrusted_research_event(event: object) -> bool:
+        return (
+            isinstance(event, dict)
+            and event.get("untrusted") is True
+            and isinstance(event.get("tool_name"), str)
+            and event["tool_name"].startswith("openhalo_web_")
+        )
+
+    @staticmethod
+    def _research_ref_key(reference: object) -> tuple[str, str, str, bool] | None:
+        if not isinstance(reference, dict):
+            return None
+        tool_call_id = reference.get("tool_call_id")
+        tool_name = reference.get("tool_name")
+        content_sha256 = reference.get("content_sha256")
+        if (
+            not isinstance(tool_call_id, str)
+            or not tool_call_id
+            or not isinstance(tool_name, str)
+            or not tool_name.startswith("openhalo_web_")
+            or not isinstance(content_sha256, str)
+            or len(content_sha256) != 64
+            or reference.get("untrusted") is not True
+        ):
+            return None
+        return (tool_call_id, tool_name, content_sha256, True)
+
+    @staticmethod
+    def _is_low_risk_research_reply(intent, trusted_intent: dict) -> bool:
+        target_device_hint = intent.provenance.get("target_device_hint")
+        payload = intent.payload
+        return (
+            intent.executor_kind == ActionExecutorKind.DEVICE_EDGE
+            and intent.capability == "notification.show"
+            and isinstance(payload, dict)
+            and set(payload) == {"title", "body"}
+            and isinstance(payload.get("title"), str)
+            and isinstance(payload.get("body"), str)
+            and bool(payload["body"].strip())
+            and target_device_hint
+            in {None, trusted_intent["source_device_id"]}
+        )
+
+    def _has_registered_device_action(self, capability: str) -> bool:
+        expected_capabilities = {
+            capability,
+            required_device_capability_for_action(capability),
+        }
+        for registered_capabilities in self.gateway.state.capability_registry.values():
+            for name, metadata in registered_capabilities.items():
+                if (
+                    name in expected_capabilities
+                    and metadata.get("direction")
+                    in {"runtime_to_edge", "bidirectional"}
+                    and metadata.get("kind") in {None, "action"}
+                ):
+                    return True
+        return False
+
+    def _has_registered_runtime_action(self, intent) -> bool:
+        route = self.gateway.state.action_registry.get(intent.capability)
+        return (
+            route is not None
+            and route.get("executor_kind") == intent.executor_kind.value
+        )
 
     def _build_action_request_for_turn(
         self,
@@ -88,6 +536,7 @@ class RuntimeOrchestrator:
         summary: str,
         visibility: str,
         result_status: str | None = None,
+        terminal_reason: str | None = None,
         correlation: dict | None = None,
     ) -> list[dict]:
         if self.gateway.interaction_pool.has_pending_action(interaction_id):
@@ -98,6 +547,7 @@ class RuntimeOrchestrator:
             summary=summary,
             visibility=visibility,
             result_status=result_status,
+            terminal_reason=terminal_reason,
         )
         self.gateway._persist_state()
         return self.gateway._build_interaction_update_replies(
@@ -145,7 +595,26 @@ class RuntimeOrchestrator:
             source_device_id=frame["device_id"],
             direct_action=direct_action,
             correlation=correlation,
+            runtime_state=self.gateway.state,
+            online_device_ids=self.gateway.online_device_ids,
         )
+        if execution_outcome["kind"] != "action":
+            return [
+                self.gateway._build_public_error(
+                    code="direct_action_rejected",
+                    message=(
+                        "Direct action does not satisfy the registered "
+                        "capability and payload contract."
+                    ),
+                    device_id=frame["device_id"],
+                    capability=(
+                        direct_action.get("capability")
+                        if isinstance(direct_action, dict)
+                        and isinstance(direct_action.get("capability"), str)
+                        else None
+                    ),
+                )
+            ]
         return [
             build_action_request(
                 execution_outcome["target_device_id"],
@@ -186,6 +655,8 @@ class RuntimeOrchestrator:
             state=self.gateway.state,
             snapshot=snapshot,
             edge_history=edge_history,
+            online_device_ids=set(self.gateway.online_device_ids),
+            request_source_device_id=frame["device_id"],
         )
         self.gateway._record_diagnostic(
             module="Grounding / Runtime Memory",
@@ -200,11 +671,16 @@ class RuntimeOrchestrator:
             self.gateway.state.observations,
             snapshot_time=decision_time or None,
         )
-        proposal = self.gateway.proposal_formation.build_normal_path_proposal(
-            frame,
-            snapshot=snapshot,
-            grounding_bundle=grounding_bundle,
-            correlation=correlation,
+        proposal = self._proposal_from_harness(
+            HarnessInput(
+                operation=HarnessOperation.NORMAL,
+                interaction_id=interaction_id,
+                interaction_turn_id=interaction_turn_id,
+                frame=frame,
+                snapshot=snapshot,
+                grounding_bundle=grounding_bundle,
+                correlation=correlation,
+            )
         )
         self.gateway.state.record_model_health(
             proposal.metadata,
@@ -282,6 +758,10 @@ class RuntimeOrchestrator:
                 interaction_id=interaction_id,
                 summary=execution_outcome["summary"],
                 visibility=execution_outcome["visibility"],
+                terminal_reason=self._terminal_reason_for_execution(
+                    proposal,
+                    execution_outcome,
+                ),
                 correlation=correlation,
             )
 
@@ -363,6 +843,9 @@ class RuntimeOrchestrator:
             },
             participant_device_ids=[source_device_id],
             source_device_id=source_device_id,
+            initiator_kind="passive_observation",
+            requesting_device_id=None,
+            outcome_delivery_required=False,
         )
         if not registration.created:
             self.gateway._persist_state()
@@ -386,6 +869,8 @@ class RuntimeOrchestrator:
             state=self.gateway.state,
             snapshot=snapshot,
             edge_history=None,
+            online_device_ids=set(self.gateway.online_device_ids),
+            request_source_device_id=source_device_id,
         )
         grounding_bundle = sanitize_observation_driven_grounding_bundle(
             grounding_bundle,
@@ -395,14 +880,19 @@ class RuntimeOrchestrator:
             observations,
             admission.evidence_refs,
         )
-        proposal = self.gateway.proposal_formation.build_observation_driven_proposal(
-            interaction=registration.interaction.to_dict(),
-            admission=admission.to_dict(),
-            observations=admitted_observations,
-            turn_index=self.gateway._turn_index_for_interaction(interaction_id),
-            snapshot=snapshot,
-            grounding_bundle=grounding_bundle,
-            correlation=correlation,
+        proposal = self._proposal_from_harness(
+            HarnessInput(
+                operation=HarnessOperation.OBSERVATION_DRIVEN,
+                interaction_id=interaction_id,
+                interaction_turn_id=interaction_turn_id,
+                interaction=registration.interaction.to_dict(),
+                admission=admission.to_dict(),
+                observations=admitted_observations,
+                turn_index=self.gateway._turn_index_for_interaction(interaction_id),
+                snapshot=snapshot,
+                grounding_bundle=grounding_bundle,
+                correlation=correlation,
+            )
         )
         self.gateway.state.record_model_health(
             proposal.metadata,
@@ -472,6 +962,10 @@ class RuntimeOrchestrator:
                 interaction_id=interaction_id,
                 summary=execution_outcome["summary"],
                 visibility=execution_outcome["visibility"],
+                terminal_reason=self._terminal_reason_for_execution(
+                    proposal,
+                    execution_outcome,
+                ),
                 correlation=correlation,
             )
 
@@ -561,6 +1055,8 @@ class RuntimeOrchestrator:
             state=self.gateway.state,
             snapshot=snapshot,
             edge_history=edge_history,
+            online_device_ids=set(self.gateway.online_device_ids),
+            request_source_device_id=interaction["source_device_id"],
         )
         snapshot_contract = build_context_snapshot_contract(
             self.gateway.state.observations,
@@ -571,14 +1067,19 @@ class RuntimeOrchestrator:
             "interaction_id": interaction_id,
             "interaction_turn_id": interaction_turn_id,
         }
-        proposal = self.gateway.proposal_formation.build_post_observation_proposal(
-            interaction=interaction,
-            prior_proposal=intervention["proposal"],
-            observations=observations,
-            turn_index=self.gateway._turn_index_for_interaction(interaction_id),
-            snapshot=snapshot,
-            grounding_bundle=grounding_bundle,
-            correlation=correlation,
+        proposal = self._proposal_from_harness(
+            HarnessInput(
+                operation=HarnessOperation.POST_OBSERVATION,
+                interaction_id=interaction_id,
+                interaction_turn_id=interaction_turn_id,
+                interaction=interaction,
+                prior_proposal=intervention["proposal"],
+                observations=observations,
+                turn_index=self.gateway._turn_index_for_interaction(interaction_id),
+                snapshot=snapshot,
+                grounding_bundle=grounding_bundle,
+                correlation=correlation,
+            )
         )
         self.gateway.state.record_model_health(
             proposal.metadata,
@@ -653,6 +1154,10 @@ class RuntimeOrchestrator:
             interaction_id=interaction_id,
             summary=self.gateway._build_interaction_summary(proposal.to_dict()),
             visibility=proposal.visibility_intent,
+            terminal_reason=self._terminal_reason_for_execution(
+                proposal,
+                execution_outcome,
+            ),
             correlation=correlation,
         )
 
@@ -810,6 +1315,8 @@ class RuntimeOrchestrator:
             state=self.gateway.state,
             snapshot=snapshot,
             edge_history=edge_history,
+            online_device_ids=set(self.gateway.online_device_ids),
+            request_source_device_id=interaction["source_device_id"],
         )
         snapshot_contract = build_context_snapshot_contract(
             self.gateway.state.observations,
@@ -822,15 +1329,26 @@ class RuntimeOrchestrator:
             "interaction_turn_id": interaction_turn_id,
             "request_id": None,
         }
-        proposal = self.gateway.proposal_formation.build_post_action_proposal(
-            interaction=interaction,
-            prior_proposal=intervention["proposal"],
-            result=result,
-            turn_index=self.gateway._turn_index_for_interaction(interaction_id),
-            snapshot=snapshot,
-            grounding_bundle=grounding_bundle,
-            correlation=correlation,
+        proposal = self._proposal_from_harness(
+            HarnessInput(
+                operation=HarnessOperation.POST_ACTION,
+                interaction_id=interaction_id,
+                interaction_turn_id=interaction_turn_id,
+                interaction=interaction,
+                prior_proposal=intervention["proposal"],
+                action_result=result,
+                turn_index=self.gateway._turn_index_for_interaction(interaction_id),
+                snapshot=snapshot,
+                grounding_bundle=grounding_bundle,
+                correlation=correlation,
+            )
         )
+        outcome_contract = build_action_result_outcome_contract(interaction, result)
+        if (
+            outcome_contract["source_outcome_required"]
+            and proposal.proposal_type in {"no_intervention", "provider_failure"}
+        ):
+            proposal = self._outcome_fallback_proposal(proposal, outcome_contract)
         self.gateway.state.record_model_health(
             proposal.metadata,
             observed_at=decision_time,
@@ -915,6 +1433,10 @@ class RuntimeOrchestrator:
             ),
             visibility=visibility,
             result_status=result.get("status"),
+            terminal_reason=self._terminal_reason_for_execution(
+                proposal,
+                execution_outcome,
+            ),
             correlation=correlation,
         )
 

@@ -1,16 +1,96 @@
 import subprocess
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 from device_edge.cli.cli_edge import inspect_agent_initiative_once, inspect_cli_once
 from device_edge.cli.terminal_daemon import build_terminal_daemon_parser
+from personal_runtime.chain_inspection import build_chain_report
 from personal_runtime.chain_inspection import format_chain_report
+from personal_runtime.runtime_state import RuntimeState
 
 ROOT = Path(__file__).resolve().parents[1]
 TEST_LLM_CONFIG = ROOT / "tests" / "fixtures" / "llm-config-test.toml"
 
 
 class ChainInspectionTests(unittest.TestCase):
+    def test_chain_report_selects_related_hermes_provenance_without_bodies(self) -> None:
+        state = RuntimeState()
+        state.record_intervention(
+            {
+                "interaction_id": "interaction-1",
+                "snapshot_contract": {"fields": {}},
+                "proposal": {"message": ""},
+                "decision": "allow",
+                "reason": "test",
+                "target_device_id": "terminal-edge-1",
+            }
+        )
+        state.record_harness_trace(
+            {
+                "interaction_id": "interaction-1",
+                "interaction_turn_id": "interaction-turn-1",
+                "outcome_intent": "no_intervention",
+                "validation": {"decision": "not_applicable"},
+                "terminal_reason": "no_intervention",
+            }
+        )
+        state.record_internal_tool_events(
+            [
+                {
+                    "tool_name": "openhalo_web_fetch",
+                    "content_sha256": "a" * 64,
+                    "content_chars": 4,
+                    "untrusted": True,
+                    "content": "body-a",
+                }
+            ],
+            interaction_id="interaction-1",
+            interaction_turn_id="interaction-turn-1",
+        )
+        state.record_internal_tool_events(
+            [
+                {
+                    "tool_name": "openhalo_web_fetch",
+                    "content_sha256": "b" * 64,
+                    "content_chars": 4,
+                    "untrusted": True,
+                }
+            ],
+            interaction_id="interaction-2",
+            interaction_turn_id="interaction-turn-2",
+        )
+        state.record_hermes_memory_events(
+            [
+                {
+                    "tool_call_id": "memory-call-1",
+                    "task_id": "interaction-turn-1",
+                    "action": "add",
+                    "target": "user",
+                    "content_sha256": "c" * 64,
+                    "content": "memory body",
+                }
+            ],
+            interaction_id="interaction-1",
+            interaction_turn_id="interaction-turn-1",
+        )
+        session = SimpleNamespace(
+            gateway=SimpleNamespace(state=state),
+            diagnostic_recorder=None,
+            drain_trace_lines=lambda: [],
+        )
+
+        report = build_chain_report(session, {"interaction_id": "interaction-1"})
+
+        self.assertEqual(len(report["internal_tool_events"]), 1)
+        self.assertEqual(report["internal_tool_events"][0]["interaction_turn_id"], "interaction-turn-1")
+        self.assertEqual(report["hermes_memory_events"][0]["tool_call_id"], "memory-call-1")
+        self.assertNotIn("content", report["internal_tool_events"][0])
+        self.assertNotIn("memory body", str(report))
+        rendered = format_chain_report(report)
+        self.assertIn("Internal Tool Provenance:", rendered)
+        self.assertIn("Hermes Memory Provenance:", rendered)
+
     def test_terminal_daemon_parser_still_accepts_runtime_url_and_device_id(self) -> None:
         parser = build_terminal_daemon_parser()
 
@@ -64,6 +144,9 @@ class ChainInspectionTests(unittest.TestCase):
         self.assertIn("checks", report["behavior_contract"])
         self.assertIn("replay_eval", report)
         self.assertIn("checks", report["replay_eval"])
+        self.assertIn("harness_traces", report)
+        self.assertIn("harness_evaluation", report)
+        self.assertIn("harness_promotion_gate", report)
         self.assertIn(report["presence_decision"]["decision"], {"allow", "suppress"})
         self.assertIn("diagnostic_events", report)
         diagnostic_modules = [
