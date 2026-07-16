@@ -2454,7 +2454,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             "2026-06-21T10:10:00Z",
         )
 
-    async def test_agent_initiative_path_still_respects_presence_cooldown(self) -> None:
+    async def test_agent_initiative_path_is_not_suppressed_by_global_cooldown(self) -> None:
         state = RuntimeState()
         state.record_intervention(
             {
@@ -2511,14 +2511,12 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        interaction_update = _last_interaction_update(replies)
-        self.assertIsNotNone(interaction_update)
-        self.assertEqual(
-            len([reply for reply in replies if reply["type"] == "action_request"]),
-            0,
-        )
-        self.assertEqual(gateway.state.interventions[-1]["decision"], "suppress")
-        self.assertEqual(gateway.state.interventions[-1]["reason"], "cooldown_active")
+        action_request = _last_action_request(replies)
+        self.assertIsNotNone(action_request)
+        self.assertEqual(action_request["device_id"], "host-edge-1")
+        self.assertEqual(action_request["action"]["capability"], "runtime.status")
+        self.assertEqual(gateway.state.interventions[-1]["decision"], "allow")
+        self.assertEqual(gateway.state.interventions[-1]["reason"], "context_clear")
         self.assertEqual(
             gateway.state.interventions[-1]["proposal"]["source"],
             "agent_initiative",
@@ -2630,7 +2628,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         )
 
         interaction_update = _last_interaction_update(replies)
-        self.assertIsNotNone(interaction_update)
+        self.assertIsNone(interaction_update)
         self.assertEqual(
             len([reply for reply in replies if reply["type"] == "action_request"]),
             0,
@@ -2785,7 +2783,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         )
 
         interaction_update = _last_interaction_update(replies)
-        self.assertIsNotNone(interaction_update)
+        self.assertIsNone(interaction_update)
         self.assertEqual(
             len([reply for reply in replies if reply["type"] == "action_request"]),
             0,
@@ -2796,7 +2794,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             "terminal_inactive",
         )
 
-    async def test_agent_initiative_notification_is_suppressed_during_cooldown(self) -> None:
+    async def test_agent_initiative_notification_is_not_suppressed_by_global_cooldown(self) -> None:
         state = RuntimeState()
         state.record_intervention(
             {
@@ -2862,11 +2860,12 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        interaction_update = _last_interaction_update(replies)
-        self.assertIsNotNone(interaction_update)
-        self.assertEqual(len([reply for reply in replies if reply["type"] == "action_request"]), 0)
-        self.assertEqual(gateway.state.interventions[-1]["decision"], "suppress")
-        self.assertEqual(gateway.state.interventions[-1]["reason"], "cooldown_active")
+        action_request = _last_action_request(replies)
+        self.assertIsNotNone(action_request)
+        self.assertEqual(action_request["device_id"], "desktop-dev-1")
+        self.assertEqual(action_request["action"]["capability"], "notification.show")
+        self.assertEqual(gateway.state.interventions[-1]["decision"], "allow")
+        self.assertEqual(gateway.state.interventions[-1]["reason"], "context_clear")
 
     async def test_normal_path_allows_repeated_explicit_user_text_during_cooldown(self) -> None:
         state = RuntimeState()

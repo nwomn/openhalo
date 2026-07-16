@@ -10,6 +10,46 @@ from personal_runtime.runtime_state import RuntimeState
 
 
 class PromptContextTests(unittest.TestCase):
+    def test_prompt_context_exposes_runtime_device_roster_for_semantic_targeting(self) -> None:
+        package = build_prompt_context_package(
+            user_text="请把消息发到我的手机",
+            snapshot={},
+            grounding_bundle={
+                "device_roster": {
+                    "request_source_device_id": "terminal-edge-1",
+                    "devices": [
+                        {
+                            "device_id": "android-edge-1",
+                            "device_type": "android-phone",
+                            "role": "interactive_surface",
+                            "online": True,
+                            "action_capabilities": [
+                                {"name": "notification.show"}
+                            ],
+                        }
+                    ],
+                }
+            },
+        )
+
+        self.assertEqual(
+            package["sections"]["device_roster"],
+            {
+                "request_source_device_id": "terminal-edge-1",
+                "devices": [
+                    {
+                        "device_id": "android-edge-1",
+                        "device_type": "android-phone",
+                        "role": "interactive_surface",
+                        "online": True,
+                        "action_capabilities": [
+                            {"name": "notification.show"}
+                        ],
+                    }
+                ],
+            },
+        )
+
     def test_build_prompt_context_package_exposes_version_and_grounded_sections(self) -> None:
         state = RuntimeState()
         state.upsert_goal(

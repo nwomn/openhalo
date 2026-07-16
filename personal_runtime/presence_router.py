@@ -2,13 +2,8 @@
 
 from dataclasses import asdict
 from dataclasses import dataclass
-from datetime import datetime
 
 from openhalo_common.diagnostics import DiagnosticBoundaryRecorder
-
-
-COOLDOWN_MINUTES = 5
-
 
 @dataclass(slots=True)
 class PresenceDecision:
@@ -121,19 +116,6 @@ def choose_presence_decision(
             decision="suppress",
             target_device_id=None,
             reason="context_ambiguous",
-        )
-        _record_decision(decision, trace_recorder)
-        return decision
-
-    if _cooldown_active(
-        intervention_history=intervention_history or [],
-        now_timestamp=now_timestamp,
-        proposal=_proposal,
-    ):
-        decision = PresenceDecision(
-            decision="suppress",
-            target_device_id=None,
-            reason="cooldown_active",
         )
         _record_decision(decision, trace_recorder)
         return decision
@@ -285,69 +267,3 @@ def _record_decision(decision: PresenceDecision, trace_recorder) -> None:
             "selected target device",
             target_device_id=decision.target_device_id,
         )
-
-
-def _cooldown_active(
-    intervention_history: list[dict],
-    now_timestamp: str | None,
-    proposal: dict | None = None,
-) -> bool:
-    if (
-        not intervention_history
-        or now_timestamp is None
-        or now_timestamp == ""
-    ):
-        return False
-    if _is_explicit_user_text_proposal(proposal or {}):
-        return False
-    last_allowed = next(
-        (
-            intervention
-            for intervention in reversed(intervention_history)
-            if intervention.get("decision") == "allow"
-            and intervention.get("recorded_at")
-        ),
-        None,
-    )
-    if last_allowed is None:
-        return False
-    if _is_same_interaction_reentry(proposal or {}, last_allowed):
-        return False
-    return (
-        abs(
-            _to_epoch_minutes(now_timestamp)
-            - _to_epoch_minutes(last_allowed["recorded_at"])
-        )
-        < COOLDOWN_MINUTES
-    )
-
-
-def _is_explicit_user_text_proposal(proposal: dict) -> bool:
-    metadata = proposal.get("metadata", {})
-    return (
-        proposal.get("source") == "sense_first"
-        and metadata.get("trigger") == "text.input"
-    )
-
-
-def _is_same_interaction_reentry(
-    proposal: dict,
-    last_allowed: dict,
-) -> bool:
-    metadata = proposal.get("metadata", {})
-    source = proposal.get("source")
-    trigger = metadata.get("trigger")
-    return (
-        (
-            (source == "post_action" and trigger == "action_result")
-            or (source == "post_observation" and trigger == "observation")
-        )
-        and metadata.get("interaction_id") is not None
-        and metadata.get("interaction_id") == last_allowed.get("interaction_id")
-    )
-
-
-def _to_epoch_minutes(timestamp: str) -> int:
-    normalized = timestamp.replace("Z", "+00:00")
-    parsed = datetime.fromisoformat(normalized)
-    return (((parsed.year * 12 + parsed.month) * 31 + parsed.day) * 24 + parsed.hour) * 60 + parsed.minute

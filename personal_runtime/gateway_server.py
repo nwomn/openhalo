@@ -113,6 +113,7 @@ class RuntimeGateway:
             if payload.get("agent_initiative") is not None
             else "user_event"
         )
+        is_explicit_user_intent = origin == "user_event"
         source_event_id = frame.get("event_id")
         provenance_token = source_event_id or f"ingress-{uuid4().hex}"
         causal_scope = {
@@ -138,6 +139,15 @@ class RuntimeGateway:
             trigger=trigger,
             participant_device_ids=[frame["device_id"]],
             source_device_id=frame["device_id"],
+            initiator_kind=(
+                "explicit_user_intent"
+                if is_explicit_user_intent
+                else "agent_initiative"
+            ),
+            requesting_device_id=(
+                frame["device_id"] if is_explicit_user_intent else None
+            ),
+            outcome_delivery_required=is_explicit_user_intent,
         )
 
     def _interaction_payload(self, interaction_id: str) -> dict | None:
@@ -393,11 +403,14 @@ class RuntimeGateway:
         interaction: dict,
         correlation: dict | None = None,
     ) -> list[dict]:
+        requesting_device_id = interaction.get("requesting_device_id")
+        if not interaction.get("outcome_delivery_required") or not requesting_device_id:
+            return []
         visibility = interaction.get("completion", {}).get("visibility", "visible")
         summary = interaction.get("completion", {}).get("summary", "")
         replies = [
             build_interaction_update(
-                interaction["source_device_id"],
+                requesting_device_id,
                 {
                     "interaction_id": interaction["interaction_id"],
                     "status": interaction["status"],

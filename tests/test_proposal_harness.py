@@ -24,6 +24,9 @@ class ProposalHarnessTests(unittest.TestCase):
             interaction={
                 "interaction_id": "interaction-1",
                 "source_device_id": "terminal-edge-1",
+                "initiator_kind": "explicit_user_intent",
+                "requesting_device_id": "terminal-edge-1",
+                "outcome_delivery_required": True,
                 "participant_device_ids": ["terminal-edge-1", "android-edge-1"],
                 "primary_action": {"target_device_id": "android-edge-1"},
             },
@@ -58,6 +61,9 @@ class ProposalHarnessTests(unittest.TestCase):
             "interaction": {
                 "interaction_id": "interaction-1",
                 "source_device_id": "terminal-edge-1",
+                "initiator_kind": "explicit_user_intent",
+                "requesting_device_id": "terminal-edge-1",
+                "outcome_delivery_required": True,
                 "participant_device_ids": ["terminal-edge-1", "android-edge-1"],
                 "primary_action": {"target_device_id": "android-edge-1"},
             },
@@ -82,7 +88,7 @@ class ProposalHarnessTests(unittest.TestCase):
         self.assertIn("Decision task:", decision_brief_prompt)
         self.assertIn("source_device_id: terminal-edge-1", decision_brief_prompt)
         self.assertIn("target_device_id: android-edge-1", decision_brief_prompt)
-        self.assertIn("source_ack_required: true", decision_brief_prompt)
+        self.assertIn("source_outcome_required: true", decision_brief_prompt)
         self.assertIn("provider_failure_observed: false", decision_brief_prompt)
         self.assertIn("Evidence appendix:", decision_brief_prompt)
 
@@ -295,6 +301,12 @@ class ProposalHarnessTests(unittest.TestCase):
                             "parent_proposal_type": "action",
                             "parent_action_capability": "notification.show",
                             "result_status": "ok",
+                            "outcome_delivery": {
+                                "initiator_kind": "explicit_user_intent",
+                                "requesting_device_id": "terminal-edge-1",
+                                "outcome_delivery_required": True,
+                                "source_outcome_required": True,
+                            },
                         },
                     },
                     "grounding_bundle": {"bundle_version": "m10.v1"},
@@ -316,6 +328,12 @@ class ProposalHarnessTests(unittest.TestCase):
                             "parent_proposal_type": "action",
                             "parent_action_capability": "notification.show",
                             "result_status": "ok",
+                            "outcome_delivery": {
+                                "initiator_kind": "explicit_user_intent",
+                                "requesting_device_id": "terminal-edge-1",
+                                "outcome_delivery_required": True,
+                                "source_outcome_required": True,
+                            },
                             "provider_failure_class": "protocol_shape",
                         },
                     },

@@ -1610,7 +1610,7 @@ class HermesToolCallAdapterTests(unittest.TestCase):
                 )
                 return {"final_response": "Research was rejected."}
 
-        HermesHarnessRunner(
+        outcome = HermesHarnessRunner(
             config_path=HERMES_TEST_LLM_CONFIG,
             agent_factory=FakeHermesAgent,
         ).run(
@@ -2807,6 +2807,120 @@ class HermesToolCallAdapterTests(unittest.TestCase):
         self.assertIn("You are OpenHalo", system_messages[0])
         self.assertIn("not the user-facing identity", system_messages[0])
 
+    def test_harness_runner_provides_device_roster_for_model_owned_target_selection(self) -> None:
+        user_messages = []
+        system_messages = []
+
+        class FakeHermesAgent:
+            def __init__(self, **_kwargs) -> None:
+                pass
+
+            def run_conversation(self, user_message, system_message, task_id):
+                user_messages.append(json.loads(user_message))
+                system_messages.append(system_message)
+                return {"final_response": "No action needed."}
+
+        HermesHarnessRunner(
+            config_path=HERMES_TEST_LLM_CONFIG,
+            agent_factory=FakeHermesAgent,
+        ).run(
+            HarnessInput(
+                operation=HarnessOperation.NORMAL,
+                interaction_id="interaction-hermes-device-roster",
+                interaction_turn_id="interaction-turn-hermes-device-roster",
+                frame={
+                    "device_id": "terminal-edge-1",
+                    "payload": {"text": "请把消息发到我的手机"},
+                },
+                grounding_bundle={
+                    "device_roster": {
+                        "request_source_device_id": "terminal-edge-1",
+                        "devices": [
+                            {
+                                "device_id": "android-edge-1",
+                                "device_type": "android-phone",
+                                "role": "interactive_surface",
+                                "online": True,
+                                "action_capabilities": [
+                                    {"name": "notification.show"}
+                                ],
+                            },
+                            {
+                                "device_id": "terminal-edge-1",
+                                "device_type": "desktop-cli",
+                                "role": "interactive_surface",
+                                "online": True,
+                                "action_capabilities": [
+                                    {"name": "notification.show"}
+                                ],
+                            },
+                        ],
+                    }
+                },
+            )
+        )
+
+        self.assertEqual(
+            user_messages[0]["sections"]["device_roster"]["devices"][0][
+                "device_id"
+            ],
+            "android-edge-1",
+        )
+        self.assertIn("exact device_id from device_roster", system_messages[0])
+        self.assertIn("semantic target selection", system_messages[0])
+
+    def test_harness_runner_provides_explicit_user_outcome_contract_after_action(self) -> None:
+        user_messages = []
+        system_messages = []
+
+        class FakeHermesAgent:
+            def __init__(self, **_kwargs) -> None:
+                pass
+
+            def run_conversation(self, user_message, system_message, task_id):
+                user_messages.append(json.loads(user_message))
+                system_messages.append(system_message)
+                return {"final_response": "No action needed."}
+
+        outcome = HermesHarnessRunner(
+            config_path=HERMES_TEST_LLM_CONFIG,
+            agent_factory=FakeHermesAgent,
+        ).run(
+            HarnessInput(
+                operation=HarnessOperation.POST_ACTION,
+                interaction_id="interaction-hermes-source-outcome",
+                interaction_turn_id="interaction-turn-hermes-source-outcome",
+                interaction={
+                    "interaction_id": "interaction-hermes-source-outcome",
+                    "initiator_kind": "explicit_user_intent",
+                    "requesting_device_id": "terminal-edge-1",
+                    "outcome_delivery_required": True,
+                    "source_device_id": "terminal-edge-1",
+                    "primary_action": {
+                        "capability": "notification.show",
+                        "target_device_id": "android-edge-1",
+                    },
+                },
+                prior_proposal={"proposal_type": "action"},
+                action_result={
+                    "device_id": "android-edge-1",
+                    "status": "ok",
+                    "capability": "notification.show",
+                    "details": {"body": "Delivered on phone."},
+                },
+            )
+        )
+
+        outcome_contract = user_messages[0]["sections"]["action_result_context"]
+        self.assertTrue(outcome_contract["source_outcome_required"])
+        self.assertEqual(
+            outcome_contract["requesting_device_id"], "terminal-edge-1"
+        )
+        self.assertEqual(outcome_contract["target_device_id"], "android-edge-1")
+        self.assertIn("source_outcome_required", system_messages[0])
+        self.assertIn("do not finish silently", system_messages[0])
+        self.assertEqual(outcome.proposal.source, "post_action")
+
     def test_harness_runner_canonicalizes_hermes_notification_payload(self) -> None:
         created_agents = []
 
@@ -2853,7 +2967,7 @@ class HermesToolCallAdapterTests(unittest.TestCase):
         )
 
         self.assertEqual(outcome.intent, "action")
-        self.assertEqual(outcome.proposal.source, "hermes")
+        self.assertEqual(outcome.proposal.source, "sense_first")
         self.assertEqual(outcome.proposal.action_capability, "notification.show")
         self.assertEqual(
             outcome.proposal.action_payload,

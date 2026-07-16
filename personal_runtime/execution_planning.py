@@ -296,6 +296,8 @@ def _harness_action_is_authorized(proposal: dict) -> bool:
     """Require a complete runtime envelope for action proposals from a harness."""
 
     metadata = proposal.get("metadata", {})
+    if proposal.get("source") == "runtime_outcome_fallback":
+        return _runtime_outcome_fallback_is_authorized(proposal, metadata)
     if not isinstance(metadata, dict) or not isinstance(metadata.get("harness"), dict):
         return proposal.get("source") != "hermes"
     validation = metadata.get("harness_validation")
@@ -323,6 +325,28 @@ def _harness_action_is_authorized(proposal: dict) -> bool:
         action_intent.get("governance") == "runtime_governed"
         and action_intent.get("side_effect_class") == "external"
         and action_intent.get("visibility") == "user_visible"
+    )
+
+
+def _runtime_outcome_fallback_is_authorized(proposal: dict, metadata: object) -> bool:
+    if not isinstance(metadata, dict):
+        return False
+    outcome_delivery = metadata.get("outcome_delivery")
+    if not isinstance(outcome_delivery, dict):
+        return False
+    requester = outcome_delivery.get("requesting_device_id")
+    return (
+        metadata.get("runtime_generated_action") == "outcome_delivery_fallback"
+        and outcome_delivery.get("required") is True
+        and outcome_delivery.get("source_outcome_required") is True
+        and outcome_delivery.get("initiator_kind") == "explicit_user_intent"
+        and isinstance(requester, str)
+        and bool(requester)
+        and proposal.get("target_device_hint") == requester
+        and proposal.get("action_capability") == "notification.show"
+        and isinstance(proposal.get("action_payload"), dict)
+        and isinstance(proposal["action_payload"].get("body"), str)
+        and bool(proposal["action_payload"]["body"].strip())
     )
 
 

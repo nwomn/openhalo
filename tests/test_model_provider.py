@@ -385,6 +385,9 @@ class ModelProviderConfigTests(unittest.TestCase):
             interaction={
                 "interaction_id": "interaction-1",
                 "source_device_id": "terminal-edge-1",
+                "initiator_kind": "explicit_user_intent",
+                "requesting_device_id": "terminal-edge-1",
+                "outcome_delivery_required": True,
                 "participant_device_ids": ["terminal-edge-1", "android-edge-1"],
                 "primary_action": {"target_device_id": "android-edge-1"},
             },
@@ -407,7 +410,7 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertIn("Decision task:", rendered_request)
         self.assertIn("source_device_id: terminal-edge-1", rendered_request)
         self.assertIn("target_device_id: android-edge-1", rendered_request)
-        self.assertIn("source_ack_required: true", rendered_request)
+        self.assertIn("source_outcome_required: true", rendered_request)
         self.assertNotIn("Post-action deliberation: inspect the action_result", rendered_request)
 
     def test_generate_post_action_proposal_plan_recovers_after_two_bad_shapes(
@@ -513,6 +516,9 @@ class ModelProviderConfigTests(unittest.TestCase):
             interaction={
                 "interaction_id": "interaction-1",
                 "source_device_id": "terminal-edge-1",
+                "initiator_kind": "explicit_user_intent",
+                "requesting_device_id": "terminal-edge-1",
+                "outcome_delivery_required": True,
                 "participant_device_ids": ["terminal-edge-1", "android-edge-1"],
                 "primary_action": {
                     "capability": "notification.show",
@@ -551,6 +557,9 @@ class ModelProviderConfigTests(unittest.TestCase):
             interaction={
                 "interaction_id": "interaction-1",
                 "source_device_id": "terminal-edge-1",
+                "initiator_kind": "explicit_user_intent",
+                "requesting_device_id": "terminal-edge-1",
+                "outcome_delivery_required": True,
                 "participant_device_ids": ["terminal-edge-1", "android-edge-1"],
                 "primary_action": {
                     "capability": "notification.show",

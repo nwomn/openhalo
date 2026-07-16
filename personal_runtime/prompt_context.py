@@ -11,6 +11,7 @@ def build_prompt_context_package(
     snapshot: dict | None = None,
     grounding_bundle: dict | None = None,
     harness_memory: dict | None = None,
+    action_result_context: dict | None = None,
 ) -> dict:
     grounding = grounding_bundle or {}
     sections = {
@@ -18,6 +19,7 @@ def build_prompt_context_package(
         "active_goals": list(grounding.get("active_goals", [])),
         "recent_memory": dict(grounding.get("recent_memory", {})),
         "edge_evidence": dict(grounding.get("edge_history", {})),
+        "device_roster": dict(grounding.get("device_roster", {})),
     }
     if harness_memory is not None:
         sections["harness_memory"] = {
@@ -27,6 +29,8 @@ def build_prompt_context_package(
             "episodic": list(harness_memory.get("episodic", [])),
             "lineage": dict(harness_memory.get("lineage", {})),
         }
+    if action_result_context is not None:
+        sections["action_result_context"] = dict(action_result_context)
     return {
         "version": PROMPT_CONTEXT_VERSION,
         "user_text": user_text,
@@ -82,6 +86,11 @@ def build_behavior_contract(
         "action_governance": {
             "governed_action_route": "presence_then_execution_planning",
             "provider_native_tool_calls": "normalize_to_runtime_action_intent",
+            "target_selection": {
+                "owner": "model_semantic_decision",
+                "device_roster_owner": "personal_runtime",
+                "runtime_behavior": "validate_and_govern_without_semantic_rewrite",
+            },
             "notification_show_payload": {
                 "required": ["body"],
                 "optional": ["title"],
@@ -116,6 +125,9 @@ def prompt_context_metadata_from_package(
         "prompt_context_edge_evidence_entries": sections.get(
             "edge_evidence", {}
         ).get("returned_entries", 0),
+        "prompt_context_device_roster_count": len(
+            sections.get("device_roster", {}).get("devices", [])
+        ),
         "behavior_contract_checks": {
             key: value.get("ok", False)
             for key, value in behavior_contract.get("checks", {}).items()

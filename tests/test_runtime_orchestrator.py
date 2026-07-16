@@ -165,6 +165,20 @@ class RuntimeOrchestratorTests(unittest.TestCase):
             [
                 client.build_connect_frame(),
                 client.build_capability_announce_frame(),
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "android-edge-1",
+                        "device_type": "android-phone",
+                        "role": "interactive_surface",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "capability_announce",
+                    "device_id": "android-edge-1",
+                    "capabilities": ["notification.show"],
+                },
             ]
         )
 
@@ -963,6 +977,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                     action_payload={"title": "OpenHalo", "body": "Harness result"},
                     message="Harness result",
                     metadata={"provider": "harness-test"},
+                    target_device_hint="terminal-edge-1",
                 )
                 return HarnessOutcome.from_proposal(
                     operation=harness_input.operation,
@@ -996,6 +1011,20 @@ class RuntimeOrchestratorTests(unittest.TestCase):
             [
                 client.build_connect_frame(),
                 client.build_capability_announce_frame(),
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "android-edge-1",
+                        "device_type": "android-phone",
+                        "role": "interactive_surface",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "capability_announce",
+                    "device_id": "android-edge-1",
+                    "capabilities": ["notification.show"],
+                },
             ]
         )
 
@@ -1014,6 +1043,54 @@ class RuntimeOrchestratorTests(unittest.TestCase):
             action_request["interaction_turn_id"],
         )
         self.assertEqual(harness_input.correlation["trace_id"], frame["trace_id"])
+        device_roster = harness_input.grounding_bundle["device_roster"]
+        self.assertEqual(
+            device_roster["request_source_device_id"],
+            "terminal-edge-1",
+        )
+        self.assertEqual(
+            device_roster["devices"],
+            [
+                {
+                    "device_id": "android-edge-1",
+                    "device_type": "android-phone",
+                    "role": "interactive_surface",
+                    "online": True,
+                    "action_capabilities": [
+                        {
+                            "name": "notification.show",
+                            "affordances": [
+                                "deliver_private_text",
+                                "notify_user",
+                            ],
+                            "modality": "visual_text",
+                            "privacy": "personal",
+                            "content_capacity": "short_text",
+                            "interruptiveness": "medium",
+                        }
+                    ],
+                },
+                {
+                    "device_id": "terminal-edge-1",
+                    "device_type": "desktop-cli",
+                    "role": None,
+                    "online": True,
+                    "action_capabilities": [
+                        {
+                            "name": "notification.show",
+                            "affordances": [
+                                "deliver_private_text",
+                                "notify_user",
+                            ],
+                            "modality": "visual_text",
+                            "privacy": "personal",
+                            "content_capacity": "short_text",
+                            "interruptiveness": "medium",
+                        }
+                    ],
+                },
+            ],
+        )
         self.assertEqual(
             action_request["action"]["payload"],
             {"title": "OpenHalo", "body": "Harness result"},
@@ -1031,6 +1108,116 @@ class RuntimeOrchestratorTests(unittest.TestCase):
         self.assertEqual(envelope["action_id"], "capturing-action-1")
         self.assertEqual(envelope["executor_kind"], "device_edge")
         self.assertEqual(envelope["provenance"]["origin"], "capturing-harness")
+
+    def test_explicit_cross_edge_user_intent_falls_back_to_requester_outcome(self) -> None:
+        class SilentPostActionHarness:
+            def run(self, harness_input):
+                if harness_input.operation == HarnessOperation.NORMAL:
+                    proposal = InterventionProposal(
+                        kind="action",
+                        proposal_type="action",
+                        source="hermes",
+                        action_capability="notification.show",
+                        required_capability="notification.show",
+                        action_payload={
+                            "title": "OpenHalo",
+                            "body": "Android outcome contract test.",
+                        },
+                        message="Android outcome contract test.",
+                        metadata={},
+                        target_device_hint="android-edge-1",
+                    )
+                    return HarnessOutcome.from_proposal(
+                        operation=harness_input.operation,
+                        proposal=proposal,
+                        action_intent=RuntimeActionIntent(
+                            action_id="cross-edge-action-1",
+                            executor_kind=ActionExecutorKind.DEVICE_EDGE,
+                            capability="notification.show",
+                            payload={
+                                "title": "OpenHalo",
+                                "body": "Android outcome contract test.",
+                            },
+                            side_effect_class=ActionSideEffect.EXTERNAL,
+                            visibility=ActionVisibility.USER_VISIBLE,
+                            governance=ActionGovernance.RUNTIME_GOVERNED,
+                            provenance={"origin": "test"},
+                        ),
+                    )
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=InterventionProposal(
+                        kind="no_intervention",
+                        proposal_type="no_intervention",
+                        source="hermes",
+                        action_capability=None,
+                        required_capability=None,
+                        action_payload={},
+                        message="",
+                        metadata={},
+                        visibility_intent="silent",
+                    ),
+                )
+
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=SilentPostActionHarness(),
+        )
+        terminal = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+        phone = SessionClient(
+            device_id="android-edge-1",
+            device_type="android-phone",
+            token="dev-token",
+            capabilities=["notification.show"],
+        )
+        gateway.run_roundtrip(
+            [
+                terminal.build_connect_frame(),
+                terminal.build_capability_announce_frame(),
+                phone.build_connect_frame(),
+                phone.build_capability_announce_frame(),
+            ]
+        )
+
+        initial_replies = gateway.run_roundtrip(
+            [terminal.build_text_event("send this to my phone")]
+        )
+        phone_action = next(
+            reply for reply in initial_replies if reply["type"] == "action_request"
+        )
+        self.assertEqual(phone_action["device_id"], "android-edge-1")
+        interaction = gateway.state.interactions[-1]
+        self.assertEqual(interaction["initiator_kind"], "explicit_user_intent")
+        self.assertEqual(interaction["requesting_device_id"], "terminal-edge-1")
+        self.assertTrue(interaction["outcome_delivery_required"])
+
+        source_outcome_replies = gateway.run_roundtrip(
+            [phone.handle_action_request(phone_action)]
+        )
+        source_outcome = next(
+            reply
+            for reply in source_outcome_replies
+            if reply["type"] == "action_request"
+        )
+
+        self.assertEqual(source_outcome["device_id"], "terminal-edge-1")
+        self.assertEqual(
+            source_outcome["action"],
+            {
+                "capability": "notification.show",
+                "payload": {"title": "OpenHalo", "body": "已发送到目标设备。"},
+            },
+        )
+        fallback = gateway.state.interventions[-1]["proposal"]
+        self.assertEqual(fallback["source"], "runtime_outcome_fallback")
+        self.assertTrue(fallback["metadata"]["outcome_delivery"]["required"])
 
     def test_orchestrator_supplies_explicit_memory_contract_to_harness(self) -> None:
         class CapturingHarness:
@@ -1395,7 +1582,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
             user_action.get("turn_id"),
         )
 
-    def test_admitted_observation_uses_normal_interaction_proposal_chain(self) -> None:
+    def test_admitted_observation_does_not_emit_requester_completion_update(self) -> None:
         gateway = RuntimeGateway(
             shared_token="dev-token",
             persist_state=False,
@@ -1460,7 +1647,10 @@ class RuntimeOrchestratorTests(unittest.TestCase):
         self.assertEqual(intervention["proposal"]["source"], "observation_driven")
         self.assertEqual(intervention["proposal"]["proposal_type"], "no_intervention")
         self.assertEqual(intervention["decision"], "allow")
-        self.assertTrue(
+        self.assertEqual(interaction["initiator_kind"], "passive_observation")
+        self.assertIsNone(interaction["requesting_device_id"])
+        self.assertFalse(interaction["outcome_delivery_required"])
+        self.assertFalse(
             any(reply["type"] == "interaction_update" for reply in replies)
         )
 
@@ -1999,7 +2189,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
             "terminal_inactive",
         )
 
-    def test_observation_driven_notification_completes_after_action_result(
+    def test_observation_driven_completion_does_not_report_to_evidence_source(
         self,
     ) -> None:
         gateway = RuntimeGateway(
@@ -2158,7 +2348,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
             gateway.state.action_results[-1]["interaction_turn_id"],
             action_request["interaction_turn_id"],
         )
-        self.assertTrue(
+        self.assertFalse(
             any(reply["type"] == "interaction_update" for reply in completion_replies)
         )
 
@@ -2338,7 +2528,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
         self.assertEqual(len(gateway.state.interventions), initial_intervention_count)
         self.assertEqual(wrong_turn_replies[-1]["type"], "error")
 
-        gateway.run_roundtrip(
+        second_outcome_replies = gateway.run_roundtrip(
             [
                 action_result(
                     second_action,
@@ -2346,6 +2536,11 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                     second_action["interaction_turn_id"],
                 )
             ]
+        )
+        second_outcome_action = next(
+            reply
+            for reply in second_outcome_replies
+            if reply["type"] == "action_request"
         )
         first_interaction = next(
             item
@@ -2358,7 +2553,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
             if item["interaction_id"] == second_action["interaction_id"]
         )
         self.assertEqual(first_interaction["status"], "planned")
-        self.assertEqual(second_interaction["status"], "completed")
+        self.assertEqual(second_interaction["status"], "planned")
         self.assertEqual(
             gateway.state.action_results[-1]["interaction_id"],
             second_action["interaction_id"],
@@ -2375,9 +2570,39 @@ class RuntimeOrchestratorTests(unittest.TestCase):
         gateway.run_roundtrip(
             [
                 action_result(
+                    second_outcome_action,
+                    second_outcome_action["device_id"],
+                    second_outcome_action["interaction_turn_id"],
+                )
+            ]
+        )
+        completed_second_interaction = next(
+            item
+            for item in gateway.state.interactions
+            if item["interaction_id"] == second_action["interaction_id"]
+        )
+        self.assertEqual(completed_second_interaction["status"], "completed")
+
+        first_outcome_replies = gateway.run_roundtrip(
+            [
+                action_result(
                     first_action,
                     first_action["device_id"],
                     first_action["interaction_turn_id"],
+                )
+            ]
+        )
+        first_outcome_action = next(
+            reply
+            for reply in first_outcome_replies
+            if reply["type"] == "action_request"
+        )
+        gateway.run_roundtrip(
+            [
+                action_result(
+                    first_outcome_action,
+                    first_outcome_action["device_id"],
+                    first_outcome_action["interaction_turn_id"],
                 )
             ]
         )

@@ -12,6 +12,7 @@ from pathlib import Path
 
 from personal_runtime.action_layer import build_notification_payload
 from personal_runtime.context_snapshot import sanitize_observation_driven_snapshot
+from personal_runtime.interaction_pool import build_action_result_outcome_contract
 from personal_runtime.prompt_context import build_prompt_context_package
 from personal_runtime.runtime_memory import sanitize_observation_driven_grounding_bundle
 
@@ -916,7 +917,7 @@ def build_deterministic_post_action_proposal_plan(
         "used_deterministic_fallback": True,
         "fallback_reason": fallback_reason,
         "proposal_rationale": rationale,
-        **_post_action_lineage_metadata(interaction),
+        **_post_action_lineage_metadata(interaction, result),
     }
 
     if parent_action_capability == "notification.show" and result.get("status") == "ok":
@@ -963,6 +964,7 @@ def build_deterministic_post_action_proposal_plan(
         )
 
     if result.get("reason") == "target_missing":
+        outcome_contract = build_action_result_outcome_contract(interaction, result)
         target_device_id = (
             details.get("target_device_id")
             or result.get("device_id")
@@ -984,8 +986,8 @@ def build_deterministic_post_action_proposal_plan(
             action_payload=build_notification_payload(message),
             metadata=metadata,
             target_device_hint=(
-                interaction.get("source_device_id")
-                if isinstance(interaction, dict)
+                outcome_contract["requesting_device_id"]
+                if outcome_contract["outcome_delivery_required"]
                 else None
             ),
         )
@@ -1823,21 +1825,16 @@ def _build_post_action_user_text(
     result: dict,
 ) -> str:
     lineage = interaction or {}
+    outcome_contract = build_action_result_outcome_contract(lineage, result)
     source_device_id = lineage.get("source_device_id")
-    target_device_id = (lineage.get("primary_action") or {}).get("target_device_id")
-    result_status = result.get("status")
+    target_device_id = outcome_contract["target_device_id"]
+    result_status = outcome_contract["result_status"]
     provider_failure_observed = _post_action_contains_provider_failure(
         {
             "interaction": lineage,
             "prior_proposal": prior_proposal,
             "action_result": result,
         }
-    )
-    source_ack_required = bool(
-        source_device_id
-        and target_device_id
-        and source_device_id != target_device_id
-        and result_status == "ok"
     )
     evidence = {
         "trigger": "action_result",
@@ -1853,19 +1850,22 @@ def _build_post_action_user_text(
             "",
             "Obligations:",
             f"- source_device_id: {source_device_id or 'unknown'}",
+            f"- initiator_kind: {outcome_contract['initiator_kind']}",
+            f"- requesting_device_id: {outcome_contract['requesting_device_id'] or 'unknown'}",
+            f"- outcome_delivery_required: {str(outcome_contract['outcome_delivery_required']).lower()}",
             f"- target_device_id: {target_device_id or 'unknown'}",
             f"- target_action_status: {result_status or 'unknown'}",
-            f"- source_ack_required: {str(source_ack_required).lower()}",
+            f"- source_outcome_required: {str(outcome_contract['source_outcome_required']).lower()}",
             f"- provider_failure_observed: {str(provider_failure_observed).lower()}",
-            "- source_surface_satisfied: false"
-            if source_ack_required
-            else "- source_surface_satisfied: unknown",
+            "- requesting_surface_satisfied: false"
+            if outcome_contract["source_outcome_required"]
+            else "- requesting_surface_satisfied: unknown",
             "- target_surface_satisfied: true"
             if result_status == "ok"
             else "- target_surface_satisfied: false",
             "",
             "Rule:",
-            "If source_ack_required is true and source_surface_satisfied is false, do not choose no_intervention.",
+            "If source_outcome_required is true and requesting_surface_satisfied is false, do not choose no_intervention.",
             "If provider_failure_observed is true, do not copy raw provider failure text into response_text or action payload.",
             "Forbidden raw provider failure text includes: Real model reply unavailable, provider returned an incompatible response shape, codex_agent_envelope_empty_output.",
             "When a provider failure needs user visibility, use a short friendly failure explanation to the source surface instead of routing provider internals as normal notification content.",
@@ -1970,7 +1970,7 @@ def _with_post_action_metadata(
             )
             or result.get("capability"),
             "post_action_result_status": result.get("status"),
-            **_post_action_lineage_metadata(interaction),
+            **_post_action_lineage_metadata(interaction, result),
         }
     )
     return ProposalPlan(
@@ -1982,13 +1982,18 @@ def _with_post_action_metadata(
     )
 
 
-def _post_action_lineage_metadata(interaction: dict | None) -> dict:
+def _post_action_lineage_metadata(
+    interaction: dict | None,
+    result: dict | None = None,
+) -> dict:
+    outcome_contract = build_action_result_outcome_contract(interaction, result)
     if not interaction:
         return {
             "source_device_id": None,
             "previous_target_device_id": None,
             "participant_device_ids": [],
             "lineage_status": "missing",
+            "outcome_delivery": outcome_contract,
         }
     return {
         "source_device_id": interaction.get("source_device_id"),
@@ -1997,6 +2002,7 @@ def _post_action_lineage_metadata(interaction: dict | None) -> dict:
         ).get("target_device_id"),
         "participant_device_ids": list(interaction.get("participant_device_ids", [])),
         "lineage_status": "ok",
+        "outcome_delivery": outcome_contract,
     }
 
 

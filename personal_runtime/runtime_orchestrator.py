@@ -27,6 +27,7 @@ from personal_runtime.harness_provenance import internal_tool_audit_issue
 from personal_runtime.harness_provenance import sanitize_hermes_memory_events
 from personal_runtime.harness_provenance import sanitize_internal_tool_events
 from personal_runtime.harness_provenance import trusted_user_intent_ref_matches
+from personal_runtime.interaction_pool import build_action_result_outcome_contract
 from personal_runtime.runtime_memory import build_model_grounding_bundle
 from personal_runtime.runtime_memory import sanitize_observation_driven_grounding_bundle
 
@@ -50,6 +51,41 @@ class RuntimeOrchestrator:
             planning_record=planning_record,
         )
         self.gateway._persist_state()
+
+    @staticmethod
+    def _outcome_fallback_proposal(
+        proposal: InterventionProposal,
+        outcome_contract: dict,
+    ) -> InterventionProposal:
+        body = (
+            "已发送到目标设备。"
+            if outcome_contract.get("result_status") == "ok"
+            else "目标设备未能完成操作。"
+        )
+        return InterventionProposal(
+            kind="action",
+            proposal_type="action",
+            source="runtime_outcome_fallback",
+            action_capability="notification.show",
+            required_capability=required_device_capability_for_action(
+                "notification.show"
+            ),
+            action_payload={"title": "OpenHalo", "body": body},
+            message=body,
+            metadata={
+                **proposal.metadata,
+                "runtime_generated_action": "outcome_delivery_fallback",
+                "outcome_delivery": {
+                    **outcome_contract,
+                    "required": True,
+                    "fallback_reason": proposal.proposal_type,
+                },
+            },
+            target_device_hint=outcome_contract["requesting_device_id"],
+            interaction_type="pull",
+            visibility_intent="visible",
+            candidate_surface_hints=["requesting_device"],
+        )
 
     def _proposal_from_harness(self, harness_input: HarnessInput):
         if self._uses_legacy_harness_memory():
@@ -619,6 +655,8 @@ class RuntimeOrchestrator:
             state=self.gateway.state,
             snapshot=snapshot,
             edge_history=edge_history,
+            online_device_ids=set(self.gateway.online_device_ids),
+            request_source_device_id=frame["device_id"],
         )
         self.gateway._record_diagnostic(
             module="Grounding / Runtime Memory",
@@ -805,6 +843,9 @@ class RuntimeOrchestrator:
             },
             participant_device_ids=[source_device_id],
             source_device_id=source_device_id,
+            initiator_kind="passive_observation",
+            requesting_device_id=None,
+            outcome_delivery_required=False,
         )
         if not registration.created:
             self.gateway._persist_state()
@@ -828,6 +869,8 @@ class RuntimeOrchestrator:
             state=self.gateway.state,
             snapshot=snapshot,
             edge_history=None,
+            online_device_ids=set(self.gateway.online_device_ids),
+            request_source_device_id=source_device_id,
         )
         grounding_bundle = sanitize_observation_driven_grounding_bundle(
             grounding_bundle,
@@ -1012,6 +1055,8 @@ class RuntimeOrchestrator:
             state=self.gateway.state,
             snapshot=snapshot,
             edge_history=edge_history,
+            online_device_ids=set(self.gateway.online_device_ids),
+            request_source_device_id=interaction["source_device_id"],
         )
         snapshot_contract = build_context_snapshot_contract(
             self.gateway.state.observations,
@@ -1270,6 +1315,8 @@ class RuntimeOrchestrator:
             state=self.gateway.state,
             snapshot=snapshot,
             edge_history=edge_history,
+            online_device_ids=set(self.gateway.online_device_ids),
+            request_source_device_id=interaction["source_device_id"],
         )
         snapshot_contract = build_context_snapshot_contract(
             self.gateway.state.observations,
@@ -1296,6 +1343,12 @@ class RuntimeOrchestrator:
                 correlation=correlation,
             )
         )
+        outcome_contract = build_action_result_outcome_contract(interaction, result)
+        if (
+            outcome_contract["source_outcome_required"]
+            and proposal.proposal_type in {"no_intervention", "provider_failure"}
+        ):
+            proposal = self._outcome_fallback_proposal(proposal, outcome_contract)
         self.gateway.state.record_model_health(
             proposal.metadata,
             observed_at=decision_time,

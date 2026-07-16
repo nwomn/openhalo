@@ -627,6 +627,7 @@ class CliEntryTests(unittest.TestCase):
             [
                 "active_goals",
                 "compact_snapshot",
+                "device_roster",
                 "edge_evidence",
                 "recent_memory",
             ],

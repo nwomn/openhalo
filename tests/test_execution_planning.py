@@ -250,6 +250,79 @@ class ExecutionPlanningTests(unittest.TestCase):
         self.assertEqual(outcome["kind"], "completion")
         self.assertEqual(outcome["reason"], "harness_action_not_authorized")
 
+    def test_runtime_outcome_fallback_requires_a_complete_runtime_contract(self) -> None:
+        state = RuntimeState()
+        _register_surface(
+            state,
+            "terminal-edge-1",
+            {
+                "name": "notification.show",
+                "direction": "runtime_to_edge",
+                "kind": "action",
+                "affordances": ["notify_user", "deliver_private_text"],
+                "modality": "visual_text",
+                "content_capacity": "short_text",
+                "privacy": "personal",
+                "input_schema": {
+                    "type": "object",
+                    "required": ["body"],
+                    "additionalProperties": False,
+                    "properties": {
+                        "title": {"type": "string"},
+                        "body": {"type": "string", "minLength": 1},
+                    },
+                },
+            },
+        )
+        decision = {
+            "decision": "allow",
+            "target_device_id": "terminal-edge-1",
+            "reason": "context_clear",
+        }
+        proposal = {
+            "proposal_type": "action",
+            "source": "runtime_outcome_fallback",
+            "action_capability": "notification.show",
+            "action_payload": {"title": "OpenHalo", "body": "已发送到目标设备。"},
+            "visibility_intent": "visible",
+            "target_device_hint": "terminal-edge-1",
+            "metadata": {"harness": {"operation": "post_action"}},
+        }
+
+        rejected = build_execution_outcome(
+            source_device_id="terminal-edge-1",
+            proposal=proposal,
+            decision=decision,
+            interaction_id="interaction-outcome-fallback-rejected",
+            runtime_state=state,
+            online_device_ids={"terminal-edge-1"},
+        )
+        accepted = build_execution_outcome(
+            source_device_id="terminal-edge-1",
+            proposal={
+                **proposal,
+                "metadata": {
+                    **proposal["metadata"],
+                    "outcome_delivery": {
+                        "required": True,
+                        "source_outcome_required": True,
+                        "initiator_kind": "explicit_user_intent",
+                        "requesting_device_id": "terminal-edge-1",
+                    },
+                    "runtime_generated_action": "outcome_delivery_fallback",
+                },
+            },
+            decision=decision,
+            interaction_id="interaction-outcome-fallback-accepted",
+            runtime_state=state,
+            online_device_ids={"terminal-edge-1"},
+        )
+
+        self.assertEqual(rejected["kind"], "completion")
+        self.assertEqual(rejected["reason"], "harness_action_not_authorized")
+        self.assertEqual(accepted["kind"], "action")
+        self.assertEqual(accepted["target_device_id"], "terminal-edge-1")
+
     def test_runtime_local_intent_yields_inspectable_placeholder_completion(self) -> None:
         outcome = build_execution_outcome(
             source_device_id="terminal-edge-1",
