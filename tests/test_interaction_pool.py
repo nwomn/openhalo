@@ -251,6 +251,79 @@ class InteractionPoolTests(unittest.TestCase):
 
         self.assertEqual(1, len(pool.get(interaction.interaction_id).turns))
 
+    def test_batch_stays_awaiting_until_all_results_resolve(self) -> None:
+        pool = InteractionPool(RuntimeState(), max_pending_actions=2)
+        interaction = pool.register(
+            origin="user_event",
+            causal_scope={"key": "terminal-message:batch-await"},
+            trigger={"event_id": "event-batch-await"},
+            participant_device_ids=["terminal-1", "android-1"],
+        ).interaction
+
+        pool.record_action_batch(
+            interaction.interaction_id,
+            interaction_turn_id="interaction-1:turn-1",
+            action_batch_id="batch-1",
+            action_requests=[
+                ("action-1", "intent-1"),
+                ("action-2", "intent-2"),
+            ],
+        )
+
+        self.assertEqual("awaiting_action_results", pool.get(interaction.interaction_id).status)
+        with self.assertRaisesRegex(ValueError, "pending action batch"):
+            pool.record_action_batch(
+                interaction.interaction_id,
+                interaction_turn_id="interaction-1:turn-2",
+                action_batch_id="batch-2",
+                action_requests=[("action-3", "intent-3")],
+            )
+
+        pool.resolve_action_result(
+            interaction.interaction_id,
+            "interaction-1:turn-1",
+            "action-1",
+        )
+        self.assertTrue(pool.has_pending_action(interaction.interaction_id))
+        self.assertEqual("awaiting_action_results", pool.get(interaction.interaction_id).status)
+        self.assertFalse(
+            pool.is_action_batch_settled(interaction.interaction_id, "batch-1")
+        )
+
+        pool.resolve_action_result(
+            interaction.interaction_id,
+            "interaction-1:turn-1",
+            "action-2",
+        )
+        self.assertFalse(pool.has_pending_action(interaction.interaction_id))
+        self.assertEqual("planned", pool.get(interaction.interaction_id).status)
+        self.assertTrue(
+            pool.is_action_batch_settled(interaction.interaction_id, "batch-1")
+        )
+
+    def test_default_batch_limit_tracks_turn_limit(self) -> None:
+        pool = InteractionPool(RuntimeState(), turn_limit=3)
+        interaction = pool.register(
+            origin="user_event",
+            causal_scope={"key": "terminal-message:three-action-batch"},
+            trigger={"event_id": "event-three-action-batch"},
+            participant_device_ids=["terminal-1"],
+        ).interaction
+
+        turns = pool.record_action_batch(
+            interaction.interaction_id,
+            interaction_turn_id="interaction-1:turn-1",
+            action_batch_id="batch-3",
+            action_requests=[
+                ("request-1", "intent-1"),
+                ("request-2", "intent-2"),
+                ("request-3", "intent-3"),
+            ],
+        )
+
+        self.assertEqual(3, len(turns))
+        self.assertEqual(3, pool.max_pending_actions)
+
     def test_same_scope_key_with_different_evidence_remains_distinct(self) -> None:
         pool = InteractionPool(RuntimeState())
 

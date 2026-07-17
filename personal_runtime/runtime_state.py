@@ -182,8 +182,18 @@ class RuntimeState:
         return f"interaction-{next_index}"
 
     def allocate_interaction_turn_id(self) -> str:
-        self.interaction_turn_sequence += 1
-        return f"interaction-turn-{self.interaction_turn_sequence}"
+        existing_ids = {
+            turn.get("interaction_turn_id")
+            for interaction in self.interactions
+            for turn in interaction.get("turns", [])
+            if isinstance(turn, dict)
+            and isinstance(turn.get("interaction_turn_id"), str)
+        }
+        next_index = self.interaction_turn_sequence + 1
+        while f"interaction-turn-{next_index}" in existing_ids:
+            next_index += 1
+        self.interaction_turn_sequence = next_index
+        return f"interaction-turn-{next_index}"
 
     def update_interaction(
         self,

@@ -14,11 +14,13 @@ from unittest.mock import patch
 
 import personal_runtime.hermes_adapter as hermes_adapter
 from personal_runtime.agent_harness import ActionExecutorKind
+from personal_runtime.agent_harness import ActionBatch
 from personal_runtime.agent_harness import ActionGovernance
 from personal_runtime.agent_harness import ActionSideEffect
 from personal_runtime.agent_harness import ActionVisibility
 from personal_runtime.agent_harness import HarnessInput
 from personal_runtime.agent_harness import HarnessOperation
+from personal_runtime.agent_harness import RuntimeActionIntent
 from personal_runtime.hermes_adapter import HermesHarnessRunner
 from personal_runtime.hermes_adapter import HermesResearchPolicy
 from personal_runtime.hermes_adapter import HermesToolCallAdapter
@@ -33,6 +35,33 @@ HERMES_TEST_LLM_CONFIG = Path("tests/fixtures/llm-config-hermes-test.toml")
 
 
 class HermesToolCallAdapterTests(unittest.TestCase):
+    def test_action_batch_folds_exact_duplicate_intents(self) -> None:
+        def intent(action_id: str) -> RuntimeActionIntent:
+            return RuntimeActionIntent(
+                action_id=action_id,
+                executor_kind=ActionExecutorKind.DEVICE_EDGE,
+                capability="notification.show",
+                payload={"title": "OpenHalo", "body": "Only once."},
+                side_effect_class=ActionSideEffect.EXTERNAL,
+                visibility=ActionVisibility.USER_VISIBLE,
+                governance=ActionGovernance.RUNTIME_GOVERNED,
+                provenance={
+                    "origin": "test",
+                    "tool_call_id": action_id,
+                    "target_device_hint": "terminal-edge-1",
+                },
+            )
+
+        batch = ActionBatch(
+            batch_id="batch-dedup-1",
+            action_intents=(intent("call-1"), intent("call-2")),
+        )
+
+        self.assertEqual(
+            [action_intent.action_id for action_intent in batch.action_intents],
+            ["call-1"],
+        )
+
     def test_research_policy_fails_closed_and_matches_host_allowlist_rules(self) -> None:
         self.assertFalse(
             HermesResearchPolicy().allows_url("https://example.com/research")
@@ -3002,6 +3031,112 @@ class HermesToolCallAdapterTests(unittest.TestCase):
         self.assertFalse(created_agents[0].kwargs["skip_memory"])
         self.assertEqual(created_agents[0].kwargs["session_id"], "interaction-hermes-1")
 
+    def test_child_session_continuation_receives_scoped_shared_context(self) -> None:
+        created_agents = []
+        prompt_contexts = []
+
+        class FakeHermesAgent:
+            def __init__(self, **kwargs) -> None:
+                self.kwargs = kwargs
+                created_agents.append(self)
+
+            def run_conversation(self, user_message, system_message, task_id):
+                prompt_contexts.append(json.loads(user_message))
+                return {"final_response": "No action needed."}
+
+        interaction = {
+            "interaction_id": "interaction-shared-context-1",
+            "agent_session_id": "openhalo-child:interaction-shared-context-1",
+            "source_device_id": "terminal-edge-1",
+            "participant_device_ids": ["terminal-edge-1", "android-edge-1"],
+            "initiator_kind": "explicit_user_intent",
+        }
+        result = {
+            "device_id": "android-edge-1",
+            "request_id": "action-1",
+            "status": "ok",
+            "capability": "notification.show",
+        }
+        runner = HermesHarnessRunner(
+            config_path=HERMES_TEST_LLM_CONFIG,
+            agent_factory=FakeHermesAgent,
+        )
+
+        runner.run(
+            HarnessInput(
+                operation=HarnessOperation.NORMAL,
+                interaction_id="interaction-shared-context-1",
+                interaction_turn_id="interaction-turn-shared-context-1",
+                frame={
+                    "device_id": "terminal-edge-1",
+                    "payload": {"text": "send this to my phone"},
+                },
+                interaction=interaction,
+                grounding_bundle={
+                    "active_goals": [{"goal_id": "goal-1", "title": "Travel"}],
+                    "recent_memory": {"user_inputs": [{"text": "old request"}]},
+                    "device_roster": {
+                        "devices": [
+                            {"device_id": "terminal-edge-1", "online": True},
+                            {"device_id": "android-edge-1", "online": True},
+                        ]
+                    },
+                },
+            )
+        )
+        runner.run(
+            HarnessInput(
+                operation=HarnessOperation.POST_ACTION,
+                interaction_id="interaction-shared-context-1",
+                interaction_turn_id="interaction-turn-shared-context-2",
+                interaction=interaction,
+                action_result=result,
+                action_results=[result],
+                grounding_bundle={
+                    "active_goals": [{"goal_id": "goal-1", "title": "Travel"}],
+                    "recent_memory": {"user_inputs": [{"text": "old request"}]},
+                    "device_roster": {
+                        "devices": [
+                            {"device_id": "terminal-edge-1", "online": True},
+                            {"device_id": "android-edge-1", "online": True},
+                        ]
+                    },
+                },
+            )
+        )
+
+        self.assertEqual(
+            [agent.kwargs["session_id"] for agent in created_agents],
+            ["openhalo-child:interaction-shared-context-1"] * 2,
+        )
+        self.assertEqual(
+            [agent.kwargs["parent_session_id"] for agent in created_agents],
+            ["openhalo-main"] * 2,
+        )
+        normal_shared_context = prompt_contexts[0]["sections"][
+            "openhalo_shared_context"
+        ]
+        resumed_shared_context = prompt_contexts[1]["sections"][
+            "openhalo_shared_context"
+        ]
+        self.assertEqual(normal_shared_context["identity"]["name"], "OpenHalo")
+        self.assertEqual(
+            normal_shared_context["agent_session_id"],
+            "openhalo-child:interaction-shared-context-1",
+        )
+        self.assertEqual(
+            normal_shared_context["device_roster"]["devices"][1]["device_id"],
+            "android-edge-1",
+        )
+        self.assertEqual(
+            normal_shared_context["active_goals"][0]["goal_id"], "goal-1"
+        )
+        self.assertEqual(
+            resumed_shared_context["action_result_set"],
+            [result],
+        )
+        self.assertNotIn("unrelated_transcript", normal_shared_context)
+
     def test_harness_runner_owns_bridge_executor_kind(self) -> None:
         class FakeHermesAgent:
             def __init__(self, **_kwargs) -> None:
@@ -3049,7 +3184,7 @@ class HermesToolCallAdapterTests(unittest.TestCase):
             ActionExecutorKind.DEVICE_EDGE,
         )
 
-    def test_harness_runner_rejects_multiple_bridge_actions_without_selecting_one(self) -> None:
+    def test_harness_runner_returns_batch_for_multiple_bridge_actions(self) -> None:
         class FakeHermesAgent:
             def __init__(self, **_kwargs) -> None:
                 pass
@@ -3095,14 +3230,18 @@ class HermesToolCallAdapterTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(outcome.intent, "no_intervention")
-        self.assertIsNone(outcome.action_intent)
-        self.assertIsNone(outcome.proposal.action_capability)
-        rejection = outcome.metadata["bridge_action_rejection"]
-        self.assertEqual(rejection["reason"], "multiple_external_action_intents")
-        self.assertEqual(rejection["captured_count"], 2)
+        self.assertEqual(outcome.intent, "action")
+        self.assertIsNotNone(outcome.action_batch)
         self.assertEqual(
-            rejection["captured_action_refs"],
+            outcome.action_batch.batch_id,
+            "interaction-turn-hermes-multiple-actions",
+        )
+        self.assertEqual(
+            [intent.action_id for intent in outcome.action_batch.action_intents],
+            ["hermes-multiple-action-1", "hermes-multiple-action-2"],
+        )
+        self.assertEqual(
+            outcome.metadata["action_batch"]["action_refs"],
             [
                 {
                     "action_id": "hermes-multiple-action-1",
@@ -3115,10 +3254,6 @@ class HermesToolCallAdapterTests(unittest.TestCase):
                     "capability": "notification.show",
                 },
             ],
-        )
-        self.assertEqual(
-            outcome.proposal.metadata["bridge_action_rejection"],
-            rejection,
         )
         self.assertNotIn("secret action payload", json.dumps(outcome.metadata))
 

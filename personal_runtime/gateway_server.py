@@ -57,7 +57,7 @@ class RuntimeGateway:
             self.state = RuntimeState()
         else:
             self.state = self.state_store.load()
-        self.interaction_pool = InteractionPool(self.state, max_pending_actions=2)
+        self.interaction_pool = InteractionPool(self.state)
         self.proactive_trigger_gate = ProactiveTriggerGate()
         self.online_device_ids: set[str] = set()
         self.live_connections: dict[str, object] = {}
@@ -164,6 +164,7 @@ class RuntimeGateway:
         self,
         interaction_id: str,
         interaction_turn_id: str,
+        request_id: str | None = None,
     ) -> dict | None:
         return next(
             (
@@ -171,6 +172,10 @@ class RuntimeGateway:
                 for intervention in reversed(self.state.interventions)
                 if intervention.get("interaction_id") == interaction_id
                 and intervention.get("interaction_turn_id") == interaction_turn_id
+                and (
+                    request_id is None
+                    or intervention.get("request_id") == request_id
+                )
             ),
             None,
         )
@@ -179,11 +184,34 @@ class RuntimeGateway:
         self,
         interaction_id: str,
         interaction_turn_id: str,
+        lookup_request_id: str | None = None,
         **changes,
     ) -> dict | None:
         intervention = self._intervention_for_turn(
             interaction_id,
             interaction_turn_id,
+            request_id=lookup_request_id,
+        )
+        if intervention is not None:
+            intervention.update(changes)
+        return intervention
+
+    def _update_intervention_for_action(
+        self,
+        interaction_id: str,
+        interaction_turn_id: str,
+        action_id: str,
+        **changes,
+    ) -> dict | None:
+        intervention = next(
+            (
+                intervention
+                for intervention in reversed(self.state.interventions)
+                if intervention.get("interaction_id") == interaction_id
+                and intervention.get("interaction_turn_id") == interaction_turn_id
+                and intervention.get("action_id") == action_id
+            ),
+            None,
         )
         if intervention is not None:
             intervention.update(changes)
@@ -223,6 +251,7 @@ class RuntimeGateway:
         intervention = self._intervention_for_turn(
             interaction_id,
             interaction_turn_id,
+            request_id=request_id,
         )
         return (
             intervention is not None
@@ -244,6 +273,7 @@ class RuntimeGateway:
         intervention = self._intervention_for_turn(
             frame.get("interaction_id"),
             frame.get("interaction_turn_id"),
+            request_id=frame.get("request_id"),
         )
         action_intent = (
             (intervention or {})
@@ -559,6 +589,7 @@ class RuntimeGateway:
             intervention = self._intervention_for_turn(
                 interaction_id,
                 interaction_turn_id,
+                request_id=request_id,
             )
             if (
                 interaction is None

@@ -14,6 +14,7 @@ from openhalo_common.diagnostics import JsonlDiagnosticRecorder
 from personal_runtime.agent_executor import ProposalFormation
 from personal_runtime.agent_executor import InterventionProposal
 from personal_runtime.agent_harness import ActionExecutorKind
+from personal_runtime.agent_harness import ActionBatch
 from personal_runtime.agent_harness import ActionGovernance
 from personal_runtime.agent_harness import ActionSideEffect
 from personal_runtime.agent_harness import ActionVisibility
@@ -1512,6 +1513,448 @@ class RuntimeOrchestratorTests(unittest.TestCase):
             "no_intervention",
         )
 
+    def test_action_batch_waits_for_all_results_before_reentry(self) -> None:
+        class BatchHarness:
+            def __init__(self) -> None:
+                self.inputs = []
+                self.normal_turns = 0
+
+            def run(self, harness_input):
+                self.inputs.append(harness_input)
+                if harness_input.operation == HarnessOperation.NORMAL:
+                    self.normal_turns += 1
+                    first_intent = RuntimeActionIntent(
+                        action_id=f"batch-{self.normal_turns}-android",
+                        executor_kind=ActionExecutorKind.DEVICE_EDGE,
+                        capability="notification.show",
+                        payload={"title": "OpenHalo", "body": "Android step"},
+                        side_effect_class=ActionSideEffect.EXTERNAL,
+                        visibility=ActionVisibility.USER_VISIBLE,
+                        governance=ActionGovernance.RUNTIME_GOVERNED,
+                        provenance={
+                            "origin": "batch-harness",
+                            "target_device_hint": "android-edge-1",
+                        },
+                    )
+                    if self.normal_turns == 1:
+                        intents = (
+                            first_intent,
+                            RuntimeActionIntent(
+                                action_id="batch-1-terminal",
+                                executor_kind=ActionExecutorKind.DEVICE_EDGE,
+                                capability="notification.show",
+                                payload={
+                                    "title": "OpenHalo",
+                                    "body": "Terminal step",
+                                },
+                                side_effect_class=ActionSideEffect.EXTERNAL,
+                                visibility=ActionVisibility.USER_VISIBLE,
+                                governance=ActionGovernance.RUNTIME_GOVERNED,
+                                provenance={
+                                    "origin": "batch-harness",
+                                    "target_device_hint": "terminal-edge-1",
+                                },
+                            ),
+                        )
+                    else:
+                        intents = (first_intent,)
+                    proposal = InterventionProposal(
+                        kind="notification",
+                        proposal_type="action",
+                        source="sense_first",
+                        action_capability=first_intent.capability,
+                        required_capability="notification.show",
+                        action_payload=first_intent.payload,
+                        message=first_intent.payload["body"],
+                        metadata={},
+                        target_device_hint=first_intent.provenance[
+                            "target_device_hint"
+                        ],
+                    )
+                    return HarnessOutcome.from_proposal(
+                        operation=harness_input.operation,
+                        proposal=proposal,
+                        action_batch=ActionBatch(
+                            batch_id=f"batch-{self.normal_turns}",
+                            action_intents=intents,
+                        ),
+                    )
+                proposal = InterventionProposal(
+                    kind="no_intervention",
+                    proposal_type="no_intervention",
+                    source="post_action",
+                    action_capability=None,
+                    required_capability=None,
+                    action_payload={},
+                    message="",
+                    metadata={},
+                    visibility_intent="silent",
+                )
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=proposal,
+                )
+
+        harness = BatchHarness()
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=harness,
+        )
+        terminal = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+        android = SessionClient(
+            device_id="android-edge-1",
+            device_type="android",
+            token="dev-token",
+            capabilities=["notification.show"],
+        )
+        gateway.run_roundtrip(
+            [
+                terminal.build_connect_frame(),
+                terminal.build_capability_announce_frame(),
+                android.build_connect_frame(),
+                android.build_capability_announce_frame(),
+            ]
+        )
+
+        initial_replies = gateway.run_roundtrip(
+            [terminal.build_text_event("send both notifications")]
+        )
+        first_batch = [
+            reply for reply in initial_replies if reply["type"] == "action_request"
+        ]
+        self.assertEqual(len(first_batch), 2)
+        self.assertEqual({reply["action_batch_id"] for reply in first_batch}, {"batch-1"})
+        self.assertEqual(
+            gateway.interaction_pool.get(first_batch[0]["interaction_id"]).status,
+            "awaiting_action_results",
+        )
+
+        first_result = next(
+            reply
+            for reply in first_batch
+            if reply["device_id"] == "android-edge-1"
+        )
+        first_result_replies = gateway.run_roundtrip(
+            [android.handle_action_request(first_result)]
+        )
+        self.assertFalse(
+            any(reply["type"] == "action_request" for reply in first_result_replies)
+        )
+        self.assertEqual(
+            [item.operation for item in harness.inputs],
+            [HarnessOperation.NORMAL],
+        )
+
+        parallel_replies = gateway.run_roundtrip(
+            [terminal.build_text_event("independent request")]
+        )
+        parallel_action = next(
+            reply
+            for reply in parallel_replies
+            if reply["type"] == "action_request"
+        )
+        self.assertNotEqual(
+            parallel_action["interaction_id"], first_batch[0]["interaction_id"]
+        )
+
+        terminal_result = next(
+            reply
+            for reply in first_batch
+            if reply["device_id"] == "terminal-edge-1"
+        )
+        gateway.run_roundtrip([terminal.handle_action_request(terminal_result)])
+
+        self.assertEqual(
+            [item.operation for item in harness.inputs],
+            [HarnessOperation.NORMAL, HarnessOperation.NORMAL, HarnessOperation.POST_ACTION],
+        )
+        resumed_input = harness.inputs[-1]
+        self.assertEqual(
+            {result["request_id"] for result in resumed_input.action_results},
+            {reply["request_id"] for reply in first_batch},
+        )
+
+    def test_invalid_action_batch_records_explicit_rejection(self) -> None:
+        class InvalidBatchHarness:
+            def run(self, harness_input):
+                valid_intent = RuntimeActionIntent(
+                    action_id="batch-valid",
+                    executor_kind=ActionExecutorKind.DEVICE_EDGE,
+                    capability="notification.show",
+                    payload={"title": "OpenHalo", "body": "Valid action"},
+                    side_effect_class=ActionSideEffect.EXTERNAL,
+                    visibility=ActionVisibility.USER_VISIBLE,
+                    governance=ActionGovernance.RUNTIME_GOVERNED,
+                    provenance={"origin": "invalid-batch-harness"},
+                )
+                proposal = InterventionProposal(
+                    kind="notification",
+                    proposal_type="action",
+                    source="sense_first",
+                    action_capability=valid_intent.capability,
+                    required_capability="notification.show",
+                    action_payload=valid_intent.payload,
+                    message=valid_intent.payload["body"],
+                    metadata={},
+                )
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=proposal,
+                    action_batch=ActionBatch(
+                        batch_id="invalid-batch",
+                        action_intents=(
+                            valid_intent,
+                            RuntimeActionIntent(
+                                action_id="batch-private",
+                                executor_kind=ActionExecutorKind.DEVICE_EDGE,
+                                capability="notification.show",
+                                payload={
+                                    "title": "OpenHalo",
+                                    "body": "Must not dispatch",
+                                },
+                                side_effect_class=ActionSideEffect.NONE,
+                                visibility=ActionVisibility.INTERNAL,
+                                governance=ActionGovernance.AGENT_PRIVATE,
+                                provenance={"origin": "invalid-batch-harness"},
+                            ),
+                        ),
+                    ),
+                )
+
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=InvalidBatchHarness(),
+        )
+        terminal = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+        gateway.run_roundtrip(
+            [terminal.build_connect_frame(), terminal.build_capability_announce_frame()]
+        )
+
+        replies = gateway.run_roundtrip([terminal.build_text_event("invalid batch")])
+
+        self.assertFalse(any(reply["type"] == "action_request" for reply in replies))
+        self.assertEqual(
+            gateway.state.interventions[-1]["proposal"]["proposal_type"],
+            "action_batch_rejected",
+        )
+        self.assertEqual(
+            gateway.state.interactions[-1]["completion"]["terminal_reason"],
+            "action_batch_rejected",
+        )
+
+    def test_post_action_batch_dispatches_through_the_same_batch_contract(self) -> None:
+        class PostActionBatchHarness:
+            @staticmethod
+            def _intent(action_id: str, body: str, target_device_id: str):
+                return RuntimeActionIntent(
+                    action_id=action_id,
+                    executor_kind=ActionExecutorKind.DEVICE_EDGE,
+                    capability="notification.show",
+                    payload={"title": "OpenHalo", "body": body},
+                    side_effect_class=ActionSideEffect.EXTERNAL,
+                    visibility=ActionVisibility.USER_VISIBLE,
+                    governance=ActionGovernance.RUNTIME_GOVERNED,
+                    provenance={
+                        "origin": "post-action-batch-harness",
+                        "target_device_hint": target_device_id,
+                    },
+                )
+
+            def run(self, harness_input):
+                if harness_input.operation == HarnessOperation.NORMAL:
+                    intent = self._intent(
+                        "normal-action",
+                        "Initial action",
+                        "terminal-edge-1",
+                    )
+                    proposal = InterventionProposal(
+                        kind="notification",
+                        proposal_type="action",
+                        source="sense_first",
+                        action_capability=intent.capability,
+                        required_capability="notification.show",
+                        action_payload=intent.payload,
+                        message=intent.payload["body"],
+                        metadata={},
+                        target_device_hint="terminal-edge-1",
+                    )
+                    return HarnessOutcome.from_proposal(
+                        operation=harness_input.operation,
+                        proposal=proposal,
+                        action_intent=intent,
+                    )
+                first_intent = self._intent(
+                    "post-action-terminal",
+                    "Terminal follow-up",
+                    "terminal-edge-1",
+                )
+                proposal = InterventionProposal(
+                    kind="notification",
+                    proposal_type="action",
+                    source="post_action",
+                    action_capability=first_intent.capability,
+                    required_capability="notification.show",
+                    action_payload=first_intent.payload,
+                    message=first_intent.payload["body"],
+                    metadata={},
+                    target_device_hint="terminal-edge-1",
+                )
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=proposal,
+                    action_batch=ActionBatch(
+                        batch_id="post-action-batch",
+                        action_intents=(
+                            first_intent,
+                            self._intent(
+                                "post-action-android",
+                                "Android follow-up",
+                                "android-edge-1",
+                            ),
+                        ),
+                    ),
+                )
+
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=PostActionBatchHarness(),
+        )
+        terminal = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+        android = SessionClient(
+            device_id="android-edge-1",
+            device_type="android",
+            token="dev-token",
+            capabilities=["notification.show"],
+        )
+        gateway.run_roundtrip(
+            [
+                terminal.build_connect_frame(),
+                terminal.build_capability_announce_frame(),
+                android.build_connect_frame(),
+                android.build_capability_announce_frame(),
+            ]
+        )
+
+        initial_action = next(
+            reply
+            for reply in gateway.run_roundtrip(
+                [terminal.build_text_event("start post-action batch")]
+            )
+            if reply["type"] == "action_request"
+        )
+        post_action_replies = gateway.run_roundtrip(
+            [terminal.handle_action_request(initial_action)]
+        )
+        post_action_batch = [
+            reply
+            for reply in post_action_replies
+            if reply["type"] == "action_request"
+        ]
+
+        self.assertEqual(2, len(post_action_batch))
+        self.assertEqual(
+            {reply["action_batch_id"] for reply in post_action_batch},
+            {"post-action-batch"},
+        )
+
+    def test_hermes_bridge_batch_dispatches_as_one_runtime_action_batch(self) -> None:
+        class FakeHermesAgent:
+            def __init__(self, **_kwargs) -> None:
+                pass
+
+            def run_conversation(self, user_message, system_message, task_id):
+                from tools.registry import registry
+
+                action_handler = registry.get_entry("openhalo_action").handler
+                action_handler(
+                    {
+                        "capability": "notification.show",
+                        "payload": {"body": "Send this to Android."},
+                        "target_device_hint": "android-edge-1",
+                    },
+                    task_id=task_id,
+                    tool_call_id="hermes-bridge-android",
+                )
+                action_handler(
+                    {
+                        "capability": "notification.show",
+                        "payload": {"body": "Show this in Terminal."},
+                        "target_device_hint": "terminal-edge-1",
+                    },
+                    task_id=task_id,
+                    tool_call_id="hermes-bridge-terminal",
+                )
+                return {"final_response": "Actions proposed."}
+
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=HERMES_LLM_CONFIG,
+            agent_harness=HermesHarnessRunner(
+                config_path=HERMES_LLM_CONFIG,
+                agent_factory=FakeHermesAgent,
+            ),
+        )
+        terminal = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+            capabilities=["text.input", "notification.show"],
+        )
+        android = SessionClient(
+            device_id="android-edge-1",
+            device_type="android",
+            token="dev-token",
+            capabilities=["notification.show"],
+        )
+        gateway.run_roundtrip(
+            [
+                terminal.build_connect_frame(),
+                terminal.build_capability_announce_frame(),
+                android.build_connect_frame(),
+                android.build_capability_announce_frame(),
+            ]
+        )
+
+        action_requests = [
+            reply
+            for reply in gateway.run_roundtrip(
+                [terminal.build_text_event("notify my phone and terminal")]
+            )
+            if reply["type"] == "action_request"
+        ]
+
+        self.assertEqual(2, len(action_requests))
+        self.assertEqual(
+            {request["action_batch_id"] for request in action_requests},
+            {"interaction-turn-1"},
+        )
+        self.assertEqual(
+            {request["device_id"] for request in action_requests},
+            {"terminal-edge-1", "android-edge-1"},
+        )
+
     def test_orchestrator_registers_user_and_initiative_origins_in_pool(self) -> None:
         gateway = RuntimeGateway(
             shared_token="dev-token",
@@ -2087,7 +2530,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
             observation_interaction["interaction_id"],
             user_interaction["interaction_id"],
         )
-        self.assertEqual(user_interaction["status"], "planned")
+        self.assertEqual(user_interaction["status"], "awaiting_action_results")
 
     def test_observation_driven_terminal_notification_without_hint_is_suppressed_when_idle(
         self,
@@ -2552,8 +2995,8 @@ class RuntimeOrchestratorTests(unittest.TestCase):
             for item in gateway.state.interactions
             if item["interaction_id"] == second_action["interaction_id"]
         )
-        self.assertEqual(first_interaction["status"], "planned")
-        self.assertEqual(second_interaction["status"], "planned")
+        self.assertEqual(first_interaction["status"], "awaiting_action_results")
+        self.assertEqual(second_interaction["status"], "awaiting_action_results")
         self.assertEqual(
             gateway.state.action_results[-1]["interaction_id"],
             second_action["interaction_id"],
@@ -2625,7 +3068,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
         self.assertEqual(len(gateway.state.interventions), completed_intervention_count)
         self.assertEqual(duplicate_replies[-1]["type"], "error")
 
-    def test_pending_follow_up_keeps_interaction_open_after_first_result(self) -> None:
+    def test_observation_reentry_waits_for_pending_action_result(self) -> None:
         gateway = RuntimeGateway(
             shared_token="dev-token",
             persist_state=False,
@@ -2682,19 +3125,15 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                 }
             ]
         )
-        follow_up_action = next(
-            reply
-            for reply in follow_up_replies
-            if reply["type"] == "action_request"
+        self.assertFalse(
+            any(reply["type"] == "action_request" for reply in follow_up_replies)
         )
-        self.assertEqual(
-            follow_up_action["interaction_id"],
-            first_action["interaction_id"],
+        interaction = next(
+            item
+            for item in gateway.state.interactions
+            if item["interaction_id"] == first_action["interaction_id"]
         )
-        self.assertNotEqual(
-            follow_up_action["interaction_turn_id"],
-            first_action["interaction_turn_id"],
-        )
+        self.assertEqual(interaction["status"], "awaiting_action_results")
 
         class NoInterventionProposalFormation:
             def build_post_action_proposal(
@@ -2740,12 +3179,6 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                 }
             ]
         )
-        interaction = next(
-            item
-            for item in gateway.state.interactions
-            if item["interaction_id"] == first_action["interaction_id"]
-        )
-        self.assertEqual(interaction["status"], "planned")
 
     def test_persists_pending_action_correlation_before_dispatch(self) -> None:
         with TemporaryDirectory() as directory:
@@ -2786,6 +3219,11 @@ class RuntimeOrchestratorTests(unittest.TestCase):
                     "interaction_turn_id": action_request["interaction_turn_id"],
                     "request_id": action_request["request_id"],
                     "action_status": "pending",
+                    "action_batch_id": action_request["interaction_turn_id"],
+                    "action_id": (
+                        f"{action_request['interaction_turn_id']}:"
+                        f"{action_request['request_id']}"
+                    ),
                 },
             )
             persisted_intervention = next(
@@ -2879,7 +3317,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
             "initiative-health-check-1",
         )
 
-    def test_observation_reentry_uses_explicit_action_parent_without_crossing_scopes(
+    def test_observation_reentry_waits_for_explicit_pending_action_parent(
         self,
     ) -> None:
         gateway = RuntimeGateway(
@@ -2952,14 +3390,10 @@ class RuntimeOrchestratorTests(unittest.TestCase):
         }
 
         first_reentry = gateway.run_roundtrip([observation_frame])
-        follow_up = next(
-            reply for reply in first_reentry if reply["type"] == "action_request"
-        )
         intervention_count = len(gateway.state.interventions)
         duplicate_reentry = gateway.run_roundtrip([observation_frame])
 
-        self.assertEqual(follow_up["interaction_id"], first_action["interaction_id"])
-        self.assertNotEqual(follow_up["interaction_id"], second_action["interaction_id"])
+        self.assertFalse(any(reply["type"] == "action_request" for reply in first_reentry))
         self.assertFalse(
             any(reply["type"] == "action_request" for reply in duplicate_reentry)
         )
@@ -3032,7 +3466,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
         self.assertEqual(len(gateway.state.interventions), intervention_count)
         self.assertEqual(gateway.state.observations[-1].name, "runtime.health_state")
 
-    def test_observation_parent_event_id_reenters_unique_open_interaction(self) -> None:
+    def test_observation_parent_event_id_waits_for_pending_action_result(self) -> None:
         gateway = RuntimeGateway(
             shared_token="dev-token",
             persist_state=False,
@@ -3088,14 +3522,7 @@ class RuntimeOrchestratorTests(unittest.TestCase):
             ]
         )
 
-        follow_up = next(
-            reply for reply in replies if reply["type"] == "action_request"
-        )
-        self.assertEqual(follow_up["interaction_id"], first_action["interaction_id"])
-        self.assertNotEqual(
-            follow_up["interaction_turn_id"],
-            first_action["interaction_turn_id"],
-        )
+        self.assertFalse(any(reply["type"] == "action_request" for reply in replies))
 
     def test_gateway_records_cross_device_dispatch_diagnostics(self) -> None:
         diagnostics = InMemoryDiagnosticRecorder(

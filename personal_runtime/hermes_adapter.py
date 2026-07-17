@@ -36,6 +36,7 @@ from personal_runtime.agent_harness import ActionExecutorKind
 from personal_runtime.agent_harness import ActionGovernance
 from personal_runtime.agent_harness import ActionSideEffect
 from personal_runtime.agent_harness import ActionVisibility
+from personal_runtime.agent_harness import ActionBatch
 from personal_runtime.agent_harness import HarnessInput
 from personal_runtime.agent_harness import HarnessOperation
 from personal_runtime.agent_harness import HarnessOutcome
@@ -790,7 +791,10 @@ def _resolved_tool_call_id(
     if isinstance(tool_call_id, str) and tool_call_id:
         return tool_call_id
     turn_reference = task_id or collector.session_id or "turn"
-    return f"{turn_reference}:{tool_name}:{len(collector.internal_tool_events) + 1}"
+    return (
+        f"{turn_reference}:{tool_name}:"
+        f"{len(collector.internal_tool_events) + len(collector.action_intents) + 1}"
+    )
 
 
 def _openhalo_action_handler(
@@ -1320,6 +1324,8 @@ class HermesHarnessRunner:
             payload = harness_input.frame.get("payload", {})
             if isinstance(payload.get("text"), str):
                 return payload["text"]
+        if harness_input.action_results is not None:
+            return json.dumps(harness_input.action_results, ensure_ascii=True)
         if harness_input.action_result is not None:
             return json.dumps(harness_input.action_result, ensure_ascii=True)
         if harness_input.observations is not None:
@@ -1388,13 +1394,76 @@ class HermesHarnessRunner:
             max_iterations=self._agent_iteration_budget(),
             enabled_toolsets=enabled_toolsets,
             quiet_mode=True,
-            platform="openhalo",
-            session_id=harness_input.interaction_id,
+            platform="subagent",
+            session_id=self._agent_session_id(harness_input),
+            parent_session_id="openhalo-main",
             skip_context_files=True,
             load_soul_identity=True,
             skip_memory=False,
             request_overrides=self._provider_request_overrides(provider),
         )
+
+    @staticmethod
+    def _agent_session_id(harness_input: HarnessInput) -> str:
+        interaction = harness_input.interaction
+        if isinstance(interaction, dict):
+            session_id = interaction.get("agent_session_id")
+            if isinstance(session_id, str) and session_id:
+                return session_id
+        return harness_input.interaction_id
+
+    def _build_shared_context(
+        self,
+        harness_input: HarnessInput,
+    ) -> dict:
+        interaction = (
+            dict(harness_input.interaction)
+            if isinstance(harness_input.interaction, dict)
+            else {}
+        )
+        grounding = (
+            dict(harness_input.grounding_bundle)
+            if isinstance(harness_input.grounding_bundle, dict)
+            else {}
+        )
+        raw_results = (
+            harness_input.action_results
+            if harness_input.action_results is not None
+            else [harness_input.action_result]
+            if harness_input.action_result is not None
+            else []
+        )
+        action_result_set = [
+            dict(result) for result in raw_results if isinstance(result, dict)
+        ]
+        return {
+            "identity": {
+                "name": "OpenHalo",
+                "role": "personal_runtime",
+            },
+            "agent_session_id": self._agent_session_id(harness_input),
+            "durable_memory": {
+                "engine": self.durable_memory_engine,
+                "access": "hermes_native_session_context",
+            },
+            "interaction": {
+                key: interaction[key]
+                for key in (
+                    "interaction_id",
+                    "origin",
+                    "source_device_id",
+                    "participant_device_ids",
+                    "initiator_kind",
+                    "requesting_device_id",
+                    "outcome_delivery_required",
+                )
+                if key in interaction
+            },
+            "active_goals": list(grounding.get("active_goals", [])),
+            "recent_memory": dict(grounding.get("recent_memory", {})),
+            "device_roster": dict(grounding.get("device_roster", {})),
+            "action_result_set": action_result_set,
+        }
 
     @staticmethod
     def _allows_native_memory_write(harness_input: HarnessInput) -> bool:
@@ -1645,23 +1714,6 @@ class HermesHarnessRunner:
         )
 
     @staticmethod
-    def _multiple_action_rejection_metadata(
-        action_intents: list[RuntimeActionIntent],
-    ) -> dict:
-        return {
-            "reason": "multiple_external_action_intents",
-            "captured_count": len(action_intents),
-            "captured_action_refs": [
-                {
-                    "action_id": intent.action_id,
-                    "executor_kind": intent.executor_kind.value,
-                    "capability": intent.capability,
-                }
-                for intent in action_intents
-            ],
-        }
-
-    @staticmethod
     def _provider_failure_proposal(
         result: dict,
         source: str,
@@ -1698,6 +1750,7 @@ class HermesHarnessRunner:
                 if harness_input.operation == HarnessOperation.POST_ACTION
                 else None
             ),
+            openhalo_shared_context=self._build_shared_context(harness_input),
         )
         behavior_contract = build_behavior_contract(
             prompt_context_package=prompt_context,
@@ -1737,33 +1790,18 @@ class HermesHarnessRunner:
                     _ACTIVE_BRIDGE_COLLECTOR.reset(token)
 
         action_intent = None
-        bridge_action_rejection = None
+        action_batch = None
         if result.get("failed"):
             proposal = self._provider_failure_proposal(result, semantic_source)
-        elif len(collector.action_intents) == 1:
-            action_intent = collector.action_intents[0]
+        elif collector.action_intents:
+            action_batch = ActionBatch(
+                batch_id=harness_input.interaction_turn_id,
+                action_intents=tuple(collector.action_intents),
+            )
+            action_intent = action_batch.action_intents[0]
             proposal = self._proposal_from_action_intent(
                 action_intent,
                 semantic_source,
-            )
-        elif collector.action_intents:
-            bridge_action_rejection = self._multiple_action_rejection_metadata(
-                collector.action_intents
-            )
-            proposal = InterventionProposal(
-                kind="no_intervention",
-                proposal_type="no_intervention",
-                source=semantic_source,
-                action_capability=None,
-                required_capability=None,
-                action_payload={},
-                message="",
-                metadata={
-                    "model_backed": True,
-                    "harness_backend": "hermes",
-                    "bridge_action_rejection": bridge_action_rejection,
-                },
-                visibility_intent="silent",
             )
         else:
             final_response = str(result.get("final_response", ""))
@@ -1781,7 +1819,7 @@ class HermesHarnessRunner:
 
         proposal.metadata.update(
             {
-                "hermes_session_id": harness_input.interaction_id,
+                "hermes_session_id": self._agent_session_id(harness_input),
                 "hermes_operation": harness_input.operation.value,
                 "interaction_id": harness_input.interaction_id,
                 "trigger": self._semantic_trigger(
@@ -1805,13 +1843,17 @@ class HermesHarnessRunner:
             "internal_tool_events": collector.internal_tool_events,
             "hermes_memory_events": collector.memory_events,
         }
-        if bridge_action_rejection is not None:
-            outcome_metadata["bridge_action_rejection"] = bridge_action_rejection
+        if action_batch is not None:
+            outcome_metadata["action_batch"] = {
+                "batch_id": action_batch.batch_id,
+                "action_refs": action_batch.action_refs(),
+            }
         return HarnessOutcome.from_proposal(
             operation=harness_input.operation,
             proposal=proposal,
             metadata=outcome_metadata,
             action_intent=action_intent,
+            action_batch=action_batch,
         )
 
 
