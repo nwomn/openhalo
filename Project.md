@@ -8,7 +8,7 @@ The intended product is not "another chat agent entry point". OpenHalo is a pers
 
 At the current stage, the project has moved from pure architecture-definition into an implemented and testable runtime baseline that now spans both the completed v0 single-edge WebSocket loop and the first same-template multi-edge routing slice. The architecture baseline and early milestone framing are in place, the first end-to-end desktop/CLI closed loop can be executed both in-process and across two real local processes, and the runtime can now route a normal action from one connected edge instance to another while preserving core state across restarts. The desktop/CLI surface has now been promoted into the first formal long-running terminal edge, with both user-initiated and runtime-initiated interaction still expressed through the normal `device -> context -> presence -> action` architecture rather than a chat-centered exception path. The current frontend baseline now includes both bounded scripted acceptance for repeatable verification and a true foreground live terminal session that reads user input from `stdin` on the same resident edge session.
 
-The active M4.1 implementation now moves colocated Host Edge process ownership into Personal Runtime: after Gateway readiness, Runtime starts one normal loopback Host Edge, persists redacted lifecycle diagnostics, retries failures with bounded exponential backoff and jitter, and cancels the session before Gateway shutdown. The remaining M4.1 gate is the specified human acceptance that starts Runtime and a source edge without launching `host_daemon` separately.
+The accepted M4.1 implementation moves colocated Host Edge process ownership into Personal Runtime: after Gateway readiness, Runtime starts one normal loopback Host Edge, persists redacted lifecycle diagnostics, retries failures with bounded exponential backoff and jitter, and cancels the session before Gateway shutdown. Its two-process human acceptance confirmed automatic Host Edge registration, a routed `runtime.status` action executed by `host-edge-1`, and clean shutdown without launching `host_daemon` separately.
 
 ## Naming Decision
 
@@ -1263,6 +1263,7 @@ Result:
 - `RuntimeState` now persists redacted managed-edge lifecycle status (`starting`, `retrying`, `connected`, `disconnected`), retry metadata, and safe exception classes only
 - One supervisor handles indefinite bounded exponential retry with bounded random jitter, resets its delay after an accepted Edge API connection, and cancels the current session during Runtime shutdown
 - Automated coverage proves delayed readiness/recovery, retry reset, cancellation, default enablement and opt-out, periodic observations, and a real routed `runtime.status` action through the managed public Edge API path
+- Human acceptance on 2026-07-18 started only Runtime and an external source edge: Runtime logged automatic `host-edge-1` registration, persisted a successful `host-edge-1` `runtime.status` action result, and recorded managed-edge state `disconnected` after clean shutdown; no standalone `host_daemon` was launched
 
 Acceptance criteria:
 
@@ -1271,7 +1272,7 @@ Acceptance criteria:
 
 Status:
 
-- Implementation completed; human acceptance pending
+- Completed and accepted
 
 ### Completed: First M5 observation freshness and expiry slice
 
@@ -1768,22 +1769,21 @@ Current M3 slice direction:
 
 Current phase:
 
-- Post-M16 architecture expansion has completed and accepted `M17.0` public Edge API boundary/internal-runtime encapsulation, `M17.1` registration-driven multi-device extension, `M17.2` native Android Presence Edge, `M17.3` Android daily-use hardening, `M17.4` Mobile Edge product UI implementation, `M17.5` Android screen/context observation baseline, `M17.6` multi-edge lineage/fail-fast semantics, `M17.7.1` Android Edge continuous background observation steady state, `M17.7.2` Runtime mobile observation liveness watchdog and wake recovery, `M18.1` observation-to-snapshot decision-space integration, the module-boundary diagnostics v1 baseline, and `M20` Hermes Agent Harness/runtime action-loop implementation. The renewed configured-provider Terminal/Android run accepts the governed `ActionBatch`, full result-set continuation, scoped child-session shared context, semantic roster targeting, and requester outcomes. `M4.1` implementation is complete and awaits its two-process human acceptance. The recorded execution route is M4.1 human acceptance, M20.2, M20.3, M17.8, M17.9, M17.10, broader M18, M19, M20.1, M21, M22, and M23.
+- Post-M16 architecture expansion has completed and accepted `M17.0` public Edge API boundary/internal-runtime encapsulation, `M17.1` registration-driven multi-device extension, `M17.2` native Android Presence Edge, `M17.3` Android daily-use hardening, `M17.4` Mobile Edge product UI implementation, `M17.5` Android screen/context observation baseline, `M17.6` multi-edge lineage/fail-fast semantics, `M17.7.1` Android Edge continuous background observation steady state, `M17.7.2` Runtime mobile observation liveness watchdog and wake recovery, `M18.1` observation-to-snapshot decision-space integration, the module-boundary diagnostics v1 baseline, `M20` Hermes Agent Harness/runtime action-loop implementation, and `M4.1` Runtime-managed Host Edge lifecycle. The renewed configured-provider Terminal/Android run accepts the governed `ActionBatch`, full result-set continuation, scoped child-session shared context, semantic roster targeting, and requester outcomes. M4.1 human acceptance confirmed automatic loopback Host Edge registration, `host-edge-1` runtime-status execution, and clean managed-edge shutdown without a standalone daemon. The recorded execution route is M20.2, M20.3, M17.8, M17.9, M17.10, broader M18, M19, M20.1, M21, M22, and M23.
 
 ## Next Execution Route
 
-1. `M4.1` Runtime-managed Host Edge lifecycle: run the two-process human acceptance for automatic loopback Host Edge registration, routed `runtime.status`, and clean shutdown without a standalone `host_daemon`.
-2. `M20.2` OpenHalo interaction-progress presentation: define and deliver the safe Runtime-to-Edge progress lifecycle that replaces embedded Hermes terminal display.
-3. `M20.3` Terminal Edge stable CLI/TUI: turn that lifecycle and the existing terminal session into a resilient, application-quality OpenHalo CLI surface.
-4. `M17.8` mobile sensitive-screen capture governance: close the allowlist-first privacy boundary before expanding what the agent can learn from phone observation.
-5. `M17.9` native Windows Desktop Edge baseline: define and implement the dedicated graphical Windows `Device Edge` before M22 packaging; its detailed design remains a separate follow-up discussion.
-6. `M17.10` Ambient Home Presence Edge baseline: define and implement one fixed home/desk `Device Edge` for privacy-governed real-world context; later multiple-node household coverage remains a follow-up extension.
-7. Broader `M18` Agent Harness-controlled observation understanding: build the edge-led attention and safe-evidence loop on top of the accepted Harness, progress-capable interaction surfaces, and M17.8/M17.9/M17.10 boundaries.
-8. `M19` bounded growth and storage hygiene: set retention, compaction, and operational pressure controls after the final observation flow is known.
-9. `M20.1` governed procedural-memory and skill lifecycle: introduce inspectable, OpenHalo-owned skill drafts only after the relevant evidence, retention, and audit shape has stabilized.
-10. `M21` policy learning and review: turn feedback and replay evidence into review-gated policy candidates.
-11. `M22` productization: package the server/runtime, desktop, and phone as one installable three-end system.
-12. `M23` Home Assistant and smart-home bridge: add the ecosystem bridge after the core product surface is stable.
+1. `M20.2` OpenHalo interaction-progress presentation: define and deliver the safe Runtime-to-Edge progress lifecycle that replaces embedded Hermes terminal display.
+2. `M20.3` Terminal Edge stable CLI/TUI: turn that lifecycle and the existing terminal session into a resilient, application-quality OpenHalo CLI surface.
+3. `M17.8` mobile sensitive-screen capture governance: close the allowlist-first privacy boundary before expanding what the agent can learn from phone observation.
+4. `M17.9` native Windows Desktop Edge baseline: define and implement the dedicated graphical Windows `Device Edge` before M22 packaging; its detailed design remains a separate follow-up discussion.
+5. `M17.10` Ambient Home Presence Edge baseline: define and implement one fixed home/desk `Device Edge` for privacy-governed real-world context; later multiple-node household coverage remains a follow-up extension.
+6. Broader `M18` Agent Harness-controlled observation understanding: build the edge-led attention and safe-evidence loop on top of the accepted Harness, progress-capable interaction surfaces, and M17.8/M17.9/M17.10 boundaries.
+7. `M19` bounded growth and storage hygiene: set retention, compaction, and operational pressure controls after the final observation flow is known.
+8. `M20.1` governed procedural-memory and skill lifecycle: introduce inspectable, OpenHalo-owned skill drafts only after the relevant evidence, retention, and audit shape has stabilized.
+9. `M21` policy learning and review: turn feedback and replay evidence into review-gated policy candidates.
+10. `M22` productization: package the server/runtime, desktop, and phone as one installable three-end system.
+11. `M23` Home Assistant and smart-home bridge: add the ecosystem bridge after the core product surface is stable.
 
 This is execution priority, not milestone-number order. Existing accepted M17/M18.1 foundations remain available for preparation and maintenance work, but they do not displace the next acceptance target.
 
