@@ -15,6 +15,7 @@ REQUIRED_TYPES = {
     "event_ack",
     "action_request",
     "action_result",
+    "interaction_progress",
     "interaction_update",
     "error",
 }

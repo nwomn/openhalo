@@ -39,6 +39,25 @@ class ImportSmokeTests(unittest.TestCase):
 
 
 class ProtocolTests(unittest.TestCase):
+    def test_accepts_versioned_interaction_progress_frame(self) -> None:
+        frame = {
+            "api_version": API_VERSION,
+            "type": "interaction_progress",
+            "device_id": "terminal-edge-1",
+            "progress": {
+                "version": 1,
+                "interaction_id": "interaction-1",
+                "interaction_turn_id": "interaction-turn-1",
+                "sequence": 1,
+                "phase": "deliberating",
+                "state": "active",
+                "occurred_at": "2026-07-18T10:00:00Z",
+                "presentation_hint": "working",
+            },
+        }
+
+        self.assertEqual(validate_frame(frame), frame)
+
     def test_builds_connect_frame(self) -> None:
         frame = build_connect_frame(
             device_id="desktop-dev-1",

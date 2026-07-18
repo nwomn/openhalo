@@ -22,6 +22,145 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class TerminalEdgeDaemonTests(unittest.TestCase):
+    def test_progress_frame_renders_a_local_phase_and_replaces_current_phase(self) -> None:
+        stdout = io.StringIO()
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=stdout,
+        )
+
+        daemon.handle_interaction_progress_frame(
+            {
+                "type": "interaction_progress",
+                "device_id": "terminal-edge-1",
+                "progress": {
+                    "version": 1,
+                    "interaction_id": "interaction-1",
+                    "interaction_turn_id": "interaction-turn-1",
+                    "sequence": 1,
+                    "phase": "deliberating",
+                    "state": "active",
+                    "occurred_at": "2026-07-18T10:00:00Z",
+                    "presentation_hint": "working",
+                },
+            }
+        )
+        daemon.handle_interaction_progress_frame(
+            {
+                "type": "interaction_progress",
+                "device_id": "terminal-edge-1",
+                "progress": {
+                    "version": 1,
+                    "interaction_id": "interaction-1",
+                    "interaction_turn_id": "interaction-turn-1",
+                    "sequence": 2,
+                    "phase": "planning",
+                    "state": "active",
+                    "occurred_at": "2026-07-18T10:00:01Z",
+                    "presentation_hint": "working",
+                },
+            }
+        )
+
+        self.assertEqual(daemon.active_progress_phase, "planning")
+        self.assertIn("[progress] 正在理解你的请求...", stdout.getvalue())
+        self.assertIn("[progress] 正在准备下一步...", stdout.getvalue())
+
+    def test_progress_frame_ignores_a_stale_sequence_and_clears_when_settled(self) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=io.StringIO(),
+        )
+        active = {
+            "type": "interaction_progress",
+            "device_id": "terminal-edge-1",
+            "progress": {
+                "version": 1,
+                "interaction_id": "interaction-1",
+                "interaction_turn_id": "interaction-turn-1",
+                "sequence": 2,
+                "phase": "executing",
+                "state": "active",
+                "occurred_at": "2026-07-18T10:00:02Z",
+                "presentation_hint": "working",
+            },
+        }
+        stale = {
+            **active,
+            "progress": {**active["progress"], "sequence": 1, "phase": "planning"},
+        }
+        settled = {
+            **active,
+            "progress": {
+                **active["progress"],
+                "sequence": 3,
+                "phase": "completed",
+                "state": "settled",
+            },
+        }
+
+        daemon.handle_interaction_progress_frame(active)
+        daemon.handle_interaction_progress_frame(stale)
+        daemon.handle_interaction_progress_frame(settled)
+
+        self.assertEqual(daemon.progress_sequence_by_interaction["interaction-1"], 3)
+        self.assertIsNone(daemon.active_progress_phase)
+
+    def test_progress_frame_uses_one_transient_line_on_a_tty(self) -> None:
+        class TtyOutput(io.StringIO):
+            def isatty(self) -> bool:
+                return True
+
+        output = TtyOutput()
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=output,
+        )
+        active = {
+            "type": "interaction_progress",
+            "device_id": "terminal-edge-1",
+            "progress": {
+                "version": 1,
+                "interaction_id": "interaction-1",
+                "interaction_turn_id": "interaction-turn-1",
+                "sequence": 1,
+                "phase": "deliberating",
+                "state": "active",
+                "occurred_at": "2026-07-18T10:00:00Z",
+                "presentation_hint": "working",
+            },
+        }
+
+        daemon.handle_interaction_progress_frame(active)
+        daemon.handle_interaction_progress_frame(
+            {
+                **active,
+                "progress": {**active["progress"], "sequence": 2, "phase": "planning"},
+            }
+        )
+        daemon.handle_interaction_progress_frame(
+            {
+                **active,
+                "progress": {
+                    **active["progress"],
+                    "sequence": 3,
+                    "phase": "completed",
+                    "state": "settled",
+                },
+            }
+        )
+
+        self.assertEqual(
+            output.getvalue(),
+            "\r\033[2K[progress] 正在理解你的请求..."
+            "\r\033[2K[progress] 正在准备下一步..."
+            "\r\033[2K",
+        )
+        self.assertNotIn("[progress]", list(daemon.transcript))
+
     def test_local_help_command_is_handled_without_runtime_event(self) -> None:
         stdout = io.StringIO()
         daemon = TerminalEdgeDaemon(
@@ -576,7 +715,12 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(bootstrap_frames[1]["type"], "capability_announce")
         self.assertEqual(
             bootstrap_frames[1]["capabilities"],
-            ["text.input", "notification.show", "terminal.context"],
+            [
+                "text.input",
+                "notification.show",
+                "terminal.context",
+                "interaction.progress",
+            ],
         )
 
     def test_builds_terminal_activity_observation_frame(self) -> None:
@@ -623,6 +767,122 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
 
 
 class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_expected_frame_wait_rejects_excess_deferred_frames(self) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+        )
+
+        class NonAcknowledgingWebSocket:
+            def __init__(self) -> None:
+                self.received_frames = 0
+
+            async def recv(self) -> str:
+                self.received_frames += 1
+                if self.received_frames > 65:
+                    raise AssertionError("expected-frame wait did not stop")
+                return json.dumps(
+                    {
+                        "type": "action_request",
+                        "device_id": "terminal-edge-1",
+                        "action": {
+                            "capability": "notification.show",
+                            "payload": {"title": "OpenHalo", "body": "queued"},
+                        },
+                    }
+                )
+
+        with self.assertRaisesRegex(RuntimeError, "deferred frames exceeded 64"):
+            await daemon._recv_expected_frame(
+                NonAcknowledgingWebSocket(),
+                [],
+                expected_type="event_ack",
+            )
+
+    async def test_daemon_session_keeps_action_request_when_progress_arrives_first(
+        self,
+    ) -> None:
+        class ProgressBeforeActionWebSocket:
+            def __init__(self) -> None:
+                self.frames: asyncio.Queue[dict] = asyncio.Queue()
+
+            async def send(self, raw_frame: str) -> None:
+                frame = json.loads(raw_frame)
+                if frame["type"] == "connect":
+                    await self.frames.put({"type": "connect_ok"})
+                    return
+                if frame["type"] not in {"event_push", "observation_push"}:
+                    return
+                if frame["capability"] != "text.input":
+                    await self.frames.put({"type": "event_ack"})
+                    return
+                await self.frames.put(
+                    {
+                        "type": "interaction_progress",
+                        "device_id": "terminal-edge-1",
+                        "progress": {
+                            "version": 1,
+                            "interaction_id": "interaction-1",
+                            "interaction_turn_id": "interaction-turn-1",
+                            "sequence": 1,
+                            "phase": "deliberating",
+                            "state": "active",
+                            "occurred_at": "2026-07-18T10:00:00Z",
+                            "presentation_hint": "working",
+                        },
+                    }
+                )
+                await self.frames.put({"type": "event_ack"})
+                await self.frames.put(
+                    {
+                        "type": "action_request",
+                        "device_id": "terminal-edge-1",
+                        "request_id": "action-1",
+                        "interaction_id": "interaction-1",
+                        "interaction_turn_id": "interaction-turn-1",
+                        "action": {
+                            "capability": "notification.show",
+                            "payload": {"title": "OpenHalo", "body": "Action result"},
+                        },
+                    }
+                )
+
+            async def recv(self) -> str:
+                return json.dumps(await self.frames.get())
+
+        stdout = io.StringIO()
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=stdout,
+        )
+
+        websocket = ProgressBeforeActionWebSocket()
+        try:
+            results = await asyncio.wait_for(
+                daemon.run_scripted_session(
+                    websocket=websocket,
+                    scripted_inputs=[
+                        {
+                            "text": "run action",
+                            "observed_at": "2026-07-18T10:00:00Z",
+                        }
+                    ],
+                    startup_observed_at="2026-07-18T10:00:00Z",
+                    idle_after_inputs=True,
+                    idle_timeout_s=0.001,
+                    max_idle_cycles=1,
+                    max_action_requests=1,
+                ),
+                timeout=0.1,
+            )
+        except TimeoutError:
+            results = []
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["request_id"], "action-1")
+        self.assertIn("[progress] 正在理解你的请求...", stdout.getvalue())
+
     async def test_run_forever_stops_reconnecting_after_quit_command(self) -> None:
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
@@ -724,6 +984,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
         class FakeWebSocket:
             def __init__(self) -> None:
                 self.recv_count = 0
+                self.post_text_ack_sent = False
 
             async def send(self, payload: str) -> None:
                 sent_frames.append(json.loads(payload))
@@ -732,12 +993,13 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                 self.recv_count += 1
                 if self.recv_count == 1:
                     return json.dumps({"type": "connect_ok"})
-                if self.recv_count in {2, 3, 4}:
-                    return json.dumps({"type": "event_ack"})
-                while not any(
+                if not any(
                     frame.get("capability") == "text.input" for frame in sent_frames
                 ):
-                    await asyncio.sleep(0)
+                    return json.dumps({"type": "event_ack"})
+                if not self.post_text_ack_sent:
+                    self.post_text_ack_sent = True
+                    return json.dumps({"type": "event_ack"})
                 return json.dumps(
                     {
                         "type": "action_request",

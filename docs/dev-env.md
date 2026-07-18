@@ -9,12 +9,41 @@ That is the normal path for day-to-day coding in this repository. Create or swit
 Examples:
 
 ```bash
-.venv/bin/python -m unittest discover -s tests -v
-```
-
-```bash
 bin/test -m unittest discover -s tests -v
 ```
+
+## Shared-server test containment
+
+On a shared server, use `bin/test` rather than invoking the root interpreter
+directly. When `systemd-run` is available, the wrapper runs the complete test
+command in one transient service with these limits:
+
+- `PrivateNetwork=yes`: external provider traffic cannot leave the test
+  namespace, while loopback HTTP and WebSocket fixtures remain available.
+- `CPUQuota=150%`, `MemoryMax=2G`, and `TasksMax=256`: a runaway suite is
+  contained before it can starve the Runtime, terminal session, or other
+  server processes.
+- `RuntimeMaxSec=5min`, `TimeoutStopSec=10s`, and
+  `KillMode=control-group`: a hung suite is terminated with its descendants
+  instead of retaining the bounded allocation indefinitely.
+- `NoNewPrivileges=yes` and one inherited `OPENHALO_TEST_IN_SCOPE=1` marker:
+  test subprocesses remain in the same bounded service rather than nesting
+  transient services.
+
+Containment is a final safety boundary, not a passing test result: an OOM kill
+means the triggering test or protocol path must be fixed. Terminal Edge bounds
+deferred inbound frames while waiting for an acknowledgement, so a malformed or
+non-acknowledging peer fails explicitly instead of growing an in-memory queue.
+
+Use `OPENHALO_TEST_ISOLATION=0` only in an already isolated local environment
+that has no shared Runtime or operator connection to protect:
+
+```bash
+OPENHALO_TEST_ISOLATION=0 bin/test -m unittest discover -s tests -v
+```
+
+Do not bypass the wrapper with `.venv/bin/python -m unittest discover ...` on
+the shared server.
 
 ## Optional worktree workflow
 
@@ -268,8 +297,8 @@ and compare it against the current baseline. Install `coverage` into the shared
 root `.venv` if it is missing, then run:
 
 ```bash
-.venv/bin/python -m coverage run --source=personal_runtime,device_edge,agent_guard -m unittest -v
-.venv/bin/python -m coverage report
+bin/test -m coverage run --source=personal_runtime,device_edge,agent_guard -m unittest -v
+bin/test -m coverage report
 ```
 
 The current formal line-coverage baseline is 87% over `personal_runtime`,
@@ -629,6 +658,49 @@ For the current manual `M11` acceptance bar, prefer one real user-scenario foreg
 If you need the plain compatibility path instead of the TUI, run `.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token` and apply the same user-scenario expectations to the line-oriented transcript.
 
 For the current live-terminal baseline, a single `Ctrl+C` in the foreground terminal-daemon session should now terminate the CLI device cleanly during normal TTY use. If manual acceptance still requires repeated interrupt signals, treat that as a terminal-edge interaction regression rather than expected behavior.
+
+## M20.2 Interaction-progress acceptance
+
+Use the development Runtime and Terminal TUI commands above on port `18765`. Send
+one normal user message, then send `check runtime status` after its reply.
+
+Acceptance requires the Terminal to render `deliberating`, `planning`, and
+`executing` on their own Runtime lifecycle boundaries, before the action is
+dispatched. The public protocol must keep `event_ack -> action_request ->
+awaiting_action_result`; the acknowledgement is not user-visible. For a
+same-Terminal `notification.show`, the visible sequence is:
+
+```text
+[progress] 正在理解你的请求...
+[progress] 正在准备下一步...
+[progress] 正在执行操作...
+[runtime] <notification.show action output>
+[progress] 正在等待设备确认...
+[progress] 正在确认处理结果...
+```
+
+Reject a run when pre-dispatch progress is held until the synchronous Harness
+returns, or when `deliberating`, `planning`, and `executing` arrive only as a
+single buffered block beside the action output. Do not require an artificial
+delay between stages: closely adjacent lines are valid only when the underlying
+lifecycle transitions actually occurred that quickly. The post-action
+`awaiting_action_result` and `completing` lines legitimately follow immediate
+same-Terminal action output; M20.3 will make that distinction clearer in the
+formal Terminal UI without changing Runtime execution order.
+
+The deterministic server-side timing guard is:
+
+```bash
+bin/test -m unittest -v \
+  tests.test_interaction_progress.InteractionProgressWebSocketTests.test_terminal_renders_deliberating_before_slow_harness_returns \
+  tests.test_interaction_progress.InteractionProgressWebSocketTests.test_gateway_streams_execution_before_ack_then_returns_action_and_waiting \
+  tests.test_interaction_progress.InteractionProgressWebSocketTests.test_terminal_receives_ordered_progress_and_final_update_over_websocket
+```
+
+The first guard holds the Harness response and verifies that the actual
+Terminal session renders `deliberating` before that response is released. The
+other two guards verify execution/action ordering and that post-action progress
+follows the immediate same-Terminal action output.
 
 ## M20 Hermes Harness acceptance
 

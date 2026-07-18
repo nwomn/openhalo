@@ -673,10 +673,27 @@ class RuntimeOrchestrator:
             terminal_reason=terminal_reason,
         )
         self.gateway._persist_state()
-        return self.gateway._build_interaction_update_replies(
-            completed,
-            correlation=correlation,
+        completion_phase = (
+            "failed"
+            if terminal_reason == "failed" or result_status == "failed"
+            else "completed"
         )
+        return [
+            *self.gateway.emit_interaction_progress(
+                interaction_id=interaction_id,
+                interaction_turn_id=(correlation or {}).get("interaction_turn_id"),
+                phase=completion_phase,
+                state="settled",
+                presentation_hint=(
+                    "failed" if completion_phase == "failed" else "completed"
+                ),
+                correlation=correlation,
+            ),
+            *self.gateway._build_interaction_update_replies(
+                completed,
+                correlation=correlation,
+            ),
+        ]
 
     def _handle_action_batch(
         self,
@@ -848,7 +865,25 @@ class RuntimeOrchestrator:
             },
         )
         self.gateway._persist_state()
-        return action_requests
+        executing_replies = self.gateway.emit_interaction_progress(
+            interaction_id=interaction_id,
+            interaction_turn_id=interaction_turn_id,
+            phase="executing",
+            state="active",
+            presentation_hint="working",
+            correlation=correlation,
+            occurred_at=decision_time,
+        )
+        awaiting_replies = self.gateway.emit_interaction_progress(
+            interaction_id=interaction_id,
+            interaction_turn_id=interaction_turn_id,
+            phase="awaiting_action_result",
+            state="active",
+            presentation_hint="waiting",
+            correlation=correlation,
+            occurred_at=decision_time,
+        )
+        return [*executing_replies, *action_requests, *awaiting_replies]
 
     def handle_event_frame(self, frame: dict) -> list[dict]:
         replies = []
@@ -931,6 +966,14 @@ class RuntimeOrchestrator:
             "interaction_id": interaction_id,
             "interaction_turn_id": interaction_turn_id,
         }
+        replies = self.gateway.emit_interaction_progress(
+            interaction_id=interaction_id,
+            interaction_turn_id=interaction_turn_id,
+            phase="deliberating",
+            state="active",
+            presentation_hint="working",
+            correlation=correlation,
+        )
         decision_time = self.gateway._event_timestamp(frame)
         snapshot = build_context_snapshot(
             self.gateway.state.observations,
@@ -982,9 +1025,21 @@ class RuntimeOrchestrator:
             proposal.metadata,
             observed_at=decision_time,
         )
+        replies.extend(
+            self.gateway.emit_interaction_progress(
+                interaction_id=interaction_id,
+                interaction_turn_id=interaction_turn_id,
+                phase="planning",
+                state="active",
+                presentation_hint="working",
+                correlation=correlation,
+            )
+        )
         action_batch_proposals = self._action_batch_proposals(proposal)
         if self._has_action_batch(proposal):
-            return self._handle_action_batch(
+            return [
+                *replies,
+                *self._handle_action_batch(
                 frame=frame,
                 interaction_id=interaction_id,
                 interaction_turn_id=interaction_turn_id,
@@ -994,7 +1049,8 @@ class RuntimeOrchestrator:
                 snapshot_contract=snapshot_contract,
                 decision_time=decision_time,
                 correlation=correlation,
-            )
+                ),
+            ]
         decision = self.gateway.presence_router.choose(
             source_device_id=frame["device_id"],
             snapshot=snapshot,
@@ -1063,7 +1119,9 @@ class RuntimeOrchestrator:
         )
         if execution_outcome["kind"] == "completion":
             self._record_resolved_turn(interaction_id, interaction_turn_id)
-            return self._complete_interaction_if_idle(
+            return [
+                *replies,
+                *self._complete_interaction_if_idle(
                 interaction_id=interaction_id,
                 summary=execution_outcome["summary"],
                 visibility=execution_outcome["visibility"],
@@ -1072,7 +1130,8 @@ class RuntimeOrchestrator:
                     execution_outcome,
                 ),
                 correlation=correlation,
-            )
+                ),
+            ]
 
         planned_action = self._build_action_request_for_turn(
             execution_outcome=execution_outcome,
@@ -1089,7 +1148,23 @@ class RuntimeOrchestrator:
             output_payload=planned_action,
             summary="Built action_request frame.",
         )
-        return [planned_action]
+        executing_replies = self.gateway.emit_interaction_progress(
+            interaction_id=interaction_id,
+            interaction_turn_id=interaction_turn_id,
+            phase="executing",
+            state="active",
+            presentation_hint="working",
+            correlation=correlation,
+        )
+        awaiting_replies = self.gateway.emit_interaction_progress(
+            interaction_id=interaction_id,
+            interaction_turn_id=interaction_turn_id,
+            phase="awaiting_action_result",
+            state="active",
+            presentation_hint="waiting",
+            correlation=correlation,
+        )
+        return [*replies, *executing_replies, planned_action, *awaiting_replies]
 
     @staticmethod
     def _has_explicit_observation_parent(frame: dict) -> bool:
@@ -1698,6 +1773,15 @@ class RuntimeOrchestrator:
             "interaction_turn_id": interaction_turn_id,
             "request_id": None,
         }
+        progress_replies = self.gateway.emit_interaction_progress(
+            interaction_id=interaction_id,
+            interaction_turn_id=interaction_turn_id,
+            phase="completing",
+            state="active",
+            presentation_hint="working",
+            correlation=correlation,
+            occurred_at=decision_time,
+        )
         proposal = self._proposal_from_harness(
             HarnessInput(
                 operation=HarnessOperation.POST_ACTION,
@@ -1725,7 +1809,9 @@ class RuntimeOrchestrator:
         )
         action_batch_proposals = self._action_batch_proposals(proposal)
         if self._has_action_batch(proposal):
-            return self._handle_action_batch(
+            return [
+                *progress_replies,
+                *self._handle_action_batch(
                 frame={"device_id": interaction["source_device_id"]},
                 interaction_id=interaction_id,
                 interaction_turn_id=interaction_turn_id,
@@ -1735,7 +1821,8 @@ class RuntimeOrchestrator:
                 snapshot_contract=snapshot_contract,
                 decision_time=decision_time,
                 correlation=correlation,
-            )
+                ),
+            ]
         decision = self.gateway.presence_router.choose(
             source_device_id=interaction["source_device_id"],
             snapshot=snapshot,
@@ -1800,7 +1887,30 @@ class RuntimeOrchestrator:
                 interaction_turn_id=interaction_turn_id,
                 correlation=correlation,
             )
-            return [planned_action]
+            executing_replies = self.gateway.emit_interaction_progress(
+                interaction_id=interaction_id,
+                interaction_turn_id=interaction_turn_id,
+                phase="executing",
+                state="active",
+                presentation_hint="working",
+                correlation=correlation,
+                occurred_at=decision_time,
+            )
+            awaiting_replies = self.gateway.emit_interaction_progress(
+                interaction_id=interaction_id,
+                interaction_turn_id=interaction_turn_id,
+                phase="awaiting_action_result",
+                state="active",
+                presentation_hint="waiting",
+                correlation=correlation,
+                occurred_at=decision_time,
+            )
+            return [
+                *progress_replies,
+                *executing_replies,
+                planned_action,
+                *awaiting_replies,
+            ]
 
         self._record_resolved_turn(interaction_id, interaction_turn_id)
         visibility = self.gateway._completion_visibility_for_action_result(
@@ -1808,20 +1918,23 @@ class RuntimeOrchestrator:
             proposal=proposal.to_dict(),
             result=result,
         )
-        return self._complete_interaction_if_idle(
-            interaction_id=interaction_id,
-            summary=self.gateway._build_interaction_summary(
-                proposal.to_dict(),
-                result=result,
+        return [
+            *progress_replies,
+            *self._complete_interaction_if_idle(
+                interaction_id=interaction_id,
+                summary=self.gateway._build_interaction_summary(
+                    proposal.to_dict(),
+                    result=result,
+                ),
+                visibility=visibility,
+                result_status=result.get("status"),
+                terminal_reason=self._terminal_reason_for_execution(
+                    proposal,
+                    execution_outcome,
+                ),
+                correlation=correlation,
             ),
-            visibility=visibility,
-            result_status=result.get("status"),
-            terminal_reason=self._terminal_reason_for_execution(
-                proposal,
-                execution_outcome,
-            ),
-            correlation=correlation,
-        )
+        ]
 
 
 __all__ = ["RuntimeOrchestrator"]

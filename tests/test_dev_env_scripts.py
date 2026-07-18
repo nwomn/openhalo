@@ -2,6 +2,7 @@ import base64
 import hashlib
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -18,6 +19,20 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertTrue(script_path.exists())
         self.assertTrue(os.access(script_path, os.X_OK))
         self.assertIn('.venv/bin/python', script_path.read_text(encoding="utf-8"))
+
+    def test_shared_test_script_declares_bounded_server_isolation(self) -> None:
+        contents = (ROOT / "bin" / "test").read_text(encoding="utf-8")
+
+        self.assertIn("systemd-run", contents)
+        self.assertIn("PrivateNetwork=yes", contents)
+        self.assertIn("CPUQuota=150%", contents)
+        self.assertIn("MemoryMax=2G", contents)
+        self.assertIn("TasksMax=256", contents)
+        self.assertIn("RuntimeMaxSec=5min", contents)
+        self.assertIn("TimeoutStopSec=10s", contents)
+        self.assertIn("KillMode=control-group", contents)
+        self.assertIn("OPENHALO_TEST_IN_SCOPE", contents)
+        self.assertIn("OPENHALO_TEST_ISOLATION", contents)
 
     def test_bootstrap_script_exists_and_mentions_optional_local_worktree_venv(self) -> None:
         script_path = ROOT / "bin" / "bootstrap-worktree-venv"
@@ -70,6 +85,15 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("Default: work on a normal branch in the main workspace.", contents)
         self.assertIn("Optional: create a worktree-local `.venv`.", contents)
         self.assertIn("Advanced optional path: use a git worktree", contents)
+        self.assertIn("Shared-server test containment", contents)
+        self.assertIn("PrivateNetwork=yes", contents)
+        self.assertIn("RuntimeMaxSec=5min", contents)
+        self.assertIn("OPENHALO_TEST_ISOLATION=0", contents)
+        default_workflow, _ = contents.split("## Shared-server test containment", 1)
+        self.assertNotIn(
+            ".venv/bin/python -m unittest discover -s tests -v",
+            default_workflow,
+        )
         self.assertIn("CLI device validation is acceptable for early module testing", contents)
         self.assertIn("Host edge verification is required before documenting a module as implemented and operationally ready.", contents)
         self.assertIn("bin/verify-host-edge", contents)
@@ -124,8 +148,9 @@ class DevEnvWorkflowTests(unittest.TestCase):
     def test_shared_test_script_runs_using_root_venv(self) -> None:
         script_path = ROOT / "bin" / "test"
         probe = (
-            "import pathlib,sys; "
-            "print(pathlib.Path(sys.executable).resolve())"
+            "import os,pathlib,sys; "
+            "print(pathlib.Path(sys.executable).resolve()); "
+            "print(os.environ.get('OPENHALO_TEST_IN_SCOPE', 'missing'))"
         )
         result = subprocess.run(
             [str(script_path), "-c", probe],
@@ -135,10 +160,151 @@ class DevEnvWorkflowTests(unittest.TestCase):
             cwd=ROOT,
         )
 
+        executable, scope_marker = result.stdout.splitlines()
         self.assertEqual(
-            Path(result.stdout.strip()),
+            Path(executable),
             (ROOT / ".venv" / "bin" / "python").resolve(),
         )
+        self.assertEqual(scope_marker, "1")
+
+    def test_shared_test_script_allows_explicit_local_opt_out(self) -> None:
+        script_path = ROOT / "bin" / "test"
+        environment = dict(os.environ)
+        environment.pop("OPENHALO_TEST_IN_SCOPE", None)
+        environment["OPENHALO_TEST_ISOLATION"] = "0"
+        probe = (
+            "import os,pathlib,sys; "
+            "print(pathlib.Path(sys.executable).resolve()); "
+            "print(os.environ.get('OPENHALO_TEST_IN_SCOPE', 'missing'))"
+        )
+
+        result = subprocess.run(
+            [str(script_path), "-c", probe],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+            env=environment,
+        )
+
+        executable, scope_marker = result.stdout.splitlines()
+        self.assertEqual(
+            Path(executable),
+            (ROOT / ".venv" / "bin" / "python").resolve(),
+        )
+        self.assertEqual(scope_marker, "missing")
+
+    def test_shared_test_script_falls_back_when_systemd_run_is_unavailable(self) -> None:
+        script_path = ROOT / "bin" / "test"
+        with tempfile.TemporaryDirectory() as directory:
+            command_path = Path(directory)
+            (command_path / "dirname").symlink_to("/usr/bin/dirname")
+            environment = dict(os.environ)
+            environment.pop("OPENHALO_TEST_IN_SCOPE", None)
+            environment.pop("OPENHALO_TEST_ISOLATION", None)
+            environment["PATH"] = str(command_path)
+            probe = (
+                "import os,pathlib,sys; "
+                "print(pathlib.Path(sys.executable).resolve()); "
+                "print(os.environ.get('OPENHALO_TEST_IN_SCOPE', 'missing'))"
+            )
+
+            result = subprocess.run(
+                ["/bin/bash", str(script_path), "-c", probe],
+                check=True,
+                capture_output=True,
+                text=True,
+                cwd=ROOT,
+                env=environment,
+            )
+
+        executable, scope_marker = result.stdout.splitlines()
+        self.assertEqual(
+            Path(executable),
+            (ROOT / ".venv" / "bin" / "python").resolve(),
+        )
+        self.assertEqual(scope_marker, "missing")
+
+    def test_shared_test_script_enforces_live_systemd_limits(self) -> None:
+        if shutil.which("systemd-run") is None:
+            self.skipTest("systemd-run is unavailable")
+        if not Path("/run/systemd/system").exists():
+            self.skipTest("systemd is not running")
+
+        probe = """
+import socket
+from pathlib import Path
+
+listener = socket.socket()
+listener.bind(("127.0.0.1", 0))
+listener.listen(1)
+client = socket.create_connection(listener.getsockname())
+server, _ = listener.accept()
+client.close()
+server.close()
+listener.close()
+print(Path("/proc/self/cgroup").read_text().strip(), flush=True)
+try:
+    socket.create_connection(("1.1.1.1", 443), timeout=0.2)
+except OSError:
+    print("external-network-blocked", flush=True)
+else:
+    raise SystemExit("external network was available")
+input()
+"""
+        process = subprocess.Popen(
+            [str(ROOT / "bin" / "test"), "-c", probe],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            cwd=ROOT,
+        )
+        try:
+            cgroup = process.stdout.readline().strip()
+            self.assertIn(".service", cgroup)
+            unit = cgroup.rsplit("/", 1)[-1]
+            properties = subprocess.run(
+                [
+                    "systemctl",
+                    "show",
+                    unit,
+                    "-p",
+                    "PrivateNetwork",
+                    "-p",
+                    "CPUQuotaPerSecUSec",
+                    "-p",
+                    "MemoryMax",
+                    "-p",
+                    "TasksMax",
+                    "-p",
+                    "RuntimeMaxUSec",
+                    "-p",
+                    "TimeoutStopUSec",
+                    "-p",
+                    "KillMode",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout
+            self.assertIn("PrivateNetwork=yes", properties)
+            self.assertIn("MemoryMax=2147483648", properties)
+            self.assertIn("TasksMax=256", properties)
+            self.assertIn("RuntimeMaxUSec=5min", properties)
+            self.assertIn("TimeoutStopUSec=10s", properties)
+            self.assertIn("KillMode=control-group", properties)
+            self.assertNotIn("CPUQuotaPerSecUSec=infinity", properties)
+            self.assertEqual(
+                process.stdout.readline().strip(),
+                "external-network-blocked",
+            )
+            stdout, stderr = process.communicate("\n", timeout=5)
+            self.assertEqual(process.returncode, 0, f"{stdout}\n{stderr}")
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.communicate()
 
     def test_m20_harness_verification_script_exists_and_supports_dry_run(self) -> None:
         script_path = ROOT / "bin" / "verify-m20-harness"

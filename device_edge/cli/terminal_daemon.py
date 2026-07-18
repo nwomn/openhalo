@@ -32,6 +32,17 @@ def terminal_supports_textual_fullscreen() -> bool:
 
 class TerminalEdgeDaemon:
     transcript_limit = 12
+    max_deferred_frames = 64
+    progress_messages = {
+        "deliberating": "正在理解你的请求...",
+        "researching": "正在查询相关信息...",
+        "planning": "正在准备下一步...",
+        "executing": "正在执行操作...",
+        "awaiting_action_result": "正在等待设备确认...",
+        "completing": "正在确认处理结果...",
+        "failed": "暂时无法继续处理",
+        "cancelled": "处理已停止",
+    }
 
     def __init__(
         self,
@@ -53,6 +64,9 @@ class TerminalEdgeDaemon:
         self.terminal_activity_state = "unknown"
         self.pending_runtime_reply = False
         self.pending_interaction_id: str | None = None
+        self.active_progress_phase: str | None = None
+        self.active_progress_interaction_id: str | None = None
+        self.progress_sequence_by_interaction: dict[str, int] = {}
         self.user_request_count = 0
         self.runtime_message_count = 0
         self.local_command_count = 0
@@ -72,7 +86,12 @@ class TerminalEdgeDaemon:
             device_id=device_id,
             device_type="desktop-cli",
             token=token,
-            capabilities=["text.input", "notification.show", "terminal.context"],
+            capabilities=[
+                "text.input",
+                "notification.show",
+                "terminal.context",
+                "interaction.progress",
+            ],
             diagnostic_recorder=diagnostic_recorder,
         )
 
@@ -190,13 +209,41 @@ class TerminalEdgeDaemon:
         self.transcript.append(line)
 
     def render_status_line(self, message: str) -> None:
+        self.clear_progress()
         self._write_line("system", message)
 
     def render_user_line(self, text: str) -> None:
+        self.clear_progress()
         self._write_line("user", text)
 
     def render_runtime_line(self, message: str) -> None:
+        self.clear_progress()
         self._write_line("runtime", message)
+
+    def render_progress_phase(self, interaction_id: str, phase: str) -> None:
+        message = self.progress_messages.get(phase)
+        if message is None:
+            return
+        self.active_progress_interaction_id = interaction_id
+        self.active_progress_phase = phase
+        if self._output_is_tty():
+            self.output_stream.write(f"\r\033[2K[progress] {message}")
+            self.output_stream.flush()
+            return
+        self._write_line("progress", message)
+
+    def clear_progress(self) -> None:
+        if self.active_progress_phase is not None and self._output_is_tty():
+            self.output_stream.write("\r\033[2K")
+            self.output_stream.flush()
+        self.active_progress_interaction_id = None
+        self.active_progress_phase = None
+
+    def _output_is_tty(self) -> bool:
+        try:
+            return bool(self.output_stream.isatty())
+        except (AttributeError, OSError):
+            return False
 
     def render_help(self) -> None:
         self.render_status_line(
@@ -341,6 +388,14 @@ class TerminalEdgeDaemon:
             frame = await self._recv_frame(websocket)
             if frame.get("type") == expected_type:
                 return frame
+            if frame.get("type") == "interaction_progress":
+                self.handle_interaction_progress_frame(frame)
+                continue
+            if len(pending_frames) >= self.max_deferred_frames:
+                raise RuntimeError(
+                    "deferred frames exceeded "
+                    f"{self.max_deferred_frames} while waiting for {expected_type}"
+                )
             pending_frames.append(frame)
 
     def handle_action_request(self, frame: dict) -> dict:
@@ -397,10 +452,31 @@ class TerminalEdgeDaemon:
         if interaction.get("status") == "completed":
             self.pending_runtime_reply = False
             self.pending_interaction_id = None
+            self.clear_progress()
         visibility = interaction.get("visibility", "visible")
         summary = interaction.get("summary", "").strip()
         if summary and visibility != "silent":
             self.render_runtime_line(summary)
+
+    def handle_interaction_progress_frame(self, frame: dict) -> None:
+        progress = frame.get("progress", {})
+        interaction_id = progress.get("interaction_id")
+        sequence = progress.get("sequence")
+        if not isinstance(interaction_id, str) or not interaction_id:
+            return
+        if not isinstance(sequence, int) or sequence < 1:
+            return
+        if sequence <= self.progress_sequence_by_interaction.get(interaction_id, 0):
+            return
+        self.progress_sequence_by_interaction[interaction_id] = sequence
+        phase = progress.get("phase")
+        state = progress.get("state")
+        if state == "settled" or phase in {"completed", "failed", "cancelled"}:
+            if self.active_progress_interaction_id == interaction_id:
+                self.clear_progress()
+            return
+        if isinstance(phase, str):
+            self.render_progress_phase(interaction_id, phase)
 
     async def _send_frame(self, websocket, frame: dict) -> None:
         await websocket.send(json.dumps(frame))
@@ -467,6 +543,27 @@ class TerminalEdgeDaemon:
                         pending_frames.append(await self._recv_frame(websocket))
                     if self.quit_requested:
                         break
+                    if pending_frames:
+                        pending_frame = pending_frames.pop(0)
+                        frame_type = pending_frame.get("type")
+                        if frame_type == "interaction_progress":
+                            self.handle_interaction_progress_frame(pending_frame)
+                            continue
+                        if frame_type == "interaction_update":
+                            self.handle_interaction_frame(pending_frame)
+                            if (
+                                self.pending_runtime_reply is False
+                                and max_action_requests is not None
+                                and len(results) >= max_action_requests
+                            ):
+                                return results
+                            continue
+                        if frame_type == "action_request":
+                            idle_cycles = 0
+                            result = self.handle_action_request(pending_frame)
+                            results.append(result)
+                            await self._send_frame(websocket, result)
+                            continue
                     recv_task = asyncio.create_task(self._recv_frame(websocket))
                     if live_input_open and live_input_task is None:
                         live_input_task = asyncio.create_task(
@@ -595,14 +692,17 @@ class TerminalEdgeDaemon:
                             return results
                         continue
 
-                    action_frame = next(
+                    progress_frame = next(
                         (
                             pending_frames.pop(index)
                             for index, candidate in enumerate(pending_frames)
-                            if candidate.get("type") == "action_request"
+                            if candidate.get("type") == "interaction_progress"
                         ),
                         None,
                     )
+                    if progress_frame is not None:
+                        self.handle_interaction_progress_frame(progress_frame)
+                        continue
                     interaction_frame = next(
                         (
                             pending_frames.pop(index)
@@ -620,6 +720,14 @@ class TerminalEdgeDaemon:
                         ):
                             return results
                         continue
+                    action_frame = next(
+                        (
+                            pending_frames.pop(index)
+                            for index, candidate in enumerate(pending_frames)
+                            if candidate.get("type") == "action_request"
+                        ),
+                        None,
+                    )
                     if action_frame is None:
                         continue
                     idle_cycles = 0
@@ -628,6 +736,7 @@ class TerminalEdgeDaemon:
                     await self._send_frame(websocket, result)
         finally:
             self.connection_state = "disconnected"
+            self.clear_progress()
             if live_input_task is not None and not live_input_task.done():
                 live_input_task.cancel()
                 with suppress(asyncio.CancelledError):
