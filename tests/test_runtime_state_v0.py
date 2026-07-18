@@ -294,6 +294,35 @@ class RuntimeStateTests(unittest.TestCase):
         self.assertEqual(health["provider_request_format"], "json_schema")
         self.assertEqual(health["last_latency_ms"], 42)
 
+    def test_managed_host_edge_status_round_trips_without_secrets(self) -> None:
+        state = RuntimeState()
+        self.assertTrue(hasattr(state, "record_managed_host_edge_status"))
+
+        state.record_managed_host_edge_status(
+            state="retrying",
+            retry_attempt=2,
+            latest_failure_class="ConnectionRefusedError",
+            next_retry_delay_s=1.25,
+            updated_at="2026-07-18T10:00:00Z",
+        )
+
+        payload = state.to_dict()
+        restored = RuntimeState.from_dict(payload)
+
+        self.assertEqual(
+            payload["managed_host_edge"],
+            {
+                "state": "retrying",
+                "retry_attempt": 2,
+                "latest_failure_class": "ConnectionRefusedError",
+                "next_retry_delay_s": 1.25,
+                "updated_at": "2026-07-18T10:00:00Z",
+            },
+        )
+        self.assertNotIn("token", str(payload["managed_host_edge"]))
+        self.assertNotIn("url", str(payload["managed_host_edge"]))
+        self.assertEqual(restored.managed_host_edge, payload["managed_host_edge"])
+
     def test_records_bounded_hermes_provenance_without_tool_or_memory_bodies(self) -> None:
         state = RuntimeState()
         self.assertTrue(hasattr(state, "record_internal_tool_events"))

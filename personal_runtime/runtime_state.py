@@ -26,6 +26,7 @@ class RuntimeState:
         self.interventions = []
         self.model_health = {}
         self.mobile_liveness = {}
+        self.managed_host_edge = {}
         self.action_registry = {
             "mcp.invoke": {
                 "executor_kind": "mcp",
@@ -260,6 +261,23 @@ class RuntimeState:
             updated["last_success_at"] = observed_at
         self.model_health[profile] = updated
 
+    def record_managed_host_edge_status(
+        self,
+        *,
+        state: str,
+        retry_attempt: int,
+        latest_failure_class: str | None,
+        next_retry_delay_s: float | None,
+        updated_at: str,
+    ) -> None:
+        self.managed_host_edge = {
+            "state": state,
+            "retry_attempt": retry_attempt,
+            "latest_failure_class": latest_failure_class,
+            "next_retry_delay_s": next_retry_delay_s,
+            "updated_at": updated_at,
+        }
+
     def upsert_goal(
         self,
         goal_id: str,
@@ -306,6 +324,7 @@ class RuntimeState:
             "interventions": self.interventions,
             "model_health": self.model_health,
             "mobile_liveness": self.mobile_liveness,
+            "managed_host_edge": self.managed_host_edge,
             "action_registry": self.action_registry,
             "harness_memory": self.harness_memory,
             "memory_consolidation_candidates": self.memory_consolidation_candidates,
@@ -343,6 +362,7 @@ class RuntimeState:
         state.interventions = list(payload.get("interventions", []))
         state.model_health = dict(payload.get("model_health", {}))
         state.mobile_liveness = dict(payload.get("mobile_liveness", {}))
+        state.managed_host_edge = dict(payload.get("managed_host_edge", {}))
         state.action_registry.update(dict(payload.get("action_registry", {})))
         stored_harness_memory = dict(payload.get("harness_memory", {}))
         for kind in state.harness_memory:

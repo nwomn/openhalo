@@ -21,6 +21,10 @@ The helper defaults to:
 - `OPENHALO_DEV_DIAGNOSTIC_LOG_PATH=.runtime/android-openai-dev-diagnostics.jsonl`
 - `OPENHALO_DEV_RUNTIME_CONFIG_PATH=config/runtime-config.toml`
 
+The Runtime also starts and supervises one loopback `host-edge-1` by default
+after the Gateway is listening. Use `--disable-host-edge` only for isolated
+fixtures or deployments that deliberately omit the colocated Host Edge.
+
 `config/runtime-config.toml` is the local, ignored development default and is
 currently aligned with the OpenAI configuration. A worktree does not contain an
 ignored `*-local.toml` automatically; use an explicit absolute

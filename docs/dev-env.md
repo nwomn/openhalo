@@ -281,8 +281,9 @@ summary. Low-coverage modules should be listed when relevant so follow-up tests
 can be prioritized.
 
 For real-use terminal acceptance with the current runtime-config baseline, use
-three long-running processes. The development runtime should use port `18765`
-so the long-running server runtime can keep port `8765`; see
+two long-running processes. The Runtime manages its colocated Host Edge by
+default after the Gateway is listening, so the development runtime should use
+port `18765` while the long-running server runtime keeps port `8765`; see
 `docs/runtime-deploy.md` for the systemd-backed server path.
 
 ```bash
@@ -297,23 +298,15 @@ every worktree. Override `OPENHALO_DEV_STATE_PATH` when separate runs need
 separate evidence.
 
 ```bash
-.venv/bin/python -u -m device_edge.host.host_daemon \
-  --url ws://127.0.0.1:18765 \
-  --token dev-token \
-  --device-id host-edge-1 \
-  --idle-timeout 10 \
-  --max-idle-cycles 999999
-```
-
-```bash
 .venv/bin/python -m device_edge.cli.terminal_daemon \
   --url ws://127.0.0.1:18765 \
   --token dev-token \
   --device-id terminal-edge-1
 ```
 
-Use `--idle-timeout 30` for the host daemon if the host observation refresh is
-too noisy for manual inspection.
+Use `--host-edge-idle-timeout 30` on the Runtime command to control the
+managed Host Edge observation interval. `--disable-host-edge` is reserved for
+isolated fixtures or deployments that deliberately cannot run a colocated edge.
 
 Expected real-use smoke path:
 
@@ -482,11 +475,16 @@ This is the fastest local way to confirm that a runtime-originated initiative no
 Host edge verification is required before documenting a module as implemented and operationally ready.
 
 If a change is going to be described in project documentation as a completed module that is ready to run in the intended runtime environment, it must be verified through the host edge path we already built, not only through the CLI device path.
-Preferred command shape: `.venv/bin/python -m device_edge.host.host_daemon`
+Preferred M4.1 command shape: start `bin/run-runtime-dev` and let it manage
+the loopback Host Edge. `.venv/bin/python -m device_edge.host.host_daemon`
+remains an edge-development diagnostic entrypoint, not the normal deployment
+operation.
 
-Use `bin/verify-host-edge` for the default bounded local host-edge verification run.
+Use `bin/verify-host-edge` for a bounded standalone Host Edge diagnostic run.
 
-The script starts the runtime server, starts the host daemon with bounded idle, action-count, and session controls, verifies one targeted `runtime.status` direct action through the normal gateway path, verifies one runtime-originated initiative path to the same host edge through `Presence Router` and the normal action-planning path, then checks persisted runtime state before waiting for the host daemon to exit cleanly.
+The existing script remains a bounded standalone-edge diagnostic. M4.1 normal
+acceptance instead starts only Runtime plus a source edge, verifies automatic
+Host Edge registration, and routes `runtime.status` through the public Edge API.
 
 Use `bin/verify-host-edge --dry-run` first when you want to inspect the exact commands without starting processes.
 
@@ -500,7 +498,8 @@ The terminal-edge verification path is intended to prove three user-facing termi
 
 Use `bin/verify-terminal-edge --dry-run` first when you want to inspect the exact runtime, terminal-daemon, push, and state-check commands without starting the acceptance run.
 
-For a formal live acceptance scenario that matches current intended use, run all three long-lived participants together:
+For a formal live acceptance scenario that matches current intended use, run
+the Runtime and one source edge together:
 
 1. Start the runtime:
 
@@ -510,20 +509,7 @@ For a formal live acceptance scenario that matches current intended use, run all
    bin/run-runtime-dev
    ```
 
-2. Start the host edge in a second terminal:
-
-   ```bash
-   .venv/bin/python -m device_edge.host.host_daemon \
-     --url ws://127.0.0.1:18765 \
-     --token dev-token \
-     --device-id host-edge-1 \
-     --runtime-process-match personal_runtime.main \
-     --runtime-start-command ".venv/bin/python -m personal_runtime.main" \
-     --idle-timeout 5 \
-     --trace
-   ```
-
-3. Start the terminal edge in a third terminal:
+2. Start the terminal edge in a second terminal:
 
    ```bash
    .venv/bin/python -m device_edge.cli.terminal_daemon \
@@ -532,13 +518,13 @@ For a formal live acceptance scenario that matches current intended use, run all
      --device-id terminal-edge-1
    ```
 
-4. In the terminal edge, send normal user text such as `你好`, `你是谁？`, and `check runtime status`.
+3. In the terminal edge, send normal user text such as `你好`, `你是谁？`, and `check runtime status`.
 
 Acceptance expectations:
 
 - normal dialogue returns natural user-facing text instead of provider/parser errors such as `Real model reply unavailable`
 - `check runtime status` forms a `runtime.status` action, routes it to `host-edge-1`, and returns a readable status summary to the terminal edge
-- host-edge trace shows handling and completing the `runtime.status` action request
+- Runtime state shows the managed `host-edge-1` connection and completed `runtime.status` action request
 - persisted runtime state contains both `terminal-edge-1` and `host-edge-1`, host observations, and at least one `runtime.status` action result
 
 The host edge receive loop must preserve action requests that arrive while it is waiting for observation acknowledgements. If `check runtime status` remains planned in state but never completes while host observations continue, treat that as a host-edge receive-loop regression.
@@ -629,16 +615,15 @@ For manual live-terminal acceptance, repeated explicit user input should continu
 
 For the current manual `M11` acceptance bar, prefer one real user-scenario foreground session instead of isolated command pokes:
 
-1. Start the runtime with `OPENHALO_DEV_RUNTIME_HOST=127.0.0.1 bin/run-runtime-dev`.
-2. Start the host edge with `.venv/bin/python -m device_edge.host.host_daemon --url ws://127.0.0.1:18765 --token dev-token --device-id host-edge-1 --runtime-process-match personal_runtime.main --runtime-start-command "bin/run-runtime-dev" --idle-timeout 5 --trace`.
-3. Start the terminal surface with `.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token --tui`.
-4. Send `hello runtime`.
+1. Start the runtime with `OPENHALO_DEV_RUNTIME_HOST=127.0.0.1 bin/run-runtime-dev`; it starts `host-edge-1` automatically.
+2. Start the terminal surface with `.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token --tui`.
+3. Send `hello runtime`.
    Expectation: the session shows both `[user] hello runtime` and one real `[runtime] ...` reply line on the same resident session.
-5. Send `check runtime status`.
+4. Send `check runtime status`.
    Expectation: the session shows a readable runtime-delivered status response from the host edge rather than suppressing delivery after the user text arrives.
-6. Send `/status` and `/history`.
+5. Send `/status` and `/history`.
    Expectation: both stay edge-local, the transcript remains readable, and no extra runtime request is created for those slash commands.
-7. Send `/quit`.
+6. Send `/quit`.
    Expectation: the TUI exits cleanly without a reconnect loop.
 
 If you need the plain compatibility path instead of the TUI, run `.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token` and apply the same user-scenario expectations to the line-oriented transcript.
