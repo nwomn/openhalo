@@ -226,16 +226,9 @@ class TerminalEdgeDaemon:
             return
         self.active_progress_interaction_id = interaction_id
         self.active_progress_phase = phase
-        if self._output_is_tty():
-            self.output_stream.write(f"\r\033[2K[progress] {message}")
-            self.output_stream.flush()
-            return
         self._write_line("progress", message)
 
     def clear_progress(self) -> None:
-        if self.active_progress_phase is not None and self._output_is_tty():
-            self.output_stream.write("\r\033[2K")
-            self.output_stream.flush()
         self.active_progress_interaction_id = None
         self.active_progress_phase = None
 

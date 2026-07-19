@@ -91,7 +91,7 @@ Emit before Harness deliberation, before planning, after dispatch, while an acti
 
 **Step 2:** Run the Terminal test module and confirm the new cases fail.
 
-**Step 3: Implement a local progress reducer and presenter.** The TTY path redraws one transient status line; non-TTY output writes concise progress lines. Both paths clear active progress before user input, final interaction output, failure, cancellation, or session loss.
+**Step 3: Implement a local progress reducer and presenter.** Both TTY and non-TTY paths append one concise progress line per accepted phase so fast real transitions remain inspectable. They clear only their active in-memory progress state before user input, final interaction output, failure, cancellation, or session loss; M20.3 may later replace this initial phase history with a formal status panel or timeline.
 
 ```python
 if sequence <= self.progress_sequence_by_interaction.get(interaction_id, 0):

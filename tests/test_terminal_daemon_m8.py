@@ -108,7 +108,7 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
         self.assertEqual(daemon.progress_sequence_by_interaction["interaction-1"], 3)
         self.assertIsNone(daemon.active_progress_phase)
 
-    def test_progress_frame_uses_one_transient_line_on_a_tty(self) -> None:
+    def test_progress_frame_keeps_each_tty_phase_as_a_line(self) -> None:
         class TtyOutput(io.StringIO):
             def isatty(self) -> bool:
                 return True
@@ -155,11 +155,16 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
 
         self.assertEqual(
             output.getvalue(),
-            "\r\033[2K[progress] 正在理解你的请求..."
-            "\r\033[2K[progress] 正在准备下一步..."
-            "\r\033[2K",
+            "[progress] 正在理解你的请求...\n"
+            "[progress] 正在准备下一步...\n",
         )
-        self.assertNotIn("[progress]", list(daemon.transcript))
+        self.assertEqual(
+            list(daemon.transcript),
+            [
+                "[progress] 正在理解你的请求...",
+                "[progress] 正在准备下一步...",
+            ],
+        )
 
     def test_local_help_command_is_handled_without_runtime_event(self) -> None:
         stdout = io.StringIO()
@@ -316,7 +321,10 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
             }
         )
 
-        self.assertIn("\r\033[2K[runtime] runtime push\n", output.getvalue())
+        self.assertEqual(
+            output.getvalue(),
+            "[progress] 正在执行操作...\n[runtime] runtime push\n",
+        )
 
     def test_runtime_action_result_preserves_request_correlation(self) -> None:
         stdout = io.StringIO()
