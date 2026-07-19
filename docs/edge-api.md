@@ -72,6 +72,55 @@ If `connect` returns `error`, the edge should stop the session, surface the
 failure in local diagnostics, and retry only after configuration changes such as
 fixing the token or runtime URL.
 
+## Device Pairing
+
+New public edges use Runtime device pairing instead of sharing
+`OPENHALO_EDGE_TOKEN`. An administrator creates a short-lived one-time code on
+the Runtime host. The first connection presents that code with `auth.kind` set
+to `pairing`:
+
+```json
+{
+  "api_version": "edge.runtime.v1",
+  "type": "connect",
+  "device": {
+    "device_id": "android-edge-7f31c2a8",
+    "device_type": "android-phone"
+  },
+  "auth": {
+    "kind": "pairing",
+    "token": "one-time-pairing-code"
+  }
+}
+```
+
+On success, the Runtime returns one device-specific credential. The Edge must
+persist both its Runtime URL and this credential locally, and must never log or
+display the credential after this response:
+
+```json
+{
+  "api_version": "edge.runtime.v1",
+  "type": "connect_ok",
+  "auth": {
+    "kind": "device",
+    "token": "device-specific-credential"
+  }
+}
+```
+
+Later connections use the same `device_id` and `auth.kind = "device"`. A
+successful device reconnect returns the normal `connect_ok` without an `auth`
+field. Used or expired pairing codes return a structured error such as
+`pairing_code_consumed` or `pairing_code_expired`; a revoked device credential
+returns `unauthorized`.
+
+Pairing and device credentials must cross a public network only through
+`wss://`. The Runtime process may still use loopback `ws://` behind a TLS
+terminating reverse proxy. Untagged shared-token auth remains a temporary local
+development and managed-edge compatibility path; it is not the contract for new
+public edges.
+
 ## Connect
 
 Edges start a session with `connect`.
@@ -110,9 +159,10 @@ Authentication failure response:
 }
 ```
 
-For production runtimes, the token is normally loaded by the server from
-`OPENHALO_EDGE_TOKEN` in `/etc/openhalo/runtime.env`. Development runtimes may
-still use `dev-token`, but production edges must not assume that token works.
+For temporary local development and managed-edge compatibility, the shared token
+is loaded by the server from `OPENHALO_EDGE_TOKEN` in
+`/etc/openhalo/runtime.env`. New public edges must use the device-pairing
+contract above rather than assuming that token works.
 
 ## Capability Announcement
 

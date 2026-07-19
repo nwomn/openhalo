@@ -176,28 +176,25 @@ may defer it, while its allowlisted structural signals can contribute as
 sanitized context evidence after another M18 trigger has been admitted.
 
 For a long-running server runtime, run the viewer directly on the server against
-the supervised runtime's persisted state and diagnostic log. The current
-Alibaba Cloud deployment uses:
+the supervised runtime's persisted state and diagnostic log:
 
 ```bash
-ssh aliyun_server
-cd /root/openhalo
+ssh <runtime-host>
+cd <openhalo-checkout>
 .venv/bin/python -m personal_runtime.context_viewer \
   --state-path /var/lib/openhalo/runtime-state.json \
   --diagnostic-log-path /var/log/openhalo/runtime-diagnostics.jsonl \
   --limit 80
 ```
 
-From the local Windows development machine, `aliyun_server` is the expected SSH
-alias in the user-level SSH config. It points at the Alibaba Cloud host
-`8.153.37.167` as `root` with the local private key configured outside this
-repository. Prefer the alias over spelling out the host, user, or key path in
-project commands.
+Use a local SSH alias or another untracked connection profile for
+`<runtime-host>`; do not put a real host, account name, or key path in project
+commands.
 
 For a one-shot remote check without opening an interactive shell:
 
 ```bash
-ssh aliyun_server "cd /root/openhalo && .venv/bin/python -m personal_runtime.context_viewer --state-path /var/lib/openhalo/runtime-state.json --diagnostic-log-path /var/log/openhalo/runtime-diagnostics.jsonl --limit 80"
+ssh <runtime-host> "cd <openhalo-checkout> && .venv/bin/python -m personal_runtime.context_viewer --state-path /var/lib/openhalo/runtime-state.json --diagnostic-log-path /var/log/openhalo/runtime-diagnostics.jsonl --limit 80"
 ```
 
 Use this as the manual observation-acceptance loop:

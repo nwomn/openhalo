@@ -15,6 +15,7 @@ from openhalo_common.diagnostics import JsonlDiagnosticRecorder
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.managed_host_edge import ManagedHostEdgeSupervisor
 from personal_runtime.model_provider import DEFAULT_CONFIG_PATH
+from personal_runtime.pairing_store import PairingStore
 
 
 def build_runtime_server_message(
@@ -42,6 +43,7 @@ def build_gateway(
     state_path: Path,
     llm_config_path: Path | None = None,
     diagnostic_log_path: Path | None = None,
+    pairing_store_path: Path | None = None,
 ) -> RuntimeGateway:
     return RuntimeGateway(
         shared_token=token,
@@ -50,6 +52,9 @@ def build_gateway(
         llm_config_path=llm_config_path,
         diagnostic_recorder=JsonlDiagnosticRecorder(diagnostic_log_path)
         if diagnostic_log_path is not None
+        else None,
+        pairing_store=PairingStore(pairing_store_path)
+        if pairing_store_path is not None
         else None,
     )
 
@@ -95,17 +100,21 @@ async def run_server(
     state_path: Path,
     llm_config_path: Path | None = None,
     diagnostic_log_path: Path | None = None,
+    pairing_store_path: Path | None = None,
     manage_host_edge: bool = True,
     host_edge_device_id: str = "host-edge-1",
     host_edge_idle_timeout_s: float = 30.0,
     host_edge_supervisor_factory=build_managed_host_edge_supervisor,
 ) -> None:
-    gateway = build_gateway(
+    gateway_kwargs = dict(
         token=token,
         state_path=state_path,
         llm_config_path=llm_config_path,
         diagnostic_log_path=diagnostic_log_path,
     )
+    if pairing_store_path is not None:
+        gateway_kwargs["pairing_store_path"] = pairing_store_path
+    gateway = build_gateway(**gateway_kwargs)
     async with gateway.run_server(host=host, port=port) as server_info:
         supervisor = None
         if manage_host_edge:
@@ -146,6 +155,11 @@ def build_runtime_server_parser() -> argparse.ArgumentParser:
         "--state-path",
         default=".runtime/state.json",
         help="Path to the persisted runtime state file.",
+    )
+    parser.add_argument(
+        "--pairing-store-path",
+        default=".runtime/pairing.json",
+        help="Path to the Runtime-local device pairing registry.",
     )
     parser.add_argument(
         "--runtime-config-path",
@@ -210,6 +224,7 @@ def main() -> None:
             port=args.port,
             token=resolve_runtime_token(args, parser),
             state_path=Path(args.state_path),
+            pairing_store_path=Path(args.pairing_store_path),
             llm_config_path=Path(args.runtime_config_path)
             if args.runtime_config_path
             else None,

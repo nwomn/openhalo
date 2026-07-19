@@ -1,8 +1,12 @@
 import json
 import unittest
+from datetime import UTC
+from datetime import datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import websockets
+from websockets.exceptions import ConnectionClosedError
 from websockets.exceptions import ConnectionClosedOK
 from websockets.frames import Close
 
@@ -10,6 +14,7 @@ from device_edge.shared.session_client import SessionClient
 from edge_api.protocol import API_VERSION
 from personal_runtime.agent_executor import InterventionProposal
 from personal_runtime.gateway_server import RuntimeGateway
+from personal_runtime.pairing_store import PairingStore
 from personal_runtime.runtime_state import RuntimeState
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -962,6 +967,249 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(connect_ok["type"], "connect_ok")
         self.assertEqual(event_ack["type"], "event_ack")
         self.assertEqual(action_request["type"], "action_request")
+
+    async def test_pairing_connect_issues_device_credential_for_later_reconnect(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            pairing_store = PairingStore(Path(temporary_directory) / "pairing.json")
+            pairing_code = pairing_store.create_pairing_code(ttl_seconds=600)
+            gateway = RuntimeGateway(
+                shared_token="dev-token",
+                pairing_store=pairing_store,
+                persist_state=False,
+                llm_config_path=TEST_LLM_CONFIG,
+            )
+
+            async with gateway.run_test_server() as server_info:
+                async with websockets.connect(server_info["url"]) as websocket:
+                    await websocket.send(
+                        json.dumps(
+                            {
+                                "type": "connect",
+                                "device": {
+                                    "device_id": "android-edge-1",
+                                    "device_type": "android-phone",
+                                },
+                                "auth": {
+                                    "kind": "pairing",
+                                    "token": pairing_code,
+                                },
+                            }
+                        )
+                    )
+                    paired = json.loads(await websocket.recv())
+
+                device_token = paired["auth"]["token"]
+                self.assertEqual(paired["type"], "connect_ok")
+                self.assertEqual(paired["auth"]["kind"], "device")
+
+                async with websockets.connect(server_info["url"]) as websocket:
+                    await websocket.send(
+                        json.dumps(
+                            {
+                                "type": "connect",
+                                "device": {
+                                    "device_id": "android-edge-1",
+                                    "device_type": "android-phone",
+                                },
+                                "auth": {
+                                    "kind": "device",
+                                    "token": device_token,
+                                },
+                            }
+                        )
+                    )
+                    reconnected = json.loads(await websocket.recv())
+
+        self.assertEqual(reconnected["type"], "connect_ok")
+        self.assertNotIn("auth", reconnected)
+
+    async def test_invalid_pairing_frame_does_not_consume_pairing_code(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            pairing_store = PairingStore(Path(temporary_directory) / "pairing.json")
+            pairing_code = pairing_store.create_pairing_code(ttl_seconds=600)
+            gateway = RuntimeGateway(
+                shared_token="dev-token",
+                pairing_store=pairing_store,
+                persist_state=False,
+                llm_config_path=TEST_LLM_CONFIG,
+            )
+
+            async with gateway.run_test_server() as server_info:
+                async with websockets.connect(server_info["url"]) as websocket:
+                    await websocket.send(
+                        json.dumps(
+                            {
+                                "api_version": "edge.runtime.unsupported",
+                                "type": "connect",
+                                "device": {
+                                    "device_id": "android-edge-1",
+                                    "device_type": "android-phone",
+                                },
+                                "auth": {
+                                    "kind": "pairing",
+                                    "token": pairing_code,
+                                },
+                            }
+                        )
+                    )
+                    with self.assertRaises(ConnectionClosedError):
+                        await websocket.recv()
+
+                async with websockets.connect(server_info["url"]) as websocket:
+                    await websocket.send(
+                        json.dumps(
+                            {
+                                "type": "connect",
+                                "device": {
+                                    "device_id": "android-edge-1",
+                                    "device_type": "android-phone",
+                                },
+                                "auth": {
+                                    "kind": "pairing",
+                                    "token": pairing_code,
+                                },
+                            }
+                        )
+                    )
+                    paired = json.loads(await websocket.recv())
+
+        self.assertEqual(paired["type"], "connect_ok")
+
+    async def test_duplicate_socket_rejection_does_not_consume_pairing_code(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            pairing_store = PairingStore(Path(temporary_directory) / "pairing.json")
+            pairing_code = pairing_store.create_pairing_code(ttl_seconds=600)
+            gateway = RuntimeGateway(
+                shared_token="dev-token",
+                pairing_store=pairing_store,
+                persist_state=False,
+                llm_config_path=TEST_LLM_CONFIG,
+            )
+
+            async with gateway.run_test_server() as server_info:
+                async with websockets.connect(server_info["url"]) as existing_socket:
+                    await existing_socket.send(
+                        json.dumps(
+                            {
+                                "type": "connect",
+                                "device": {
+                                    "device_id": "android-edge-1",
+                                    "device_type": "android-phone",
+                                },
+                                "auth": {"token": "dev-token"},
+                            }
+                        )
+                    )
+                    self.assertEqual(
+                        json.loads(await existing_socket.recv())["type"],
+                        "connect_ok",
+                    )
+
+                    async with websockets.connect(server_info["url"]) as websocket:
+                        await websocket.send(
+                            json.dumps(
+                                {
+                                    "type": "connect",
+                                    "device": {
+                                        "device_id": "android-edge-1",
+                                        "device_type": "android-phone",
+                                    },
+                                    "auth": {
+                                        "kind": "pairing",
+                                        "token": pairing_code,
+                                    },
+                                }
+                            )
+                        )
+                        rejected = json.loads(await websocket.recv())
+
+                async with websockets.connect(server_info["url"]) as websocket:
+                    await websocket.send(
+                        json.dumps(
+                            {
+                                "type": "connect",
+                                "device": {
+                                    "device_id": "android-edge-1",
+                                    "device_type": "android-phone",
+                                },
+                                "auth": {
+                                    "kind": "pairing",
+                                    "token": pairing_code,
+                                },
+                            }
+                        )
+                    )
+                    paired = json.loads(await websocket.recv())
+
+        self.assertEqual(rejected["code"], "device_already_connected")
+        self.assertEqual(paired["type"], "connect_ok")
+
+    async def test_pairing_connect_rejects_expired_code(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            pairing_store = PairingStore(Path(temporary_directory) / "pairing.json")
+            pairing_code = pairing_store.create_pairing_code(
+                ttl_seconds=60,
+                now=datetime(2000, 1, 1, tzinfo=UTC),
+            )
+            gateway = RuntimeGateway(
+                shared_token="dev-token",
+                pairing_store=pairing_store,
+                persist_state=False,
+                llm_config_path=TEST_LLM_CONFIG,
+            )
+
+            replies = await gateway.handle_test_frames(
+                [
+                    {
+                        "type": "connect",
+                        "device": {
+                            "device_id": "android-edge-1",
+                            "device_type": "android-phone",
+                        },
+                        "auth": {"kind": "pairing", "token": pairing_code},
+                    }
+                ]
+            )
+
+        self.assertEqual(replies[0]["type"], "error")
+        self.assertEqual(replies[0]["code"], "pairing_code_expired")
+
+    async def test_device_connect_rejects_revoked_credential(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            pairing_store = PairingStore(Path(temporary_directory) / "pairing.json")
+            pairing_code = pairing_store.create_pairing_code(ttl_seconds=600)
+            device_token = pairing_store.claim_pairing_code(
+                pairing_code,
+                device_id="android-edge-1",
+                device_type="android-phone",
+            )
+            pairing_store.revoke_device("android-edge-1")
+            gateway = RuntimeGateway(
+                shared_token="dev-token",
+                pairing_store=pairing_store,
+                persist_state=False,
+                llm_config_path=TEST_LLM_CONFIG,
+            )
+
+            replies = await gateway.handle_test_frames(
+                [
+                    {
+                        "type": "connect",
+                        "device": {
+                            "device_id": "android-edge-1",
+                            "device_type": "android-phone",
+                        },
+                        "auth": {"kind": "device", "token": device_token},
+                    }
+                ]
+            )
+
+        self.assertEqual(replies[0]["type"], "error")
+        self.assertEqual(replies[0]["code"], "unauthorized")
 
     async def test_websocket_rejects_post_connect_frame_before_authentication(
         self,
