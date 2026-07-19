@@ -325,6 +325,49 @@ another connected edge is rejected. Action results must report a capability that
 exactly matches the originating `action_request.action.capability`; a device
 registered for a different compatible capability cannot resolve that request.
 
+## Interaction Progress
+
+`interaction_progress` is a Runtime-to-Edge display update, not an action and
+not a new intervention. Runtime sends it only to an online, visibility-authorized
+participant that announced the `interaction.progress` capability. A missing,
+disconnected, or unsupported participant may miss the presentation without
+blocking action dispatch, action-result handling, or interaction completion.
+
+```json
+{
+  "api_version": "edge.runtime.v1",
+  "type": "interaction_progress",
+  "device_id": "android-edge-1",
+  "progress": {
+    "version": 1,
+    "interaction_id": "interaction-1",
+    "interaction_turn_id": "interaction-turn-1",
+    "sequence": 3,
+    "phase": "executing",
+    "state": "active",
+    "occurred_at": "2026-07-19T14:00:00Z",
+    "presentation_hint": "working"
+  }
+}
+```
+
+For version `1`, `progress` contains exactly the fields shown above. The
+allowed phases are `deliberating`, `researching`, `planning`, `executing`,
+`awaiting_action_result`, `completing`, `completed`, `failed`, and `cancelled`.
+`state` is `active` or `settled`; `presentation_hint` is one of `working`,
+`waiting`, `completed`, `failed`, or `cancelled`. `interaction_turn_id` may be
+`null` only when the lifecycle transition has no turn-specific lineage.
+
+Progress must not contain model/provider identity or configuration, reasoning,
+tool arguments or results, remote content, memory text, or Hermes/Nous display
+content. Edges must render only their own localized mapping of the safe phase,
+never a provider or agent console stream. They accept a frame only when its
+`device_id` matches their own identity, version is supported, and `sequence`
+strictly advances for that `interaction_id`; invalid, unauthorized, or stale
+frames are ignored. Edges clear active progress on a settled or terminal phase,
+the corresponding terminal `interaction_update`, or session loss. No
+`event_ack` or `action_result` is returned for a progress frame.
+
 ## Interaction Updates
 
 Runtime-visible interaction state is delivered with `interaction_update`.

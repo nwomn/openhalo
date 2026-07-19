@@ -44,7 +44,7 @@ object RuntimeNotificationPresenter {
             .createNotificationChannels(listOf(channel, urgentChannel))
     }
 
-    fun show(context: Context, message: String): String {
+    fun show(context: Context, title: String, body: String): String {
         ensureNotificationChannel(context)
         if (!canPostNotifications(context)) {
             return "POST_NOTIFICATIONS permission is not granted"
@@ -61,9 +61,9 @@ object RuntimeNotificationPresenter {
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("OpenHalo")
-            .setContentText(message)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setDefaults(NotificationCompat.DEFAULT_ALL)

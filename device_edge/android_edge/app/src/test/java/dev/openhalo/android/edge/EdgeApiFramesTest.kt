@@ -2,6 +2,7 @@ package dev.openhalo.android.edge
 
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -64,6 +65,153 @@ class EdgeApiFramesTest {
             "object",
             screenObservation.getJSONObject("schema").getString("type")
         )
+    }
+
+    @Test
+    fun notificationShowCapabilityUsesCanonicalPayloadContract() {
+        val frame = buildCapabilityAnnounceFrame("android-edge-test")
+        val notification = (0 until frame.getJSONArray("capabilities").length())
+            .map { frame.getJSONArray("capabilities").getJSONObject(it) }
+            .first { it.getString("name") == "notification.show" }
+        val schema = notification.getJSONObject("input_schema")
+        val required = schema.getJSONArray("required")
+        val properties = schema.getJSONObject("properties")
+
+        assertEquals("body", required.getString(0))
+        assertTrue(schema.getBoolean("additionalProperties").not())
+        assertEquals("string", properties.getJSONObject("title").getString("type"))
+        assertEquals("string", properties.getJSONObject("body").getString("type"))
+        assertEquals(1, properties.getJSONObject("body").getInt("minLength"))
+        assertEquals("medium", notification.getString("interruptiveness"))
+        assertEquals("user_visible", notification.getString("side_effect"))
+    }
+
+    @Test
+    fun notificationShowPayloadRequiresBodyAndDefaultsOptionalTitle() {
+        val explicit = parseNotificationShowPayload(
+            JSONObject().put("title", "Runtime status").put("body", "Running")
+        )
+        val defaulted = parseNotificationShowPayload(JSONObject().put("body", "Running"))
+
+        assertEquals(NotificationShowPayload("Runtime status", "Running"), explicit)
+        assertEquals(NotificationShowPayload(DEFAULT_NOTIFICATION_TITLE, "Running"), defaulted)
+        assertEquals(null, parseNotificationShowPayload(JSONObject().put("message", "legacy")))
+        assertEquals(null, parseNotificationShowPayload(JSONObject().put("body", "  ")))
+    }
+
+    @Test
+    fun replyRenderCapabilityUsesCanonicalBodyContract() {
+        val frame = buildCapabilityAnnounceFrame("android-edge-test")
+        val replyRender = (0 until frame.getJSONArray("capabilities").length())
+            .map { frame.getJSONArray("capabilities").getJSONObject(it) }
+            .first { it.getString("name") == "mobile.reply.render" }
+        val schema = replyRender.getJSONObject("input_schema")
+        val properties = schema.getJSONObject("properties")
+
+        assertEquals("body", schema.getJSONArray("required").getString(0))
+        assertTrue(schema.getBoolean("additionalProperties").not())
+        assertEquals("string", properties.getJSONObject("body").getString("type"))
+        assertEquals(1, properties.getJSONObject("body").getInt("minLength"))
+    }
+
+    @Test
+    fun capabilityAnnounceRegistersInteractionProgressPresentation() {
+        val frame = buildCapabilityAnnounceFrame("android-edge-test")
+        val progress = (0 until frame.getJSONArray("capabilities").length())
+            .map { frame.getJSONArray("capabilities").getJSONObject(it) }
+            .first { it.getString("name") == INTERACTION_PROGRESS_CAPABILITY }
+
+        assertEquals("runtime_to_edge", progress.getString("direction"))
+        assertEquals("interaction_status", progress.getString("kind"))
+        assertTrue(
+            progress.getJSONArray("affordances").toString()
+                .contains("render_interaction_progress")
+        )
+    }
+
+    @Test
+    fun interactionProgressParserAcceptsOnlyTheSafePublicContract() {
+        val frame = JSONObject()
+            .put("type", "interaction_progress")
+            .put("device_id", "android-edge-test")
+            .put(
+                "progress",
+                JSONObject()
+                    .put("version", 1)
+                    .put("interaction_id", "interaction-1")
+                    .put("interaction_turn_id", "turn-1")
+                    .put("sequence", 2)
+                    .put("phase", "planning")
+                    .put("state", "active")
+                    .put("occurred_at", "2026-07-19T14:00:00Z")
+                    .put("presentation_hint", "working")
+            )
+
+        val parsed = parseInteractionProgressFrame(frame, "android-edge-test")
+
+        assertEquals("interaction-1", parsed?.interactionId)
+        assertEquals("turn-1", parsed?.interactionTurnId)
+        assertEquals(2, parsed?.sequence)
+        assertEquals("planning", parsed?.phase)
+
+        frame.getJSONObject("progress").put("provider", "private-provider")
+        assertEquals(null, parseInteractionProgressFrame(frame, "android-edge-test"))
+        frame.getJSONObject("progress").remove("provider")
+        assertEquals(null, parseInteractionProgressFrame(frame, "another-device"))
+    }
+
+    @Test
+    fun interactionProgressReducerOrdersUpdatesAndClearsSettledInteractions() {
+        val first = InteractionProgress(
+            interactionId = "interaction-1",
+            interactionTurnId = "turn-1",
+            sequence = 1,
+            phase = "deliberating",
+            state = "active",
+            occurredAt = "2026-07-19T14:00:00Z",
+            presentationHint = "working"
+        )
+        val active = reduceInteractionProgress(InteractionProgressState(), first)
+        val stale = reduceInteractionProgress(active, first.copy(phase = "planning"))
+        val settled = reduceInteractionProgress(
+            active,
+            first.copy(
+                sequence = 2,
+                phase = "completed",
+                state = "settled",
+                presentationHint = "completed"
+            )
+        )
+
+        assertEquals(active, stale)
+        assertEquals("deliberating", active.activeProgresses.single().phase)
+        assertTrue(settled.activeProgresses.isEmpty())
+        assertEquals(2, settled.latestSequenceByInteraction["interaction-1"])
+        assertEquals(settled, reduceInteractionProgress(settled, first))
+        assertTrue(clearInteractionProgress(active).activeProgresses.isEmpty())
+    }
+
+    @Test
+    fun renderedReplyUsesBodyInsteadOfSerializingItsPayload() {
+        assertEquals(
+            "Hello from runtime",
+            parseRenderedReplyBody(JSONObject().put("body", "Hello from runtime"))
+        )
+        assertEquals(
+            "Legacy reply",
+            parseRenderedReplyBody(JSONObject().put("message", "Legacy reply"))
+        )
+        assertEquals(null, parseRenderedReplyBody(JSONObject()))
+    }
+
+    @Test
+    fun globalChatAutoScrollsOnlyForNewMessagesWhenReaderIsAtBottom() {
+        assertTrue(shouldAutoScrollGlobalChat(0, 1, userWasAtBottom = true))
+        assertTrue(shouldAutoScrollGlobalChat(4, 5, userWasAtBottom = true))
+        assertFalse(shouldAutoScrollGlobalChat(4, 5, userWasAtBottom = false))
+        assertFalse(shouldAutoScrollGlobalChat(4, 4, userWasAtBottom = true))
+        assertTrue(isChatAtBottom(120, 120))
+        assertFalse(isChatAtBottom(119, 120))
     }
 
     @Test
