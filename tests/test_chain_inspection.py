@@ -225,7 +225,7 @@ class ChainInspectionTests(unittest.TestCase):
         )
 
     def test_inspect_agent_initiative_once_returns_structured_chain_report(self) -> None:
-        report = inspect_agent_initiative_once()
+        report = inspect_agent_initiative_once(config_path=TEST_LLM_CONFIG)
 
         self.assertEqual(report["action_result"]["result"]["status"], "ok")
         self.assertEqual(report["proposal"]["source"], "agent_initiative")

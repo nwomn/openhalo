@@ -1,6 +1,6 @@
 # OpenHalo Edge API
 
-Status: M17.1 registration-driven extension baseline in progress
+Status: accepted M17.1 registration-driven extension baseline
 
 The Edge API is the public integration boundary between device edges and the
 OpenHalo Personal Runtime. Edge authors should depend on this contract, not on
@@ -59,6 +59,13 @@ connect + auth token
 already registered device; it does not create a device by itself. Edges must not
 send capabilities, observations, user events, or action results until they have
 received `connect_ok` for the same `device_id`.
+
+Gateway binds a successful `connect` to one WebSocket and one `device_id`.
+Every post-connect frame on that socket must carry that exact `device_id`.
+An unauthenticated post-connect frame receives `not_connected`; a frame for a
+different device receives `device_mismatch`; and a second live socket claiming
+the same device receives `device_already_connected`. An edge must close or wait
+for its earlier socket to close before reconnecting that device identity.
 
 If `connect` returns `error`, the edge should stop the session, surface the
 failure in local diagnostics, and retry only after configuration changes such as
@@ -183,14 +190,10 @@ they may later push:
 
 The runtime stores registration metadata in device, capability, and observation
 registries. Capability names are still mirrored onto the legacy device
-capability set while built-in terminal and host edges migrate.
-
-Current hardening gap: a `capability_announce` for an unknown or unauthorized
-`device_id` may still surface as a runtime-side `KeyError` in current builds.
-The intended public behavior is a structured `error` frame such as
-`unknown_device` or `not_connected`. Edge implementations should still obey the
-handshake order above and wait for `connect_ok`; backend hardening should make
-this failure mode explicit rather than crashing the WebSocket handler.
+capability set while built-in terminal and host edges migrate. Gateway returns
+structured `unknown_device`, `not_connected`, `device_mismatch`, or
+`device_already_connected` errors at the public boundary rather than admitting a
+post-connect frame by device ID alone.
 
 ## User Events
 

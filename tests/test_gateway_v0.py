@@ -963,6 +963,153 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(event_ack["type"], "event_ack")
         self.assertEqual(action_request["type"], "action_request")
 
+    async def test_websocket_rejects_post_connect_frame_before_authentication(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        await gateway.handle_test_frames(
+            [
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "victim-edge-1",
+                        "device_type": "desktop-cli",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "capability_announce",
+                    "device_id": "victim-edge-1",
+                    "capabilities": ["text.input", "notification.show"],
+                },
+            ]
+        )
+
+        async with gateway.run_test_server() as server_info:
+            async with websockets.connect(server_info["url"]) as websocket:
+                await websocket.send(
+                    json.dumps(
+                        {
+                            "type": "event_push",
+                            "device_id": "victim-edge-1",
+                            "capability": "text.input",
+                            "payload": {"text": "spoofed event"},
+                        }
+                    )
+                )
+                error = json.loads(await websocket.recv())
+
+        self.assertEqual(error["type"], "error")
+        self.assertEqual(error["code"], "not_connected")
+        self.assertEqual(gateway.state.events, [])
+
+    async def test_websocket_rejects_frame_for_different_authenticated_device(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        await gateway.handle_test_frames(
+            [
+                {
+                    "type": "connect",
+                    "device": {
+                        "device_id": "victim-edge-1",
+                        "device_type": "desktop-cli",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "capability_announce",
+                    "device_id": "victim-edge-1",
+                    "capabilities": ["text.input", "notification.show"],
+                },
+            ]
+        )
+
+        async with gateway.run_test_server() as server_info:
+            async with websockets.connect(server_info["url"]) as websocket:
+                await websocket.send(
+                    json.dumps(
+                        {
+                            "type": "connect",
+                            "device": {
+                                "device_id": "attacker-edge-1",
+                                "device_type": "desktop-cli",
+                            },
+                            "auth": {"token": "dev-token"},
+                        }
+                    )
+                )
+                self.assertEqual(
+                    json.loads(await websocket.recv())["type"],
+                    "connect_ok",
+                )
+                await websocket.send(
+                    json.dumps(
+                        {
+                            "type": "event_push",
+                            "device_id": "victim-edge-1",
+                            "capability": "text.input",
+                            "payload": {"text": "spoofed event"},
+                        }
+                    )
+                )
+                error = json.loads(await websocket.recv())
+
+        self.assertEqual(error["type"], "error")
+        self.assertEqual(error["code"], "device_mismatch")
+        self.assertEqual(gateway.state.events, [])
+
+    async def test_websocket_rejects_duplicate_active_device_connection(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        async with gateway.run_test_server() as server_info:
+            async with websockets.connect(server_info["url"]) as first_websocket:
+                await first_websocket.send(
+                    json.dumps(
+                        {
+                            "type": "connect",
+                            "device": {
+                                "device_id": "desktop-dev-1",
+                                "device_type": "desktop-cli",
+                            },
+                            "auth": {"token": "dev-token"},
+                        }
+                    )
+                )
+                self.assertEqual(
+                    json.loads(await first_websocket.recv())["type"],
+                    "connect_ok",
+                )
+                async with websockets.connect(server_info["url"]) as second_websocket:
+                    await second_websocket.send(
+                        json.dumps(
+                            {
+                                "type": "connect",
+                                "device": {
+                                    "device_id": "desktop-dev-1",
+                                    "device_type": "desktop-cli",
+                                },
+                                "auth": {"token": "dev-token"},
+                            }
+                        )
+                    )
+                    error = json.loads(await second_websocket.recv())
+
+        self.assertEqual(error["type"], "error")
+        self.assertEqual(error["code"], "device_already_connected")
+
     async def test_websocket_server_surfaces_missing_runtime_config_without_closing_connection(
         self,
     ) -> None:

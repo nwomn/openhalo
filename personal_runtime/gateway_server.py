@@ -2,6 +2,7 @@
 
 import json
 import asyncio
+from hmac import compare_digest
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from contextlib import suppress
@@ -841,7 +842,7 @@ class RuntimeGateway:
                     "received connect",
                     device_id=frame["device"]["device_id"],
                 )
-                if frame["auth"]["token"] != self.shared_token:
+                if not self._shared_token_matches(frame["auth"]["token"]):
                     replies.append(
                         with_api_version(
                             {"type": "error", "message": "unauthorized"}
@@ -1398,16 +1399,93 @@ class RuntimeGateway:
             summary="Dispatched runtime reply over websocket.",
         )
 
+    def _shared_token_matches(self, token: object) -> bool:
+        return isinstance(token, str) and compare_digest(token, self.shared_token)
+
+    def _websocket_session_error(
+        self,
+        frame: dict,
+        registered_device_id: str | None,
+    ) -> dict | None:
+        frame_type = frame.get("type")
+        if registered_device_id is None:
+            if frame_type != "connect":
+                return self._build_public_error(
+                    code="not_connected",
+                    message=(
+                        "A successful connect frame is required before sending "
+                        "post-connect frames."
+                    ),
+                    device_id=frame.get("device_id"),
+                )
+            return None
+
+        if frame_type == "connect":
+            return self._build_public_error(
+                code="already_connected",
+                message="This WebSocket already has an authenticated device session.",
+                device_id=registered_device_id,
+            )
+
+        if frame.get("device_id") != registered_device_id:
+            return self._build_public_error(
+                code="device_mismatch",
+                message="Frame device_id does not match the authenticated session.",
+                device_id=frame.get("device_id"),
+            )
+        return None
+
+    def _bind_websocket_connect(self, frame: dict, websocket) -> tuple[str | None, dict | None]:
+        if frame.get("type") != "connect":
+            return None, None
+        auth = frame.get("auth")
+        device = frame.get("device")
+        if not isinstance(auth, dict) or not isinstance(device, dict):
+            return None, None
+        device_id = device.get("device_id")
+        if not isinstance(device_id, str) or not self._shared_token_matches(
+            auth.get("token")
+        ):
+            return None, None
+        existing_websocket = self.live_connections.get(device_id)
+        if existing_websocket is not None and existing_websocket is not websocket:
+            return None, self._build_public_error(
+                code="device_already_connected",
+                message="A live WebSocket session already owns this device_id.",
+                device_id=device_id,
+            )
+        self.live_connections[device_id] = websocket
+        return device_id, None
+
+    def _release_websocket_session(self, device_id: str, websocket) -> None:
+        if self.live_connections.get(device_id) is websocket:
+            del self.live_connections[device_id]
+            self.online_device_ids.discard(device_id)
+
     async def _websocket_handler(self, websocket) -> None:
         registered_device_id = None
         try:
             async for raw_frame in websocket:
                 frame = json.loads(raw_frame)
-                if frame["type"] == "connect" and frame["auth"]["token"] == self.shared_token:
-                    registered_device_id = frame["device"]["device_id"]
-                    self.online_device_ids.add(registered_device_id)
-                    self.live_connections[registered_device_id] = websocket
-                source_device_id = frame.get("device_id", registered_device_id)
+                session_error = self._websocket_session_error(
+                    frame,
+                    registered_device_id,
+                )
+                if session_error is not None:
+                    await self._send_frame(websocket, session_error)
+                    continue
+
+                bound_device_id, bind_error = self._bind_websocket_connect(
+                    frame,
+                    websocket,
+                )
+                if bind_error is not None:
+                    await self._send_frame(websocket, bind_error)
+                    continue
+                if bound_device_id is not None:
+                    registered_device_id = bound_device_id
+
+                source_device_id = registered_device_id
 
                 async def dispatch_streamed_progress(replies: list[dict]) -> None:
                     await self._dispatch_websocket_replies(
@@ -1420,6 +1498,12 @@ class RuntimeGateway:
                     frame,
                     progress_sink=dispatch_streamed_progress,
                 )
+                if (
+                    bound_device_id is not None
+                    and not any(reply["type"] == "connect_ok" for reply in replies)
+                ):
+                    self._release_websocket_session(bound_device_id, websocket)
+                    registered_device_id = None
                 await self._dispatch_websocket_replies(
                     source_device_id,
                     websocket,
@@ -1440,10 +1524,8 @@ class RuntimeGateway:
             )
         finally:
             if registered_device_id is not None:
-                current = self.live_connections.get(registered_device_id)
-                if current is websocket:
-                    del self.live_connections[registered_device_id]
-                    self.online_device_ids.discard(registered_device_id)
+                if self.live_connections.get(registered_device_id) is websocket:
+                    self._release_websocket_session(registered_device_id, websocket)
                     record_mobile_session_state(
                         self.state,
                         registered_device_id,
