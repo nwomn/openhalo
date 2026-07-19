@@ -97,6 +97,31 @@ class InteractionProgressRuntimeTests(unittest.TestCase):
         )
         self.assertTrue(any(reply["type"] == "interaction_update" for reply in replies))
 
+    def test_runtime_console_shows_progress_without_an_edge_recipient(self) -> None:
+        rendered = []
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            runtime_event_emitter=rendered.append,
+        )
+        gateway.state.record_interaction(
+            {
+                "interaction_id": "interaction-local-console",
+                "outcome_delivery_required": False,
+            }
+        )
+
+        replies = gateway.emit_interaction_progress(
+            interaction_id="interaction-local-console",
+            interaction_turn_id="interaction-turn-local-console",
+            phase="deliberating",
+            state="active",
+            presentation_hint="working",
+        )
+
+        self.assertEqual(replies, [])
+        self.assertEqual(rendered, ["OpenHalo Runtime · 正在理解请求"])
+
     def test_action_result_reentry_advances_progress_to_completion(self) -> None:
         class ActionThenCompleteHarness:
             def run(self, harness_input):

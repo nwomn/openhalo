@@ -158,6 +158,32 @@ class HermesToolCallAdapterTests(unittest.TestCase):
             ["openhalo", "openhalo_research", "memory"],
         )
 
+    def test_runner_suppresses_embedded_hermes_status_output(self) -> None:
+        captured_kwargs = []
+
+        def fake_agent_factory(**kwargs):
+            captured_kwargs.append(kwargs)
+            return SimpleNamespace()
+
+        agent = HermesHarnessRunner(
+            config_path=HERMES_TEST_LLM_CONFIG,
+            agent_factory=fake_agent_factory,
+        )._build_agent(
+            HarnessInput(
+                operation=HarnessOperation.NORMAL,
+                interaction_id="interaction-quiet-hermes-status",
+                interaction_turn_id="turn-quiet-hermes-status",
+                frame={"payload": {"text": "respond without console status"}},
+            )
+        )
+
+        self.assertTrue(getattr(agent, "suppress_status_output", False))
+        self.assertIn("thinking_callback", captured_kwargs[0])
+        thinking_callback = captured_kwargs[0]["thinking_callback"]
+        self.assertTrue(callable(thinking_callback))
+        self.assertIsNone(thinking_callback("Hermes thinking status"))
+        self.assertIs(agent._print_fn, thinking_callback)
+
     def test_runner_exposes_native_memory_write_tool_only_for_normal_turn(self) -> None:
         captured_kwargs = []
 

@@ -50,6 +50,10 @@ from personal_runtime.prompt_context import build_prompt_context_package
 from personal_runtime.prompt_context import prompt_context_metadata_from_package
 
 
+def _discard_embedded_hermes_display(_: str) -> None:
+    """Keep Hermes' private CLI/TUI output out of the Runtime console."""
+
+
 class ToolDisposition(str, Enum):
     """Where a normalized provider tool call may proceed."""
 
@@ -1385,7 +1389,7 @@ class HermesHarnessRunner:
         enabled_toolsets = ["openhalo", "openhalo_research"]
         if self._allows_native_memory_write(harness_input):
             enabled_toolsets.append("memory")
-        return self._agent_factory(
+        agent = self._agent_factory(
             base_url=provider.base_url,
             api_key=provider.api_key,
             provider="custom",
@@ -1394,6 +1398,7 @@ class HermesHarnessRunner:
             max_iterations=self._agent_iteration_budget(),
             enabled_toolsets=enabled_toolsets,
             quiet_mode=True,
+            thinking_callback=_discard_embedded_hermes_display,
             platform="subagent",
             session_id=self._agent_session_id(harness_input),
             parent_session_id="openhalo-main",
@@ -1402,6 +1407,12 @@ class HermesHarnessRunner:
             skip_memory=False,
             request_overrides=self._provider_request_overrides(provider),
         )
+        # The embedded Agent owns neither the Runtime console nor an Edge.
+        # Its status and spinner paths must remain silent; Display Lifecycle
+        # is the only OpenHalo presentation path.
+        agent.suppress_status_output = True
+        agent._print_fn = _discard_embedded_hermes_display
+        return agent
 
     @staticmethod
     def _agent_session_id(harness_input: HarnessInput) -> str:

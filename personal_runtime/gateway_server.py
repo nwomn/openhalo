@@ -30,6 +30,7 @@ from personal_runtime.mobile_liveness import record_mobile_session_state
 from personal_runtime.mobile_liveness import update_mobile_liveness_after_observations
 from personal_runtime.presence_router import PresenceRouter
 from personal_runtime.proactive_trigger_gate import ProactiveTriggerGate
+from personal_runtime.runtime_console_presenter import RuntimeConsolePresenter
 from personal_runtime.runtime_orchestrator import RuntimeOrchestrator
 from personal_runtime.runtime_state import RuntimeState
 from personal_runtime.runtime_state import _compatibility_capability_registration
@@ -83,12 +84,15 @@ class RuntimeGateway:
             self.state = self.state_store.load()
         self.interaction_pool = InteractionPool(self.state)
         self.display_lifecycle = DisplayLifecycle()
+        self.runtime_event_emitter = runtime_event_emitter
+        self.runtime_console_presenter = RuntimeConsolePresenter(
+            runtime_event_emitter
+        )
         self.proactive_trigger_gate = ProactiveTriggerGate()
         self.online_device_ids: set[str] = set()
         self.live_connections: dict[str, object] = {}
         self.trace_recorder = trace_recorder
         self.persist_state = persist_state
-        self.runtime_event_emitter = runtime_event_emitter
         self.llm_config_path = llm_config_path
         self.grounding_edge_history_fetcher = grounding_edge_history_fetcher
         self.diagnostic_recorder = diagnostic_recorder
@@ -533,6 +537,7 @@ class RuntimeGateway:
             display_progress_sequence=progress["sequence"],
         )
         self._persist_state()
+        self.runtime_console_presenter.present(progress)
         recipients = self._progress_recipients_for_interaction(interaction)
         self._record_diagnostic(
             module="Display Lifecycle",
