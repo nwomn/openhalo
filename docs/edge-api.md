@@ -64,8 +64,9 @@ Gateway binds a successful `connect` to one WebSocket and one `device_id`.
 Every post-connect frame on that socket must carry that exact `device_id`.
 An unauthenticated post-connect frame receives `not_connected`; a frame for a
 different device receives `device_mismatch`; and a second live socket claiming
-the same device receives `device_already_connected`. An edge must close or wait
-for its earlier socket to close before reconnecting that device identity.
+the same device receives `device_already_connected`. Repeating `connect` on an
+already authenticated socket receives `already_connected`. An edge must close or
+wait for its earlier socket to close before reconnecting that device identity.
 
 If `connect` returns `error`, the edge should stop the session, surface the
 failure in local diagnostics, and retry only after configuration changes such as
