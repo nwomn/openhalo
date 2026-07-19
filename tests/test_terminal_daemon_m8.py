@@ -277,6 +277,47 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
         self.assertEqual(daemon.runtime_message_count, 1)
         self.assertFalse(daemon.pending_runtime_reply)
 
+    def test_action_request_clears_tty_progress_before_runtime_output(self) -> None:
+        class TtyOutput(io.StringIO):
+            def isatty(self) -> bool:
+                return True
+
+        output = TtyOutput()
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=output,
+        )
+        daemon.handle_interaction_progress_frame(
+            {
+                "type": "interaction_progress",
+                "device_id": "terminal-edge-1",
+                "progress": {
+                    "version": 1,
+                    "interaction_id": "interaction-1",
+                    "interaction_turn_id": "interaction-turn-1",
+                    "sequence": 1,
+                    "phase": "executing",
+                    "state": "active",
+                    "occurred_at": "2026-07-19T10:00:00Z",
+                    "presentation_hint": "working",
+                },
+            }
+        )
+
+        daemon.handle_action_request(
+            {
+                "type": "action_request",
+                "device_id": "terminal-edge-1",
+                "action": {
+                    "capability": "notification.show",
+                    "payload": {"title": "OpenHalo", "body": "runtime push"},
+                },
+            }
+        )
+
+        self.assertIn("\r\033[2K[runtime] runtime push\n", output.getvalue())
+
     def test_runtime_action_result_preserves_request_correlation(self) -> None:
         stdout = io.StringIO()
         daemon = TerminalEdgeDaemon(

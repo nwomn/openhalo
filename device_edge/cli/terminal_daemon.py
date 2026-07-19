@@ -410,6 +410,7 @@ class TerminalEdgeDaemon:
             self.runtime_message_count += 1
             self.pending_runtime_reply = False
             self.pending_interaction_id = None
+            self.clear_progress()
             result = execute_action(
                 frame["action"],
                 output_stream=self.output_stream,
