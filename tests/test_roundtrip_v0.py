@@ -691,6 +691,18 @@ class CliEntryTests(unittest.TestCase):
             "tests/fixtures/llm-config-test.toml",
         )
 
+    def test_runtime_server_parser_accepts_pairing_store_path(self) -> None:
+        parser = build_runtime_server_parser()
+
+        args = parser.parse_args(
+            ["--pairing-store-path", "/var/lib/openhalo/pairing.json"]
+        )
+
+        self.assertEqual(
+            args.pairing_store_path,
+            "/var/lib/openhalo/pairing.json",
+        )
+
     def test_runtime_server_parser_accepts_token_env_name(self) -> None:
         parser = build_runtime_server_parser()
 

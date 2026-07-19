@@ -82,26 +82,16 @@ Use Android Studio for:
 
 ## Runtime Connection Acceptance
 
-For the current production runtime on Alibaba Cloud, configure the Android edge
-with:
+For a public Runtime, configure the Android edge with its TLS endpoint:
 
 ```text
-runtime_url = ws://8.153.37.167/openhalo/edge
+runtime_url = wss://<openhalo-domain>/openhalo/edge
 ```
 
-The Android debug build must allow cleartext traffic for this IP-based
-acceptance path. When a stable OpenHalo domain and TLS certificate are ready,
-switch the runtime URL to `wss://<openhalo-domain>/openhalo/edge` and remove the
-cleartext dependency.
-
-Use the production edge token from the server:
-
-```text
-/etc/openhalo/runtime.env
-```
-
-The value is `OPENHALO_EDGE_TOKEN`. Do not use `dev-token` against the
-production systemd runtime.
+Get a short-lived pairing code from the Runtime administrator. The first
+connection exchanges that code for a device-specific credential, which the Edge
+stores locally with the Runtime URL. Do not configure a public Android Edge
+with `OPENHALO_EDGE_TOKEN` or a cleartext `ws://` endpoint.
 
 The Android edge must follow this frame order:
 
@@ -116,7 +106,7 @@ observation_push / event_push / action_result
 does not create the device. If `connect` returns `error` or the socket closes
 before `connect_ok`, the Android edge should not send capabilities or
 observations on that session. Log the failure locally and retry only after the
-URL/token problem is fixed.
+URL/credential problem is fixed.
 
 Useful acceptance signals:
 
@@ -129,7 +119,7 @@ Useful acceptance signals:
 
 If nginx shows `101` but runtime later logs `KeyError: '<android-device-id>'`,
 the edge likely sent `capability_announce` before a successful authenticated
-`connect`. Recheck the production token and make sure the Android code waits
+`connect`. Recheck the device credential and make sure the Android code waits
 for `connect_ok`.
 
 ## First Sync And First Run Notes
@@ -146,11 +136,9 @@ for `connect_ok`.
   runtime defaults.
 - Local persistent runtime URL/token values come from ignored Android
   `local.properties`, not tracked source.
-- The current persistent runtime endpoint is
-  `ws://8.153.37.167/openhalo/edge`.
-- The app token field matches the runtime edge token. Development helpers use
-  `dev-token`; long-running server runtime tokens should match the server's
-  `OPENHALO_EDGE_TOKEN` without exposing the secret in diagnostics.
+- Persistent Runtime configuration uses a `wss://` endpoint and a locally
+  stored device-specific credential. Development helpers may still use the
+  temporary legacy `dev-token` compatibility path on a local Runtime.
 - Runtime-delivered `notification.show` actions use the urgent alert presenter
   so messages can visibly pop up instead of requiring notification-shade search.
 

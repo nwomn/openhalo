@@ -246,8 +246,8 @@ Expected flow:
    context viewer:
 
    ```bash
-   ssh aliyun_server
-   cd /root/openhalo
+   ssh <runtime-host>
+   cd <openhalo-checkout>
    .venv/bin/python -m personal_runtime.context_viewer \
      --state-path /var/lib/openhalo/runtime-state.json \
      --diagnostic-log-path /var/log/openhalo/runtime-diagnostics.jsonl \
@@ -256,8 +256,8 @@ Expected flow:
 
    For local development runtimes, use the same module with the local state and
    diagnostic paths, or add `--watch` for a continuously refreshing view.
-   From the local Windows development machine, `aliyun_server` is the expected
-   SSH alias for the Alibaba Cloud production runtime host.
+   Configure `<runtime-host>` through local SSH settings. Do not commit a real
+   host address, account name, or key path in this repository.
 7. Confirm `mobile.screen_context` observations arrive through the normal Edge
    API with `source=accessibility`, `capture_mode=accessibility_tree`,
    structured app identity fields such as `package_name` and

@@ -7,8 +7,8 @@ connection failures.
 
 ```text
 Android Edge
--> ws://8.153.37.167/openhalo/edge
--> nginx
+-> wss://<openhalo-domain>/openhalo/edge
+-> TLS reverse proxy
 -> 127.0.0.1:8765
 -> openhalo-runtime.service
 ```
@@ -18,21 +18,19 @@ should enter through nginx.
 
 ## Server Access
 
-From the local Windows development machine, use the user-level SSH alias:
+Use an untracked local SSH profile for the Runtime host:
 
 ```powershell
-ssh aliyun_server
+ssh <runtime-host>
 ```
 
-The alias resolves to the Alibaba Cloud runtime host `8.153.37.167` as `root`
-with the local private key configured outside this repository. Prefer this
-alias for server-side runtime inspection so commands stay stable if the key path
-or user-level SSH config changes.
+Do not commit the real host address, account name, or key path. Keep those in
+the operator's local SSH configuration or deployment secret store.
 
 For a direct non-interactive check:
 
 ```powershell
-ssh aliyun_server "systemctl status openhalo-runtime --no-pager"
+ssh <runtime-host> "systemctl status openhalo-runtime --no-pager"
 ```
 
 ## Fast Status Checks
@@ -67,7 +65,7 @@ tail -f /var/log/openhalo/runtime-diagnostics.jsonl
 One-shot local form:
 
 ```powershell
-ssh aliyun_server "tail -n 80 /var/log/openhalo/runtime-diagnostics.jsonl"
+ssh <runtime-host> "tail -n 80 /var/log/openhalo/runtime-diagnostics.jsonl"
 ```
 
 nginx access log:
@@ -88,7 +86,7 @@ To verify whether the production runtime is receiving Android screen-context
 frames from the phone edge:
 
 ```powershell
-ssh aliyun_server "python3 - <<'PY'
+ssh <runtime-host> "python3 - <<'PY'
 import json, datetime
 state_path = '/var/lib/openhalo/runtime-state.json'
 now = datetime.datetime.now(datetime.UTC).replace(microsecond=0)
@@ -121,20 +119,19 @@ seconds old during active unlocked phone use, with
 
 ### No nginx log entry
 
-The phone is not reaching the server. Check the Android URL, network, Alibaba
-Cloud security group, and whether the app is allowed to use cleartext traffic.
+The phone is not reaching the server. Check the Android URL, network, public
+firewall rules, TLS certificate, and reverse-proxy WebSocket configuration.
 
-Current cleartext URL:
+Expected public URL shape:
 
 ```text
-ws://8.153.37.167/openhalo/edge
+wss://<openhalo-domain>/openhalo/edge
 ```
 
 ### nginx returns 301
 
-The request hit the wrong nginx server block or the generic HTTP redirect.
-For IP-based cleartext testing, the nginx `listen 80 default_server` block must
-include `/openhalo/edge` before the redirect to HTTPS.
+The client is likely using an `http://` or `ws://` URL instead of the configured
+TLS endpoint. Use `wss://<openhalo-domain>/openhalo/edge`.
 
 ### nginx returns 101, runtime has no connect_ok
 
@@ -143,15 +140,9 @@ Check runtime journal and diagnostics.
 
 ### diagnostics show unauthorized
 
-The edge sent a `connect` frame with the wrong token.
-
-Production token source:
-
-```text
-/etc/openhalo/runtime.env
-```
-
-Use `OPENHALO_EDGE_TOKEN`; do not use `dev-token` against production.
+The Edge sent an invalid, revoked, or mismatched device credential. Re-pair the
+Edge with a new one-time code if necessary. `OPENHALO_EDGE_TOKEN` remains only
+for local development and managed-edge compatibility, not public pairing.
 
 ### journal shows KeyError for android-edge
 
@@ -212,23 +203,25 @@ provider probe.
 
 ## Smoke Tests
 
-Verify nginx reaches the runtime through public cleartext WebSocket:
+Verify nginx reaches the Runtime through the public TLS WebSocket:
 
 ```bash
-sh -c '. /etc/openhalo/runtime.env; cd /opt/openhalo; \
-sudo -u openhalo env OPENHALO_EDGE_TOKEN="$OPENHALO_EDGE_TOKEN" \
+sudo -u openhalo env OPENHALO_DEVICE_CREDENTIAL="<device-credential>" \
 /opt/openhalo/.venv/bin/python -c '"'"'
 import asyncio, json, os, websockets
 
 async def main():
-    async with websockets.connect("ws://8.153.37.167/openhalo/edge") as ws:
+    async with websockets.connect("wss://<openhalo-domain>/openhalo/edge") as ws:
         await ws.send(json.dumps({
             "type": "connect",
             "device": {
-                "device_id": "public-ip-ws-smoke",
+                "device_id": "operator-smoke-device",
                 "device_type": "desktop-cli"
             },
-            "auth": {"token": os.environ["OPENHALO_EDGE_TOKEN"]}
+            "auth": {
+                "kind": "device",
+                "token": os.environ["OPENHALO_DEVICE_CREDENTIAL"]
+            }
         }))
         print(json.loads(await ws.recv())["type"])
 

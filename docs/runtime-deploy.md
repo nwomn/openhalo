@@ -59,7 +59,8 @@ The recommended baseline is:
 - a reverse proxy exposes the public edge WebSocket endpoint when needed
 - state lives under `/var/lib/openhalo`
 - diagnostics live under `/var/log/openhalo` or journald
-- the shared edge token is read through `--token-env OPENHALO_EDGE_TOKEN`
+- the Runtime-local pairing registry lives under `/var/lib/openhalo/pairing.json`
+- `OPENHALO_EDGE_TOKEN` remains only for local development and managed-edge compatibility
 
 Use the example files:
 
@@ -120,6 +121,10 @@ are useful for post-update troubleshooting, while `/var/lib/openhalo/runtime-sta
 contains the live device, interaction, and context state that may not be
 compatible across early milestone updates.
 
+Keep `/var/lib/openhalo/pairing.json` across ordinary Runtime updates. It holds
+only pairing-code and device-credential hashes plus safe device metadata; deleting
+it revokes every paired Edge and requires pairing again.
+
 The long-running service must also inherit the local proxy environment required
 for provider-backed model access:
 
@@ -146,32 +151,42 @@ sudo -u openhalo \
 The first command should reach OpenAI and return an HTTP response such as `401`
 when no API key is provided by curl. The second command should report `ok: true`.
 
-## Current Production Edge Endpoint
+## Device Pairing
 
-The current Alibaba Cloud production runtime keeps the Python runtime private
-and exposes the phone edge through nginx:
+Create a one-time pairing code on the Runtime host. The command prints the raw
+code once; transfer it directly to the user setting up the Edge and do not add
+it to a shell profile, issue tracker, or committed config.
 
-```text
-Phone Edge -> ws://8.153.37.167/openhalo/edge -> nginx -> 127.0.0.1:8765
+```bash
+sudo -u openhalo /opt/openhalo/.venv/bin/python -m personal_runtime.pairing_cli \
+  create \
+  --store /var/lib/openhalo/pairing.json \
+  --ttl-seconds 600
 ```
 
-Use this URL for Android cleartext testing:
+The Edge uses that code only for its first `connect` with `auth.kind =
+"pairing"`. Runtime returns a device-specific credential, stores only its hash,
+and remembers the device across restarts. Inspect safe pairing metadata or revoke
+an Edge with:
 
-```text
-ws://8.153.37.167/openhalo/edge
+```bash
+sudo -u openhalo /opt/openhalo/.venv/bin/python -m personal_runtime.pairing_cli \
+  list --store /var/lib/openhalo/pairing.json
+
+sudo -u openhalo /opt/openhalo/.venv/bin/python -m personal_runtime.pairing_cli \
+  revoke --store /var/lib/openhalo/pairing.json --device-id <device-id>
 ```
 
-The Android edge must use the production token from:
+## Public Edge Endpoint
+
+Keep the Python Runtime private and expose a TLS WebSocket endpoint through
+nginx:
 
 ```text
-/etc/openhalo/runtime.env
+Phone Edge -> wss://<openhalo-domain>/openhalo/edge -> nginx -> 127.0.0.1:8765
 ```
 
-Specifically, use the value of `OPENHALO_EDGE_TOKEN`. Do not use `dev-token`
-against the production systemd runtime.
-
-The nginx `listen 80 default_server` block must keep a special
-`/openhalo/edge` location before the normal HTTP-to-HTTPS redirect:
+The active TLS server block must proxy the WebSocket location:
 
 ```nginx
 location /openhalo/edge {
@@ -188,19 +203,9 @@ location /openhalo/edge {
 }
 ```
 
-This keeps `8765` closed to the public internet while allowing Android devices
-with cleartext traffic enabled to reach the runtime through nginx. Without the
-`default_server` behavior, IP-based requests may be handled by another nginx
-site and redirected to an unrelated domain.
-
-When a stable OpenHalo domain is available, prefer a TLS endpoint:
-
-```text
-wss://<openhalo-domain>/openhalo/edge
-```
-
-At that point, move the same WebSocket `location` into the active TLS server
-block for that domain and update Android builds to use `wss://`.
+This keeps `8765` closed to the public internet while ensuring pairing and
+device credentials are encrypted in transit. Do not expose a cleartext public
+WebSocket endpoint or configure a public Edge with `OPENHALO_EDGE_TOKEN`.
 
 ## Port Rule
 
@@ -209,6 +214,6 @@ Reserve ports by purpose:
 - `8765`: long-running server runtime
 - `18765`: development, Android acceptance, and restart-heavy experiments
 
-If both are running on the same server, make sure development edges use
-`ws://<server-ip>:18765` and production or always-on edges use the stable
-endpoint that fronts `127.0.0.1:8765`.
+If both are running on the same server, keep development edges on an explicitly
+local or private-network `ws://` URL and production or always-on edges on the
+stable `wss://` endpoint that fronts `127.0.0.1:8765`.
