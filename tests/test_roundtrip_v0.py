@@ -1,6 +1,7 @@
 import asyncio
-import json
+import inspect
 import io
+import json
 import os
 import time
 import unittest
@@ -376,6 +377,107 @@ class RoundtripTests(unittest.IsolatedAsyncioTestCase):
             Path(".runtime/diagnostics/runtime.jsonl"),
         )
 
+    async def test_runtime_server_starts_and_stops_host_edge_after_gateway_ready(
+        self,
+    ) -> None:
+        self.assertIn(
+            "host_edge_supervisor_factory",
+            inspect.signature(run_server).parameters,
+        )
+        events = []
+
+        class FakeGateway:
+            def run_server(self, host, port):
+                class FakeServerContext:
+                    async def __aenter__(self):
+                        events.append("gateway_ready")
+                        return {"url": f"ws://{host}:{port}"}
+
+                    async def __aexit__(self, exc_type, exc, tb):
+                        events.append("gateway_stopped")
+                        return False
+
+                return FakeServerContext()
+
+        class FakeSupervisor:
+            async def start(self):
+                events.append("supervisor_started")
+
+            async def stop(self):
+                events.append("supervisor_stopped")
+
+        def build_fake_supervisor(**kwargs):
+            self.assertEqual(kwargs["url"], "ws://127.0.0.1:8765")
+            self.assertEqual(kwargs["token"], "dev-token")
+            return FakeSupervisor()
+
+        async def stop_after_ready():
+            await asyncio.sleep(0)
+            raise RuntimeError("stop after ready")
+
+        with patch("personal_runtime.main.build_gateway", return_value=FakeGateway()), patch(
+            "personal_runtime.main.asyncio.Future",
+            side_effect=stop_after_ready,
+        ), patch("personal_runtime.main.print"):
+            with self.assertRaisesRegex(RuntimeError, "stop after ready"):
+                await run_server(
+                    host="127.0.0.1",
+                    port=8765,
+                    token="dev-token",
+                    state_path=Path(".runtime/test-state.json"),
+                    host_edge_supervisor_factory=build_fake_supervisor,
+                )
+
+        self.assertEqual(
+            events,
+            [
+                "gateway_ready",
+                "supervisor_started",
+                "supervisor_stopped",
+                "gateway_stopped",
+            ],
+        )
+
+    async def test_runtime_server_does_not_create_host_edge_when_disabled(self) -> None:
+        self.assertIn(
+            "manage_host_edge",
+            inspect.signature(run_server).parameters,
+        )
+        factory_calls = []
+
+        class FakeGateway:
+            def run_server(self, host, port):
+                class FakeServerContext:
+                    async def __aenter__(self):
+                        return {"url": f"ws://{host}:{port}"}
+
+                    async def __aexit__(self, exc_type, exc, tb):
+                        return False
+
+                return FakeServerContext()
+
+        async def stop_after_ready():
+            await asyncio.sleep(0)
+            raise RuntimeError("stop after ready")
+
+        with patch("personal_runtime.main.build_gateway", return_value=FakeGateway()), patch(
+            "personal_runtime.main.asyncio.Future",
+            side_effect=stop_after_ready,
+        ), patch("personal_runtime.main.print"):
+            with self.assertRaisesRegex(RuntimeError, "stop after ready"):
+                await run_server(
+                    host="127.0.0.1",
+                    port=8765,
+                    token="dev-token",
+                    state_path=Path(".runtime/test-state.json"),
+                    manage_host_edge=False,
+                    host_edge_supervisor_factory=lambda **kwargs: factory_calls.append(
+                        kwargs
+                    ),
+                )
+
+        self.assertEqual(factory_calls, [])
+
 
 class CliEntryTests(unittest.TestCase):
     def test_terminal_daemon_tracks_recent_transcript_for_runtime_and_user_lines(self) -> None:
@@ -552,6 +654,13 @@ class CliEntryTests(unittest.TestCase):
         self.assertNotIn("LLM config", message)
         self.assertNotIn("Connect an edge client", message)
 
+    def test_managed_host_edge_uses_loopback_for_wildcard_gateway_binding(self) -> None:
+        self.assertTrue(hasattr(runtime_main, "build_managed_host_edge_url"))
+
+        url = runtime_main.build_managed_host_edge_url("ws://0.0.0.0:18765")
+
+        self.assertEqual(url, "ws://127.0.0.1:18765")
+
     def test_runtime_server_parser_accepts_explicit_runtime_config_path(self) -> None:
         parser = build_runtime_server_parser()
 
@@ -588,6 +697,20 @@ class CliEntryTests(unittest.TestCase):
         args = parser.parse_args(["--token-env", "OPENHALO_EDGE_TOKEN"])
 
         self.assertEqual(args.token_env, "OPENHALO_EDGE_TOKEN")
+
+    def test_runtime_server_parser_enables_host_edge_by_default_with_opt_out(self) -> None:
+        parser = build_runtime_server_parser()
+
+        default_args = parser.parse_args([])
+        self.assertTrue(hasattr(default_args, "host_edge_enabled"))
+        disabled_args = parser.parse_args(
+            ["--disable-host-edge", "--host-edge-device-id", "host-edge-9"]
+        )
+
+        self.assertTrue(default_args.host_edge_enabled)
+        self.assertEqual(default_args.host_edge_device_id, "host-edge-1")
+        self.assertFalse(disabled_args.host_edge_enabled)
+        self.assertEqual(disabled_args.host_edge_device_id, "host-edge-9")
 
     def test_runtime_token_can_be_loaded_from_environment(self) -> None:
         parser = build_runtime_server_parser()
@@ -1171,6 +1294,90 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
 
 
 class HostEdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
+    async def test_runtime_managed_host_edge_registers_observes_and_handles_runtime_status(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        source = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+
+        async def wait_for(predicate) -> None:
+            for _ in range(100):
+                if predicate():
+                    return
+                await asyncio.sleep(0.01)
+            self.fail("condition was not reached")
+
+        async with gateway.run_test_server() as server_info:
+            supervisor = runtime_main.build_managed_host_edge_supervisor(
+                gateway=gateway,
+                url=server_info["url"],
+                token="dev-token",
+                device_id="host-edge-1",
+                idle_timeout_s=0.01,
+            )
+            await supervisor.start()
+            try:
+                await wait_for(
+                    lambda: "runtime.control"
+                    in gateway.state.devices.get("host-edge-1", {}).get(
+                        "capabilities", set()
+                    )
+                )
+                await wait_for(
+                    lambda: any(
+                        observation.source_device_id == "host-edge-1"
+                        for observation in gateway.state.observations
+                    )
+                )
+
+                async with websockets.connect(server_info["url"]) as source_ws:
+                    await source_ws.send(json.dumps(source.build_connect_frame()))
+                    connect_ok = json.loads(await source_ws.recv())
+                    await source_ws.send(
+                        json.dumps(source.build_capability_announce_frame())
+                    )
+                    await source_ws.send(
+                        json.dumps(
+                            source.build_direct_action_event(
+                                capability="runtime.status",
+                                payload={},
+                                target_device_id="host-edge-1",
+                            )
+                        )
+                    )
+                    event_ack = json.loads(
+                        await asyncio.wait_for(source_ws.recv(), timeout=1)
+                    )
+                    await wait_for(
+                        lambda: any(
+                            result.get("capability") == "runtime.status"
+                            for result in gateway.state.action_results
+                        )
+                    )
+            finally:
+                await supervisor.stop()
+
+        self.assertEqual(connect_ok["type"], "connect_ok")
+        self.assertEqual(event_ack["type"], "event_ack")
+        self.assertEqual(
+            gateway.state.devices["host-edge-1"]["device_type"],
+            "server",
+        )
+        self.assertEqual(
+            gateway.state.action_results[-1]["capability"],
+            "runtime.status",
+        )
+        self.assertEqual(gateway.state.managed_host_edge["state"], "disconnected")
+        self.assertNotIn("host-edge-1", gateway.live_connections)
+
     async def test_host_edge_receives_runtime_status_over_websocket(self) -> None:
         gateway = RuntimeGateway(
             shared_token="dev-token",

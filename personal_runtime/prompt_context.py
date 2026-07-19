@@ -12,6 +12,7 @@ def build_prompt_context_package(
     grounding_bundle: dict | None = None,
     harness_memory: dict | None = None,
     action_result_context: dict | None = None,
+    openhalo_shared_context: dict | None = None,
 ) -> dict:
     grounding = grounding_bundle or {}
     sections = {
@@ -31,6 +32,8 @@ def build_prompt_context_package(
         }
     if action_result_context is not None:
         sections["action_result_context"] = dict(action_result_context)
+    if openhalo_shared_context is not None:
+        sections["openhalo_shared_context"] = dict(openhalo_shared_context)
     return {
         "version": PROMPT_CONTEXT_VERSION,
         "user_text": user_text,

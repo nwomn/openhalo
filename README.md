@@ -107,16 +107,8 @@ Start a development runtime:
 bin/run-runtime-dev
 ```
 
-Start the host edge in another terminal:
-
-```bash
-.venv/bin/python -m device_edge.host.host_daemon \
-  --url ws://127.0.0.1:18765 \
-  --token dev-token \
-  --device-id host-edge-1
-```
-
-Start the terminal edge in a third terminal:
+The Runtime starts its colocated `host-edge-1` automatically. Start the terminal
+edge in a second terminal:
 
 ```bash
 .venv/bin/python -m device_edge.cli.terminal_daemon \

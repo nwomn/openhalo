@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+import json
 from typing import TYPE_CHECKING
 from typing import Callable
 from typing import Protocol
@@ -69,6 +70,59 @@ class RuntimeActionIntent:
 
 
 @dataclass(frozen=True, slots=True)
+class ActionBatch:
+    """A deduplicated set of governed action intents from one harness turn."""
+
+    batch_id: str
+    action_intents: tuple[RuntimeActionIntent, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.batch_id, str) or not self.batch_id:
+            raise ValueError("action batch requires a non-empty batch_id")
+        unique_intents = []
+        seen = set()
+        for intent in self.action_intents:
+            if not isinstance(intent, RuntimeActionIntent):
+                raise TypeError("action batch entries must be RuntimeActionIntent")
+            key = self._deduplication_key(intent)
+            if key in seen:
+                continue
+            seen.add(key)
+            unique_intents.append(intent)
+        if not unique_intents:
+            raise ValueError("action batch requires at least one action intent")
+        object.__setattr__(self, "action_intents", tuple(unique_intents))
+
+    @staticmethod
+    def _deduplication_key(intent: RuntimeActionIntent) -> str:
+        provenance = intent.provenance if isinstance(intent.provenance, dict) else {}
+        return json.dumps(
+            {
+                "executor_kind": intent.executor_kind.value,
+                "capability": intent.capability,
+                "payload": intent.payload,
+                "side_effect_class": intent.side_effect_class.value,
+                "visibility": intent.visibility.value,
+                "governance": intent.governance.value,
+                "target_device_hint": provenance.get("target_device_hint"),
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+
+    def action_refs(self) -> list[dict]:
+        return [
+            {
+                "action_id": intent.action_id,
+                "executor_kind": intent.executor_kind.value,
+                "capability": intent.capability,
+            }
+            for intent in self.action_intents
+        ]
+
+
+@dataclass(frozen=True, slots=True)
 class HarnessInput:
     """Grounded runtime input supplied to one harness deliberation."""
 
@@ -79,6 +133,7 @@ class HarnessInput:
     interaction: dict | None = None
     prior_proposal: dict | None = None
     action_result: dict | None = None
+    action_results: list[dict] | None = None
     observations: list[dict] | None = None
     admission: dict | None = None
     turn_index: int | None = None
@@ -101,6 +156,7 @@ class HarnessOutcome:
     metadata: dict
     executed: bool = False
     action_intent: RuntimeActionIntent | None = None
+    action_batch: ActionBatch | None = None
 
     @classmethod
     def from_proposal(
@@ -110,13 +166,19 @@ class HarnessOutcome:
         proposal: InterventionProposal,
         metadata: dict | None = None,
         action_intent: RuntimeActionIntent | None = None,
+        action_batch: ActionBatch | None = None,
     ) -> HarnessOutcome:
+        if action_batch is not None and len(action_batch.action_intents) == 1:
+            action_intent = action_batch.action_intents[0]
+        elif action_batch is not None and action_intent is None:
+            action_intent = action_batch.action_intents[0]
         return cls(
             operation=operation,
             intent=proposal.proposal_type,
             proposal=proposal,
             metadata=metadata or {},
             action_intent=action_intent,
+            action_batch=action_batch,
         )
 
 

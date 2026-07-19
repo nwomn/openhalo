@@ -1729,7 +1729,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             "runtime.status",
         )
 
-    async def test_relevant_observation_reenters_open_interaction_with_same_interaction(
+    async def test_relevant_observation_is_recorded_without_reentry_while_action_pending(
         self,
     ) -> None:
         gateway = RuntimeGateway(
@@ -1796,18 +1796,22 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        follow_up = _last_action_request(replies)
-        self.assertIsNotNone(follow_up)
-        self.assertEqual(follow_up["interaction_id"], first_action["interaction_id"])
-        self.assertEqual(follow_up["device_id"], "host-edge-1")
-        self.assertEqual(follow_up["action"]["capability"], "runtime.status")
-        proposal = gateway.state.interventions[-1]["proposal"]
-        self.assertEqual(proposal["source"], "post_observation")
-        self.assertEqual(proposal["metadata"]["trigger"], "observation")
-        self.assertEqual(proposal["metadata"]["turn_index"], 2)
-        self.assertEqual(
-            proposal["metadata"]["observation_names"],
-            ["runtime.health_state"],
+        self.assertIsNone(_last_action_request(replies))
+        interaction = next(
+            item
+            for item in gateway.state.interactions
+            if item["interaction_id"] == first_action["interaction_id"]
+        )
+        self.assertEqual(interaction["status"], "awaiting_action_results")
+        self.assertIn(
+            "host-edge-1-health-1",
+            interaction["observation_reentry_event_ids"],
+        )
+        self.assertFalse(
+            any(
+                intervention["proposal"].get("source") == "post_observation"
+                for intervention in gateway.state.interventions
+            )
         )
 
     async def test_observation_without_open_interaction_only_updates_context(

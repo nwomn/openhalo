@@ -17,12 +17,16 @@ class InteractionTurn:
     interaction_turn_id: str
     request_id: str | None = None
     action_status: str = "resolved"
+    action_batch_id: str | None = None
+    action_id: str | None = None
 
     def to_dict(self) -> dict:
         return {
             "interaction_turn_id": self.interaction_turn_id,
             "request_id": self.request_id,
             "action_status": self.action_status,
+            "action_batch_id": self.action_batch_id,
+            "action_id": self.action_id,
         }
 
     @classmethod
@@ -33,6 +37,18 @@ class InteractionTurn:
             action_status=payload.get(
                 "action_status",
                 "pending" if payload.get("request_id") is not None else "resolved",
+            ),
+            action_batch_id=payload.get(
+                "action_batch_id",
+                payload.get("interaction_turn_id")
+                if payload.get("request_id") is not None
+                else None,
+            ),
+            action_id=payload.get(
+                "action_id",
+                payload.get("request_id")
+                if payload.get("request_id") is not None
+                else None,
             ),
         )
 
@@ -49,6 +65,7 @@ class InteractionRecord:
     initiator_kind: str = "legacy"
     requesting_device_id: str | None = None
     outcome_delivery_required: bool = False
+    agent_session_id: str | None = None
     turns: list[InteractionTurn] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -62,6 +79,7 @@ class InteractionRecord:
             "initiator_kind": self.initiator_kind,
             "requesting_device_id": self.requesting_device_id,
             "outcome_delivery_required": self.outcome_delivery_required,
+            "agent_session_id": self.agent_session_id,
             "status": self.status,
             "turns": [turn.to_dict() for turn in self.turns],
         }
@@ -83,6 +101,10 @@ class InteractionRecord:
             outcome_delivery_required=bool(
                 payload.get("outcome_delivery_required", False)
             ),
+            agent_session_id=payload.get(
+                "agent_session_id",
+                f"openhalo-child:{interaction_id}",
+            ),
             status=payload.get("status", "planned"),
             turns=[
                 InteractionTurn.from_dict(turn)
@@ -98,10 +120,12 @@ class InteractionPool:
         state,
         interaction_id_factory: Callable[[], str] | None = None,
         turn_limit: int = 20,
-        max_pending_actions: int = 1,
+        max_pending_actions: int | None = None,
     ) -> None:
         if turn_limit < 1:
             raise ValueError("turn_limit must be positive")
+        if max_pending_actions is None:
+            max_pending_actions = turn_limit
         if max_pending_actions < 1 or max_pending_actions > turn_limit:
             raise ValueError("max_pending_actions must be between one and turn_limit")
         self.state = state
@@ -132,8 +156,9 @@ class InteractionPool:
             return InteractionRegistration(interaction=existing, created=False)
 
         participants = list(dict.fromkeys(participant_device_ids))
+        interaction_id = self._allocate_interaction_id()
         record = InteractionRecord(
-            interaction_id=self._allocate_interaction_id(),
+            interaction_id=interaction_id,
             origin=origin,
             causal_scope=dict(causal_scope),
             trigger=dict(trigger),
@@ -142,6 +167,7 @@ class InteractionPool:
             initiator_kind=initiator_kind,
             requesting_device_id=requesting_device_id,
             outcome_delivery_required=outcome_delivery_required,
+            agent_session_id=f"openhalo-child:{interaction_id}",
             status="planned",
         )
         self.state.interactions.append(record.to_dict())
@@ -165,20 +191,96 @@ class InteractionPool:
         interaction_turn_id: str,
         request_id: str | None = None,
     ) -> InteractionTurn:
+        if request_id is not None:
+            return self.record_action_batch(
+                interaction_id,
+                interaction_turn_id=interaction_turn_id,
+                action_batch_id=interaction_turn_id,
+                action_requests=[
+                    (request_id, f"{interaction_turn_id}:{request_id}")
+                ],
+            )[0]
         payload = self._payload_for(interaction_id)
         if payload is None:
             raise KeyError(f"unknown interaction: {interaction_id}")
-        if request_id is not None and self._pending_action_count(payload) >= self.max_pending_actions:
-            raise ValueError("interaction already has a pending action")
         turn = InteractionTurn(
             interaction_turn_id=interaction_turn_id,
-            request_id=request_id,
-            action_status="pending" if request_id is not None else "resolved",
         )
         turns = list(payload.get("turns", []))
         turns.append(turn.to_dict())
         payload["turns"] = self._prune_turns(turns)
         return turn
+
+    def record_action_batch(
+        self,
+        interaction_id: str,
+        *,
+        interaction_turn_id: str,
+        action_batch_id: str,
+        action_requests: list[tuple[str, str]],
+    ) -> list[InteractionTurn]:
+        """Atomically register the requests dispatched from one action batch."""
+
+        payload = self._payload_for(interaction_id)
+        if payload is None:
+            raise KeyError(f"unknown interaction: {interaction_id}")
+        if payload.get("status") == "completed":
+            raise ValueError("interaction is already completed")
+        if not isinstance(action_batch_id, str) or not action_batch_id:
+            raise ValueError("action_batch_id must be a non-empty string")
+        if not action_requests:
+            raise ValueError("action batch requires at least one request")
+        if len(action_requests) > self.max_pending_actions:
+            raise ValueError("action batch exceeds pending action limit")
+        if self._pending_action_count(payload):
+            raise ValueError("interaction already has a pending action batch")
+
+        existing_request_keys = {
+            (turn.interaction_turn_id, turn.request_id)
+            for turn in (
+                InteractionTurn.from_dict(raw_turn)
+                for raw_turn in payload.get("turns", [])
+            )
+            if turn.request_id is not None
+        }
+        existing_action_ids = {
+            turn.action_id
+            for turn in (
+                InteractionTurn.from_dict(raw_turn)
+                for raw_turn in payload.get("turns", [])
+            )
+            if turn.action_id is not None
+        }
+        request_ids = [request_id for request_id, _ in action_requests]
+        action_ids = [action_id for _, action_id in action_requests]
+        if (
+            any(not isinstance(request_id, str) or not request_id for request_id in request_ids)
+            or any(not isinstance(action_id, str) or not action_id for action_id in action_ids)
+            or len(request_ids) != len(set(request_ids))
+            or len(action_ids) != len(set(action_ids))
+            or any(
+                (interaction_turn_id, request_id) in existing_request_keys
+                for request_id in request_ids
+            )
+            or any(action_id in existing_action_ids for action_id in action_ids)
+        ):
+            raise ValueError("action batch request and action IDs must be unique")
+
+        turns = list(payload.get("turns", []))
+        recorded_turns = [
+            InteractionTurn(
+                interaction_turn_id=interaction_turn_id,
+                request_id=request_id,
+                action_status="pending",
+                action_batch_id=action_batch_id,
+                action_id=action_id,
+            )
+            for request_id, action_id in action_requests
+        ]
+        turns.extend(turn.to_dict() for turn in recorded_turns)
+        payload["turns"] = self._prune_turns(turns)
+        payload["status"] = "awaiting_action_results"
+        return recorded_turns
 
     def get_for_action_result(
         self,
@@ -217,12 +319,63 @@ class InteractionPool:
             ):
                 turns[index] = {**turn, "action_status": "resolved"}
                 payload["turns"] = self._prune_turns(turns)
+                if self._pending_action_count(payload) == 0:
+                    payload["status"] = "planned"
                 return InteractionRecord.from_dict(payload)
         return None
 
     def has_pending_action(self, interaction_id: str) -> bool:
         payload = self._payload_for(interaction_id)
         return payload is not None and self._pending_action_count(payload) > 0
+
+    def is_action_batch_settled(
+        self,
+        interaction_id: str,
+        action_batch_id: str,
+    ) -> bool:
+        payload = self._payload_for(interaction_id)
+        if payload is None:
+            return False
+        batch_turns = [
+            InteractionTurn.from_dict(turn)
+            for turn in payload.get("turns", [])
+            if InteractionTurn.from_dict(turn).action_batch_id == action_batch_id
+        ]
+        return bool(batch_turns) and all(
+            turn.action_status == "resolved" for turn in batch_turns
+        )
+
+    def action_batch_id_for_request(
+        self,
+        interaction_id: str,
+        interaction_turn_id: str,
+        request_id: str,
+    ) -> str | None:
+        payload = self._payload_for(interaction_id)
+        if payload is None:
+            return None
+        for turn in payload.get("turns", []):
+            recorded_turn = InteractionTurn.from_dict(turn)
+            if (
+                recorded_turn.interaction_turn_id == interaction_turn_id
+                and recorded_turn.request_id == request_id
+            ):
+                return recorded_turn.action_batch_id
+        return None
+
+    def action_requests_for_batch(
+        self,
+        interaction_id: str,
+        action_batch_id: str,
+    ) -> list[InteractionTurn]:
+        payload = self._payload_for(interaction_id)
+        if payload is None:
+            return []
+        return [
+            InteractionTurn.from_dict(turn)
+            for turn in payload.get("turns", [])
+            if InteractionTurn.from_dict(turn).action_batch_id == action_batch_id
+        ]
 
     def _active_record_for_scope(self, causal_scope: dict) -> InteractionRecord | None:
         for payload in reversed(self.state.interactions):
@@ -242,15 +395,26 @@ class InteractionPool:
         return self.state.allocate_interaction_id()
 
     def _prune_turns(self, turns: list[dict]) -> list[dict]:
+        parsed_turns = [InteractionTurn.from_dict(turn) for turn in turns]
         pending_indexes = [
             index
-            for index, turn in enumerate(turns)
-            if InteractionTurn.from_dict(turn).action_status == "pending"
+            for index, turn in enumerate(parsed_turns)
+            if turn.action_status == "pending"
+        ]
+        pending_batch_ids = {
+            parsed_turns[index].action_batch_id
+            for index in pending_indexes
+            if parsed_turns[index].action_batch_id is not None
+        }
+        batch_indexes = [
+            index
+            for index, turn in enumerate(parsed_turns)
+            if turn.action_batch_id in pending_batch_ids
         ]
         settled_indexes = [
-            index for index in range(len(turns)) if index not in pending_indexes
+            index for index in range(len(turns)) if index not in batch_indexes
         ]
-        retained_indexes = set(pending_indexes)
+        retained_indexes = set(batch_indexes)
         retained_indexes.update(
             settled_indexes[-max(self.turn_limit - len(pending_indexes), 0) :]
         )

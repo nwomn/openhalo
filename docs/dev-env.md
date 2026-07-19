@@ -9,12 +9,41 @@ That is the normal path for day-to-day coding in this repository. Create or swit
 Examples:
 
 ```bash
-.venv/bin/python -m unittest discover -s tests -v
-```
-
-```bash
 bin/test -m unittest discover -s tests -v
 ```
+
+## Shared-server test containment
+
+On a shared server, use `bin/test` rather than invoking the root interpreter
+directly. When `systemd-run` is available, the wrapper runs the complete test
+command in one transient service with these limits:
+
+- `PrivateNetwork=yes`: external provider traffic cannot leave the test
+  namespace, while loopback HTTP and WebSocket fixtures remain available.
+- `CPUQuota=150%`, `MemoryMax=2G`, and `TasksMax=256`: a runaway suite is
+  contained before it can starve the Runtime, terminal session, or other
+  server processes.
+- `RuntimeMaxSec=5min`, `TimeoutStopSec=10s`, and
+  `KillMode=control-group`: a hung suite is terminated with its descendants
+  instead of retaining the bounded allocation indefinitely.
+- `NoNewPrivileges=yes` and one inherited `OPENHALO_TEST_IN_SCOPE=1` marker:
+  test subprocesses remain in the same bounded service rather than nesting
+  transient services.
+
+Containment is a final safety boundary, not a passing test result: an OOM kill
+means the triggering test or protocol path must be fixed. Terminal Edge bounds
+deferred inbound frames while waiting for an acknowledgement, so a malformed or
+non-acknowledging peer fails explicitly instead of growing an in-memory queue.
+
+Use `OPENHALO_TEST_ISOLATION=0` only in an already isolated local environment
+that has no shared Runtime or operator connection to protect:
+
+```bash
+OPENHALO_TEST_ISOLATION=0 bin/test -m unittest discover -s tests -v
+```
+
+Do not bypass the wrapper with `.venv/bin/python -m unittest discover ...` on
+the shared server.
 
 ## Optional worktree workflow
 
@@ -268,8 +297,8 @@ and compare it against the current baseline. Install `coverage` into the shared
 root `.venv` if it is missing, then run:
 
 ```bash
-.venv/bin/python -m coverage run --source=personal_runtime,device_edge,agent_guard -m unittest -v
-.venv/bin/python -m coverage report
+bin/test -m coverage run --source=personal_runtime,device_edge,agent_guard -m unittest -v
+bin/test -m coverage report
 ```
 
 The current formal line-coverage baseline is 87% over `personal_runtime`,
@@ -281,8 +310,9 @@ summary. Low-coverage modules should be listed when relevant so follow-up tests
 can be prioritized.
 
 For real-use terminal acceptance with the current runtime-config baseline, use
-three long-running processes. The development runtime should use port `18765`
-so the long-running server runtime can keep port `8765`; see
+two long-running processes. The Runtime manages its colocated Host Edge by
+default after the Gateway is listening, so the development runtime should use
+port `18765` while the long-running server runtime keeps port `8765`; see
 `docs/runtime-deploy.md` for the systemd-backed server path.
 
 ```bash
@@ -297,23 +327,15 @@ every worktree. Override `OPENHALO_DEV_STATE_PATH` when separate runs need
 separate evidence.
 
 ```bash
-.venv/bin/python -u -m device_edge.host.host_daemon \
-  --url ws://127.0.0.1:18765 \
-  --token dev-token \
-  --device-id host-edge-1 \
-  --idle-timeout 10 \
-  --max-idle-cycles 999999
-```
-
-```bash
 .venv/bin/python -m device_edge.cli.terminal_daemon \
   --url ws://127.0.0.1:18765 \
   --token dev-token \
   --device-id terminal-edge-1
 ```
 
-Use `--idle-timeout 30` for the host daemon if the host observation refresh is
-too noisy for manual inspection.
+Use `--host-edge-idle-timeout 30` on the Runtime command to control the
+managed Host Edge observation interval. `--disable-host-edge` is reserved for
+isolated fixtures or deployments that deliberately cannot run a colocated edge.
 
 Expected real-use smoke path:
 
@@ -482,11 +504,16 @@ This is the fastest local way to confirm that a runtime-originated initiative no
 Host edge verification is required before documenting a module as implemented and operationally ready.
 
 If a change is going to be described in project documentation as a completed module that is ready to run in the intended runtime environment, it must be verified through the host edge path we already built, not only through the CLI device path.
-Preferred command shape: `.venv/bin/python -m device_edge.host.host_daemon`
+Preferred M4.1 command shape: start `bin/run-runtime-dev` and let it manage
+the loopback Host Edge. `.venv/bin/python -m device_edge.host.host_daemon`
+remains an edge-development diagnostic entrypoint, not the normal deployment
+operation.
 
-Use `bin/verify-host-edge` for the default bounded local host-edge verification run.
+Use `bin/verify-host-edge` for a bounded standalone Host Edge diagnostic run.
 
-The script starts the runtime server, starts the host daemon with bounded idle, action-count, and session controls, verifies one targeted `runtime.status` direct action through the normal gateway path, verifies one runtime-originated initiative path to the same host edge through `Presence Router` and the normal action-planning path, then checks persisted runtime state before waiting for the host daemon to exit cleanly.
+The existing script remains a bounded standalone-edge diagnostic. M4.1 normal
+acceptance instead starts only Runtime plus a source edge, verifies automatic
+Host Edge registration, and routes `runtime.status` through the public Edge API.
 
 Use `bin/verify-host-edge --dry-run` first when you want to inspect the exact commands without starting processes.
 
@@ -500,7 +527,8 @@ The terminal-edge verification path is intended to prove three user-facing termi
 
 Use `bin/verify-terminal-edge --dry-run` first when you want to inspect the exact runtime, terminal-daemon, push, and state-check commands without starting the acceptance run.
 
-For a formal live acceptance scenario that matches current intended use, run all three long-lived participants together:
+For a formal live acceptance scenario that matches current intended use, run
+the Runtime and one source edge together:
 
 1. Start the runtime:
 
@@ -510,20 +538,7 @@ For a formal live acceptance scenario that matches current intended use, run all
    bin/run-runtime-dev
    ```
 
-2. Start the host edge in a second terminal:
-
-   ```bash
-   .venv/bin/python -m device_edge.host.host_daemon \
-     --url ws://127.0.0.1:18765 \
-     --token dev-token \
-     --device-id host-edge-1 \
-     --runtime-process-match personal_runtime.main \
-     --runtime-start-command ".venv/bin/python -m personal_runtime.main" \
-     --idle-timeout 5 \
-     --trace
-   ```
-
-3. Start the terminal edge in a third terminal:
+2. Start the terminal edge in a second terminal:
 
    ```bash
    .venv/bin/python -m device_edge.cli.terminal_daemon \
@@ -532,13 +547,13 @@ For a formal live acceptance scenario that matches current intended use, run all
      --device-id terminal-edge-1
    ```
 
-4. In the terminal edge, send normal user text such as `你好`, `你是谁？`, and `check runtime status`.
+3. In the terminal edge, send normal user text such as `你好`, `你是谁？`, and `check runtime status`.
 
 Acceptance expectations:
 
 - normal dialogue returns natural user-facing text instead of provider/parser errors such as `Real model reply unavailable`
 - `check runtime status` forms a `runtime.status` action, routes it to `host-edge-1`, and returns a readable status summary to the terminal edge
-- host-edge trace shows handling and completing the `runtime.status` action request
+- Runtime state shows the managed `host-edge-1` connection and completed `runtime.status` action request
 - persisted runtime state contains both `terminal-edge-1` and `host-edge-1`, host observations, and at least one `runtime.status` action result
 
 The host edge receive loop must preserve action requests that arrive while it is waiting for observation acknowledgements. If `check runtime status` remains planned in state but never completes while host observations continue, treat that as a host-edge receive-loop regression.
@@ -629,21 +644,63 @@ For manual live-terminal acceptance, repeated explicit user input should continu
 
 For the current manual `M11` acceptance bar, prefer one real user-scenario foreground session instead of isolated command pokes:
 
-1. Start the runtime with `OPENHALO_DEV_RUNTIME_HOST=127.0.0.1 bin/run-runtime-dev`.
-2. Start the host edge with `.venv/bin/python -m device_edge.host.host_daemon --url ws://127.0.0.1:18765 --token dev-token --device-id host-edge-1 --runtime-process-match personal_runtime.main --runtime-start-command "bin/run-runtime-dev" --idle-timeout 5 --trace`.
-3. Start the terminal surface with `.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token --tui`.
-4. Send `hello runtime`.
+1. Start the runtime with `OPENHALO_DEV_RUNTIME_HOST=127.0.0.1 bin/run-runtime-dev`; it starts `host-edge-1` automatically.
+2. Start the terminal surface with `.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token --tui`.
+3. Send `hello runtime`.
    Expectation: the session shows both `[user] hello runtime` and one real `[runtime] ...` reply line on the same resident session.
-5. Send `check runtime status`.
+4. Send `check runtime status`.
    Expectation: the session shows a readable runtime-delivered status response from the host edge rather than suppressing delivery after the user text arrives.
-6. Send `/status` and `/history`.
+5. Send `/status` and `/history`.
    Expectation: both stay edge-local, the transcript remains readable, and no extra runtime request is created for those slash commands.
-7. Send `/quit`.
+6. Send `/quit`.
    Expectation: the TUI exits cleanly without a reconnect loop.
 
 If you need the plain compatibility path instead of the TUI, run `.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token` and apply the same user-scenario expectations to the line-oriented transcript.
 
 For the current live-terminal baseline, a single `Ctrl+C` in the foreground terminal-daemon session should now terminate the CLI device cleanly during normal TTY use. If manual acceptance still requires repeated interrupt signals, treat that as a terminal-edge interaction regression rather than expected behavior.
+
+## M20.2 Interaction-progress acceptance
+
+Use the development Runtime and Terminal TUI commands above on port `18765`. Send
+one normal user message, then send `check runtime status` after its reply.
+
+Acceptance requires the Terminal to render `deliberating`, `planning`, and
+`executing` on their own Runtime lifecycle boundaries, before the action is
+dispatched. The public protocol must keep `event_ack -> action_request ->
+awaiting_action_result`; the acknowledgement is not user-visible. For a
+same-Terminal `notification.show`, the visible sequence is:
+
+```text
+[progress] 正在理解你的请求...
+[progress] 正在准备下一步...
+[progress] 正在执行操作...
+[runtime] <notification.show action output>
+[progress] 正在等待设备确认...
+[progress] 正在确认处理结果...
+```
+
+Reject a run when pre-dispatch progress is held until the synchronous Harness
+returns, or when `deliberating`, `planning`, and `executing` arrive only as a
+single buffered block beside the action output. Do not require an artificial
+delay between stages: closely adjacent lines are valid only when the underlying
+lifecycle transitions actually occurred that quickly. The post-action
+`awaiting_action_result` and `completing` lines legitimately follow immediate
+same-Terminal action output; M20.3 will make that distinction clearer in the
+formal Terminal UI without changing Runtime execution order.
+
+The deterministic server-side timing guard is:
+
+```bash
+bin/test -m unittest -v \
+  tests.test_interaction_progress.InteractionProgressWebSocketTests.test_terminal_renders_deliberating_before_slow_harness_returns \
+  tests.test_interaction_progress.InteractionProgressWebSocketTests.test_gateway_streams_execution_before_ack_then_returns_action_and_waiting \
+  tests.test_interaction_progress.InteractionProgressWebSocketTests.test_terminal_receives_ordered_progress_and_final_update_over_websocket
+```
+
+The first guard holds the Harness response and verifies that the actual
+Terminal session renders `deliberating` before that response is released. The
+other two guards verify execution/action ordering and that post-action progress
+follows the immediate same-Terminal action output.
 
 ## M20 Hermes Harness acceptance
 

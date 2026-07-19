@@ -151,8 +151,16 @@ class RuntimeOrchestrator:
         )
         if validation["reason"] is not None:
             proposal = InterventionProposal(
-                kind="no_intervention",
-                proposal_type="no_intervention",
+                kind=(
+                    "action_batch_rejected"
+                    if validation["reason"] == "action_batch_rejected"
+                    else "no_intervention"
+                ),
+                proposal_type=(
+                    "action_batch_rejected"
+                    if validation["reason"] == "action_batch_rejected"
+                    else "no_intervention"
+                ),
                 source=proposal.source,
                 action_capability=None,
                 required_capability=None,
@@ -181,6 +189,11 @@ class RuntimeOrchestrator:
                     "action_intent": validation["action_intent"],
                     "authorization": validation["authorization"],
                     "phase": "pre_presence",
+                    **(
+                        {"action_batch": validation["action_batch"]}
+                        if validation.get("action_batch") is not None
+                        else {}
+                    ),
                 },
             }
         proposal_metadata = dict(proposal.metadata)
@@ -204,6 +217,68 @@ class RuntimeOrchestrator:
         }
         return proposal
 
+    @staticmethod
+    def _action_batch_proposals(
+        proposal: InterventionProposal,
+    ) -> list[InterventionProposal]:
+        """Project a validated batch into per-action governance proposals."""
+
+        validation = proposal.metadata.get("harness_validation", {})
+        batch = validation.get("action_batch")
+        if not isinstance(batch, dict):
+            return [proposal]
+        batch_id = batch.get("batch_id")
+        validations = batch.get("validations")
+        if not isinstance(batch_id, str) or not isinstance(validations, list):
+            return [proposal]
+        projected = []
+        for index, item in enumerate(validations):
+            intent = item.get("action_intent") if isinstance(item, dict) else None
+            if not isinstance(intent, dict):
+                continue
+            payload = intent.get("payload")
+            if not isinstance(payload, dict):
+                continue
+            provenance = intent.get("provenance")
+            target_device_hint = (
+                provenance.get("target_device_hint")
+                if isinstance(provenance, dict)
+                else None
+            )
+            projected.append(
+                replace(
+                    proposal,
+                    action_capability=intent.get("capability"),
+                    required_capability=required_device_capability_for_action(
+                        intent.get("capability")
+                    ),
+                    action_payload=dict(payload),
+                    message=str(payload.get("body") or ""),
+                    target_device_hint=target_device_hint,
+                    metadata={
+                        **proposal.metadata,
+                        "harness_validation": {
+                            "decision": "allowed",
+                            "reason": None,
+                            "action_intent": intent,
+                            "authorization": item.get("authorization"),
+                            "phase": "pre_presence",
+                            "action_batch": {
+                                "batch_id": batch_id,
+                                "index": index,
+                                "size": len(validations),
+                            },
+                        },
+                    },
+                )
+            )
+        return projected or [proposal]
+
+    @staticmethod
+    def _has_action_batch(proposal: InterventionProposal) -> bool:
+        validation = proposal.metadata.get("harness_validation", {})
+        return isinstance(validation.get("action_batch"), dict)
+
     def _uses_legacy_harness_memory(self) -> bool:
         return (
             getattr(
@@ -221,7 +296,11 @@ class RuntimeOrchestrator:
         validation: dict | None = None,
     ) -> str:
         if validation is not None and validation["reason"] is not None:
-            return "no_intervention"
+            return (
+                "action_batch_rejected"
+                if validation["reason"] == "action_batch_rejected"
+                else "no_intervention"
+            )
         if outcome.intent == "provider_failure":
             return "failed"
         if outcome.intent == "no_intervention":
@@ -236,6 +315,8 @@ class RuntimeOrchestrator:
             return "no_intervention"
         if proposal.proposal_type == "provider_failure":
             return "failed"
+        if proposal.proposal_type == "action_batch_rejected":
+            return "action_batch_rejected"
         if execution_outcome.get("reason") == "presence_suppressed":
             return "suppressed"
         return execution_outcome.get("reason", "complete")
@@ -245,6 +326,48 @@ class RuntimeOrchestrator:
         outcome,
         harness_input: HarnessInput,
     ) -> dict:
+        if outcome.action_batch is not None:
+            validations = []
+            for intent in outcome.action_batch.action_intents:
+                provenance = (
+                    intent.provenance if isinstance(intent.provenance, dict) else {}
+                )
+                intent_proposal = replace(
+                    outcome.proposal,
+                    action_capability=intent.capability,
+                    required_capability=required_device_capability_for_action(
+                        intent.capability
+                    ),
+                    action_payload=dict(intent.payload),
+                    message=str(intent.payload.get("body") or ""),
+                    target_device_hint=provenance.get("target_device_hint"),
+                )
+                validations.append(
+                    self._validate_harness_outcome(
+                        replace(
+                            outcome,
+                            proposal=intent_proposal,
+                            action_intent=intent,
+                            action_batch=None,
+                        ),
+                        harness_input,
+                    )
+                )
+            invalid = next(
+                (validation for validation in validations if validation["reason"]),
+                None,
+            )
+            return {
+                "reason": "action_batch_rejected" if invalid is not None else None,
+                "action_intent": validations[0]["action_intent"],
+                "authorization": (
+                    invalid["authorization"] if invalid is not None else None
+                ),
+                "action_batch": {
+                    "batch_id": outcome.action_batch.batch_id,
+                    "validations": validations,
+                },
+            }
         intent = outcome.action_intent
         if intent is None:
             if outcome.proposal.proposal_type == "action":
@@ -550,10 +673,217 @@ class RuntimeOrchestrator:
             terminal_reason=terminal_reason,
         )
         self.gateway._persist_state()
-        return self.gateway._build_interaction_update_replies(
-            completed,
-            correlation=correlation,
+        completion_phase = (
+            "failed"
+            if terminal_reason == "failed" or result_status == "failed"
+            else "completed"
         )
+        return [
+            *self.gateway.emit_interaction_progress(
+                interaction_id=interaction_id,
+                interaction_turn_id=(correlation or {}).get("interaction_turn_id"),
+                phase=completion_phase,
+                state="settled",
+                presentation_hint=(
+                    "failed" if completion_phase == "failed" else "completed"
+                ),
+                correlation=correlation,
+            ),
+            *self.gateway._build_interaction_update_replies(
+                completed,
+                correlation=correlation,
+            ),
+        ]
+
+    def _handle_action_batch(
+        self,
+        *,
+        frame: dict,
+        interaction_id: str,
+        interaction_turn_id: str,
+        proposals: list[InterventionProposal],
+        snapshot: dict,
+        grounding_bundle: dict,
+        snapshot_contract: dict,
+        decision_time: str | None,
+        correlation: dict,
+    ) -> list[dict]:
+        """Validate, plan, and atomically dispatch a multi-action harness turn."""
+
+        batch_metadata = proposals[0].metadata["harness_validation"]["action_batch"]
+        batch_id = batch_metadata["batch_id"]
+        planned = []
+        for proposal in proposals:
+            decision = self.gateway.presence_router.choose(
+                source_device_id=frame["device_id"],
+                snapshot=snapshot,
+                devices=self.gateway.state.devices,
+                online_device_ids=set(self.gateway.online_device_ids),
+                required_capability=proposal.required_capability,
+                proposal=proposal.to_dict(),
+                intervention_history=self.gateway.state.interventions,
+                now_timestamp=decision_time,
+                correlation=correlation,
+            )
+            execution_outcome = self.gateway.execution_planner.plan_action(
+                source_device_id=frame["device_id"],
+                proposal=proposal.to_dict(),
+                decision=decision.to_dict(),
+                interaction_id=interaction_id,
+                correlation=correlation,
+                runtime_state=self.gateway.state,
+                online_device_ids=set(self.gateway.online_device_ids),
+            )
+            if execution_outcome["kind"] != "action":
+                self.gateway.state.update_interaction(
+                    interaction_id,
+                    action_batch={
+                        "batch_id": batch_id,
+                        "status": "rejected",
+                        "reason": execution_outcome.get("reason", "not_dispatchable"),
+                    },
+                )
+                self._record_resolved_turn(interaction_id, interaction_turn_id)
+                return self._complete_interaction_if_idle(
+                    interaction_id=interaction_id,
+                    summary="",
+                    visibility="silent",
+                    terminal_reason="action_batch_rejected",
+                    correlation=correlation,
+                )
+            planned.append((proposal, decision, execution_outcome))
+
+        interaction_record = self.gateway._build_interaction_record(
+            interaction_id=interaction_id,
+            frame=frame,
+            proposal=proposals[0],
+            decision=planned[0][1],
+        )
+        participant_device_ids = list(interaction_record["participant_device_ids"])
+        for _, decision, _ in planned[1:]:
+            if (
+                decision.target_device_id is not None
+                and decision.target_device_id not in participant_device_ids
+            ):
+                participant_device_ids.append(decision.target_device_id)
+        self.gateway.state.update_interaction(
+            interaction_id,
+            **{
+                **{
+                    key: value
+                    for key, value in interaction_record.items()
+                    if key != "interaction_id"
+                },
+                "participant_device_ids": participant_device_ids,
+                "action_batch": {
+                    "batch_id": batch_id,
+                    "status": "planning",
+                    "action_ids": [
+                        proposal.metadata["harness_validation"]["action_intent"][
+                            "action_id"
+                        ]
+                        for proposal, _, _ in planned
+                    ],
+                },
+            },
+        )
+
+        action_ids = []
+        for proposal, decision, execution_outcome in planned:
+            action_intent = proposal.metadata["harness_validation"]["action_intent"]
+            action_id = action_intent.get("action_id")
+            if not isinstance(action_id, str) or not action_id:
+                action_id = f"{batch_id}:action-{len(action_ids) + 1}"
+            action_ids.append(action_id)
+            self.gateway.state.record_intervention(
+                {
+                    "interaction_id": interaction_id,
+                    "interaction_turn_id": interaction_turn_id,
+                    "request_id": None,
+                    "action_batch_id": batch_id,
+                    "action_id": action_id,
+                    "source_device_id": frame["device_id"],
+                    "target_device_id": decision.target_device_id,
+                    "action_capability": proposal.action_capability,
+                    "decision": decision.decision,
+                    "reason": decision.reason,
+                    "proposal": proposal.to_dict(),
+                    "grounding_bundle": grounding_bundle,
+                    "snapshot_contract": snapshot_contract,
+                    "planning_record": execution_outcome.get("planning_record"),
+                    "correlation": correlation,
+                    "recorded_at": decision_time,
+                }
+            )
+
+        request_ids = [self.gateway._next_action_request_id() for _ in planned]
+        self.gateway.interaction_pool.record_action_batch(
+            interaction_id,
+            interaction_turn_id=interaction_turn_id,
+            action_batch_id=batch_id,
+            action_requests=list(zip(request_ids, action_ids, strict=True)),
+        )
+        action_requests = []
+        for (proposal, _, execution_outcome), request_id, action_id in zip(
+            planned,
+            request_ids,
+            action_ids,
+            strict=True,
+        ):
+            self.gateway._update_intervention_for_action(
+                interaction_id,
+                interaction_turn_id,
+                action_id,
+                request_id=request_id,
+                requested_action_capability=execution_outcome["action"]["capability"],
+            )
+            action_correlation = {
+                **correlation,
+                "interaction_id": interaction_id,
+                "interaction_turn_id": interaction_turn_id,
+                "request_id": request_id,
+            }
+            action_request = build_action_request(
+                execution_outcome["target_device_id"],
+                execution_outcome["action"],
+                request_id=request_id,
+                trace_recorder=self.gateway.trace_recorder,
+                correlation=action_correlation,
+            )
+            action_request["interaction_id"] = interaction_id
+            action_request["interaction_turn_id"] = interaction_turn_id
+            action_request["action_batch_id"] = batch_id
+            action_request["action_id"] = action_id
+            action_requests.append(action_request)
+        self.gateway.state.update_interaction(
+            interaction_id,
+            action_batch={
+                "batch_id": batch_id,
+                "status": "awaiting_action_results",
+                "action_ids": action_ids,
+                "request_ids": request_ids,
+            },
+        )
+        self.gateway._persist_state()
+        executing_replies = self.gateway.emit_interaction_progress(
+            interaction_id=interaction_id,
+            interaction_turn_id=interaction_turn_id,
+            phase="executing",
+            state="active",
+            presentation_hint="working",
+            correlation=correlation,
+            occurred_at=decision_time,
+        )
+        awaiting_replies = self.gateway.emit_interaction_progress(
+            interaction_id=interaction_id,
+            interaction_turn_id=interaction_turn_id,
+            phase="awaiting_action_result",
+            state="active",
+            presentation_hint="waiting",
+            correlation=correlation,
+            occurred_at=decision_time,
+        )
+        return [*executing_replies, *action_requests, *awaiting_replies]
 
     def handle_event_frame(self, frame: dict) -> list[dict]:
         replies = []
@@ -636,6 +966,14 @@ class RuntimeOrchestrator:
             "interaction_id": interaction_id,
             "interaction_turn_id": interaction_turn_id,
         }
+        replies = self.gateway.emit_interaction_progress(
+            interaction_id=interaction_id,
+            interaction_turn_id=interaction_turn_id,
+            phase="deliberating",
+            state="active",
+            presentation_hint="working",
+            correlation=correlation,
+        )
         decision_time = self.gateway._event_timestamp(frame)
         snapshot = build_context_snapshot(
             self.gateway.state.observations,
@@ -677,6 +1015,7 @@ class RuntimeOrchestrator:
                 interaction_id=interaction_id,
                 interaction_turn_id=interaction_turn_id,
                 frame=frame,
+                interaction=registration.interaction.to_dict(),
                 snapshot=snapshot,
                 grounding_bundle=grounding_bundle,
                 correlation=correlation,
@@ -686,6 +1025,32 @@ class RuntimeOrchestrator:
             proposal.metadata,
             observed_at=decision_time,
         )
+        replies.extend(
+            self.gateway.emit_interaction_progress(
+                interaction_id=interaction_id,
+                interaction_turn_id=interaction_turn_id,
+                phase="planning",
+                state="active",
+                presentation_hint="working",
+                correlation=correlation,
+            )
+        )
+        action_batch_proposals = self._action_batch_proposals(proposal)
+        if self._has_action_batch(proposal):
+            return [
+                *replies,
+                *self._handle_action_batch(
+                frame=frame,
+                interaction_id=interaction_id,
+                interaction_turn_id=interaction_turn_id,
+                proposals=action_batch_proposals,
+                snapshot=snapshot,
+                grounding_bundle=grounding_bundle,
+                snapshot_contract=snapshot_contract,
+                decision_time=decision_time,
+                correlation=correlation,
+                ),
+            ]
         decision = self.gateway.presence_router.choose(
             source_device_id=frame["device_id"],
             snapshot=snapshot,
@@ -754,7 +1119,9 @@ class RuntimeOrchestrator:
         )
         if execution_outcome["kind"] == "completion":
             self._record_resolved_turn(interaction_id, interaction_turn_id)
-            return self._complete_interaction_if_idle(
+            return [
+                *replies,
+                *self._complete_interaction_if_idle(
                 interaction_id=interaction_id,
                 summary=execution_outcome["summary"],
                 visibility=execution_outcome["visibility"],
@@ -763,7 +1130,8 @@ class RuntimeOrchestrator:
                     execution_outcome,
                 ),
                 correlation=correlation,
-            )
+                ),
+            ]
 
         planned_action = self._build_action_request_for_turn(
             execution_outcome=execution_outcome,
@@ -780,7 +1148,23 @@ class RuntimeOrchestrator:
             output_payload=planned_action,
             summary="Built action_request frame.",
         )
-        return [planned_action]
+        executing_replies = self.gateway.emit_interaction_progress(
+            interaction_id=interaction_id,
+            interaction_turn_id=interaction_turn_id,
+            phase="executing",
+            state="active",
+            presentation_hint="working",
+            correlation=correlation,
+        )
+        awaiting_replies = self.gateway.emit_interaction_progress(
+            interaction_id=interaction_id,
+            interaction_turn_id=interaction_turn_id,
+            phase="awaiting_action_result",
+            state="active",
+            presentation_hint="waiting",
+            correlation=correlation,
+        )
+        return [*replies, *executing_replies, planned_action, *awaiting_replies]
 
     @staticmethod
     def _has_explicit_observation_parent(frame: dict) -> bool:
@@ -898,6 +1282,19 @@ class RuntimeOrchestrator:
             proposal.metadata,
             observed_at=decision_time,
         )
+        action_batch_proposals = self._action_batch_proposals(proposal)
+        if self._has_action_batch(proposal):
+            return self._handle_action_batch(
+                frame={"device_id": source_device_id},
+                interaction_id=interaction_id,
+                interaction_turn_id=interaction_turn_id,
+                proposals=action_batch_proposals,
+                snapshot=snapshot,
+                grounding_bundle=grounding_bundle,
+                snapshot_contract=snapshot_contract,
+                decision_time=decision_time,
+                correlation=correlation,
+            )
         decision = self.gateway.presence_router.choose(
             source_device_id=source_device_id,
             snapshot=snapshot,
@@ -1042,6 +1439,10 @@ class RuntimeOrchestrator:
         ):
             return []
         interaction_id = interaction["interaction_id"]
+        if self.gateway.interaction_pool.has_pending_action(interaction_id):
+            self.gateway._record_observation_reentry(interaction_id, frame)
+            self.gateway._persist_state()
+            return []
         interaction_turn_id = self.gateway._next_interaction_turn_id()
         self.gateway._record_observation_reentry(interaction_id, frame)
 
@@ -1085,6 +1486,19 @@ class RuntimeOrchestrator:
             proposal.metadata,
             observed_at=decision_time,
         )
+        action_batch_proposals = self._action_batch_proposals(proposal)
+        if self._has_action_batch(proposal):
+            return self._handle_action_batch(
+                frame={"device_id": interaction["source_device_id"]},
+                interaction_id=interaction_id,
+                interaction_turn_id=interaction_turn_id,
+                proposals=action_batch_proposals,
+                snapshot=snapshot,
+                grounding_bundle=grounding_bundle,
+                snapshot_contract=snapshot_contract,
+                decision_time=decision_time,
+                correlation=correlation,
+            )
         decision = self.gateway.presence_router.choose(
             source_device_id=interaction["source_device_id"],
             snapshot=snapshot,
@@ -1217,6 +1631,7 @@ class RuntimeOrchestrator:
         intervention = self.gateway._intervention_for_turn(
             interaction_id,
             result_turn_id,
+            request_id=request_id,
         )
         if (
             pool_interaction is None
@@ -1305,6 +1720,35 @@ class RuntimeOrchestrator:
             "interaction_id": interaction_id,
             "interaction_turn_id": result_turn_id,
         }
+        action_batch_id = self.gateway.interaction_pool.action_batch_id_for_request(
+            interaction_id,
+            result_turn_id,
+            request_id,
+        )
+        if self.gateway.interaction_pool.has_pending_action(interaction_id):
+            self.gateway._persist_state()
+            return []
+        batch_turns = (
+            self.gateway.interaction_pool.action_requests_for_batch(
+                interaction_id,
+                action_batch_id,
+            )
+            if action_batch_id is not None
+            else []
+        )
+        result_by_request_id = {
+            action_result.get("request_id"): action_result
+            for action_result in self.gateway.state.action_results
+            if action_result.get("interaction_id") == interaction_id
+            and action_result.get("interaction_turn_id") == result_turn_id
+        }
+        action_results = [
+            dict(result_by_request_id[turn.request_id])
+            for turn in batch_turns
+            if turn.request_id in result_by_request_id
+        ]
+        if not action_results:
+            action_results = [result]
         decision_time = self.gateway._action_result_timestamp(frame)
         snapshot = build_context_snapshot(
             self.gateway.state.observations,
@@ -1329,6 +1773,15 @@ class RuntimeOrchestrator:
             "interaction_turn_id": interaction_turn_id,
             "request_id": None,
         }
+        progress_replies = self.gateway.emit_interaction_progress(
+            interaction_id=interaction_id,
+            interaction_turn_id=interaction_turn_id,
+            phase="completing",
+            state="active",
+            presentation_hint="working",
+            correlation=correlation,
+            occurred_at=decision_time,
+        )
         proposal = self._proposal_from_harness(
             HarnessInput(
                 operation=HarnessOperation.POST_ACTION,
@@ -1337,6 +1790,7 @@ class RuntimeOrchestrator:
                 interaction=interaction,
                 prior_proposal=intervention["proposal"],
                 action_result=result,
+                action_results=action_results,
                 turn_index=self.gateway._turn_index_for_interaction(interaction_id),
                 snapshot=snapshot,
                 grounding_bundle=grounding_bundle,
@@ -1353,6 +1807,22 @@ class RuntimeOrchestrator:
             proposal.metadata,
             observed_at=decision_time,
         )
+        action_batch_proposals = self._action_batch_proposals(proposal)
+        if self._has_action_batch(proposal):
+            return [
+                *progress_replies,
+                *self._handle_action_batch(
+                frame={"device_id": interaction["source_device_id"]},
+                interaction_id=interaction_id,
+                interaction_turn_id=interaction_turn_id,
+                proposals=action_batch_proposals,
+                snapshot=snapshot,
+                grounding_bundle=grounding_bundle,
+                snapshot_contract=snapshot_contract,
+                decision_time=decision_time,
+                correlation=correlation,
+                ),
+            ]
         decision = self.gateway.presence_router.choose(
             source_device_id=interaction["source_device_id"],
             snapshot=snapshot,
@@ -1417,7 +1887,30 @@ class RuntimeOrchestrator:
                 interaction_turn_id=interaction_turn_id,
                 correlation=correlation,
             )
-            return [planned_action]
+            executing_replies = self.gateway.emit_interaction_progress(
+                interaction_id=interaction_id,
+                interaction_turn_id=interaction_turn_id,
+                phase="executing",
+                state="active",
+                presentation_hint="working",
+                correlation=correlation,
+                occurred_at=decision_time,
+            )
+            awaiting_replies = self.gateway.emit_interaction_progress(
+                interaction_id=interaction_id,
+                interaction_turn_id=interaction_turn_id,
+                phase="awaiting_action_result",
+                state="active",
+                presentation_hint="waiting",
+                correlation=correlation,
+                occurred_at=decision_time,
+            )
+            return [
+                *progress_replies,
+                *executing_replies,
+                planned_action,
+                *awaiting_replies,
+            ]
 
         self._record_resolved_turn(interaction_id, interaction_turn_id)
         visibility = self.gateway._completion_visibility_for_action_result(
@@ -1425,20 +1918,23 @@ class RuntimeOrchestrator:
             proposal=proposal.to_dict(),
             result=result,
         )
-        return self._complete_interaction_if_idle(
-            interaction_id=interaction_id,
-            summary=self.gateway._build_interaction_summary(
-                proposal.to_dict(),
-                result=result,
+        return [
+            *progress_replies,
+            *self._complete_interaction_if_idle(
+                interaction_id=interaction_id,
+                summary=self.gateway._build_interaction_summary(
+                    proposal.to_dict(),
+                    result=result,
+                ),
+                visibility=visibility,
+                result_status=result.get("status"),
+                terminal_reason=self._terminal_reason_for_execution(
+                    proposal,
+                    execution_outcome,
+                ),
+                correlation=correlation,
             ),
-            visibility=visibility,
-            result_status=result.get("status"),
-            terminal_reason=self._terminal_reason_for_execution(
-                proposal,
-                execution_outcome,
-            ),
-            correlation=correlation,
-        )
+        ]
 
 
 __all__ = ["RuntimeOrchestrator"]

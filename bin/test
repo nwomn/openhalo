@@ -2,4 +2,28 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-exec "$ROOT_DIR/.venv/bin/python" "$@"
+PYTHON_BIN="$ROOT_DIR/.venv/bin/python"
+
+if [[ "${OPENHALO_TEST_IN_SCOPE:-}" == "1" ]] \
+    || [[ "${OPENHALO_TEST_ISOLATION:-1}" == "0" ]] \
+    || ! command -v systemd-run >/dev/null 2>&1; then
+    exec "$PYTHON_BIN" "$@"
+fi
+
+exec systemd-run \
+    --quiet \
+    --wait \
+    --pipe \
+    --collect \
+    --service-type=exec \
+    --property=PrivateNetwork=yes \
+    --property=CPUQuota=150% \
+    --property=MemoryMax=2G \
+    --property=TasksMax=256 \
+    --property=RuntimeMaxSec=5min \
+    --property=TimeoutStopSec=10s \
+    --property=KillMode=control-group \
+    --property=NoNewPrivileges=yes \
+    --property=WorkingDirectory="$ROOT_DIR" \
+    --setenv=OPENHALO_TEST_IN_SCOPE=1 \
+    "$PYTHON_BIN" "$@"

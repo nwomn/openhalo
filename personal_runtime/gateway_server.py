@@ -2,7 +2,10 @@
 
 import json
 import asyncio
+from collections.abc import Callable
 from contextlib import asynccontextmanager
+from contextlib import suppress
+from contextvars import ContextVar
 from datetime import UTC
 from datetime import datetime
 from itertools import count
@@ -14,22 +17,44 @@ from websockets.exceptions import ConnectionClosedError
 from websockets.exceptions import ConnectionClosedOK
 
 from edge_api.protocol import validate_frame, with_api_version
+from personal_runtime.action_layer import build_interaction_progress
 from personal_runtime.action_layer import build_interaction_update
 from personal_runtime.agent_executor import ProposalFormation
 from personal_runtime.agent_harness import LegacyProposalHarness
 from personal_runtime.hermes_adapter import configured_harness_runner
 from personal_runtime.context_contracts import RuntimeObservation
+from personal_runtime.display_lifecycle import DisplayLifecycle
 from personal_runtime.execution_planning import ExecutionPlanner
 from personal_runtime.interaction_pool import InteractionPool
 from personal_runtime.mobile_liveness import record_mobile_session_state
 from personal_runtime.mobile_liveness import update_mobile_liveness_after_observations
 from personal_runtime.presence_router import PresenceRouter
 from personal_runtime.proactive_trigger_gate import ProactiveTriggerGate
+from personal_runtime.runtime_console_presenter import RuntimeConsolePresenter
 from personal_runtime.runtime_orchestrator import RuntimeOrchestrator
 from personal_runtime.runtime_state import RuntimeState
 from personal_runtime.runtime_state import _compatibility_capability_registration
 from personal_runtime.state_store import JsonStateStore
 from personal_runtime.trace_recorder import TraceRecorder
+
+
+StreamedReplyEmitter = Callable[[list[dict]], None]
+_streamed_reply_emitter: ContextVar[StreamedReplyEmitter | None] = ContextVar(
+    "streamed_reply_emitter",
+    default=None,
+)
+_STREAMED_PROGRESS_PHASES = frozenset(
+    {
+        "deliberating",
+        "researching",
+        "planning",
+        "executing",
+        "completing",
+        "completed",
+        "failed",
+        "cancelled",
+    }
+)
 
 
 class RuntimeGateway:
@@ -57,13 +82,17 @@ class RuntimeGateway:
             self.state = RuntimeState()
         else:
             self.state = self.state_store.load()
-        self.interaction_pool = InteractionPool(self.state, max_pending_actions=2)
+        self.interaction_pool = InteractionPool(self.state)
+        self.display_lifecycle = DisplayLifecycle()
+        self.runtime_event_emitter = runtime_event_emitter
+        self.runtime_console_presenter = RuntimeConsolePresenter(
+            runtime_event_emitter
+        )
         self.proactive_trigger_gate = ProactiveTriggerGate()
         self.online_device_ids: set[str] = set()
         self.live_connections: dict[str, object] = {}
         self.trace_recorder = trace_recorder
         self.persist_state = persist_state
-        self.runtime_event_emitter = runtime_event_emitter
         self.llm_config_path = llm_config_path
         self.grounding_edge_history_fetcher = grounding_edge_history_fetcher
         self.diagnostic_recorder = diagnostic_recorder
@@ -164,6 +193,7 @@ class RuntimeGateway:
         self,
         interaction_id: str,
         interaction_turn_id: str,
+        request_id: str | None = None,
     ) -> dict | None:
         return next(
             (
@@ -171,6 +201,10 @@ class RuntimeGateway:
                 for intervention in reversed(self.state.interventions)
                 if intervention.get("interaction_id") == interaction_id
                 and intervention.get("interaction_turn_id") == interaction_turn_id
+                and (
+                    request_id is None
+                    or intervention.get("request_id") == request_id
+                )
             ),
             None,
         )
@@ -179,11 +213,34 @@ class RuntimeGateway:
         self,
         interaction_id: str,
         interaction_turn_id: str,
+        lookup_request_id: str | None = None,
         **changes,
     ) -> dict | None:
         intervention = self._intervention_for_turn(
             interaction_id,
             interaction_turn_id,
+            request_id=lookup_request_id,
+        )
+        if intervention is not None:
+            intervention.update(changes)
+        return intervention
+
+    def _update_intervention_for_action(
+        self,
+        interaction_id: str,
+        interaction_turn_id: str,
+        action_id: str,
+        **changes,
+    ) -> dict | None:
+        intervention = next(
+            (
+                intervention
+                for intervention in reversed(self.state.interventions)
+                if intervention.get("interaction_id") == interaction_id
+                and intervention.get("interaction_turn_id") == interaction_turn_id
+                and intervention.get("action_id") == action_id
+            ),
+            None,
         )
         if intervention is not None:
             intervention.update(changes)
@@ -223,6 +280,7 @@ class RuntimeGateway:
         intervention = self._intervention_for_turn(
             interaction_id,
             interaction_turn_id,
+            request_id=request_id,
         )
         return (
             intervention is not None
@@ -244,6 +302,7 @@ class RuntimeGateway:
         intervention = self._intervention_for_turn(
             frame.get("interaction_id"),
             frame.get("interaction_turn_id"),
+            request_id=frame.get("request_id"),
         )
         action_intent = (
             (intervention or {})
@@ -424,6 +483,101 @@ class RuntimeGateway:
         ]
         return replies
 
+    def _progress_recipients_for_interaction(self, interaction: dict) -> list[str]:
+        """Return authorized, progress-capable Edge participants only."""
+
+        if not interaction.get("outcome_delivery_required"):
+            return []
+        candidates = [interaction.get("requesting_device_id")]
+        candidates.extend(interaction.get("display_participant_device_ids", []))
+        recipients = []
+        for device_id in dict.fromkeys(candidates):
+            if not isinstance(device_id, str) or not device_id:
+                continue
+            capabilities = self.state.devices.get(device_id, {}).get(
+                "capabilities", set()
+            )
+            if (
+                device_id in self.online_device_ids
+                and "interaction.progress" in capabilities
+            ):
+                recipients.append(device_id)
+        return recipients
+
+    def emit_interaction_progress(
+        self,
+        *,
+        interaction_id: str,
+        interaction_turn_id: str | None,
+        phase: str,
+        state: str,
+        presentation_hint: str,
+        correlation: dict | None = None,
+        occurred_at: str | None = None,
+    ) -> list[dict]:
+        """Project one safe lifecycle state without affecting work execution."""
+
+        interaction = self._interaction_payload(interaction_id)
+        if interaction is None:
+            return []
+        self.display_lifecycle.restore_sequence(
+            interaction_id,
+            interaction.get("display_progress_sequence"),
+        )
+        progress = self.display_lifecycle.advance(
+            interaction_id=interaction_id,
+            interaction_turn_id=interaction_turn_id,
+            phase=phase,
+            state=state,
+            occurred_at=occurred_at or _utc_now(),
+            presentation_hint=presentation_hint,
+        )
+        self.state.update_interaction(
+            interaction_id,
+            display_progress_sequence=progress["sequence"],
+        )
+        self._persist_state()
+        self.runtime_console_presenter.present(progress)
+        recipients = self._progress_recipients_for_interaction(interaction)
+        self._record_diagnostic(
+            module="Display Lifecycle",
+            operation="project_interaction_progress",
+            phase="output",
+            correlation={
+                **(correlation or {}),
+                "interaction_id": interaction_id,
+                "interaction_turn_id": interaction_turn_id,
+            },
+            input_payload={
+                "phase": phase,
+                "state": state,
+                "recipient_count": len(recipients),
+            },
+            output_payload={
+                "progress": progress,
+                "recipients": recipients,
+            },
+            summary="Projected safe interaction progress for authorized Edges.",
+        )
+        replies = [
+            build_interaction_progress(
+                target_device_id=device_id,
+                progress=progress,
+                correlation=correlation,
+            )
+            for device_id in recipients
+        ]
+        if phase in _STREAMED_PROGRESS_PHASES:
+            self.stream_outbound_replies(replies)
+        return replies
+
+    def stream_outbound_replies(self, replies: list[dict]) -> None:
+        """Queue ordered runtime output for immediate websocket dispatch when active."""
+
+        emitter = _streamed_reply_emitter.get()
+        if emitter is not None and replies:
+            emitter(replies)
+
     def _build_event_replies(self, frame: dict) -> list[dict]:
         correlation = {
             "trace_id": frame.get("trace_id"),
@@ -559,6 +713,7 @@ class RuntimeGateway:
             intervention = self._intervention_for_turn(
                 interaction_id,
                 interaction_turn_id,
+                request_id=request_id,
             )
             if (
                 interaction is None
@@ -978,9 +1133,69 @@ class RuntimeGateway:
     def run_roundtrip(self, frames: list[dict]) -> list[dict]:
         return self._handle_frames_sync(frames)
 
-    async def _handle_websocket_frame(self, frame: dict) -> list[dict]:
+    async def _handle_websocket_frame(
+        self,
+        frame: dict,
+        *,
+        progress_sink=None,
+    ) -> list[dict]:
         async with self._websocket_frame_lock:
-            return await asyncio.to_thread(self._handle_frames_sync, [frame])
+            if progress_sink is None:
+                return await asyncio.to_thread(self._handle_frames_sync, [frame])
+
+            loop = asyncio.get_running_loop()
+            streamed_reply_queue: asyncio.Queue[list[dict]] = asyncio.Queue()
+            streamed_reply_ids: set[int] = set()
+            streamed_reply_batches: list[list[dict]] = []
+            dispatched_reply_ids: set[int] = set()
+
+            def enqueue_streamed_replies(replies: list[dict]) -> None:
+                streamed_reply_ids.update(id(reply) for reply in replies)
+                streamed_reply_batches.append(replies)
+                loop.call_soon_threadsafe(streamed_reply_queue.put_nowait, replies)
+
+            async def dispatch_streamed_replies(replies: list[dict]) -> None:
+                unsent_replies = [
+                    reply for reply in replies if id(reply) not in dispatched_reply_ids
+                ]
+                if not unsent_replies:
+                    return
+                dispatched_reply_ids.update(id(reply) for reply in unsent_replies)
+                await progress_sink(unsent_replies)
+
+            emitter_token = _streamed_reply_emitter.set(enqueue_streamed_replies)
+            worker_task = asyncio.create_task(
+                asyncio.to_thread(self._handle_frames_sync, [frame])
+            )
+            progress_task = asyncio.create_task(streamed_reply_queue.get())
+            try:
+                while True:
+                    completed, _ = await asyncio.wait(
+                        {worker_task, progress_task},
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                    if progress_task in completed:
+                        await dispatch_streamed_replies(progress_task.result())
+                        progress_task = asyncio.create_task(streamed_reply_queue.get())
+                    if worker_task not in completed:
+                        continue
+
+                    if progress_task.done():
+                        await dispatch_streamed_replies(progress_task.result())
+                    for streamed_replies in streamed_reply_batches:
+                        await dispatch_streamed_replies(streamed_replies)
+                    replies = await worker_task
+                    return [
+                        reply
+                        for reply in replies
+                        if id(reply) not in streamed_reply_ids
+                    ]
+            finally:
+                _streamed_reply_emitter.reset(emitter_token)
+                if not progress_task.done():
+                    progress_task.cancel()
+                    with suppress(asyncio.CancelledError):
+                        await progress_task
 
     async def _send_frame(self, websocket, frame: dict) -> None:
         await websocket.send(json.dumps(frame))
@@ -1059,7 +1274,8 @@ class RuntimeGateway:
         for reply in replies:
             target_device_id = reply.get("device_id")
             if (
-                reply["type"] in {"action_request", "interaction_update"}
+                reply["type"]
+                in {"action_request", "interaction_progress", "interaction_update"}
                 and target_device_id != source_device_id
             ):
                 target_websocket = self.live_connections.get(target_device_id)
@@ -1109,7 +1325,8 @@ class RuntimeGateway:
             try:
                 await self._send_frame(source_websocket, reply)
                 if not (
-                    reply["type"] in {"action_request", "interaction_update"}
+                    reply["type"]
+                    in {"action_request", "interaction_progress", "interaction_update"}
                     and target_device_id != source_device_id
                 ):
                     self._record_dispatch_diagnostic(
@@ -1190,9 +1407,21 @@ class RuntimeGateway:
                     registered_device_id = frame["device"]["device_id"]
                     self.online_device_ids.add(registered_device_id)
                     self.live_connections[registered_device_id] = websocket
-                replies = await self._handle_websocket_frame(frame)
+                source_device_id = frame.get("device_id", registered_device_id)
+
+                async def dispatch_streamed_progress(replies: list[dict]) -> None:
+                    await self._dispatch_websocket_replies(
+                        source_device_id,
+                        websocket,
+                        replies,
+                    )
+
+                replies = await self._handle_websocket_frame(
+                    frame,
+                    progress_sink=dispatch_streamed_progress,
+                )
                 await self._dispatch_websocket_replies(
-                    frame.get("device_id", registered_device_id),
+                    source_device_id,
                     websocket,
                     replies,
                 )

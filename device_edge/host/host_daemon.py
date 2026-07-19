@@ -278,6 +278,7 @@ class HostEdgeDaemon:
         ready_event=None,
         max_action_requests: int | None = None,
         send_follow_up_after_action: bool = True,
+        on_connected=None,
     ) -> list[dict]:
         action_results: list[dict] = []
         pending_frames: deque[dict] = deque()
@@ -290,7 +291,11 @@ class HostEdgeDaemon:
             if ready_event is not None:
                 ready_event.set()
 
-            await self._recv_frame(websocket)
+            connect_reply = await self._recv_frame(websocket)
+            if connect_reply.get("type") != "connect_ok":
+                raise ConnectionError("Host Edge registration was not accepted.")
+            if on_connected is not None:
+                on_connected()
 
             if observation_index < len(observation_schedule):
                 await self._send_observation_cycle_with_pending(

@@ -49,6 +49,23 @@ def build_interaction_update(
     return add_correlation_to_frame(frame, correlation or {})
 
 
+def build_interaction_progress(
+    target_device_id: str,
+    progress: dict,
+    correlation: dict | None = None,
+) -> dict:
+    """Build the public, safe progress update for one authorized Edge."""
+
+    frame = with_api_version(
+        {
+            "type": "interaction_progress",
+            "device_id": target_device_id,
+            "progress": progress,
+        }
+    )
+    return add_correlation_to_frame(frame, correlation or {})
+
+
 def build_action_request(
     target_device_id: str,
     action: dict,
