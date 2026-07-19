@@ -302,34 +302,42 @@ class AndroidEdgeClient(
         val capability = action.optString("capability")
         val payload = action.optJSONObject("payload") ?: JSONObject()
         val notification = parseNotificationShowPayload(payload)
+        val renderedReplyBody = parseRenderedReplyBody(payload)
         val message = when (capability) {
             "notification.show" -> notification?.body.orEmpty()
+            "mobile.reply.render" -> renderedReplyBody.orEmpty()
             else -> payload.optString("message", payload.toString())
         }
         val details = when (capability) {
             "notification.show" -> JSONObject()
                 .put("title", notification?.title.orEmpty())
                 .put("body", notification?.body.orEmpty())
+            "mobile.reply.render" -> JSONObject().put("body", renderedReplyBody.orEmpty())
             else -> JSONObject().put("message", message)
         }
         val status = when (capability) {
             "notification.show" -> showNotification(notification, details)
             "notification.alert" -> showUrgentNotification(message, details)
             "mobile.reply.render" -> {
-                val history = AndroidEdgePreferences.appendHistory(
-                    context,
-                    "Rendered runtime reply",
-                    message,
-                    "reply"
-                )
-                publish(
-                    state.copy(
-                        inAppReply = message,
-                        recentActions = "Rendered mobile.reply.render at ${nowIso()}",
-                        recentEvents = history
+                if (renderedReplyBody == null) {
+                    details.put("error", "mobile.reply.render requires a non-empty body")
+                    "error"
+                } else {
+                    val history = AndroidEdgePreferences.appendHistory(
+                        context,
+                        "Rendered runtime reply",
+                        message,
+                        "reply"
                     )
-                )
-                "ok"
+                    publish(
+                        state.copy(
+                            inAppReply = message,
+                            recentActions = "Rendered mobile.reply.render at ${nowIso()}",
+                            recentEvents = history
+                        )
+                    )
+                    "ok"
+                }
             }
             else -> {
                 details.put("error", "Unsupported capability: $capability")
@@ -339,7 +347,11 @@ class AndroidEdgeClient(
         publish(
             state.copy(
                 recentActions = "$capability -> $status at ${nowIso()}",
-                inAppReply = if (capability == "mobile.reply.render") message else state.inAppReply,
+                inAppReply = if (capability == "mobile.reply.render" && status == "ok") {
+                    message
+                } else {
+                    state.inAppReply
+                },
                 recentEvents = AndroidEdgePreferences.appendHistory(
                     context,
                     "$capability -> $status",
@@ -514,6 +526,10 @@ internal fun parseNotificationShowPayload(payload: JSONObject): NotificationShow
         .ifBlank { DEFAULT_NOTIFICATION_TITLE }
     return NotificationShowPayload(title = title, body = body)
 }
+
+internal fun parseRenderedReplyBody(payload: JSONObject): String? =
+    listOf(payload.optString("body"), payload.optString("message"))
+        .firstOrNull { it.isNotBlank() }
 
 fun reconnectDelayMillis(attempt: Int): Long {
     val seconds = when (attempt.coerceAtLeast(1)) {

@@ -150,12 +150,15 @@ fun buildCapabilityAnnounceFrame(deviceId: String): JSONObject =
                             "input_schema",
                             JSONObject()
                                 .put("type", "object")
-                                .put("required", JSONArray().put("message"))
+                                .put("required", JSONArray().put("body"))
+                                .put("additionalProperties", false)
                                 .put(
                                     "properties",
                                     JSONObject().put(
-                                        "message",
-                                        JSONObject().put("type", "string")
+                                        "body",
+                                        JSONObject()
+                                            .put("type", "string")
+                                            .put("minLength", 1)
                                     )
                                 )
                         )

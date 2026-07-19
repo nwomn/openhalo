@@ -2,6 +2,7 @@ package dev.openhalo.android.edge
 
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -96,6 +97,44 @@ class EdgeApiFramesTest {
         assertEquals(NotificationShowPayload(DEFAULT_NOTIFICATION_TITLE, "Running"), defaulted)
         assertEquals(null, parseNotificationShowPayload(JSONObject().put("message", "legacy")))
         assertEquals(null, parseNotificationShowPayload(JSONObject().put("body", "  ")))
+    }
+
+    @Test
+    fun replyRenderCapabilityUsesCanonicalBodyContract() {
+        val frame = buildCapabilityAnnounceFrame("android-edge-test")
+        val replyRender = (0 until frame.getJSONArray("capabilities").length())
+            .map { frame.getJSONArray("capabilities").getJSONObject(it) }
+            .first { it.getString("name") == "mobile.reply.render" }
+        val schema = replyRender.getJSONObject("input_schema")
+        val properties = schema.getJSONObject("properties")
+
+        assertEquals("body", schema.getJSONArray("required").getString(0))
+        assertTrue(schema.getBoolean("additionalProperties").not())
+        assertEquals("string", properties.getJSONObject("body").getString("type"))
+        assertEquals(1, properties.getJSONObject("body").getInt("minLength"))
+    }
+
+    @Test
+    fun renderedReplyUsesBodyInsteadOfSerializingItsPayload() {
+        assertEquals(
+            "Hello from runtime",
+            parseRenderedReplyBody(JSONObject().put("body", "Hello from runtime"))
+        )
+        assertEquals(
+            "Legacy reply",
+            parseRenderedReplyBody(JSONObject().put("message", "Legacy reply"))
+        )
+        assertEquals(null, parseRenderedReplyBody(JSONObject()))
+    }
+
+    @Test
+    fun globalChatAutoScrollsOnlyForNewMessagesWhenReaderIsAtBottom() {
+        assertTrue(shouldAutoScrollGlobalChat(0, 1, userWasAtBottom = true))
+        assertTrue(shouldAutoScrollGlobalChat(4, 5, userWasAtBottom = true))
+        assertFalse(shouldAutoScrollGlobalChat(4, 5, userWasAtBottom = false))
+        assertFalse(shouldAutoScrollGlobalChat(4, 4, userWasAtBottom = true))
+        assertTrue(isChatAtBottom(120, 120))
+        assertFalse(isChatAtBottom(119, 120))
     }
 
     @Test

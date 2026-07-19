@@ -57,6 +57,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -80,6 +82,7 @@ import dev.openhalo.android.edge.ui.theme.OpenHaloAndroidEdgeTheme
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.flow.collect
 
 private val Ink = Color(0xFF050505)
 private val Muted = Color(0xFF9A9A9A)
@@ -606,9 +609,30 @@ private fun GlobalChatScreen(
         AndroidEdgePreferences.conversationHistoryItems(context.applicationContext)
     }
     val chatScrollState = rememberScrollState()
-    val renderedMessageCount = history.size + if (diagnostics.inAppReply.isNotBlank()) 1 else 0
-    LaunchedEffect(renderedMessageCount, historyVersion, diagnostics.inAppReply, chatScrollState.maxValue) {
-        if (renderedMessageCount > 0 && chatScrollState.maxValue > 0) {
+    val hasUnpersistedReply = diagnostics.inAppReply.isNotBlank() &&
+        history.none { item -> item.kind == "reply" && item.body == diagnostics.inAppReply }
+    val renderedMessageCount = history.size + if (hasUnpersistedReply) 1 else 0
+    var previousRenderedMessageCount by remember { mutableIntStateOf(0) }
+    var userWasAtBottom by remember { mutableStateOf(true) }
+    LaunchedEffect(chatScrollState) {
+        snapshotFlow {
+            chatScrollState.isScrollInProgress to
+                isChatAtBottom(chatScrollState.value, chatScrollState.maxValue)
+        }.collect { (isScrolling, isAtBottom) ->
+            if (isScrolling) {
+                userWasAtBottom = isAtBottom
+            }
+        }
+    }
+    LaunchedEffect(renderedMessageCount) {
+        val shouldScroll = shouldAutoScrollGlobalChat(
+            previousRenderedMessageCount,
+            renderedMessageCount,
+            userWasAtBottom
+        )
+        previousRenderedMessageCount = renderedMessageCount
+        if (shouldScroll) {
+            withFrameNanos { }
             chatScrollState.animateScrollTo(chatScrollState.maxValue)
         }
     }
@@ -641,14 +665,14 @@ private fun GlobalChatScreen(
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             Text("今天", color = Color(0xFFC8C8C8), fontSize = 18.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
-            if (history.isEmpty() && diagnostics.inAppReply.isBlank()) {
+            if (history.isEmpty() && !hasUnpersistedReply) {
                 ChatMeta("Personal Runtime · 当前无记录")
                 RuntimeBubble("连接后，来自终端、手机和桌面的对话会在这里汇总。")
             } else {
                 history.asReversed().forEach { item ->
                     ChatHistoryItem(item)
                 }
-                if (diagnostics.inAppReply.isNotBlank()) {
+                if (hasUnpersistedReply) {
                     ChatMeta("Personal Runtime · delivered")
                     RuntimeBubble(diagnostics.inAppReply)
                 }
@@ -664,6 +688,15 @@ private fun GlobalChatScreen(
     }
 }
 
+internal fun isChatAtBottom(scrollValue: Int, maxScrollValue: Int): Boolean =
+    scrollValue >= maxScrollValue
+
+internal fun shouldAutoScrollGlobalChat(
+    previousMessageCount: Int,
+    renderedMessageCount: Int,
+    userWasAtBottom: Boolean
+): Boolean = renderedMessageCount > previousMessageCount && userWasAtBottom
+
 @Composable
 private fun ChatHistoryItem(item: AndroidEdgeHistoryItem) {
     when {
@@ -673,11 +706,14 @@ private fun ChatHistoryItem(item: AndroidEdgeHistoryItem) {
         }
         item.kind == "notification" || item.kind == "reply" -> {
             ChatMeta("Personal Runtime · ${chatTimestamp(item.observedAt)}")
-            RuntimeBubble(
+            val text = if (item.kind == "reply") {
+                item.body.ifBlank { item.title }
+            } else {
                 listOf(item.title, item.body)
                     .filter { it.isNotBlank() }
                     .joinToString("\n")
-            )
+            }
+            RuntimeBubble(text)
         }
     }
 }
