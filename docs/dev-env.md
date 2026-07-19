@@ -702,6 +702,43 @@ Terminal session renders `deliberating` before that response is released. The
 other two guards verify execution/action ordering and that post-action progress
 follows the immediate same-Terminal action output.
 
+### Android revalidation and evidence preservation
+
+M20.2 was accepted on 2026-07-19 after Android real-device human acceptance
+against a local development Runtime. Use this checklist for later regression
+revalidation; do not infer real-device acceptance from the unit test or APK
+build alone.
+
+1. Start the development Runtime with explicit evidence paths, so the result
+   remains inspectable after the process exits:
+
+   ```bash
+   OPENHALO_DEV_RUNTIME_HOST=127.0.0.1 \
+   OPENHALO_DEV_STATE_PATH=.runtime/m20_2_android_revalidation_state.json \
+   OPENHALO_DEV_DIAGNOSTIC_LOG_PATH=.runtime/m20_2_android_revalidation_diagnostics.jsonl \
+   bin/run-runtime-dev
+   ```
+
+2. Confirm the target is visible to `adb devices -l`, install the current debug
+   APK, configure the Android Edge for `ws://127.0.0.1:18765` or the reachable
+   development-host address, and connect it normally through the public Edge
+   API.
+3. In Global Chat, send a natural request that produces a visible interaction.
+   Confirm the native localized progress indicator appears before the final
+   outcome, advances through safe lifecycle phases, exposes no Hermes or
+   provider text, and clears after completion, failure, cancellation, or Edge
+   session loss. Repeat one request that dispatches a normal Edge action to
+   confirm progress remains independent from `action_result` delivery.
+4. Before stopping or cleaning the Runtime, preserve the named state and
+   diagnostics files and record the device model, Android version, APK build,
+   and observed outcome. These artifacts contain Runtime-side lifecycle and
+   correlation evidence; do not use the Android UI's raw frame display as a
+   substitute for the public safe-progress contract.
+
+The 2026-07-19 acceptance was user-reported after the development process had
+already exited, so no independent runtime state or diagnostic artifact could be
+recovered afterward. Future revalidation must retain the explicit paths above.
+
 ## M20 Hermes Harness acceptance
 
 M20 uses Hermes as the internal harness loop while OpenHalo continues to govern

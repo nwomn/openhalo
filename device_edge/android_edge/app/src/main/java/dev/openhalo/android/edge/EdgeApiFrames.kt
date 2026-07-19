@@ -165,6 +165,17 @@ fun buildCapabilityAnnounceFrame(deviceId: String): JSONObject =
                 )
                 .put(
                     JSONObject()
+                        .put("name", INTERACTION_PROGRESS_CAPABILITY)
+                        .put("direction", "runtime_to_edge")
+                        .put("kind", "interaction_status")
+                        .put("affordances", JSONArray().put("render_interaction_progress"))
+                        .put("modality", "visual_status")
+                        .put("privacy", "operational")
+                        .put("interruptiveness", "none")
+                        .put("side_effect", "user_visible")
+                )
+                .put(
+                    JSONObject()
                         .put("name", "mobile.context")
                         .put("direction", "edge_to_runtime")
                         .put("kind", "observation_provider")

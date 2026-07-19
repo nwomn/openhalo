@@ -23,7 +23,7 @@ data class EdgeDiagnostics(
     val lastSentFrame: String = "",
     val lastReceivedFrame: String = "",
     val lastError: String = "",
-    val registeredCapabilities: String = "mobile.input, notification.show, notification.alert, mobile.reply.render, mobile.context, mobile.screen_context",
+    val registeredCapabilities: String = "mobile.input, notification.show, notification.alert, mobile.reply.render, interaction.progress, mobile.context, mobile.screen_context",
     val recentObservations: String = "",
     val recentActions: String = "",
     val inAppReply: String = "",
@@ -41,7 +41,8 @@ data class EdgeDiagnostics(
     val backgroundObservationState: String = "inactive",
     val lastLocalObservationAt: String = "",
     val lastSuccessfulUploadAt: String = "",
-    val deliveryQueueDepth: Int = 0
+    val deliveryQueueDepth: Int = 0,
+    val interactionProgress: InteractionProgressState = InteractionProgressState()
 )
 
 class AndroidEdgeClient(
@@ -127,7 +128,12 @@ class AndroidEdgeClient(
         webSocket?.close(1000, "Android edge disconnect")
         webSocket = null
         if (state.connectionState != "disconnected") {
-            publish(state.copy(connectionState = "disconnected"))
+            publish(
+                state.copy(
+                    connectionState = "disconnected",
+                    interactionProgress = clearInteractionProgress(state.interactionProgress)
+                )
+            )
         }
         if (!scheduleReconnect) {
             reconnectHandler.removeCallbacksAndMessages(null)
@@ -238,13 +244,18 @@ class AndroidEdgeClient(
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                publish(state.copy(lastReceivedFrame = pretty(text)))
                 val frame = runCatching { JSONObject(text) }.getOrNull()
                 if (frame == null) {
                     logEvent("receive_error", "error" to "non_json_frame")
-                    publish(state.copy(lastError = "Received non-JSON frame."))
+                    publish(
+                        state.copy(
+                            lastReceivedFrame = pretty(text),
+                            lastError = "Received non-JSON frame."
+                        )
+                    )
                     return
                 }
+                publish(state.copy(lastReceivedFrame = receivedFrameForDiagnostics(frame)))
                 logEvent(
                     "received_frame",
                     "frame_type" to frame.optString("type"),
@@ -253,6 +264,8 @@ class AndroidEdgeClient(
                 )
                 when (frame.optString("type")) {
                     "action_request" -> handleActionRequest(frame)
+                    "interaction_progress" -> handleInteractionProgress(frame)
+                    "interaction_update" -> handleInteractionUpdate(frame)
                     "error" -> {
                         logEvent(
                             "runtime_error",
@@ -276,7 +289,8 @@ class AndroidEdgeClient(
                         connectionState = "disconnected",
                         lastError = reason,
                         lastDisconnectedAt = nowIso(),
-                        lastDisconnectReason = reason
+                        lastDisconnectReason = reason,
+                        interactionProgress = clearInteractionProgress(state.interactionProgress)
                     )
                 )
                 scheduleReconnect(reason)
@@ -288,7 +302,8 @@ class AndroidEdgeClient(
                     state.copy(
                         connectionState = "disconnected",
                         lastDisconnectedAt = nowIso(),
-                        lastDisconnectReason = "closed $code ${reason.ifBlank { "no reason" }}"
+                        lastDisconnectReason = "closed $code ${reason.ifBlank { "no reason" }}",
+                        interactionProgress = clearInteractionProgress(state.interactionProgress)
                     )
                 )
                 if (!manualDisconnect && code != 1000) {
@@ -296,6 +311,48 @@ class AndroidEdgeClient(
                 }
             }
         }
+
+    private fun handleInteractionProgress(frame: JSONObject) {
+        val progress = parseInteractionProgressFrame(frame, state.deviceId)
+        if (progress == null) {
+            logEvent("progress_frame_rejected", "reason" to "invalid_or_unauthorized")
+            return
+        }
+        val nextProgress = reduceInteractionProgress(state.interactionProgress, progress)
+        if (nextProgress == state.interactionProgress) {
+            return
+        }
+        publish(
+            state.copy(
+                interactionProgress = nextProgress,
+                recentEvents = AndroidEdgePreferences.appendHistory(
+                    context,
+                    "Interaction progress",
+                    progress.phase,
+                    "progress"
+                )
+            )
+        )
+        logEvent(
+            "interaction_progress",
+            "interaction_id" to progress.interactionId,
+            "phase" to progress.phase,
+            "sequence" to progress.sequence.toString()
+        )
+    }
+
+    private fun handleInteractionUpdate(frame: JSONObject) {
+        val interaction = frame.optJSONObject("interaction") ?: return
+        val interactionId = interaction.optString("interaction_id").takeIf { it.isNotBlank() }
+            ?: return
+        if (interaction.optString("status") !in setOf("completed", "failed", "cancelled")) {
+            return
+        }
+        val nextProgress = clearInteractionProgress(state.interactionProgress, interactionId)
+        if (nextProgress != state.interactionProgress) {
+            publish(state.copy(interactionProgress = nextProgress))
+        }
+    }
 
     private fun handleActionRequest(frame: JSONObject) {
         val action = frame.optJSONObject("action") ?: JSONObject()
@@ -487,6 +544,35 @@ class AndroidEdgeClient(
 
     private fun pretty(rawJson: String): String =
         runCatching { JSONObject(rawJson).toString(2) }.getOrDefault(rawJson)
+
+    private fun receivedFrameForDiagnostics(frame: JSONObject): String {
+        if (frame.optString("type") != "interaction_progress") {
+            return pretty(redactSecrets(frame.toString()))
+        }
+        val progress = parseInteractionProgressFrame(frame, state.deviceId)
+        if (progress == null) {
+            return JSONObject()
+                .put("type", "interaction_progress")
+                .put("status", "rejected")
+                .toString(2)
+        }
+        return JSONObject()
+            .put("type", "interaction_progress")
+            .put("device_id", state.deviceId)
+            .put(
+                "progress",
+                JSONObject()
+                    .put("version", 1)
+                    .put("interaction_id", progress.interactionId)
+                    .put("interaction_turn_id", progress.interactionTurnId)
+                    .put("sequence", progress.sequence)
+                    .put("phase", progress.phase)
+                    .put("state", progress.state)
+                    .put("occurred_at", progress.occurredAt)
+                    .put("presentation_hint", progress.presentationHint)
+            )
+            .toString(2)
+    }
 
     private fun redactSecrets(rawJson: String): String =
         runCatching {

@@ -10,6 +10,16 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.foundation.background
@@ -91,6 +101,7 @@ private val Panel = Color(0xFFFFFFFF)
 private val SoftPanel = Color(0xFFF5F5F5)
 private val Success = Color(0xFF2DB36A)
 private val Danger = Color(0xFFFF5A52)
+private val ProgressBlue = Color(0xFF3478F6)
 private val HiddenText = Color(0x01000000)
 private val ChatTimeFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
@@ -127,6 +138,7 @@ object AndroidEdgeTestTags {
     const val SETTINGS_TAB = "openhalo.settings.tab"
     const val CONNECT_PRIMARY_ACTION = "openhalo.connect.primary_action"
     const val GLOBAL_CHAT_LIST = "openhalo.global_chat.list"
+    const val GLOBAL_CHAT_PROGRESS = "openhalo.global_chat.progress"
     const val GLOBAL_CHAT_INPUT = "openhalo.global_chat.input"
     const val GLOBAL_CHAT_SEND = "openhalo.global_chat.send"
     const val SETTINGS_RUNTIME_URL = "openhalo.settings.runtime_url"
@@ -656,6 +668,7 @@ private fun GlobalChatScreen(
         }
         Spacer(Modifier.height(28.dp))
         HorizontalDivider(color = Hairline)
+        InteractionProgressArea(diagnostics.interactionProgress.activeProgresses)
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -696,6 +709,87 @@ internal fun shouldAutoScrollGlobalChat(
     renderedMessageCount: Int,
     userWasAtBottom: Boolean
 ): Boolean = renderedMessageCount > previousMessageCount && userWasAtBottom
+
+@Composable
+private fun InteractionProgressArea(progresses: List<InteractionProgress>) {
+    var displayedProgresses by remember { mutableStateOf(emptyList<InteractionProgress>()) }
+    LaunchedEffect(progresses) {
+        if (progresses.isNotEmpty()) {
+            displayedProgresses = progresses.take(2)
+        }
+    }
+    AnimatedVisibility(
+        visible = progresses.isNotEmpty(),
+        enter = fadeIn(animationSpec = tween(180)) + expandVertically(animationSpec = tween(180)),
+        exit = fadeOut(animationSpec = tween(140)) + shrinkVertically(animationSpec = tween(140))
+    ) {
+        if (displayedProgresses.isNotEmpty()) {
+            InteractionProgressShelf(displayedProgresses, progresses.size)
+        }
+    }
+}
+
+@Composable
+private fun InteractionProgressShelf(
+    progresses: List<InteractionProgress>,
+    activeCount: Int
+) {
+    val transition = rememberInfiniteTransition(label = "interaction-progress")
+    val pulse by transition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 900, easing = LinearEasing)
+        ),
+        label = "interaction-progress-pulse"
+    )
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 12.dp)
+            .border(1.dp, ProgressBlue.copy(alpha = 0.28f), RoundedCornerShape(3.dp))
+            .padding(horizontal = 16.dp, vertical = 13.dp)
+            .testTag(AndroidEdgeTestTags.GLOBAL_CHAT_PROGRESS),
+        verticalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(9.dp)
+                    .clip(CircleShape)
+                    .background(ProgressBlue.copy(alpha = pulse))
+            )
+            Spacer(Modifier.width(9.dp))
+            Text("OpenHalo", color = ProgressBlue, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Spacer(Modifier.weight(1f))
+            if (activeCount > progresses.size) {
+                Text("+${activeCount - progresses.size}", color = Muted, fontSize = 13.sp)
+            }
+        }
+        progresses.forEach { progress ->
+            Text(
+                text = localizedProgressPhase(progress.phase),
+                color = Ink,
+                fontSize = 17.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+private fun localizedProgressPhase(phase: String): String = when (phase) {
+    "deliberating" -> "正在理解请求"
+    "researching" -> "正在查找资料"
+    "planning" -> "正在规划下一步"
+    "executing" -> "正在执行操作"
+    "awaiting_action_result" -> "正在等待设备确认"
+    "completing" -> "正在整理结果"
+    "completed" -> "已完成"
+    "failed" -> "未能完成"
+    "cancelled" -> "已取消"
+    else -> "正在处理"
+}
 
 @Composable
 private fun ChatHistoryItem(item: AndroidEdgeHistoryItem) {
