@@ -6,7 +6,8 @@ PYTHON_BIN="$ROOT_DIR/.venv/bin/python"
 
 if [[ "${OPENHALO_TEST_IN_SCOPE:-}" == "1" ]] \
     || [[ "${OPENHALO_TEST_ISOLATION:-1}" == "0" ]] \
-    || ! command -v systemd-run >/dev/null 2>&1; then
+    || ! command -v systemd-run >/dev/null 2>&1 \
+    || ! systemctl show --property=Version >/dev/null 2>&1; then
     exec "$PYTHON_BIN" "$@"
 fi
 

@@ -219,11 +219,51 @@ class DevEnvWorkflowTests(unittest.TestCase):
         )
         self.assertEqual(scope_marker, "missing")
 
+    def test_shared_test_script_falls_back_when_systemd_manager_is_unavailable(self) -> None:
+        script_path = ROOT / "bin" / "test"
+        with tempfile.TemporaryDirectory() as directory:
+            command_path = Path(directory)
+            (command_path / "dirname").symlink_to("/usr/bin/dirname")
+            (command_path / "systemd-run").symlink_to("/usr/bin/true")
+            systemctl_path = command_path / "systemctl"
+            systemctl_path.write_text("#!/usr/bin/env bash\nexit 1\n", encoding="utf-8")
+            os.chmod(systemctl_path, 0o755)
+            environment = dict(os.environ)
+            environment.pop("OPENHALO_TEST_IN_SCOPE", None)
+            environment.pop("OPENHALO_TEST_ISOLATION", None)
+            environment["PATH"] = str(command_path)
+            probe = (
+                "import os,pathlib,sys; "
+                "print(pathlib.Path(sys.executable).resolve()); "
+                "print(os.environ.get('OPENHALO_TEST_IN_SCOPE', 'missing'))"
+            )
+
+            result = subprocess.run(
+                ["/bin/bash", str(script_path), "-c", probe],
+                check=True,
+                capture_output=True,
+                text=True,
+                cwd=ROOT,
+                env=environment,
+            )
+
+        executable, scope_marker = result.stdout.splitlines()
+        self.assertEqual(
+            Path(executable),
+            (ROOT / ".venv" / "bin" / "python").resolve(),
+        )
+        self.assertEqual(scope_marker, "missing")
+
     def test_shared_test_script_enforces_live_systemd_limits(self) -> None:
         if shutil.which("systemd-run") is None:
             self.skipTest("systemd-run is unavailable")
-        if not Path("/run/systemd/system").exists():
-            self.skipTest("systemd is not running")
+        systemd_status = subprocess.run(
+            ["systemctl", "show", "--property=Version"],
+            capture_output=True,
+            text=True,
+        )
+        if systemd_status.returncode != 0:
+            self.skipTest("systemd manager is unavailable")
 
         probe = """
 import socket

@@ -41,6 +41,9 @@ class OpenSourceReleaseTests(unittest.TestCase):
             encoding="utf-8"
         )
 
+        self.assertIn("python -m venv .venv", workflow_text)
+        self.assertIn(".venv/bin/python -m pip install -e \".[dev]\"", workflow_text)
+        self.assertIn("PYTHONPATH=. .venv/bin/python -m coverage run", workflow_text)
         self.assertIn("coverage run", workflow_text)
         self.assertIn("-m pytest -q tests", workflow_text)
         self.assertIn("bash ./gradlew testDebugUnitTest", workflow_text)
