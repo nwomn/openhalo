@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import io
 import json
+import sys
 from contextlib import redirect_stdout
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+import pytest
 
 from openhalo.cli import main
 from openhalo.home import PersonalHome
@@ -93,3 +96,31 @@ def test_lifecycle_and_doctor_commands_report_safe_owner_facing_state() -> None:
     doctor = json.loads(doctor_output)
     assert doctor["state"] == "ready"
     assert "shared_token" not in doctor_output
+
+
+def test_version_flag_reports_the_installed_release_identity(monkeypatch: pytest.MonkeyPatch) -> None:
+    release_commit = "a" * 40
+    executable = Path(
+        "/home/alice/.local/share/openhalo/releases"
+    ) / release_commit / "venv/bin/python"
+    monkeypatch.setattr(sys, "executable", str(executable))
+    output = io.StringIO()
+
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+        with redirect_stdout(output), pytest.raises(SystemExit) as exit_code:
+            main(["--version"], home=home, supervisor_factory=FakeSupervisor)
+
+    assert exit_code.value.code == 0
+    assert output.getvalue() == "openhalo 0.1.0 (aaaaaaa)\n"
+
+
+def test_version_flag_prints_a_development_identity_outside_a_release_layout() -> None:
+    output = io.StringIO()
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+        with redirect_stdout(output), pytest.raises(SystemExit) as exit_code:
+            main(["--version"], home=home, supervisor_factory=FakeSupervisor)
+
+    assert exit_code.value.code == 0
+    assert output.getvalue() == "openhalo 0.1.0 (dev)\n"

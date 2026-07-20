@@ -58,12 +58,17 @@ The default Runtime bind is `127.0.0.1:8765`. Change it at setup time with
 ## Run And Inspect
 
 ```bash
+openhalo --version
 openhalo start
 openhalo status
 openhalo logs --lines 100
 openhalo doctor
 openhalo stop
 ```
+
+`openhalo --version` and `openhalo-edge --version` report the package version
+and active immutable release's short commit ID. A repository development run
+reports `dev` instead of claiming an installed release.
 
 `openhalo start` launches the Runtime and its managed Host Edge as an internal
 per-user background process. Repeating `start` does not create a second
