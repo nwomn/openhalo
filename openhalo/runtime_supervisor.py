@@ -5,12 +5,14 @@ from __future__ import annotations
 import errno
 import os
 import signal
-import socket
 import subprocess
 import sys
 import time
 from collections.abc import Callable
 from pathlib import Path
+
+from websockets.exceptions import WebSocketException
+from websockets.sync.client import connect
 
 from openhalo.home import PersonalHome
 
@@ -189,7 +191,11 @@ def _is_openhalo_runtime_command(command: str) -> bool:
 def _gateway_is_ready(host: str, port: int) -> bool:
     probe_host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
     try:
-        with socket.create_connection((probe_host, port), timeout=0.1):
+        with connect(
+            f"ws://{probe_host}:{port}",
+            open_timeout=0.1,
+            close_timeout=0.1,
+        ):
             return True
-    except OSError:
+    except (OSError, TimeoutError, WebSocketException):
         return False

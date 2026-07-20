@@ -5,10 +5,13 @@ import signal
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import pytest
 
 from openhalo.home import PersonalHome
+from openhalo.runtime_supervisor import _gateway_is_ready
 from openhalo.runtime_supervisor import RuntimeSupervisor
 
 
@@ -114,3 +117,16 @@ def test_start_rejects_a_runtime_that_exits_before_gateway_is_ready() -> None:
         assert not home.runtime_pid_path.exists()
     finally:
         directory.cleanup()
+
+
+def test_gateway_readiness_uses_a_websocket_handshake_not_a_raw_tcp_probe() -> None:
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    with patch("openhalo.runtime_supervisor.connect", return_value=connection) as connect:
+        assert _gateway_is_ready("127.0.0.1", 8765)
+
+    connect.assert_called_once_with(
+        "ws://127.0.0.1:8765",
+        open_timeout=0.1,
+        close_timeout=0.1,
+    )
