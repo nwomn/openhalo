@@ -5,8 +5,10 @@ from __future__ import annotations
 import errno
 import os
 import signal
+import socket
 import subprocess
 import sys
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -24,12 +26,18 @@ class RuntimeSupervisor:
         is_process_alive: Callable[[int], bool] | None = None,
         process_command: Callable[[int], str] | None = None,
         signal_sender: Callable[[int, int], None] = os.kill,
+        gateway_is_ready: Callable[[str, int], bool] | None = None,
+        startup_timeout_s: float = 5.0,
+        sleeper: Callable[[float], None] = time.sleep,
     ) -> None:
         self.home = home
         self._launcher = launcher
         self._is_process_alive = is_process_alive or _is_process_alive
         self._process_command = process_command or _read_process_command
         self._signal_sender = signal_sender
+        self._gateway_is_ready = gateway_is_ready or _gateway_is_ready
+        self._startup_timeout_s = startup_timeout_s
+        self._sleeper = sleeper
 
     def build_command(self) -> list[str]:
         runtime = self._runtime_configuration()
@@ -77,6 +85,7 @@ class RuntimeSupervisor:
             raise RuntimeError("Runtime launcher did not return a process id")
         self.home.runtime_pid_path.write_text(f"{pid}\n", encoding="utf-8")
         os.chmod(self.home.runtime_pid_path, 0o600)
+        self._wait_for_gateway(pid, runtime["host"], runtime["port"])
         return {"state": "running", "pid": pid}
 
     def status(self) -> dict:
@@ -135,6 +144,24 @@ class RuntimeSupervisor:
     def _remove_pid_file(self) -> None:
         self.home.runtime_pid_path.unlink(missing_ok=True)
 
+    def _wait_for_gateway(self, pid: int, host: str, port: int) -> None:
+        deadline = time.monotonic() + self._startup_timeout_s
+        while True:
+            if self._gateway_is_ready(host, port):
+                return
+            if not self._is_process_alive(pid):
+                self._remove_pid_file()
+                raise RuntimeError(
+                    "OpenHalo Runtime exited before becoming ready; run openhalo logs"
+                )
+            if time.monotonic() >= deadline:
+                self._signal_sender(pid, signal.SIGTERM)
+                self._remove_pid_file()
+                raise RuntimeError(
+                    "OpenHalo Runtime did not become ready; run openhalo logs"
+                )
+            self._sleeper(0.05)
+
 
 def _is_process_alive(pid: int) -> bool:
     try:
@@ -157,3 +184,12 @@ def _read_process_command(pid: int) -> str:
 
 def _is_openhalo_runtime_command(command: str) -> bool:
     return "personal_runtime.main" in command
+
+
+def _gateway_is_ready(host: str, port: int) -> bool:
+    probe_host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
+    try:
+        with socket.create_connection((probe_host, port), timeout=0.1):
+            return True
+    except OSError:
+        return False
