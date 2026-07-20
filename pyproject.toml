@@ -8,6 +8,10 @@ dependencies = [
     "hermes-agent @ git+https://github.com/NousResearch/hermes-agent.git@e12626b34fb1024bf00f40f4759647f9cbd3f198",
 ]
 
+[project.scripts]
+openhalo = "openhalo.cli:main"
+openhalo-edge = "openhalo.edge_cli:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=9,<10",
@@ -19,4 +23,4 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["agent_guard", "device_edge", "edge_api", "openhalo_common", "personal_runtime"]
+include = ["agent_guard", "device_edge", "edge_api", "openhalo", "openhalo_common", "personal_runtime"]

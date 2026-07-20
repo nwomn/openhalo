@@ -55,27 +55,21 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("config/runtime-config.toml", contents)
         self.assertIn("personal_runtime.main", contents)
 
-    def test_runtime_deploy_document_and_systemd_examples_exist(self) -> None:
+    def test_runtime_deploy_document_describes_the_personal_installation(self) -> None:
         document_path = ROOT / "docs" / "runtime-deploy.md"
-        service_path = ROOT / "deploy" / "systemd" / "openhalo-runtime.service.example"
-        env_path = ROOT / "deploy" / "systemd" / "openhalo-runtime.env.example"
 
         self.assertTrue(document_path.exists())
-        self.assertTrue(service_path.exists())
-        self.assertTrue(env_path.exists())
-
         document = document_path.read_text(encoding="utf-8")
-        service = service_path.read_text(encoding="utf-8")
-        env = env_path.read_text(encoding="utf-8")
 
         self.assertIn("18765", document)
         self.assertIn("8765", document)
-        self.assertIn("OPENHALO_EDGE_TOKEN", document)
         self.assertIn("Personal Runtime", document)
-        self.assertIn("--token-env", service)
-        self.assertIn("8765", service)
-        self.assertIn("OPENHALO_EDGE_TOKEN", env)
-        self.assertIn("/var/lib/openhalo", env)
+        self.assertIn("scripts/install.sh", document)
+        self.assertIn("openhalo setup", document)
+        self.assertIn("openhalo pair", document)
+        self.assertIn("openhalo-edge setup", document)
+        self.assertIn("~/.openhalo", document)
+        self.assertNotIn("sudo systemctl", document)
 
     def test_dev_env_document_describes_branch_first_default_and_optional_worktree_mode(self) -> None:
         document_path = ROOT / "docs" / "dev-env.md"

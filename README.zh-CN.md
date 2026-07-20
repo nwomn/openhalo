@@ -56,14 +56,14 @@ OpenHalo 正在面向几个清晰的部署场景建设：
 
 | 部署要求 | 当前状态 | 还缺什么 |
 | --- | --- | --- |
-| Personal Runtime | 已有实现基线，包含 Gateway、state/context、proposal formation、Presence Router、action dispatch、grounding 和 diagnostics | 生产服务硬化和打包安装流程 |
-| Server/host edge | 已实现 host-class edge，用于 runtime/host-device 验证和本地动作 | 一键服务器安装与服务监督 polish |
+| Personal Runtime | 已有 Gateway、state/context、proposal formation、Presence Router、action dispatch、grounding、diagnostics，以及私有 `~/.openhalo` 命令/配置基础 | Release manifest 签名、自动分阶段更新和更广的生产硬化 |
+| Server/host edge | 已实现 host-class edge，用于 runtime/host-device 验证和本地动作；个人 `openhalo` 命令会随 Runtime 管理它 | 公网端点硬化和打包部署验收 |
 | Computer edge | 已完成常驻 terminal edge，支持前台用户输入和 runtime-delivered messages | 用户侧 desktop packaging 仍是后续工作 |
 | Android phone edge | 已完成第一版产品 UI：`Connect`、`Global Chat`、`Settings`、隐藏诊断入口、preview APK，以及已验收的 M17.5 屏幕上下文观察基线 | 正式签名、分发体验、手机观察保活和敏感屏幕采集治理仍是后续工作 |
 | 跨边缘交互 | 已实现公开 Edge API 的注册、观察、事件、动作、动作结果，以及经过 Presence 治理的路由 | 更广的真实设备场景和更丰富的 capability 覆盖 |
 | 环境/家庭 edge 生态 | 长期方向：智能家居、传感器和小型边缘 AI 节点成为额外的 `Device Edge` 参与者 | 桥接集成、设备画像、安全策略和低存在感环境交互设计 |
 | Mobile observation depth | `M17.5` 已验收：Android 可以上传被动的 `mobile.screen_context` / `mobile.screen_capture_health` evidence，并可通过 runtime context viewer 验证 | `M17.7` 负责观察保活/唤醒恢复；`M17.8` 负责 allowlist-first 的敏感屏幕采集治理 |
-| Product packaging | 后续 `M21` | 可安装三端交付和 release-grade packaging |
+| Product packaging | M22 个人安装基础：固定提交安装器、全局 `openhalo`/`openhalo-edge`、私有配置、Runtime 生命周期和 Terminal 配对 | 已签名 Release 发布、自动分阶段更新/回退、Windows 包和完整三端验收 |
 
 完整路线图和里程碑状态见 [Project.md](Project.md)。
 
@@ -116,14 +116,14 @@ bin/run-runtime-dev
   --device-id terminal-edge-1
 ```
 
-开发 helper 使用 `18765` 端口，让长期运行的服务器 runtime 可以保留
-`8765`。服务器常驻启动方式见 [docs/runtime-deploy.md](docs/runtime-deploy.md)。
+开发 helper 使用 `18765` 端口，让已安装的个人 Runtime 使用 `8765`。
+安装、配对和生命周期命令见 [docs/runtime-deploy.md](docs/runtime-deploy.md)。
 
 ## 重要文档
 
 - [Project.md](Project.md)：项目基线、路线图、架构方向、当前状态
 - [docs/dev-env.md](docs/dev-env.md)：本地开发与验证流程
-- [docs/runtime-deploy.md](docs/runtime-deploy.md)：开发与服务器常驻 runtime 启动方式
+- [docs/runtime-deploy.md](docs/runtime-deploy.md)：个人 Runtime 安装、配对和生命周期命令
 - [docs/android-edge-install.md](docs/android-edge-install.md)：Android 手机 Edge 设置和安装说明
 - [docs/m17-android-edge-acceptance.md](docs/m17-android-edge-acceptance.md)：Android Edge 验证流程
 - [docs/design/mobile-edge-ui/mobile-edge-ui-spec.md](docs/design/mobile-edge-ui/mobile-edge-ui-spec.md)：手机 Edge 产品 UI 设计基线

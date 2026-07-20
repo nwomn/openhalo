@@ -159,10 +159,10 @@ Authentication failure response:
 }
 ```
 
-For temporary local development and managed-edge compatibility, the shared token
-is loaded by the server from `OPENHALO_EDGE_TOKEN` in
-`/etc/openhalo/runtime.env`. New public edges must use the device-pairing
-contract above rather than assuming that token works.
+For temporary local development and managed-edge compatibility, the shared
+Runtime token remains private in the owner's `~/.openhalo/config.json` and is
+passed only to the locally managed Runtime process. New edges must use the
+device-pairing contract above rather than assuming that token works.
 
 ## Capability Announcement
 

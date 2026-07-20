@@ -41,6 +41,7 @@ def build_connect_frame(
     token: str,
     role: str | None = None,
     session_id: str | None = None,
+    auth_kind: str | None = None,
 ) -> dict:
     device = {
         "device_id": device_id,
@@ -48,10 +49,13 @@ def build_connect_frame(
     }
     if role is not None:
         device["role"] = role
+    auth = {"token": token}
+    if auth_kind is not None:
+        auth["kind"] = auth_kind
     frame = {
         "type": "connect",
         "device": device,
-        "auth": {"token": token},
+        "auth": auth,
     }
     if session_id is not None:
         frame["session_id"] = session_id

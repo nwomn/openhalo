@@ -68,14 +68,14 @@ fully packaged three-end product.
 
 | Deployment requirement | Current status | Remaining gap |
 | --- | --- | --- |
-| Personal Runtime | Implemented baseline with Gateway, state/context, proposal formation, Presence Router, action dispatch, grounding, and diagnostics | Production service hardening and packaged install flow |
-| Server/host edge | Implemented host-class edge for runtime/host-device validation and local actions | One-command server install and supervision polish |
+| Personal Runtime | Implemented baseline with Gateway, state/context, proposal formation, Presence Router, action dispatch, grounding, diagnostics, and a private `~/.openhalo` command/config foundation | Release-manifest signing, automatic staged update, and broader production hardening |
+| Server/host edge | Implemented host-class edge for runtime/host-device validation and local actions; the personal `openhalo` command supervises it with Runtime | Public-endpoint hardening and packaged deployment acceptance |
 | Computer edge | Completed resident terminal edge with foreground user input and runtime-delivered messages | User-facing desktop packaging remains later work |
 | Android phone edge | Completed first product UI slice: `Connect`, `Global Chat`, `Settings`, hidden diagnostics, preview APK, and accepted M17.5 screen-context observation baseline | Formal signing, distribution polish, mobile observation liveness, and sensitive-screen capture governance remain later work |
 | Cross-edge interaction | Public Edge API registration, observations, events, actions, action results, and presence-governed routing are implemented | Broader real-device scenarios and richer capability coverage |
 | Ambient/home edge ecosystem | Long-term direction: smart-home devices, sensors, and small edge-AI nodes become additional `Device Edge` participants | Bridge integrations, device profiles, safety policy, and low-presence ambient interaction design |
 | Mobile observation depth | M17.5 accepted: Android can upload passive `mobile.screen_context` / `mobile.screen_capture_health` evidence and operators can verify it through the runtime context viewer | M17.7 owns liveness/wake recovery; M17.8 owns allowlist-first sensitive-screen capture governance |
-| Product packaging | Planned later milestone (`M21`) | Installable three-end delivery and release-grade packaging |
+| Product packaging | M22 personal-installation foundation: fixed-commit installer, global `openhalo`/`openhalo-edge` commands, private configuration, Runtime lifecycle, and Terminal pairing | Signed Release publishing, automatic staged update/rollback, Windows package, and full three-end acceptance |
 
 The project roadmap and milestone status live in [Project.md](Project.md).
 
@@ -124,15 +124,15 @@ edge in a second terminal:
   --device-id terminal-edge-1
 ```
 
-The development helper uses port `18765` so a long-running server runtime can
-keep port `8765`. See [docs/runtime-deploy.md](docs/runtime-deploy.md) for the
-systemd-backed server startup path.
+The development helper uses port `18765` so an installed personal Runtime can
+use port `8765`. See [docs/runtime-deploy.md](docs/runtime-deploy.md) for the
+owner-facing install, setup, pairing, and lifecycle commands.
 
 ## Important Docs
 
 - [Project.md](Project.md): project baseline, milestones, architecture direction, current status
 - [docs/dev-env.md](docs/dev-env.md): local development and verification workflow
-- [docs/runtime-deploy.md](docs/runtime-deploy.md): development versus server runtime startup
+- [docs/runtime-deploy.md](docs/runtime-deploy.md): personal Runtime install, pairing, and lifecycle commands
 - [docs/android-edge-install.md](docs/android-edge-install.md): Android phone Edge setup and install notes
 - [docs/m17-android-edge-acceptance.md](docs/m17-android-edge-acceptance.md): Android Edge verification ladder
 - [docs/design/mobile-edge-ui/mobile-edge-ui-spec.md](docs/design/mobile-edge-ui/mobile-edge-ui-spec.md): phone Edge product UI design baseline

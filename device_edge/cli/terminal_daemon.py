@@ -48,6 +48,7 @@ class TerminalEdgeDaemon:
         self,
         device_id: str,
         token: str,
+        auth_kind: str | None = None,
         output_stream=None,
         input_stream=None,
         input_state_stream=None,
@@ -86,6 +87,7 @@ class TerminalEdgeDaemon:
             device_id=device_id,
             device_type="desktop-cli",
             token=token,
+            auth_kind=auth_kind,
             capabilities=[
                 "text.input",
                 "notification.show",
@@ -778,6 +780,12 @@ def build_terminal_daemon_parser() -> argparse.ArgumentParser:
     parser.add_argument("--url", required=True, help="Runtime WebSocket URL.")
     parser.add_argument("--token", default="dev-token", help="Shared development token.")
     parser.add_argument(
+        "--auth-kind",
+        choices=["legacy", "device"],
+        default="legacy",
+        help="Gateway authentication kind for the supplied token.",
+    )
+    parser.add_argument(
         "--device-id",
         default="terminal-edge-1",
         help="Terminal edge device id.",
@@ -828,9 +836,9 @@ def build_terminal_daemon_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = build_terminal_daemon_parser()
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     scripted_inputs = []
     scripted_text = os.environ.get("TERMINAL_EDGE_SCRIPTED_TEXT")
     scripted_observed_at = os.environ.get("TERMINAL_EDGE_SCRIPTED_OBSERVED_AT")
@@ -853,6 +861,7 @@ def main() -> None:
         run_textual_terminal_daemon(
             url=args.url,
             token=args.token,
+            auth_kind=None if args.auth_kind == "legacy" else args.auth_kind,
             device_id=args.device_id,
             startup_observed_at=args.startup_observed_at,
             idle_timeout_s=args.idle_timeout,
@@ -870,6 +879,7 @@ def main() -> None:
     daemon = TerminalEdgeDaemon(
         device_id=args.device_id,
         token=args.token,
+        auth_kind=None if args.auth_kind == "legacy" else args.auth_kind,
         stdin_observed_at=args.stdin_observed_at,
         diagnostic_recorder=JsonlDiagnosticRecorder(args.diagnostic_log_path)
         if args.diagnostic_log_path is not None

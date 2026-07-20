@@ -14,11 +14,13 @@ class EdgeSessionLink:
         device_id: str,
         device_type: str,
         token: str,
+        auth_kind: str | None = None,
         diagnostic_recorder=None,
     ) -> None:
         self.device_id = device_id
         self.device_type = device_type
         self.token = token
+        self.auth_kind = auth_kind
         self.session_id = build_session_id(device_id)
         self.device = {
             "device_id": device_id,
@@ -37,6 +39,7 @@ class EdgeSessionLink:
             self.device_type,
             self.token,
             session_id=self.session_id,
+            auth_kind=self.auth_kind,
         )
 
     def build_capability_announce_frame(self, capabilities: list[str]) -> dict:

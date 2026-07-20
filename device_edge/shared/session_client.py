@@ -20,6 +20,7 @@ class SessionClient:
         device_id: str,
         device_type: str,
         token: str,
+        auth_kind: str | None = None,
         trace_recorder=None,
         diagnostic_recorder=None,
         capabilities: list[str] | None = None,
@@ -37,6 +38,7 @@ class SessionClient:
             device_id=device_id,
             device_type=device_type,
             token=token,
+            auth_kind=auth_kind,
             diagnostic_recorder=diagnostic_recorder,
         )
         self.capability_runtime = CapabilityRuntime(

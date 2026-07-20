@@ -309,8 +309,8 @@ can be prioritized.
 For real-use terminal acceptance with the current runtime-config baseline, use
 two long-running processes. The Runtime manages its colocated Host Edge by
 default after the Gateway is listening, so the development runtime should use
-port `18765` while the long-running server runtime keeps port `8765`; see
-`docs/runtime-deploy.md` for the systemd-backed server path.
+port `18765` while the installed personal Runtime uses `8765`; see
+`docs/runtime-deploy.md` for the owner-facing installation path.
 
 ```bash
 OPENHALO_DEV_RUNTIME_HOST=127.0.0.1 bin/run-runtime-dev

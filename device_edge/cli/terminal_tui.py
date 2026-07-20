@@ -226,6 +226,7 @@ def create_textual_terminal_app(
     *,
     url: str,
     token: str,
+    auth_kind: str | None = None,
     device_id: str,
     startup_observed_at: str | None,
     idle_timeout_s: float,
@@ -245,6 +246,7 @@ def create_textual_terminal_app(
     daemon = TerminalEdgeDaemon(
         device_id=device_id,
         token=token,
+        auth_kind=auth_kind,
         output_stream=QueueLineOutput(transcript_queue),
         input_stream=QueueLineInput(input_queue),
         input_state_stream=input_state_queue,
@@ -280,6 +282,7 @@ def run_textual_terminal_daemon(
     *,
     url: str,
     token: str,
+    auth_kind: str | None = None,
     device_id: str,
     startup_observed_at: str | None,
     idle_timeout_s: float,
@@ -294,6 +297,7 @@ def run_textual_terminal_daemon(
     app = create_textual_terminal_app(
         url=url,
         token=token,
+        auth_kind=auth_kind,
         device_id=device_id,
         startup_observed_at=startup_observed_at,
         idle_timeout_s=idle_timeout_s,
