@@ -35,6 +35,9 @@ Target coverage:
   interactive elements, and the default `raw_screenshot_uploaded=false`
   privacy contract.
 - Reconnect/backoff policy and connection health state transitions.
+- Device-pairing `connect` frames, `connect_ok` credential parsing, mandatory
+  pairing for every Android Runtime session, and the stable-runtime `wss://`
+  requirement.
 - Runtime config persistence boundaries.
 - Bounded notification/event history formatting.
 - Diagnostic state to UI-model mapping once that mapping is factored out.
@@ -81,7 +84,8 @@ Target coverage:
 - Start/stop control state.
 - Phone-originated text command entry and send button behavior.
 - Notification history and detail navigation.
-- Diagnostics navigation and stable display of recent Edge API state.
+- Diagnostics navigation, return to the previously selected main view, and
+  stable display of recent Edge API state.
 
 Current emulator command:
 
@@ -113,6 +117,8 @@ Current emulator coverage:
   observation/recent action state is visible in the Diagnostics view.
 - Config persistence: runtime mode, runtime URL, device ID, and token configured
   state round-trip through Android shared preferences.
+- Pairing UI: the device-pairing control and its one-time-code editor expose
+  stable test tags for Compose coverage.
 - History retention: mobile event history remains newest-first and bounded.
 - Service intent contracts: start, stop, send-observations, and submit-text
   intents preserve the expected action names and payload extras.

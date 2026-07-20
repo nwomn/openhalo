@@ -34,17 +34,17 @@ android {
         buildConfigField(
             "String",
             "OPENHALO_DEV_RUNTIME_URL",
-            "\"${localProperty("openhalo.devRuntimeUrl", "ws://8.153.37.167:18765")}\""
+            "\"${localProperty("openhalo.devRuntimeUrl", "")}\""
         )
         buildConfigField(
             "String",
             "OPENHALO_DEV_EDGE_TOKEN",
-            "\"${localProperty("openhalo.devEdgeToken", "dev-token")}\""
+            "\"${localProperty("openhalo.devEdgeToken", "")}\""
         )
         buildConfigField(
             "String",
             "OPENHALO_STABLE_RUNTIME_URL",
-            "\"${localProperty("openhalo.stableRuntimeUrl", "ws://8.153.37.167/openhalo/edge")}\""
+            "\"${localProperty("openhalo.stableRuntimeUrl", "")}\""
         )
         buildConfigField(
             "String",

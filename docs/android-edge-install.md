@@ -93,6 +93,19 @@ connection exchanges that code for a device-specific credential, which the Edge
 stores locally with the Runtime URL. Do not configure a public Android Edge
 with `OPENHALO_EDGE_TOKEN` or a cleartext `ws://` endpoint.
 
+Android uses the pairing contract on both development and public Runtime paths;
+it never falls back to the Runtime shared token. Development pairing may use a
+trusted local `ws://` Runtime, while public pairing requires `wss://`.
+
+In the app, set the Runtime URL under Settings, select `Device pairing`, and
+enter the one-time code. The code is used only for that connection attempt and
+is never stored. After `connect_ok`, the app synchronously stores the returned
+device credential in private app storage, excludes that storage from Android
+backup and device-transfer, and never displays either secret in diagnostics.
+Changing the Runtime URL or device ID, using `Reset connection`, or receiving a
+revoked device-credential rejection clears the stored credential and requires a
+new pairing code.
+
 The Android edge must follow this frame order:
 
 ```text
@@ -134,11 +147,12 @@ for `connect_ok`.
 - The app shows `Service: foreground` while the Android edge session is active.
 - The runtime mode switch can choose development runtime defaults or persistent
   runtime defaults.
-- Local persistent runtime URL/token values come from ignored Android
-  `local.properties`, not tracked source.
+- No Runtime IP or URL is bundled as an Android default. A developer may set a
+  local Runtime URL in ignored Android `local.properties` or in the app's
+  Settings; Android authentication always comes from device pairing.
 - Persistent Runtime configuration uses a `wss://` endpoint and a locally
-  stored device-specific credential. Development helpers may still use the
-  temporary legacy `dev-token` compatibility path on a local Runtime.
+  stored device-specific credential. A local test Runtime may use `ws://`, but
+  it must issue the same one-time pairing code and device credential.
 - Runtime-delivered `notification.show` actions use the urgent alert presenter
   so messages can visibly pop up instead of requiring notification-shade search.
 

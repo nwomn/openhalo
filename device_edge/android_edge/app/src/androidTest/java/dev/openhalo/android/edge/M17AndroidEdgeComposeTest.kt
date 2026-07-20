@@ -97,6 +97,23 @@ class M17AndroidEdgeComposeTest {
     }
 
     @Test
+    fun developerDiagnosticsReturnsToTheMainAppThroughItsBackButton() {
+        composeRule.onNodeWithTag(AndroidEdgeTestTags.SETTINGS_TAB).performClick()
+        repeat(7) {
+            composeRule.onNodeWithTag(AndroidEdgeTestTags.SETTINGS_BUILD_ROW)
+                .performScrollTo()
+                .performClick()
+        }
+        composeRule.onNodeWithTag(AndroidEdgeTestTags.DEVELOPER_DIAGNOSTICS_ROW).performClick()
+        composeRule.onNodeWithTag(AndroidEdgeTestTags.DEVELOPER_DIAGNOSTICS_VIEW).assertIsDisplayed()
+
+        composeRule.onNodeWithTag(AndroidEdgeTestTags.DEVELOPER_DIAGNOSTICS_BACK).performClick()
+
+        composeRule.onNodeWithTag(AndroidEdgeTestTags.SETTINGS_TAB).assertIsDisplayed()
+        composeRule.onNodeWithTag(AndroidEdgeTestTags.SETTINGS_RUNTIME_URL).assertIsDisplayed()
+    }
+
+    @Test
     fun settingsRuntimeUrlAndDeviceNameEditThroughVisibleRows() {
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
 
@@ -195,7 +212,6 @@ class M17AndroidEdgeComposeTest {
         )
 
         composeRule.onNodeWithTag(AndroidEdgeTestTags.GLOBAL_CHAT_TAB).performClick()
-
         assertTrue(
             composeRule.onAllNodesWithText("notification.show -> ok", substring = true)
                 .fetchSemanticsNodes()

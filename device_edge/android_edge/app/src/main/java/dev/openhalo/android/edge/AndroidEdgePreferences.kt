@@ -9,7 +9,8 @@ data class AndroidEdgeConfig(
     val runtimeMode: String,
     val runtimeUrl: String,
     val deviceId: String,
-    val edgeToken: String
+    val edgeToken: String,
+    val deviceCredential: String = ""
 )
 
 data class AndroidEdgeHistoryItem(
@@ -25,6 +26,7 @@ object AndroidEdgePreferences {
     private const val KEY_RUNTIME_URL = "runtime_url"
     private const val KEY_DEVICE_ID = "device_id"
     private const val KEY_EDGE_TOKEN = "edge_token"
+    private const val KEY_DEVICE_CREDENTIAL = "device_credential"
     private const val KEY_EVENT_HISTORY = "event_history"
     private const val KEY_CONVERSATION_HISTORY = "conversation_history"
     private const val KEY_BACKGROUND_KEEPALIVE = "background_keepalive"
@@ -45,7 +47,8 @@ object AndroidEdgePreferences {
                 ?: runtimeUrlForMode(runtimeMode),
             deviceId = prefs.getString(KEY_DEVICE_ID, newDeviceId()) ?: newDeviceId(),
             edgeToken = prefs.getString(KEY_EDGE_TOKEN, edgeTokenForMode(runtimeMode))
-                ?: edgeTokenForMode(runtimeMode)
+                ?: edgeTokenForMode(runtimeMode),
+            deviceCredential = prefs.getString(KEY_DEVICE_CREDENTIAL, "").orEmpty()
         )
     }
 
@@ -56,7 +59,30 @@ object AndroidEdgePreferences {
             .putString(KEY_RUNTIME_URL, config.runtimeUrl)
             .putString(KEY_DEVICE_ID, config.deviceId)
             .putString(KEY_EDGE_TOKEN, config.edgeToken)
+            .putString(KEY_DEVICE_CREDENTIAL, config.deviceCredential)
             .apply()
+    }
+
+    fun savePairedDeviceCredential(
+        context: Context,
+        config: AndroidEdgeConfig,
+        deviceCredential: String
+    ): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_RUNTIME_MODE, config.runtimeMode)
+            .putString(KEY_RUNTIME_URL, config.runtimeUrl)
+            .putString(KEY_DEVICE_ID, config.deviceId)
+            .putString(KEY_EDGE_TOKEN, config.edgeToken)
+            .putString(KEY_DEVICE_CREDENTIAL, deviceCredential)
+            .commit()
+    }
+
+    fun clearDeviceCredential(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .remove(KEY_DEVICE_CREDENTIAL)
+            .commit()
     }
 
     fun backgroundKeepAliveEnabled(context: Context): Boolean {
@@ -128,7 +154,7 @@ object AndroidEdgePreferences {
             maxItems = MAX_HISTORY_ITEMS
         )
         val edit = prefs.edit().putString(KEY_EVENT_HISTORY, next.toString())
-        if (isConversationHistoryItem(title, kind)) {
+        if (isChatTranscriptItem(title, kind)) {
             val nextConversation = appendBounded(
                 existing = runCatching {
                     JSONArray(prefs.getString(KEY_CONVERSATION_HISTORY, "[]"))
@@ -163,10 +189,12 @@ object AndroidEdgePreferences {
             JSONArray(prefs.getString(KEY_CONVERSATION_HISTORY, "[]"))
         }.getOrDefault(JSONArray())
         if (conversation.length() > 0) {
-            return parseHistoryItems(conversation)
+            return parseHistoryItems(conversation).filter {
+                isChatTranscriptItem(it.title, it.kind)
+            }
         }
         return historyItems(context).filter {
-            isConversationHistoryItem(it.title, it.kind)
+            isChatTranscriptItem(it.title, it.kind)
         }
     }
 
@@ -211,8 +239,8 @@ object AndroidEdgePreferences {
         return next
     }
 
-    private fun isConversationHistoryItem(title: String, kind: String): Boolean =
-        title.contains("mobile.input") ||
+    internal fun isChatTranscriptItem(title: String, kind: String): Boolean =
+        title == "Submitted mobile.input" ||
             kind == "notification" ||
             kind == "reply"
 

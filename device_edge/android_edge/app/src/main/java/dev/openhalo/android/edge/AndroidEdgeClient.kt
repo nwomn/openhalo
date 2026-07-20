@@ -17,7 +17,7 @@ data class EdgeDiagnostics(
     val runtimeMode: String = RUNTIME_MODE_STABLE,
     val runtimeUrl: String = STABLE_RUNTIME_URL,
     val deviceId: String = "",
-    val edgeToken: String = STABLE_EDGE_TOKEN,
+    val authenticationState: String = "not_connected",
     val serviceState: String = "stopped",
     val connectionState: String = "disconnected",
     val lastSentFrame: String = "",
@@ -59,38 +59,90 @@ class AndroidEdgeClient(
     private var state = initialState
     private var pendingTextCommand: String? = null
     private var currentConfig: AndroidEdgeConfig? = null
+    private var pendingPairingCode: String? = null
     private var manualDisconnect = false
+    private var awaitingConnectOk = false
+    private var retryBlockedByConfiguration = false
 
     init {
         RuntimeNotificationPresenter.ensureNotificationChannel(context)
         publish(state)
     }
 
-    fun connect(runtimeMode: String, runtimeUrl: String, deviceId: String, edgeToken: String) {
+    fun connect(
+        runtimeMode: String,
+        runtimeUrl: String,
+        deviceId: String,
+        edgeToken: String,
+        pairingCode: String = ""
+    ) {
         reconnectHandler.removeCallbacksAndMessages(null)
         disconnect(scheduleReconnect = false)
         manualDisconnect = false
-        val modeToken = edgeTokenForMode(runtimeMode)
+        retryBlockedByConfiguration = false
+        awaitingConnectOk = false
+        val storedConfig = AndroidEdgePreferences.loadConfig(context)
+        val normalizedRuntimeUrl = runtimeUrl.trim().ifBlank { runtimeUrlForMode(runtimeMode) }
+        val normalizedDeviceId = deviceId.trim().ifBlank { state.deviceId }
+        val credentialMatchesConnection =
+            storedConfig.runtimeMode == runtimeMode &&
+                storedConfig.runtimeUrl == normalizedRuntimeUrl &&
+                storedConfig.deviceId == normalizedDeviceId
         val config = AndroidEdgeConfig(
             runtimeMode = runtimeMode,
-            runtimeUrl = runtimeUrl.trim().ifBlank { runtimeUrlForMode(runtimeMode) },
-            deviceId = deviceId.trim().ifBlank { state.deviceId },
-            edgeToken = edgeToken.trim().ifBlank {
-                if (runtimeMode == RUNTIME_MODE_STABLE) {
-                    modeToken
-                } else {
-                    modeToken.ifBlank { DEFAULT_EDGE_TOKEN }
-                }
+            runtimeUrl = normalizedRuntimeUrl,
+            deviceId = normalizedDeviceId,
+            edgeToken = edgeToken.trim(),
+            deviceCredential = if (credentialMatchesConnection) {
+                storedConfig.deviceCredential
+            } else {
+                ""
             }
         )
+        val requestedPairingCode = pairingCode.trim().takeIf { it.isNotEmpty() }
+        if (devicePairingRequired(config.deviceCredential, requestedPairingCode.orEmpty())) {
+            retryBlockedByConfiguration = true
+            publish(
+                state.copy(
+                    runtimeMode = config.runtimeMode,
+                    runtimeUrl = config.runtimeUrl,
+                    deviceId = config.deviceId,
+                    connectionState = "disconnected",
+                    authenticationState = "pairing_required",
+                    lastError = "Pair this device before connecting to the Runtime.",
+                    reconnectStatus = "pairing required"
+                )
+            )
+            return
+        }
+        if (requestedPairingCode != null && !pairingTransportAllowed(runtimeMode, config.runtimeUrl)) {
+            retryBlockedByConfiguration = true
+            publish(
+                state.copy(
+                    runtimeMode = config.runtimeMode,
+                    runtimeUrl = config.runtimeUrl,
+                    deviceId = config.deviceId,
+                    connectionState = "disconnected",
+                    authenticationState = "pairing_blocked",
+                    lastError = "Pairing requires a wss:// Runtime URL in stable mode.",
+                    reconnectStatus = "configuration required"
+                )
+            )
+            return
+        }
         currentConfig = config
+        pendingPairingCode = requestedPairingCode
         AndroidEdgePreferences.saveConfig(context, config)
         publish(
             state.copy(
                 runtimeMode = config.runtimeMode,
                 runtimeUrl = config.runtimeUrl,
                 deviceId = config.deviceId,
-                edgeToken = config.edgeToken,
+                authenticationState = if (requestedPairingCode != null) {
+                    AUTH_KIND_PAIRING
+                } else {
+                    "authenticating"
+                },
                 connectionState = "connecting",
                 lastError = "",
                 reconnectStatus = "connecting",
@@ -127,6 +179,7 @@ class AndroidEdgeClient(
     private fun disconnect(scheduleReconnect: Boolean) {
         webSocket?.close(1000, "Android edge disconnect")
         webSocket = null
+        awaitingConnectOk = false
         if (state.connectionState != "disconnected") {
             publish(
                 state.copy(
@@ -141,6 +194,9 @@ class AndroidEdgeClient(
     }
 
     fun sendCurrentObservations(appVisibility: String = "foreground"): Boolean {
+        if (state.connectionState != "connected" || webSocket == null) {
+            return false
+        }
         sendFrame(
             buildObservationPushFrame(
                 deviceId = state.deviceId,
@@ -166,7 +222,7 @@ class AndroidEdgeClient(
                     lastError = "",
                     recentEvents = AndroidEdgePreferences.appendHistory(
                         context,
-                        "Queued mobile.input",
+                        "Queued text command",
                         trimmed
                     )
                 )
@@ -220,27 +276,22 @@ class AndroidEdgeClient(
     private fun listener(): WebSocketListener =
         object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
+                val config = currentConfig
+                if (config == null) {
+                    failAuthentication(webSocket, "Connection configuration is unavailable.")
+                    return
+                }
+                awaitingConnectOk = true
                 publish(
                     state.copy(
-                        connectionState = "connected",
+                        connectionState = "connecting",
                         lastError = "",
-                        lastSuccessfulConnectionAt = nowIso(),
-                        reconnectAttempt = 0,
-                        reconnectStatus = "connected",
-                        nextReconnectAt = "",
-                        notificationHealth = notificationPermissionState(),
-                        fullScreenAlertHealth = AndroidEdgeHealth.fullScreenAlertState(context),
-                        batteryHealth = AndroidEdgeHealth.batteryOptimizationState(context)
+                        reconnectStatus = "authenticating",
+                        nextReconnectAt = ""
                     )
                 )
-                logEvent("connected", "runtime_url" to state.runtimeUrl, "device_id" to state.deviceId)
-                sendFrame(buildConnectFrame(state.deviceId, state.edgeToken))
-                sendFrame(buildCapabilityAnnounceFrame(state.deviceId))
-                sendCurrentObservations()
-                pendingTextCommand?.let { pending ->
-                    pendingTextCommand = null
-                    sendTextCommandNow(pending)
-                }
+                logEvent("socket_opened", "runtime_url" to state.runtimeUrl, "device_id" to state.deviceId)
+                sendFrame(buildConnectFrame(state.deviceId, connectionAuthentication(config)))
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -262,7 +313,13 @@ class AndroidEdgeClient(
                     "request_id" to frame.optString("request_id"),
                     "interaction_id" to frame.optString("interaction_id")
                 )
-                when (frame.optString("type")) {
+                val frameType = frame.optString("type")
+                if (awaitingConnectOk && frameType !in setOf("connect_ok", "error")) {
+                    logEvent("pre_auth_frame_rejected", "frame_type" to frameType)
+                    return
+                }
+                when (frameType) {
+                    "connect_ok" -> handleConnectOk(webSocket, frame)
                     "action_request" -> handleActionRequest(frame)
                     "interaction_progress" -> handleInteractionProgress(frame)
                     "interaction_update" -> handleInteractionUpdate(frame)
@@ -272,7 +329,15 @@ class AndroidEdgeClient(
                             "message" to frame.optString("message", "runtime error"),
                             "code" to frame.optString("code")
                         )
-                        publish(state.copy(lastError = frame.optString("message", "runtime error")))
+                        if (awaitingConnectOk) {
+                            failAuthentication(
+                                webSocket,
+                                frame.optString("message", "Runtime authentication failed."),
+                                frame.optString("code")
+                            )
+                        } else {
+                            publish(state.copy(lastError = frame.optString("message", "runtime error")))
+                        }
                     }
                 }
             }
@@ -293,7 +358,9 @@ class AndroidEdgeClient(
                         interactionProgress = clearInteractionProgress(state.interactionProgress)
                     )
                 )
-                scheduleReconnect(reason)
+                if (!retryBlockedByConfiguration) {
+                    scheduleReconnect(reason)
+                }
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
@@ -306,11 +373,99 @@ class AndroidEdgeClient(
                         interactionProgress = clearInteractionProgress(state.interactionProgress)
                     )
                 )
-                if (!manualDisconnect && code != 1000) {
+                if (!manualDisconnect && !retryBlockedByConfiguration && code != 1000) {
                     scheduleReconnect("closed $code")
                 }
             }
         }
+
+    private fun connectionAuthentication(config: AndroidEdgeConfig): EdgeAuthentication =
+        pendingPairingCode?.let { EdgeAuthentication(AUTH_KIND_PAIRING, it) }
+            ?: EdgeAuthentication(AUTH_KIND_DEVICE, config.deviceCredential)
+
+    private fun handleConnectOk(webSocket: WebSocket, frame: JSONObject) {
+        if (!awaitingConnectOk) {
+            logEvent("connect_ok_ignored", "reason" to "not_awaiting_authentication")
+            return
+        }
+        var authenticatedConfig = currentConfig
+        if (authenticatedConfig == null) {
+            failAuthentication(webSocket, "Connection configuration is unavailable.")
+            return
+        }
+        if (pendingPairingCode != null) {
+            val deviceCredential = parsePairedDeviceCredential(frame)
+            if (deviceCredential == null) {
+                failAuthentication(webSocket, "Runtime pairing response did not contain a device credential.")
+                return
+            }
+            if (!AndroidEdgePreferences.savePairedDeviceCredential(
+                    context,
+                    authenticatedConfig,
+                    deviceCredential
+                )
+            ) {
+                failAuthentication(webSocket, "Could not save the paired device credential.")
+                return
+            }
+            authenticatedConfig = authenticatedConfig.copy(deviceCredential = deviceCredential)
+            currentConfig = authenticatedConfig
+        }
+        pendingPairingCode = null
+        awaitingConnectOk = false
+        publish(
+            state.copy(
+                connectionState = "connected",
+                authenticationState = AUTH_KIND_DEVICE,
+                lastError = "",
+                lastSuccessfulConnectionAt = nowIso(),
+                reconnectAttempt = 0,
+                reconnectStatus = "connected",
+                nextReconnectAt = "",
+                notificationHealth = notificationPermissionState(),
+                fullScreenAlertHealth = AndroidEdgeHealth.fullScreenAlertState(context),
+                batteryHealth = AndroidEdgeHealth.batteryOptimizationState(context)
+            )
+        )
+        logEvent("connected", "runtime_url" to state.runtimeUrl, "device_id" to state.deviceId)
+        sendFrame(buildCapabilityAnnounceFrame(state.deviceId))
+        sendCurrentObservations()
+        pendingTextCommand?.let { pending ->
+            pendingTextCommand = null
+            sendTextCommandNow(pending)
+        }
+    }
+
+    private fun failAuthentication(webSocket: WebSocket, message: String, code: String = "") {
+        val config = currentConfig
+        val rejectedDeviceCredential =
+            code == "unauthorized" && config?.deviceCredential?.isNotBlank() == true
+        if (rejectedDeviceCredential) {
+            AndroidEdgePreferences.clearDeviceCredential(context)
+            currentConfig = config.copy(deviceCredential = "")
+        }
+        awaitingConnectOk = false
+        pendingPairingCode = null
+        retryBlockedByConfiguration = true
+        publish(
+            state.copy(
+                connectionState = "disconnected",
+                authenticationState = if (rejectedDeviceCredential) {
+                    "credential_rejected"
+                } else {
+                    "pairing_failed"
+                },
+                lastError = message,
+                reconnectStatus = "configuration required",
+                nextReconnectAt = "",
+                lastDisconnectedAt = nowIso(),
+                lastDisconnectReason = code.ifBlank { "authentication failed" },
+                interactionProgress = clearInteractionProgress(state.interactionProgress)
+            )
+        )
+        logEvent("authentication_failed", "code" to code)
+        webSocket.close(1008, "OpenHalo authentication failed")
+    }
 
     private fun handleInteractionProgress(frame: JSONObject) {
         val progress = parseInteractionProgressFrame(frame, state.deviceId)
@@ -508,7 +663,18 @@ class AndroidEdgeClient(
         if (RuntimeNotificationPresenter.canPostNotifications(context)) "granted" else "denied"
 
     private fun scheduleReconnect(reason: String) {
-        if (manualDisconnect) {
+        if (manualDisconnect || retryBlockedByConfiguration) {
+            return
+        }
+        if (pendingPairingCode != null) {
+            retryBlockedByConfiguration = true
+            publish(
+                state.copy(
+                    authenticationState = "pairing_interrupted",
+                    reconnectStatus = "enter a new pairing code",
+                    nextReconnectAt = ""
+                )
+            )
             return
         }
         val config = currentConfig ?: AndroidEdgePreferences.loadConfig(context)
