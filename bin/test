@@ -4,10 +4,20 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PYTHON_BIN="$ROOT_DIR/.venv/bin/python"
 
+systemd_run_is_usable() {
+    systemd-run \
+        --quiet \
+        --wait \
+        --pipe \
+        --collect \
+        --service-type=exec \
+        /usr/bin/true >/dev/null 2>&1
+}
+
 if [[ "${OPENHALO_TEST_IN_SCOPE:-}" == "1" ]] \
     || [[ "${OPENHALO_TEST_ISOLATION:-1}" == "0" ]] \
     || ! command -v systemd-run >/dev/null 2>&1 \
-    || ! systemctl show --property=Version >/dev/null 2>&1; then
+    || ! systemd_run_is_usable; then
     exec "$PYTHON_BIN" "$@"
 fi
 
