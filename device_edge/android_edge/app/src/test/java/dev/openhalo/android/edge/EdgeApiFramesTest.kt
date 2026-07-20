@@ -8,6 +8,77 @@ import org.junit.Test
 
 class EdgeApiFramesTest {
     @Test
+    fun pairingConnectFrameUsesTheOneTimePairingAuthenticationKind() {
+        val frame = buildConnectFrame(
+            "android-edge-test",
+            EdgeAuthentication(AUTH_KIND_PAIRING, "one-time-code")
+        )
+
+        val auth = frame.getJSONObject("auth")
+        assertEquals("connect", frame.getString("type"))
+        assertEquals(AUTH_KIND_PAIRING, auth.getString("kind"))
+        assertEquals("one-time-code", auth.getString("token"))
+    }
+
+    @Test
+    fun deviceConnectFrameUsesThePersistedDeviceAuthenticationKind() {
+        val frame = buildConnectFrame(
+            "android-edge-test",
+            EdgeAuthentication(AUTH_KIND_DEVICE, "device-credential")
+        )
+
+        val auth = frame.getJSONObject("auth")
+        assertEquals(AUTH_KIND_DEVICE, auth.getString("kind"))
+        assertEquals("device-credential", auth.getString("token"))
+    }
+
+    @Test
+    fun pairedDeviceCredentialParserAcceptsOnlyConnectOkDeviceCredentials() {
+        val paired = JSONObject()
+            .put("type", "connect_ok")
+            .put(
+                "auth",
+                JSONObject()
+                    .put("kind", AUTH_KIND_DEVICE)
+                    .put("token", "device-credential")
+            )
+
+        assertEquals("device-credential", parsePairedDeviceCredential(paired))
+        assertEquals(null, parsePairedDeviceCredential(JSONObject().put("type", "connect_ok")))
+        assertEquals(
+            null,
+            parsePairedDeviceCredential(
+                JSONObject()
+                    .put("type", "connect_ok")
+                    .put("auth", JSONObject().put("kind", AUTH_KIND_LEGACY).put("token", "shared"))
+            )
+        )
+    }
+
+    @Test
+    fun stablePairingRequiresWssWhileDevelopmentMayUseLocalWs() {
+        assertTrue(pairingTransportAllowed(RUNTIME_MODE_STABLE, "wss://runtime.example/openhalo/edge"))
+        assertFalse(pairingTransportAllowed(RUNTIME_MODE_STABLE, "ws://runtime.example/openhalo/edge"))
+        assertTrue(pairingTransportAllowed(RUNTIME_MODE_DEVELOPMENT, "ws://10.0.2.2:18765"))
+    }
+
+    @Test
+    fun androidSessionRequiresEitherPairingCodeOrDeviceCredentialInEveryMode() {
+        assertTrue(devicePairingRequired("", ""))
+        assertFalse(devicePairingRequired("device-credential", ""))
+        assertFalse(devicePairingRequired("", "one-time-code"))
+        assertTrue(devicePairingRequired("   ", "   "))
+    }
+
+    @Test
+    fun chatTranscriptKeepsDeliveredInputAndNotificationsButExcludesQueuedInput() {
+        assertTrue(AndroidEdgePreferences.isChatTranscriptItem("notification.show -> ok", "notification"))
+        assertTrue(AndroidEdgePreferences.isChatTranscriptItem("Submitted mobile.input", "event"))
+        assertFalse(AndroidEdgePreferences.isChatTranscriptItem("Queued mobile.input", "event"))
+        assertTrue(AndroidEdgePreferences.isChatTranscriptItem("Rendered runtime reply", "reply"))
+    }
+
+    @Test
     fun mobileInputFrameUsesPublicEdgeApiEventShape() {
         val frame = buildMobileInputEventFrame("android-edge-test", "hello runtime")
         val payload = frame.getJSONObject("payload")

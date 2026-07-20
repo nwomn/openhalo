@@ -14,7 +14,15 @@ val STABLE_EDGE_TOKEN: String = BuildConfig.OPENHALO_STABLE_EDGE_TOKEN
 val DEFAULT_RUNTIME_URL: String = DEVELOPMENT_RUNTIME_URL
 val DEFAULT_EDGE_TOKEN: String = DEVELOPMENT_EDGE_TOKEN
 const val DEFAULT_NOTIFICATION_TITLE = "OpenHalo"
+const val AUTH_KIND_LEGACY = "legacy"
+const val AUTH_KIND_PAIRING = "pairing"
+const val AUTH_KIND_DEVICE = "device"
 private const val SCREEN_CONTEXT_OBSERVATION_SCHEMA_TYPE = "object"
+
+data class EdgeAuthentication(
+    val kind: String,
+    val token: String
+)
 
 fun runtimeUrlForMode(runtimeMode: String): String =
     if (runtimeMode == RUNTIME_MODE_STABLE) STABLE_RUNTIME_URL else DEVELOPMENT_RUNTIME_URL
@@ -24,8 +32,12 @@ fun edgeTokenForMode(runtimeMode: String): String =
 
 fun nowIso(): String = Instant.now().toString()
 
-fun buildConnectFrame(deviceId: String, token: String): JSONObject =
-    JSONObject()
+fun buildConnectFrame(deviceId: String, authentication: EdgeAuthentication): JSONObject {
+    val auth = JSONObject().put("token", authentication.token)
+    if (authentication.kind != AUTH_KIND_LEGACY) {
+        auth.put("kind", authentication.kind)
+    }
+    return JSONObject()
         .put("api_version", EDGE_API_VERSION)
         .put("type", "connect")
         .put(
@@ -35,7 +47,28 @@ fun buildConnectFrame(deviceId: String, token: String): JSONObject =
                 .put("device_type", "android-phone")
                 .put("role", "interactive_surface")
         )
-        .put("auth", JSONObject().put("token", token))
+        .put("auth", auth)
+}
+
+fun buildConnectFrame(deviceId: String, token: String): JSONObject =
+    buildConnectFrame(deviceId, EdgeAuthentication(AUTH_KIND_LEGACY, token))
+
+fun parsePairedDeviceCredential(frame: JSONObject): String? {
+    if (frame.optString("type") != "connect_ok") {
+        return null
+    }
+    val auth = frame.optJSONObject("auth") ?: return null
+    if (auth.optString("kind") != AUTH_KIND_DEVICE) {
+        return null
+    }
+    return auth.optString("token").trim().takeIf { it.isNotEmpty() }
+}
+
+fun pairingTransportAllowed(runtimeMode: String, runtimeUrl: String): Boolean =
+    runtimeMode != RUNTIME_MODE_STABLE || runtimeUrl.trim().startsWith("wss://")
+
+fun devicePairingRequired(deviceCredential: String, pairingCode: String): Boolean =
+    deviceCredential.isBlank() && pairingCode.isBlank()
 
 fun buildCapabilityAnnounceFrame(deviceId: String): JSONObject =
     JSONObject()

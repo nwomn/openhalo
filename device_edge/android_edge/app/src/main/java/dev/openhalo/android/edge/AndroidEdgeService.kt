@@ -75,8 +75,9 @@ class AndroidEdgeService : Service() {
                     ?: storedConfig.deviceId
                 val edgeToken = intent?.getStringExtra(EXTRA_EDGE_TOKEN)
                     ?: storedConfig.edgeToken
+                val pairingCode = intent?.getStringExtra(EXTRA_PAIRING_CODE).orEmpty()
                 Log.i(LOG_TAG, "OPENHALO_EDGE_EVENT {\"event\":\"service_start_requested\"}")
-                client?.connect(runtimeMode, runtimeUrl, deviceId, edgeToken)
+                client?.connect(runtimeMode, runtimeUrl, deviceId, edgeToken, pairingCode)
                 scheduleBackgroundObservationHeartbeat()
             }
 
@@ -224,6 +225,7 @@ class AndroidEdgeService : Service() {
         const val EXTRA_RUNTIME_URL = "runtime_url"
         const val EXTRA_DEVICE_ID = "device_id"
         const val EXTRA_EDGE_TOKEN = "edge_token"
+        const val EXTRA_PAIRING_CODE = "pairing_code"
         const val EXTRA_TEXT_COMMAND = "text_command"
         private const val SERVICE_CHANNEL_ID = "openhalo_edge_service"
         private const val SERVICE_NOTIFICATION_ID = 1702
@@ -234,7 +236,8 @@ class AndroidEdgeService : Service() {
             runtimeMode: String,
             runtimeUrl: String,
             deviceId: String,
-            edgeToken: String
+            edgeToken: String,
+            pairingCode: String = ""
         ): Intent =
             Intent(context, AndroidEdgeService::class.java).apply {
                 action = ACTION_START
@@ -242,6 +245,9 @@ class AndroidEdgeService : Service() {
                 putExtra(EXTRA_RUNTIME_URL, runtimeUrl)
                 putExtra(EXTRA_DEVICE_ID, deviceId)
                 putExtra(EXTRA_EDGE_TOKEN, edgeToken)
+                if (pairingCode.isNotBlank()) {
+                    putExtra(EXTRA_PAIRING_CODE, pairingCode)
+                }
             }
 
         fun sendObservationsIntent(context: Context): Intent =

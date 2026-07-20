@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -145,6 +146,8 @@ object AndroidEdgeTestTags {
     const val SETTINGS_DEVICE_NAME = "openhalo.settings.device_name"
     const val SETTINGS_RUNTIME_URL_EDITOR = "openhalo.settings.runtime_url.editor"
     const val SETTINGS_DEVICE_NAME_EDITOR = "openhalo.settings.device_name.editor"
+    const val SETTINGS_DEVICE_PAIRING = "openhalo.settings.device_pairing"
+    const val SETTINGS_DEVICE_PAIRING_EDITOR = "openhalo.settings.device_pairing.editor"
     const val SETTINGS_EDIT_SAVE = "openhalo.settings.edit.save"
     const val SETTINGS_PROTOCOL_ROW = "openhalo.settings.protocol.row"
     const val SETTINGS_NOTIFICATION_ROW = "openhalo.settings.notification.row"
@@ -157,6 +160,7 @@ object AndroidEdgeTestTags {
     const val SETTINGS_BUILD_ROW = "openhalo.settings.build_row"
     const val DEVELOPER_DIAGNOSTICS_VIEW = "openhalo.developer_diagnostics.view"
     const val DEVELOPER_DIAGNOSTICS_ROW = "openhalo.developer_diagnostics.row"
+    const val DEVELOPER_DIAGNOSTICS_BACK = "openhalo.developer_diagnostics.back"
     const val STATUS_CONNECTION = "openhalo.status.connection"
     const val STATUS_SERVICE = "openhalo.status.service"
     const val STATUS_RECONNECT = "openhalo.status.reconnect"
@@ -177,6 +181,9 @@ fun M17BootstrapScreen(
     var runtimeUrl by remember { mutableStateOf(storedConfig.runtimeUrl) }
     var deviceId by remember { mutableStateOf(storedConfig.deviceId) }
     var edgeToken by remember { mutableStateOf(storedConfig.edgeToken) }
+    var hasPairedDeviceCredential by remember {
+        mutableStateOf(storedConfig.deviceCredential.isNotBlank())
+    }
     var backgroundKeepAlive by remember {
         mutableStateOf(AndroidEdgePreferences.backgroundKeepAliveEnabled(appContext))
     }
@@ -222,9 +229,19 @@ fun M17BootstrapScreen(
         val unsubscribe = EdgeDiagnosticsStore.subscribe { next ->
             (context as? ComponentActivity)?.runOnUiThread {
                 diagnostics = next
+                if (next.authenticationState == AUTH_KIND_DEVICE) {
+                    hasPairedDeviceCredential = true
+                } else if (next.authenticationState == "credential_rejected") {
+                    hasPairedDeviceCredential = false
+                }
                 historyVersion += 1
             } ?: run {
                 diagnostics = next
+                if (next.authenticationState == AUTH_KIND_DEVICE) {
+                    hasPairedDeviceCredential = true
+                } else if (next.authenticationState == "credential_rejected") {
+                    hasPairedDeviceCredential = false
+                }
                 historyVersion += 1
             }
         }
@@ -248,7 +265,15 @@ fun M17BootstrapScreen(
     }
 
     val currentNotificationState = notificationState(appContext)
-    val connectionState = productConnectionState(diagnostics, runtimeUrl, currentNotificationState)
+    val connectionState = productConnectionState(
+        diagnostics,
+        runtimeUrl,
+        currentNotificationState,
+        hasPairedDeviceCredential
+    )
+    BackHandler(enabled = diagnosticsOpen) {
+        diagnosticsOpen = false
+    }
 
     Box(
         modifier = modifier
@@ -261,25 +286,24 @@ fun M17BootstrapScreen(
                 useStableRuntime = useStableRuntime,
                 runtimeUrl = runtimeUrl,
                 deviceId = deviceId,
-                edgeToken = edgeToken,
+                onBack = { diagnosticsOpen = false },
                 onStableRuntimeChanged = { checked ->
                     useStableRuntime = checked
                     val nextMode = if (checked) RUNTIME_MODE_STABLE else RUNTIME_MODE_DEVELOPMENT
                     runtimeUrl = runtimeUrlForMode(nextMode)
                     edgeToken = edgeTokenForMode(nextMode)
                     saveConfig(appContext, nextMode, runtimeUrl, deviceId, edgeToken)
+                    hasPairedDeviceCredential = false
                 },
                 onRuntimeUrlChanged = {
                     runtimeUrl = it
                     saveConfig(appContext, runtimeMode, runtimeUrl, deviceId, edgeToken)
+                    hasPairedDeviceCredential = false
                 },
                 onDeviceIdChanged = {
                     deviceId = it
                     saveConfig(appContext, runtimeMode, runtimeUrl, deviceId, edgeToken)
-                },
-                onEdgeTokenChanged = {
-                    edgeToken = it
-                    saveConfig(appContext, runtimeMode, runtimeUrl, deviceId, edgeToken)
+                    hasPairedDeviceCredential = false
                 },
                 onSendObservations = {
                     startEdgeService(appContext, AndroidEdgeService.sendObservationsIntent(appContext))
@@ -356,10 +380,26 @@ fun M17BootstrapScreen(
                 onRuntimeUrlChanged = {
                     runtimeUrl = it
                     saveConfig(appContext, runtimeMode, runtimeUrl, deviceId, edgeToken)
+                    hasPairedDeviceCredential = false
                 },
                 onDeviceIdChanged = {
                     deviceId = it
                     saveConfig(appContext, runtimeMode, runtimeUrl, deviceId, edgeToken)
+                    hasPairedDeviceCredential = false
+                },
+                isDevicePaired = hasPairedDeviceCredential,
+                onPairingCodeSubmitted = { pairingCode ->
+                    startEdgeService(
+                        appContext,
+                        AndroidEdgeService.startIntent(
+                            appContext,
+                            runtimeMode,
+                            runtimeUrl,
+                            deviceId,
+                            edgeToken,
+                            pairingCode
+                        )
+                    )
                 },
                 onOpenNotificationSettings = {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -401,7 +441,15 @@ fun M17BootstrapScreen(
                     startEdgeService(appContext, AndroidEdgeService.stopIntent(appContext))
                     runtimeUrl = runtimeUrlForMode(runtimeMode)
                     edgeToken = edgeTokenForMode(runtimeMode)
-                    saveConfig(appContext, runtimeMode, runtimeUrl, deviceId, edgeToken)
+                    saveConfig(
+                        appContext,
+                        runtimeMode,
+                        runtimeUrl,
+                        deviceId,
+                        edgeToken,
+                        clearDeviceCredential = true
+                    )
+                    hasPairedDeviceCredential = false
                 },
                 onClearCache = {
                     AndroidEdgePreferences.clearHistory(appContext)
@@ -794,7 +842,7 @@ private fun localizedProgressPhase(phase: String): String = when (phase) {
 @Composable
 private fun ChatHistoryItem(item: AndroidEdgeHistoryItem) {
     when {
-        item.title.contains("mobile.input") -> {
+        item.title == "Submitted mobile.input" -> {
             ChatMeta("▯ iPhone · ${chatTimestamp(item.observedAt)}", alignEnd = true)
             UserBubble(item.body.ifBlank { item.title })
         }
@@ -813,7 +861,7 @@ private fun ChatHistoryItem(item: AndroidEdgeHistoryItem) {
 }
 
 private fun isConversationHistoryItem(item: AndroidEdgeHistoryItem): Boolean =
-    item.title.contains("mobile.input") ||
+    item.title == "Submitted mobile.input" ||
         item.kind == "notification" ||
         item.kind == "reply"
 
@@ -969,6 +1017,7 @@ private fun SettingsScreen(
     runtimeMode: String,
     runtimeUrl: String,
     deviceId: String,
+    isDevicePaired: Boolean,
     notificationState: String,
     backgroundKeepAlive: Boolean,
     screenContextObservation: Boolean,
@@ -976,6 +1025,7 @@ private fun SettingsScreen(
     diagnosticsUnlocked: Boolean,
     onRuntimeUrlChanged: (String) -> Unit,
     onDeviceIdChanged: (String) -> Unit,
+    onPairingCodeSubmitted: (String) -> Unit,
     onOpenNotificationSettings: () -> Unit,
     onOpenAlertSettings: () -> Unit,
     onOpenBatterySettings: () -> Unit,
@@ -1033,6 +1083,13 @@ private fun SettingsScreen(
                 value = deviceId.ifBlank { "我的 iPhone" },
                 tag = AndroidEdgeTestTags.SETTINGS_DEVICE_NAME,
                 onClick = { editTarget = SettingsEditTarget.DeviceName(deviceId) }
+            )
+            SettingsDivider()
+            EditableSettingsRow(
+                title = "Device pairing",
+                value = if (isDevicePaired) "Paired" else "Not paired",
+                tag = AndroidEdgeTestTags.SETTINGS_DEVICE_PAIRING,
+                onClick = { editTarget = SettingsEditTarget.PairingCode() }
             )
             SettingsDivider()
             StaticSettingsRow(
@@ -1125,6 +1182,7 @@ private fun SettingsScreen(
                 when (target) {
                     is SettingsEditTarget.RuntimeUrl -> onRuntimeUrlChanged(value)
                     is SettingsEditTarget.DeviceName -> onDeviceIdChanged(value)
+                    is SettingsEditTarget.PairingCode -> onPairingCodeSubmitted(value)
                 }
                 editTarget = null
             }
@@ -1180,6 +1238,12 @@ private sealed class SettingsEditTarget(
         value,
         AndroidEdgeTestTags.SETTINGS_DEVICE_NAME_EDITOR
     )
+
+    class PairingCode : SettingsEditTarget(
+        "Pair device",
+        "",
+        AndroidEdgeTestTags.SETTINGS_DEVICE_PAIRING_EDITOR
+    )
 }
 
 @Composable
@@ -1199,6 +1263,11 @@ private fun SettingsEditDialog(
                     .testTag(target.tag),
                 value = draft,
                 onValueChange = { draft = it },
+                visualTransformation = if (target is SettingsEditTarget.PairingCode) {
+                    PasswordVisualTransformation()
+                } else {
+                    androidx.compose.ui.text.input.VisualTransformation.None
+                },
                 singleLine = true
             )
         },
@@ -1365,11 +1434,10 @@ private fun DeveloperDiagnosticsScreen(
     useStableRuntime: Boolean,
     runtimeUrl: String,
     deviceId: String,
-    edgeToken: String,
+    onBack: () -> Unit,
     onStableRuntimeChanged: (Boolean) -> Unit,
     onRuntimeUrlChanged: (String) -> Unit,
     onDeviceIdChanged: (String) -> Unit,
-    onEdgeTokenChanged: (String) -> Unit,
     onSendObservations: () -> Unit,
     onTestNotification: () -> Unit,
     onTestUrgentAlert: () -> Unit
@@ -1382,7 +1450,15 @@ private fun DeveloperDiagnosticsScreen(
             .testTag(AndroidEdgeTestTags.DEVELOPER_DIAGNOSTICS_VIEW),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Developer Diagnostics", fontSize = 28.sp, color = Ink)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(
+                modifier = Modifier.testTag(AndroidEdgeTestTags.DEVELOPER_DIAGNOSTICS_BACK),
+                onClick = onBack
+            ) {
+                Text("←", fontSize = 28.sp, color = Ink)
+            }
+            Text("Developer Diagnostics", fontSize = 28.sp, color = Ink)
+        }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Persistent Runtime", color = Ink)
             Switch(checked = useStableRuntime, onCheckedChange = onStableRuntimeChanged)
@@ -1399,13 +1475,6 @@ private fun DeveloperDiagnosticsScreen(
             onValueChange = onDeviceIdChanged,
             label = { Text("Device ID") }
         )
-        OutlinedTextField(
-            modifier = Modifier.fillMaxWidth(),
-            value = edgeToken,
-            onValueChange = onEdgeTokenChanged,
-            label = { Text("Edge Token") },
-            visualTransformation = PasswordVisualTransformation()
-        )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = onSendObservations) { Text("Send Observations") }
             OutlinedButton(onClick = onTestNotification) { Text("Test Notification") }
@@ -1414,6 +1483,7 @@ private fun DeveloperDiagnosticsScreen(
         DiagnosticLine("Connection", diagnostics.connectionState)
         DiagnosticLine("Service", diagnostics.serviceState)
         DiagnosticLine("Runtime Mode", diagnostics.runtimeMode)
+        DiagnosticLine("Authentication", diagnostics.authenticationState)
         DiagnosticLine("Reconnect", reconnectSummary(diagnostics))
         DiagnosticLine("Android Health", androidHealthSummary(LocalContext.current, diagnostics))
         DiagnosticLine("Screen Context", diagnostics.screenContextState)
@@ -1514,15 +1584,23 @@ private fun saveConfig(
     runtimeMode: String,
     runtimeUrl: String,
     deviceId: String,
-    edgeToken: String
+    edgeToken: String,
+    clearDeviceCredential: Boolean = false
 ) {
+    val existing = AndroidEdgePreferences.loadConfig(context)
+    val preserveDeviceCredential =
+        !clearDeviceCredential &&
+            existing.runtimeMode == runtimeMode &&
+            existing.runtimeUrl == runtimeUrl &&
+            existing.deviceId == deviceId
     AndroidEdgePreferences.saveConfig(
         context,
         AndroidEdgeConfig(
             runtimeMode = runtimeMode,
             runtimeUrl = runtimeUrl,
             deviceId = deviceId,
-            edgeToken = edgeToken
+            edgeToken = edgeToken,
+            deviceCredential = if (preserveDeviceCredential) existing.deviceCredential else ""
         )
     )
 }
@@ -1530,10 +1608,12 @@ private fun saveConfig(
 private fun productConnectionState(
     diagnostics: EdgeDiagnostics,
     runtimeUrl: String,
-    notificationState: String
+    notificationState: String,
+    hasPairedDeviceCredential: Boolean
 ): String =
     when {
         runtimeUrl.isBlank() -> "needs_setup"
+        !hasPairedDeviceCredential -> "needs_setup"
         notificationState == "denied" || notificationStateFromDiagnostics(diagnostics) == "denied" -> "restricted"
         diagnostics.reconnectStatus.startsWith("retrying") -> "reconnecting"
         diagnostics.connectionState == "connected" -> "connected"
