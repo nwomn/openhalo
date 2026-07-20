@@ -11,6 +11,13 @@ as edges, the runtime as a long-lived personal backend, and presence as an
 explicit governance layer for deciding when and how the system should surface
 itself.
 
+## Project Status
+
+This is an alpha source repository, not a hosted public Runtime. Do not expose
+a bearer-credential Runtime endpoint from these development instructions.
+Public Runtime deployment still requires the tracked TLS/WSS and mobile
+sensitive-screen governance work.
+
 ## What It Is
 
 OpenHalo is currently an architecture-led runtime project with an implemented
@@ -98,7 +105,7 @@ Use the repository root virtual environment:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -e .
+.venv/bin/pip install -e ".[dev]"
 ```
 
 Start a development runtime:
@@ -131,10 +138,14 @@ systemd-backed server startup path.
 - [docs/design/mobile-edge-ui/mobile-edge-ui-spec.md](docs/design/mobile-edge-ui/mobile-edge-ui-spec.md): phone Edge product UI design baseline
 - [docs/ops/runtime-troubleshooting.md](docs/ops/runtime-troubleshooting.md): production runtime and edge-connection troubleshooting
 - [docs/plans/2026-06-16-runtime-architecture-design.md](docs/plans/2026-06-16-runtime-architecture-design.md): architecture baseline
+- [CONTRIBUTING.md](CONTRIBUTING.md): contribution and local verification rules
+- [SECURITY.md](SECURITY.md): private vulnerability reporting policy
+- [LICENSE](LICENSE): MIT license
 
 ## Notes
 
 - The real model-provider path is still under active hardening.
 - The first Android phone Edge product UI is usable, but broader packaging and distribution are still evolving.
+- Source collaboration is available under MIT; private vulnerability reporting must be enabled in the repository Security settings before public release.
 - Keep this README's implementation-progress table current when a milestone is completed, accepted, or re-scoped.
 - This repository is evolving quickly; treat `Project.md` as the source of truth for current direction.

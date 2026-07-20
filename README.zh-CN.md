@@ -8,6 +8,10 @@ OpenHalo 是一个以存在感治理为中心的个人 Agent Runtime，核心链
 
 它不是把聊天窗口当作产品中心，而是把设备当作边缘入口，把运行时当作长期存在的个人后端，并把 `Presence` 明确建模成一个可检查、可治理的决策层，用来决定系统该在什么时候、通过什么表面介入。
 
+## 项目状态
+
+这是一个 alpha 源码仓库，不是已托管的公网 Runtime。不要按这里的开发指令直接暴露携带 bearer credential 的 Runtime 端点；公网运行时仍需完成已跟踪的 TLS/WSS 和手机敏感屏幕采集治理工作。
+
 ## 这是什么
 
 OpenHalo 目前是一个“架构驱动、但已经有可运行基线”的项目。仓库里已经具备：
@@ -85,7 +89,7 @@ OpenHalo 正在面向几个清晰的部署场景建设：
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -e .
+.venv/bin/pip install -e ".[dev]"
 ```
 
 启动开发 runtime：
@@ -125,10 +129,14 @@ bin/run-runtime-dev
 - [docs/design/mobile-edge-ui/mobile-edge-ui-spec.md](docs/design/mobile-edge-ui/mobile-edge-ui-spec.md)：手机 Edge 产品 UI 设计基线
 - [docs/ops/runtime-troubleshooting.md](docs/ops/runtime-troubleshooting.md)：生产 runtime 与 edge 连接排障
 - [docs/plans/2026-06-16-runtime-architecture-design.md](docs/plans/2026-06-16-runtime-architecture-design.md)：架构基线设计
+- [CONTRIBUTING.md](CONTRIBUTING.md)：贡献与本地验证规则
+- [SECURITY.md](SECURITY.md)：私密漏洞披露政策
+- [LICENSE](LICENSE)：MIT 许可证
 
 ## 说明
 
 - 真实 model-provider 链路目前还在持续硬化中。
 - 第一版 Android 手机 Edge 产品 UI 已可用，但更完整的打包和分发体验仍在演进中。
+- 源码协作已采用 MIT；仓库公开前仍须在 GitHub Security 设置中启用私密漏洞报告。
 - 每当里程碑完成、接受或重新定界时，应同步更新 README 的实现进度表。
 - 这个仓库还在快速演化，当前方向请始终以 `Project.md` 为准。

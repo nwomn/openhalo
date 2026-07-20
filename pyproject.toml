@@ -8,6 +8,12 @@ dependencies = [
     "hermes-agent @ git+https://github.com/NousResearch/hermes-agent.git@e12626b34fb1024bf00f40f4759647f9cbd3f198",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=9,<10",
+    "coverage>=7,<8",
+]
+
 [build-system]
 requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"

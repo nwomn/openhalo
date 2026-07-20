@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install project and development test tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+      - name: Check installed dependency graph
+        run: python -m pip check
+      - name: Run Python regression suite with coverage
+        run: >
+          PYTHONPATH=. python -m coverage run
+          --source=personal_runtime,device_edge,agent_guard
+          -m pytest -q tests
+      - name: Report Python coverage
+        run: python -m coverage report
+
+  android-unit:
+    name: Android unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: android-actions/setup-android@v3
+      - name: Run Android local unit tests
+        working-directory: device_edge/android_edge
+        run: bash ./gradlew testDebugUnitTest --console=plain
