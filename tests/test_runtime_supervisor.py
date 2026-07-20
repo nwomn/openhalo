@@ -5,13 +5,10 @@ import signal
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import MagicMock
-from unittest.mock import patch
 
 import pytest
 
 from openhalo.home import PersonalHome
-from openhalo.runtime_supervisor import _gateway_is_ready
 from openhalo.runtime_supervisor import RuntimeSupervisor
 
 
@@ -32,7 +29,7 @@ def test_start_builds_home_derived_runtime_command_without_exposing_token() -> N
             or type("Process", (), {"pid": 719})(),
             is_process_alive=lambda pid: pid == 719,
             process_command=lambda pid: "python -m personal_runtime.main",
-            gateway_is_ready=lambda host, port: True,
+            ready_file_exists=lambda path: True,
         )
 
         status = supervisor.start()
@@ -44,6 +41,8 @@ def test_start_builds_home_derived_runtime_command_without_exposing_token() -> N
         assert str(home.state_path) in command
         assert "--pairing-store-path" in command
         assert str(home.pairing_store_path) in command
+        assert "--ready-file-path" in command
+        assert str(home.runtime_ready_path) in command
         assert "--token-env" in command
         assert kwargs["env"]["OPENHALO_RUNTIME_TOKEN"]
         assert kwargs["env"]["OPENHALO_RUNTIME_TOKEN"] not in command
@@ -61,7 +60,7 @@ def test_start_is_idempotent_for_a_running_openhalo_runtime() -> None:
             launcher=lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("launched")),
             is_process_alive=lambda pid: pid == 42,
             process_command=lambda pid: "python -m personal_runtime.main",
-            gateway_is_ready=lambda host, port: True,
+            ready_file_exists=lambda path: True,
         )
 
         assert supervisor.start() == {"state": "running", "pid": 42}
@@ -108,7 +107,7 @@ def test_start_rejects_a_runtime_that_exits_before_gateway_is_ready() -> None:
             launcher=lambda *args, **kwargs: type("Process", (), {"pid": 720})(),
             is_process_alive=lambda pid: False,
             process_command=lambda pid: "python -m personal_runtime.main",
-            gateway_is_ready=lambda host, port: False,
+            ready_file_exists=lambda path: False,
         )
 
         with pytest.raises(RuntimeError, match="exited before becoming ready"):
@@ -117,16 +116,3 @@ def test_start_rejects_a_runtime_that_exits_before_gateway_is_ready() -> None:
         assert not home.runtime_pid_path.exists()
     finally:
         directory.cleanup()
-
-
-def test_gateway_readiness_uses_a_websocket_handshake_not_a_raw_tcp_probe() -> None:
-    connection = MagicMock()
-    connection.__enter__.return_value = connection
-    with patch("openhalo.runtime_supervisor.connect", return_value=connection) as connect:
-        assert _gateway_is_ready("127.0.0.1", 8765)
-
-    connect.assert_called_once_with(
-        "ws://127.0.0.1:8765",
-        open_timeout=0.1,
-        close_timeout=0.1,
-    )

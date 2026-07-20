@@ -44,6 +44,7 @@ def build_gateway(
     llm_config_path: Path | None = None,
     diagnostic_log_path: Path | None = None,
     pairing_store_path: Path | None = None,
+    ready_file_path: Path | None = None,
 ) -> RuntimeGateway:
     return RuntimeGateway(
         shared_token=token,
@@ -101,6 +102,7 @@ async def run_server(
     llm_config_path: Path | None = None,
     diagnostic_log_path: Path | None = None,
     pairing_store_path: Path | None = None,
+    ready_file_path: Path | None = None,
     manage_host_edge: bool = True,
     host_edge_device_id: str = "host-edge-1",
     host_edge_idle_timeout_s: float = 30.0,
@@ -117,16 +119,18 @@ async def run_server(
     gateway = build_gateway(**gateway_kwargs)
     async with gateway.run_server(host=host, port=port) as server_info:
         supervisor = None
-        if manage_host_edge:
-            supervisor = host_edge_supervisor_factory(
-                gateway=gateway,
-                url=build_managed_host_edge_url(server_info["url"]),
-                token=token,
-                device_id=host_edge_device_id,
-                idle_timeout_s=host_edge_idle_timeout_s,
-            )
-            await supervisor.start()
         try:
+            if ready_file_path is not None:
+                _write_ready_file(ready_file_path)
+            if manage_host_edge:
+                supervisor = host_edge_supervisor_factory(
+                    gateway=gateway,
+                    url=build_managed_host_edge_url(server_info["url"]),
+                    token=token,
+                    device_id=host_edge_device_id,
+                    idle_timeout_s=host_edge_idle_timeout_s,
+                )
+                await supervisor.start()
             print(
                 build_runtime_server_message(
                     server_info["url"],
@@ -137,6 +141,8 @@ async def run_server(
         finally:
             if supervisor is not None:
                 await supervisor.stop()
+            if ready_file_path is not None:
+                ready_file_path.unlink(missing_ok=True)
 
 
 def build_runtime_server_parser() -> argparse.ArgumentParser:
@@ -174,6 +180,11 @@ def build_runtime_server_parser() -> argparse.ArgumentParser:
         "--diagnostic-log-path",
         type=Path,
         help="Optional local JSONL path for runtime diagnostic.v1 module-boundary events.",
+    )
+    parser.add_argument(
+        "--ready-file-path",
+        type=Path,
+        help="Private path created only after the Gateway starts listening.",
     )
     parser.set_defaults(host_edge_enabled=True)
     parser.add_argument(
@@ -229,11 +240,18 @@ def main() -> None:
             if args.runtime_config_path
             else None,
             diagnostic_log_path=args.diagnostic_log_path,
+            ready_file_path=args.ready_file_path,
             manage_host_edge=args.host_edge_enabled,
             host_edge_device_id=args.host_edge_device_id,
             host_edge_idle_timeout_s=args.host_edge_idle_timeout,
         )
     )
+
+
+def _write_ready_file(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("ready\n", encoding="utf-8")
+    os.chmod(path, 0o600)
 
 
 __all__ = [
