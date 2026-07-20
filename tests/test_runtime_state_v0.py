@@ -1,4 +1,6 @@
+import os
 import unittest
+from stat import S_IMODE
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -393,36 +395,48 @@ class JsonStateStoreTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             store = JsonStateStore(Path(directory) / "state.json")
             state = RuntimeState()
-            first_write_entered = Event()
-            second_write_entered = Event()
-            release_first_write = Event()
-            write_count = 0
+            first_replace_entered = Event()
+            second_replace_entered = Event()
+            release_first_replace = Event()
+            replace_count = 0
             count_lock = Lock()
-            original_write_text = Path.write_text
+            original_replace = Path.replace
 
-            def hold_first_write(path, data, *args, **kwargs):
-                nonlocal write_count
+            def hold_first_replace(path, target, *args, **kwargs):
+                nonlocal replace_count
                 with count_lock:
-                    write_count += 1
-                    position = write_count
+                    replace_count += 1
+                    position = replace_count
                 if position == 1:
-                    first_write_entered.set()
-                    release_first_write.wait(timeout=1)
+                    first_replace_entered.set()
+                    release_first_replace.wait(timeout=1)
                 else:
-                    second_write_entered.set()
-                return original_write_text(path, data, *args, **kwargs)
+                    second_replace_entered.set()
+                return original_replace(path, target, *args, **kwargs)
 
-            with patch.object(Path, "write_text", new=hold_first_write):
+            with patch.object(Path, "replace", new=hold_first_replace):
                 with ThreadPoolExecutor(max_workers=2) as executor:
                     first_save = executor.submit(store.save, state)
-                    self.assertTrue(first_write_entered.wait(timeout=1))
+                    self.assertTrue(first_replace_entered.wait(timeout=1))
                     second_save = executor.submit(store.save, state)
                     try:
-                        self.assertFalse(second_write_entered.wait(timeout=0.05))
+                        self.assertFalse(second_replace_entered.wait(timeout=0.05))
                     finally:
-                        release_first_write.set()
+                        release_first_replace.set()
                     first_save.result(timeout=1)
                     second_save.result(timeout=1)
+
+    def test_persists_runtime_state_owner_only(self) -> None:
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "state.json"
+
+            original_umask = os.umask(0o022)
+            try:
+                JsonStateStore(path).save(RuntimeState())
+            finally:
+                os.umask(original_umask)
+
+            self.assertEqual(S_IMODE(path.stat().st_mode), 0o600)
 
     def test_saves_and_loads_runtime_state(self) -> None:
         path = RUNTIME_TEST_DIR / "state.json"
