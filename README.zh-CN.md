@@ -81,7 +81,38 @@ OpenHalo 正在面向几个清晰的部署场景建设：
 
 这个 APK 是用于早期安装和测试的 debug-signed preview artifact。正式 release 签名、更新/分发体验和三端打包交付仍属于后续产品化工作。
 
-## 快速开始
+## 安装个人 Runtime
+
+在已安装 Git 和 Python 3.11+ 的 Linux 服务器或个人电脑上，使用一个已发布的固定提交安装。两个占位符都替换为同一个 40 位提交 ID：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/nwomn/openhalo/<commit>/scripts/install.sh | bash -s -- --ref <commit>
+export PATH="$HOME/.local/bin:$PATH"
+openhalo setup
+openhalo start
+openhalo pair
+```
+
+安装器把 `openhalo` 放到 `~/.local/bin`，在执行 `setup` 前不创建 Runtime 数据；个人配置、状态和已配对设备凭据都保存在 `~/.openhalo`。若它尚未在 `PATH` 中，请把 `~/.local/bin` 一次性写入登录 shell 配置。`openhalo start` 同时管理同机 Host Edge。`openhalo pair` 会输出一次性配对码，填入手机或电脑 Edge 后，Edge 会保存独立凭据，之后不必再次输入配对码。
+
+远端 Edge 应填写服务器反向代理 URL，例如
+`wss://<runtime-domain>/openhalo/edge`，再填入配对码。Runtime 本身保持监听
+`127.0.0.1:8765`；不要让远端 Edge 直连这个 loopback 端口。公网传输配对码或设备凭据必须使用 `wss://`。
+
+在另一台电脑上只安装 Terminal Edge：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/nwomn/openhalo/<commit>/scripts/install.sh | bash -s -- --edge-only --ref <commit>
+export PATH="$HOME/.local/bin:$PATH"
+openhalo-edge setup --url wss://<runtime-domain>/openhalo/edge --pairing-code <one-time-code>
+openhalo-edge
+```
+
+Runtime 的日常控制命令是 `openhalo status`、`openhalo logs --lines 100` 和
+`openhalo stop`。反向代理、更新和排障的完整说明见
+[docs/runtime-deploy.md](docs/runtime-deploy.md)。
+
+## 开发快速开始
 
 本地开发循环使用一个 `18765` 端口上的开发 runtime，加上本地 host/terminal edges，以及模拟器或手机 edge。
 
