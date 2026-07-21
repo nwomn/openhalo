@@ -3,6 +3,7 @@ package dev.openhalo.android.edge
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -60,6 +61,33 @@ class EdgeApiFramesTest {
         assertTrue(pairingTransportAllowed(RUNTIME_MODE_STABLE, "wss://runtime.example/openhalo/edge"))
         assertFalse(pairingTransportAllowed(RUNTIME_MODE_STABLE, "ws://runtime.example/openhalo/edge"))
         assertTrue(pairingTransportAllowed(RUNTIME_MODE_DEVELOPMENT, "ws://10.0.2.2:18765"))
+    }
+
+    @Test
+    fun runtimeUrlValidationRequiresACompleteWebSocketUrl() {
+        assertNull(runtimeUrlValidationError(RUNTIME_MODE_DEVELOPMENT, "ws://10.0.2.2:18765"))
+        assertNull(
+            runtimeUrlValidationError(
+                RUNTIME_MODE_STABLE,
+                "wss://runtime.example/openhalo/edge"
+            )
+        )
+        assertEquals(
+            "Runtime address must start with ws:// or wss://.",
+            runtimeUrlValidationError(RUNTIME_MODE_DEVELOPMENT, "8.153.37.167")
+        )
+        assertEquals(
+            "Runtime address must be a complete WebSocket URL.",
+            runtimeUrlValidationError(RUNTIME_MODE_DEVELOPMENT, "wss://[invalid")
+        )
+        assertEquals(
+            "Stable Runtime connections require a wss:// address.",
+            runtimeUrlValidationError(RUNTIME_MODE_STABLE, "ws://runtime.example/openhalo/edge")
+        )
+        assertEquals(
+            "Runtime address must include a host name or IP address.",
+            runtimeUrlValidationError(RUNTIME_MODE_DEVELOPMENT, "wss:///openhalo/edge")
+        )
     }
 
     @Test

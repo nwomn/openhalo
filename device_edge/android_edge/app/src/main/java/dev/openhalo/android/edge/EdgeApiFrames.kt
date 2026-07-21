@@ -2,6 +2,8 @@ package dev.openhalo.android.edge
 
 import org.json.JSONArray
 import org.json.JSONObject
+import java.net.URI
+import java.net.URISyntaxException
 import java.time.Instant
 
 const val EDGE_API_VERSION = "edge.runtime.v1"
@@ -66,6 +68,26 @@ fun parsePairedDeviceCredential(frame: JSONObject): String? {
 
 fun pairingTransportAllowed(runtimeMode: String, runtimeUrl: String): Boolean =
     runtimeMode != RUNTIME_MODE_STABLE || runtimeUrl.trim().startsWith("wss://")
+
+fun runtimeUrlValidationError(runtimeMode: String, runtimeUrl: String): String? {
+    val parsed = try {
+        URI(runtimeUrl.trim())
+    } catch (_: URISyntaxException) {
+        return "Runtime address must be a complete WebSocket URL."
+    }
+    val scheme = parsed.scheme?.lowercase()
+        ?: return "Runtime address must start with ws:// or wss://."
+    if (scheme != "ws" && scheme != "wss") {
+        return "Runtime address must start with ws:// or wss://."
+    }
+    if (parsed.host.isNullOrBlank()) {
+        return "Runtime address must include a host name or IP address."
+    }
+    if (runtimeMode == RUNTIME_MODE_STABLE && scheme != "wss") {
+        return "Stable Runtime connections require a wss:// address."
+    }
+    return null
+}
 
 fun devicePairingRequired(deviceCredential: String, pairingCode: String): Boolean =
     deviceCredential.isBlank() && pairingCode.isBlank()

@@ -143,6 +143,22 @@ class M17AndroidEdgeComposeTest {
     }
 
     @Test
+    fun settingsRejectsAnIncompleteRuntimeUrlBeforeSaving() {
+        composeRule.onNodeWithTag(AndroidEdgeTestTags.SETTINGS_TAB).performClick()
+        composeRule.onNodeWithTag(AndroidEdgeTestTags.SETTINGS_RUNTIME_URL)
+            .performScrollTo()
+            .performClick()
+        composeRule.onNodeWithTag(AndroidEdgeTestTags.SETTINGS_RUNTIME_URL_EDITOR)
+            .performTextReplacement("8.153.37.167")
+
+        composeRule.onNodeWithText(
+            "Runtime address must start with ws:// or wss://.",
+            substring = true
+        ).assertIsDisplayed()
+        composeRule.onNodeWithTag(AndroidEdgeTestTags.SETTINGS_EDIT_SAVE).assertIsNotEnabled()
+    }
+
+    @Test
     fun settingsRowsExposeAccurateActionsForPermissionsAndKeepalive() {
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
 

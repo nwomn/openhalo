@@ -99,6 +99,11 @@ class AndroidEdgeClient(
                 ""
             }
         )
+        val runtimeUrlError = runtimeUrlValidationError(runtimeMode, config.runtimeUrl)
+        if (runtimeUrlError != null) {
+            rejectInvalidRuntimeUrl(config, runtimeUrlError)
+            return
+        }
         val requestedPairingCode = pairingCode.trim().takeIf { it.isNotEmpty() }
         if (devicePairingRequired(config.deviceCredential, requestedPairingCode.orEmpty())) {
             retryBlockedByConfiguration = true
@@ -157,9 +162,29 @@ class AndroidEdgeClient(
                 )
             )
         )
-        val request = Request.Builder().url(state.runtimeUrl).build()
+        val request = try {
+            Request.Builder().url(config.runtimeUrl).build()
+        } catch (_: IllegalArgumentException) {
+            rejectInvalidRuntimeUrl(config, "Runtime address must be a complete WebSocket URL.")
+            return
+        }
         logEvent("connect_requested", "runtime_url" to state.runtimeUrl, "device_id" to state.deviceId)
         webSocket = httpClient.newWebSocket(request, listener())
+    }
+
+    private fun rejectInvalidRuntimeUrl(config: AndroidEdgeConfig, message: String) {
+        retryBlockedByConfiguration = true
+        publish(
+            state.copy(
+                runtimeMode = config.runtimeMode,
+                runtimeUrl = config.runtimeUrl,
+                deviceId = config.deviceId,
+                connectionState = "disconnected",
+                authenticationState = "configuration_invalid",
+                lastError = message,
+                reconnectStatus = "configuration required"
+            )
+        )
     }
 
     fun disconnect() {

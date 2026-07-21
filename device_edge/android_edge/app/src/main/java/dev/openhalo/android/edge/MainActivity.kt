@@ -1177,6 +1177,7 @@ private fun SettingsScreen(
     editTarget?.let { target ->
         SettingsEditDialog(
             target = target,
+            runtimeMode = runtimeMode,
             onDismiss = { editTarget = null },
             onSave = { value ->
                 when (target) {
@@ -1249,10 +1250,16 @@ private sealed class SettingsEditTarget(
 @Composable
 private fun SettingsEditDialog(
     target: SettingsEditTarget,
+    runtimeMode: String,
     onDismiss: () -> Unit,
     onSave: (String) -> Unit
 ) {
     var draft by remember(target) { mutableStateOf(target.value) }
+    val runtimeUrlError = if (target is SettingsEditTarget.RuntimeUrl) {
+        runtimeUrlValidationError(runtimeMode, draft)
+    } else {
+        null
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(target.title) },
@@ -1263,6 +1270,8 @@ private fun SettingsEditDialog(
                     .testTag(target.tag),
                 value = draft,
                 onValueChange = { draft = it },
+                isError = runtimeUrlError != null,
+                supportingText = runtimeUrlError?.let { message -> { Text(message) } },
                 visualTransformation = if (target is SettingsEditTarget.PairingCode) {
                     PasswordVisualTransformation()
                 } else {
@@ -1274,6 +1283,7 @@ private fun SettingsEditDialog(
         confirmButton = {
             Button(
                 modifier = Modifier.testTag(AndroidEdgeTestTags.SETTINGS_EDIT_SAVE),
+                enabled = runtimeUrlError == null,
                 onClick = { onSave(draft.trim()) }
             ) {
                 Text("保存")
