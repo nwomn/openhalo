@@ -141,6 +141,8 @@ class DevEnvWorkflowTests(unittest.TestCase):
 
     def test_shared_test_script_runs_using_root_venv(self) -> None:
         script_path = ROOT / "bin" / "test"
+        environment = dict(os.environ)
+        environment["OPENHALO_TEST_IN_SCOPE"] = "1"
         probe = (
             "import os,pathlib,sys; "
             "print(pathlib.Path(sys.executable).resolve()); "
@@ -152,6 +154,7 @@ class DevEnvWorkflowTests(unittest.TestCase):
             capture_output=True,
             text=True,
             cwd=ROOT,
+            env=environment,
         )
 
         executable, scope_marker = result.stdout.splitlines()
@@ -219,11 +222,61 @@ class DevEnvWorkflowTests(unittest.TestCase):
         )
         self.assertEqual(scope_marker, "missing")
 
+    def test_shared_test_script_falls_back_when_systemd_run_cannot_start_service(self) -> None:
+        script_path = ROOT / "bin" / "test"
+        with tempfile.TemporaryDirectory() as directory:
+            command_path = Path(directory)
+            (command_path / "dirname").symlink_to("/usr/bin/dirname")
+            systemd_run_path = command_path / "systemd-run"
+            systemd_run_path.write_text("#!/bin/bash\nexit 1\n", encoding="utf-8")
+            os.chmod(systemd_run_path, 0o755)
+            systemctl_path = command_path / "systemctl"
+            systemctl_path.write_text("#!/bin/bash\nexit 0\n", encoding="utf-8")
+            os.chmod(systemctl_path, 0o755)
+            environment = dict(os.environ)
+            environment.pop("OPENHALO_TEST_IN_SCOPE", None)
+            environment.pop("OPENHALO_TEST_ISOLATION", None)
+            environment["PATH"] = str(command_path)
+            probe = (
+                "import os,pathlib,sys; "
+                "print(pathlib.Path(sys.executable).resolve()); "
+                "print(os.environ.get('OPENHALO_TEST_IN_SCOPE', 'missing'))"
+            )
+
+            result = subprocess.run(
+                ["/bin/bash", str(script_path), "-c", probe],
+                check=True,
+                capture_output=True,
+                text=True,
+                cwd=ROOT,
+                env=environment,
+            )
+
+        executable, scope_marker = result.stdout.splitlines()
+        self.assertEqual(
+            Path(executable),
+            (ROOT / ".venv" / "bin" / "python").resolve(),
+        )
+        self.assertEqual(scope_marker, "missing")
+
     def test_shared_test_script_enforces_live_systemd_limits(self) -> None:
         if shutil.which("systemd-run") is None:
             self.skipTest("systemd-run is unavailable")
-        if not Path("/run/systemd/system").exists():
-            self.skipTest("systemd is not running")
+        systemd_status = subprocess.run(
+            [
+                "systemd-run",
+                "--quiet",
+                "--wait",
+                "--pipe",
+                "--collect",
+                "--service-type=exec",
+                "/usr/bin/true",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if systemd_status.returncode != 0:
+            self.skipTest("systemd-run cannot start a transient service")
 
         probe = """
 import socket

@@ -96,7 +96,47 @@ This APK is a debug-signed preview artifact for early installation and testing.
 Formal release signing, updater/distribution polish, and packaged three-end
 delivery are tracked as later productization work.
 
-## Quick Start
+## Install A Personal Runtime
+
+For a Linux server or personal computer with Git and Python 3.11+, install a
+published fixed commit. Use the same 40-character commit ID in both
+placeholders:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/nwomn/openhalo/<commit>/scripts/install.sh | bash -s -- --ref <commit>
+export PATH="$HOME/.local/bin:$PATH"
+openhalo setup
+openhalo start
+openhalo pair
+```
+
+The installer makes `openhalo` available from `~/.local/bin`, creates no
+Runtime data until `setup`, and keeps personal configuration, state, and paired
+device credentials in `~/.openhalo`. Add `~/.local/bin` to your login-shell
+configuration once if it is not already on `PATH`. `openhalo start` also
+manages the colocated Host Edge. `openhalo pair` prints a one-time pairing code
+for the phone or computer Edge; its saved device credential means the Edge does
+not need the code again.
+
+For a remote Edge, configure the server's reverse-proxy URL, for example
+`wss://<runtime-domain>/openhalo/edge`, and enter the pairing code there. The
+Runtime itself stays on `127.0.0.1:8765`; do not point remote Edges at that
+loopback port. A public pairing or device-credential endpoint requires `wss://`.
+
+To install only the Terminal Edge on another computer:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/nwomn/openhalo/<commit>/scripts/install.sh | bash -s -- --edge-only --ref <commit>
+export PATH="$HOME/.local/bin:$PATH"
+openhalo-edge setup --url wss://<runtime-domain>/openhalo/edge --pairing-code <one-time-code>
+openhalo-edge
+```
+
+Normal Runtime control is `openhalo status`, `openhalo logs --lines 100`, and
+`openhalo stop`. Full proxy, update, and troubleshooting instructions are in
+[docs/runtime-deploy.md](docs/runtime-deploy.md).
+
+## Development Quick Start
 
 The local development loop uses one development runtime on port `18765`, plus
 local host/terminal edges and an emulator or phone edge.

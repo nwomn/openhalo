@@ -31,6 +31,7 @@ class ImportSmokeTests(unittest.TestCase):
             [
                 "agent_guard",
                 "device_edge",
+                "device_edge.*",
                 "edge_api",
                 "openhalo",
                 "openhalo_common",

@@ -12,11 +12,18 @@ from pathlib import Path
 from openhalo.home import PersonalHome
 from openhalo.runtime_config_template import DEFAULT_RUNTIME_CONFIG
 from openhalo.runtime_supervisor import RuntimeSupervisor
+from openhalo.version import format_cli_version
 from personal_runtime.pairing_store import PairingStore
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Manage your personal OpenHalo Runtime.")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=format_cli_version("openhalo"),
+        help="Show the installed OpenHalo version.",
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     setup = subparsers.add_parser("setup", help="Create or update personal Runtime configuration.")

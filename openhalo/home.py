@@ -59,6 +59,10 @@ class PersonalHome:
     def runtime_pid_path(self) -> Path:
         return self.runtime_directory / "runtime.pid"
 
+    @property
+    def runtime_ready_path(self) -> Path:
+        return self.runtime_directory / "runtime.ready"
+
     def initialize_runtime(self, *, host: str, port: int) -> dict:
         if not host:
             raise ValueError("runtime host must not be empty")

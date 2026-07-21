@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
+
 from openhalo.home import PersonalHome
 from openhalo.runtime_supervisor import RuntimeSupervisor
 
@@ -27,6 +29,7 @@ def test_start_builds_home_derived_runtime_command_without_exposing_token() -> N
             or type("Process", (), {"pid": 719})(),
             is_process_alive=lambda pid: pid == 719,
             process_command=lambda pid: "python -m personal_runtime.main",
+            ready_file_exists=lambda path: True,
         )
 
         status = supervisor.start()
@@ -38,6 +41,8 @@ def test_start_builds_home_derived_runtime_command_without_exposing_token() -> N
         assert str(home.state_path) in command
         assert "--pairing-store-path" in command
         assert str(home.pairing_store_path) in command
+        assert "--ready-file-path" in command
+        assert str(home.runtime_ready_path) in command
         assert "--token-env" in command
         assert kwargs["env"]["OPENHALO_RUNTIME_TOKEN"]
         assert kwargs["env"]["OPENHALO_RUNTIME_TOKEN"] not in command
@@ -55,6 +60,7 @@ def test_start_is_idempotent_for_a_running_openhalo_runtime() -> None:
             launcher=lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("launched")),
             is_process_alive=lambda pid: pid == 42,
             process_command=lambda pid: "python -m personal_runtime.main",
+            ready_file_exists=lambda path: True,
         )
 
         assert supervisor.start() == {"state": "running", "pid": 42}
@@ -89,5 +95,24 @@ def test_logs_returns_the_requested_tail() -> None:
         supervisor = RuntimeSupervisor(home)
 
         assert supervisor.read_logs(lines=2) == "two\nthree\n"
+    finally:
+        directory.cleanup()
+
+
+def test_start_rejects_a_runtime_that_exits_before_gateway_is_ready() -> None:
+    directory, home = _home()
+    try:
+        supervisor = RuntimeSupervisor(
+            home,
+            launcher=lambda *args, **kwargs: type("Process", (), {"pid": 720})(),
+            is_process_alive=lambda pid: False,
+            process_command=lambda pid: "python -m personal_runtime.main",
+            ready_file_exists=lambda path: False,
+        )
+
+        with pytest.raises(RuntimeError, match="exited before becoming ready"):
+            supervisor.start()
+
+        assert not home.runtime_pid_path.exists()
     finally:
         directory.cleanup()

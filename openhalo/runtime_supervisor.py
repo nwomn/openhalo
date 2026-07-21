@@ -7,6 +7,7 @@ import os
 import signal
 import subprocess
 import sys
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -24,12 +25,18 @@ class RuntimeSupervisor:
         is_process_alive: Callable[[int], bool] | None = None,
         process_command: Callable[[int], str] | None = None,
         signal_sender: Callable[[int, int], None] = os.kill,
+        ready_file_exists: Callable[[Path], bool] | None = None,
+        startup_timeout_s: float = 5.0,
+        sleeper: Callable[[float], None] = time.sleep,
     ) -> None:
         self.home = home
         self._launcher = launcher
         self._is_process_alive = is_process_alive or _is_process_alive
         self._process_command = process_command or _read_process_command
         self._signal_sender = signal_sender
+        self._ready_file_exists = ready_file_exists or Path.exists
+        self._startup_timeout_s = startup_timeout_s
+        self._sleeper = sleeper
 
     def build_command(self) -> list[str]:
         runtime = self._runtime_configuration()
@@ -51,6 +58,8 @@ class RuntimeSupervisor:
             str(self.home.runtime_config_path),
             "--diagnostic-log-path",
             str(self.home.runtime_diagnostic_log_path),
+            "--ready-file-path",
+            str(self.home.runtime_ready_path),
         ]
 
     def start(self) -> dict:
@@ -60,6 +69,7 @@ class RuntimeSupervisor:
 
         runtime = self._runtime_configuration()
         self.home.initialize_runtime(host=runtime["host"], port=runtime["port"])
+        self.home.runtime_ready_path.unlink(missing_ok=True)
         environment = dict(os.environ)
         environment["OPENHALO_RUNTIME_TOKEN"] = runtime["shared_token"]
         self.home.log_directory.mkdir(parents=True, exist_ok=True)
@@ -77,6 +87,7 @@ class RuntimeSupervisor:
             raise RuntimeError("Runtime launcher did not return a process id")
         self.home.runtime_pid_path.write_text(f"{pid}\n", encoding="utf-8")
         os.chmod(self.home.runtime_pid_path, 0o600)
+        self._wait_for_ready_file(pid)
         return {"state": "running", "pid": pid}
 
     def status(self) -> dict:
@@ -134,6 +145,24 @@ class RuntimeSupervisor:
 
     def _remove_pid_file(self) -> None:
         self.home.runtime_pid_path.unlink(missing_ok=True)
+
+    def _wait_for_ready_file(self, pid: int) -> None:
+        deadline = time.monotonic() + self._startup_timeout_s
+        while True:
+            if self._ready_file_exists(self.home.runtime_ready_path):
+                return
+            if not self._is_process_alive(pid):
+                self._remove_pid_file()
+                raise RuntimeError(
+                    "OpenHalo Runtime exited before becoming ready; run openhalo logs"
+                )
+            if time.monotonic() >= deadline:
+                self._signal_sender(pid, signal.SIGTERM)
+                self._remove_pid_file()
+                raise RuntimeError(
+                    "OpenHalo Runtime did not become ready; run openhalo logs"
+                )
+            self._sleeper(0.05)
 
 
 def _is_process_alive(pid: int) -> bool:

@@ -7,6 +7,8 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
+
 from device_edge.cli.terminal_daemon import TerminalEdgeDaemon
 from openhalo.edge_cli import TerminalCredentials
 from openhalo.edge_cli import main
@@ -121,3 +123,14 @@ def test_terminal_daemon_uses_device_authentication_after_personal_pairing() -> 
         "kind": "device",
         "token": "issued-device-token",
     }
+
+
+def test_version_flag_prints_the_shared_development_identity() -> None:
+    output = io.StringIO()
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+        with redirect_stdout(output), pytest.raises(SystemExit) as exit_code:
+            main(["--version"], home=home)
+
+    assert exit_code.value.code == 0
+    assert output.getvalue() == "openhalo-edge 0.1.0 (dev)\n"

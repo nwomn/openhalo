@@ -15,6 +15,7 @@ import websockets
 from device_edge.cli.terminal_daemon import main as terminal_daemon_main
 from edge_api.protocol import build_connect_frame
 from openhalo.home import PersonalHome
+from openhalo.version import format_cli_version
 
 
 @dataclass(frozen=True)
@@ -25,6 +26,12 @@ class TerminalCredentials:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Set up and run your OpenHalo Terminal Edge.")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=format_cli_version("openhalo-edge"),
+        help="Show the installed OpenHalo Terminal Edge version.",
+    )
     subparsers = parser.add_subparsers(dest="command")
     setup = subparsers.add_parser("setup", help="Pair this terminal with a Runtime.")
     setup.add_argument("--url", required=True, help="Runtime WebSocket URL.")
