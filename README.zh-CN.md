@@ -98,16 +98,7 @@ python3 -m venv .venv
 bin/run-runtime-dev
 ```
 
-在第二个终端启动 host edge：
-
-```bash
-.venv/bin/python -m device_edge.host.host_daemon \
-  --url ws://127.0.0.1:18765 \
-  --token dev-token \
-  --device-id host-edge-1
-```
-
-在第三个终端启动 terminal edge：
+Runtime 会在 Gateway 就绪后自动启动其同机 `host-edge-1`。在第二个终端启动 terminal edge：
 
 ```bash
 .venv/bin/python -m device_edge.cli.terminal_daemon \
