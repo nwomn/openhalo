@@ -103,6 +103,8 @@ Current boundary rules:
 - `Personal Runtime` is the authoritative source of a bounded structured device roster projected from registered device identity, capability contracts, and live availability. The Agent Harness receives that roster and performs semantic target selection from it; `Runtime` validates and governs the selected exact device target but must not replace it through keyword routing or another semantic fallback.
 - The executor kind for a model-native action is selected by the OpenHalo adapter or action registry, not by a model-supplied tool argument; the M20 `openhalo_action` bridge is limited to governed `Device Edge` actions, while runtime-local, MCP, and skill/procedure routes remain OpenHalo-owned registrations
 - Agent behavior should be constrained by explicit prompt/context contracts, behavior contracts, capability/action registry validation, and post-generation validation or repair before any user-visible or side-effectful action is executed
+- The long-horizon interaction-intelligence direction is a multimodal, time-aware model that may interpret continuous vision, audio, text, screen, and device evidence into interaction candidates such as `silence`, `observe_more`, `intervene`, or `delegate`; it must stop at a candidate boundary and never bypass Runtime-owned Presence, privacy, permission, routing, action validation, result recording, or feedback handling
+- Personal multimodal data is user-owned and remains local to the relevant Device Edge and Personal Runtime by default. A future shared training corpus may contain only explicitly consented, reviewable, minimized interaction traces with documented provenance and licensing; it must not be built through default raw audio, video, or screen telemetry collection
 - Presence policy should remain explicit and inspectable even when model-generated or model-repaired; models are not the only durable representation of proactive behavior
 - A host-resident edge running on the runtime's own server is still modeled as a first-class `Device Edge`; physical co-location does not waive the `Edge Session Link <-> Gateway` boundary
 - The runtime should support both a normal deliberative path and an explicit edge-requested fast path for direct actions
@@ -717,6 +719,30 @@ Acceptance criteria:
 Status:
 
 - In progress (`M22` is the first concrete implementation milestone for this goal; staged update/rollback is part of this packaging baseline, while broader product polish, app-store distribution, account/login UX, and encrypted local secret storage remain later hardening)
+
+### Goal 6: Build toward user-sovereign multimodal interaction intelligence
+
+OpenHalo's long-horizon product direction is an interaction model that can remain appropriately present across continuous multimodal evidence, rather than only answering an isolated turn after a user asks. This goal does not make every user train a separate foundation model, and it does not replace the Personal Runtime with an opaque end-to-end action system.
+
+Sub-goals:
+
+- 6.1. Define the interaction-model boundary: a future model may synthesize time-aware candidates from vision, audio, text, screen, and structured device evidence, but `Personal Runtime` remains authoritative for Presence, privacy, permissions, routing, action validation, result correlation, audit, and feedback
+- 6.2. Define the personalization boundary between a general interaction prior, user-owned Runtime memory and Presence policy, and optional user-controlled local adaptation; personal context must not be assumed to train a distinct foundation model for every user
+- 6.3. Define a user-sovereign interaction-trace lifecycle: local capture and replay, reviewable minimization/redaction, explicit contribution consent, provenance and license records, retention, export, and the limitations of withdrawal after model training
+- 6.4. Define the future open research path for a general interaction prior, combining legally usable public data, synthetic or simulated scenarios, and explicitly consented real interaction traces without default raw audio, video, or screen telemetry collection
+- 6.5. Derive future concrete implementation milestones only after the privacy, data-governance, model-boundary, and evaluation contracts are specific enough to accept independently
+
+Acceptance criteria:
+
+- A written design defines the target model as an interaction-candidate generator, with Runtime-owned governance and action execution remaining outside the model boundary
+- The project distinguishes a general multimodal interaction prior from per-user Runtime context, policy, memory, and any optional local adaptation
+- The data-governance design makes local ownership the default and requires user review, explicit consent, minimization/redaction, provenance, and licensing before a trace can enter a shared corpus
+- The design identifies that learned `silence`, timing, modality choice, and intervention intensity require time-aligned outcomes and negative or counterfactual evidence, not only generic multimodal question-answer data
+- The first implementation milestone, if any, is scoped separately and does not alter the current execution route until its privacy, lifecycle, and evaluation acceptance criteria are approved
+
+Status:
+
+- Future / not started. This is a strategic Goal rather than a scheduled milestone; it does not change the active `M20.3` through `M23` execution route.
 
 M17 preparation note:
 
@@ -1784,6 +1810,7 @@ Current M3 slice direction:
 Current phase:
 
 - Post-M16 architecture expansion has completed and accepted `M17.0` public Edge API boundary/internal-runtime encapsulation, `M17.1` registration-driven multi-device extension, `M17.2` native Android Presence Edge, `M17.3` Android daily-use hardening, `M17.4` Mobile Edge product UI implementation, `M17.5` Android screen/context observation baseline, `M17.6` multi-edge lineage/fail-fast semantics, `M17.7.1` Android Edge continuous background observation steady state, `M17.7.2` Runtime mobile observation liveness watchdog and wake recovery, `M18.1` observation-to-snapshot decision-space integration, the module-boundary diagnostics v1 baseline, `M20` Hermes Agent Harness/runtime action-loop implementation, and `M4.1` Runtime-managed Host Edge lifecycle. M20.2 now begins its Runtime/Gateway/Terminal slice on the approved `Display Lifecycle` architecture: it is a non-blocking Runtime presentation sidecar that reduces strict body-free module events into correlated safe progress frames, while Gateway retains transport authority and Edges retain native rendering authority. It now has two independent presentation targets: Gateway projects authorized phases to each Edge, while local `Runtime Console Presenter` renders OpenHalo-owned human-readable activity even when Runtime runs without any Edge. Android code and real-device acceptance for this milestone remain local-user work rather than server-side implementation work. The server-side Terminal slice now bounds deferred non-acknowledgement frames, preventing the formerly reproducible focused-test cgroup OOM; visible early progress now streams from the Gateway while the Harness is still working and Terminal consumes it before an event acknowledgement is available, preventing a final-reply-adjacent progress block. The embedded Hermes Agent now sends thinking updates to a no-op callback and all raw spinner output to a no-op sink, while also suppressing lifecycle/retry status; Runtime console progress is rendered only through fixed OpenHalo status text. The M20.2 Runtime/Gateway/Terminal/Console focused suite now passes 185 tests, including the no-Edge console regression and a slow-Harness WebSocket timing regression, and the Hermes adapter suite passes 53 tests with 4 intentional skips including the raw-spinner suppression regression. The renewed configured-provider Terminal/Android run accepts the governed `ActionBatch`, full result-set continuation, scoped child-session shared context, semantic roster targeting, and requester outcomes. M4.1 human acceptance confirmed automatic loopback Host Edge registration, `host-edge-1` runtime-status execution, and clean managed-edge shutdown without a standalone daemon. The recorded execution route is M20.2, M20.3, M17.8, M17.9, M17.10, broader M18, M19, M20.1, M21, M22, and M23.
+- Goal 6 now records the long-horizon direction for user-sovereign multimodal interaction intelligence: a general model may form time-aware interaction candidates from continuous multimodal evidence, while each user's Runtime preserves local context, policy, and governance. It remains unscheduled research work and does not alter the active execution route.
 - M20.2 Android Edge implementation is complete and automatically verified: the phone Edge advertises the public progress capability, accepts only target-matched safe v1 lifecycle fields, keeps ordered progress state bounded in the active session, clears that state on a settled interaction or Edge session loss, and renders the approved safe phases as localized native animation. Its focused Android suite has 17 passing unit tests and debug plus instrumentation APKs build. The user then completed real-device human acceptance against a local development Runtime on 2026-07-19, accepting natural interaction progress and final lifecycle behavior. The local process and its expected state/diagnostic artifacts had exited or were unavailable by follow-up inspection, so that final evidence is user-reported; M20.2 is now accepted.
 
 ## Next Execution Route
