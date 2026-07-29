@@ -154,3 +154,19 @@ class PairingStoreTests(unittest.TestCase):
         self.assertEqual(self.store.list_devices(), [])
         migrated = json.loads(self.store_path.read_text(encoding="utf-8"))
         self.assertEqual(migrated, {"version": 2, "pairing_codes": {}, "devices": {}})
+
+    def test_owner_can_provision_a_local_host_public_key_without_a_pairing_code(self) -> None:
+        self.store.provision_local_device(
+            device_id="host-edge-1",
+            device_type="server",
+            display_name="Runtime Host",
+            audience="ws://127.0.0.1:8765",
+            public_key="host-public-key",
+            now=NOW,
+        )
+
+        host = self.store.get_active_device("host-edge-1")
+
+        self.assertEqual(host["display_name"], "Runtime Host")
+        self.assertEqual(host["public_key"], "host-public-key")
+        self.assertEqual(self.store.list_pairing_codes(), [])

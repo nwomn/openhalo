@@ -120,6 +120,48 @@ class PairingStore:
         self._mutate(authenticate)
         return authenticated
 
+    def provision_local_device(
+        self,
+        *,
+        device_id: str,
+        device_type: str,
+        display_name: str,
+        audience: str,
+        public_key: str,
+        now: datetime | None = None,
+    ) -> None:
+        """Register a Runtime-owned colocated Edge without a user pairing code."""
+
+        if not all(
+            isinstance(value, str) and value
+            for value in (device_id, device_type, display_name, audience, public_key)
+        ):
+            raise ValueError("Local provisioning requires complete device metadata.")
+        provisioned_at = _timestamp(now)
+
+        def provision(payload: dict) -> None:
+            existing = payload["devices"].get(device_id)
+            if existing is not None:
+                if (
+                    existing.get("public_key") == public_key
+                    and existing.get("revoked_at") is None
+                ):
+                    return
+                raise PairingError("device_already_paired")
+            payload["devices"][device_id] = {
+                "device_type": device_type,
+                "display_name": display_name,
+                "audience": audience,
+                "public_key": public_key,
+                "public_key_fingerprint": _public_key_fingerprint(public_key),
+                "paired_at": provisioned_at,
+                "last_authenticated_at": None,
+                "revoked_at": None,
+                "provisioned_by": "local_owner",
+            }
+
+        self._mutate(provision)
+
     def get_device(self, device_id: str) -> dict | None:
         return self._read(
             lambda payload: _copy_record(payload["devices"].get(device_id))
