@@ -15,6 +15,8 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.serialization import Encoding
+from cryptography.hazmat.primitives.serialization import NoEncryption
+from cryptography.hazmat.primitives.serialization import PrivateFormat
 from cryptography.hazmat.primitives.serialization import PublicFormat
 
 
@@ -29,6 +31,21 @@ def generate_private_key() -> ec.EllipticCurvePrivateKey:
 
 def public_key_spki_der(public_key: ec.EllipticCurvePublicKey) -> bytes:
     return public_key.public_bytes(Encoding.DER, PublicFormat.SubjectPublicKeyInfo)
+
+
+def private_key_pkcs8_der(private_key: ec.EllipticCurvePrivateKey) -> bytes:
+    return private_key.private_bytes(Encoding.DER, PrivateFormat.PKCS8, NoEncryption())
+
+
+def load_p256_private_key(private_key_der: bytes) -> ec.EllipticCurvePrivateKey:
+    from cryptography.hazmat.primitives.serialization import load_der_private_key
+
+    private_key = load_der_private_key(private_key_der, password=None)
+    if not isinstance(private_key, ec.EllipticCurvePrivateKey) or not isinstance(
+        private_key.curve, ec.SECP256R1
+    ):
+        raise ValueError("Device private key must be P-256 PKCS8 DER.")
+    return private_key
 
 
 def encode_base64url(value: bytes) -> str:
