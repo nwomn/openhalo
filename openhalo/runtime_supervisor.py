@@ -48,8 +48,6 @@ class RuntimeSupervisor:
             runtime["host"],
             "--port",
             str(runtime["port"]),
-            "--token-env",
-            "OPENHALO_RUNTIME_TOKEN",
             "--state-path",
             str(self.home.state_path),
             "--pairing-store-path",
@@ -71,7 +69,7 @@ class RuntimeSupervisor:
         self.home.initialize_runtime(host=runtime["host"], port=runtime["port"])
         self.home.runtime_ready_path.unlink(missing_ok=True)
         environment = dict(os.environ)
-        environment["OPENHALO_RUNTIME_TOKEN"] = runtime["shared_token"]
+        environment.pop("OPENHALO_RUNTIME_TOKEN", None)
         self.home.log_directory.mkdir(parents=True, exist_ok=True)
         with self.home.runtime_log_path.open("a", encoding="utf-8") as log_file:
             process = self._launcher(
@@ -126,14 +124,11 @@ class RuntimeSupervisor:
             raise ValueError("OpenHalo Runtime is not configured; run openhalo setup")
         host = runtime.get("host")
         port = runtime.get("port")
-        shared_token = runtime.get("shared_token")
         if not isinstance(host, str) or not host:
             raise ValueError("Runtime configuration has no bind host")
         if not isinstance(port, int) or not 1 <= port <= 65535:
             raise ValueError("Runtime configuration has an invalid port")
-        if not isinstance(shared_token, str) or not shared_token:
-            raise ValueError("Runtime configuration has no owner token")
-        return {"host": host, "port": port, "shared_token": shared_token}
+        return {"host": host, "port": port}
 
     def _read_pid(self) -> int | None:
         try:

@@ -39,15 +39,15 @@ def build_managed_host_edge_url(gateway_url: str) -> str:
 
 
 def build_gateway(
-    token: str,
     state_path: Path,
     llm_config_path: Path | None = None,
     diagnostic_log_path: Path | None = None,
     pairing_store_path: Path | None = None,
     ready_file_path: Path | None = None,
+    audience: str = "wss://runtime.invalid/openhalo/edge",
 ) -> RuntimeGateway:
+    del ready_file_path
     return RuntimeGateway(
-        shared_token=token,
         state_path=state_path,
         runtime_event_emitter=print,
         llm_config_path=llm_config_path,
@@ -57,6 +57,7 @@ def build_gateway(
         pairing_store=PairingStore(pairing_store_path)
         if pairing_store_path is not None
         else None,
+        audience=audience,
     )
 
 
@@ -64,20 +65,34 @@ def build_managed_host_edge_supervisor(
     *,
     gateway: RuntimeGateway,
     url: str,
-    token: str,
     device_id: str,
+    identity_home: Path,
     idle_timeout_s: float,
 ) -> ManagedHostEdgeSupervisor:
     runtime_control_adapter = PythonProcessAdapter(
         process_match_substring="personal_runtime.main",
         start_command=[sys.executable, "-m", "personal_runtime.main"],
     )
+    if gateway.pairing_store is None:
+        raise ValueError("Managed Host Edge requires a PairingStore.")
+    from device_edge.shared.identity import load_or_create_identity
+
+    identity = load_or_create_identity(identity_home, device_id)
+    gateway.pairing_store.provision_local_device(
+        device_id=device_id,
+        device_type="server",
+        display_name="Runtime Host",
+        audience=gateway.audience,
+        public_key=identity.public_key,
+    )
     daemon = HostEdgeDaemon(
         device_id=device_id,
-        token=token,
+        audience=gateway.audience,
         runtime_control_adapter=runtime_control_adapter,
         host_metrics_provider=read_host_metric_snapshot,
         runtime_health_provider=build_runtime_health_provider(runtime_control_adapter),
+        identity=identity,
+        display_name="Runtime Host",
         diagnostic_recorder=getattr(gateway, "diagnostic_recorder", None),
     )
 
@@ -97,7 +112,6 @@ def build_managed_host_edge_supervisor(
 async def run_server(
     host: str,
     port: int,
-    token: str,
     state_path: Path,
     llm_config_path: Path | None = None,
     diagnostic_log_path: Path | None = None,
@@ -106,14 +120,17 @@ async def run_server(
     manage_host_edge: bool = True,
     host_edge_device_id: str = "host-edge-1",
     host_edge_idle_timeout_s: float = 30.0,
+    audience: str | None = None,
+    identity_home: Path | None = None,
     host_edge_supervisor_factory=build_managed_host_edge_supervisor,
 ) -> None:
     gateway_kwargs = dict(
-        token=token,
         state_path=state_path,
         llm_config_path=llm_config_path,
         diagnostic_log_path=diagnostic_log_path,
     )
+    if audience is not None:
+        gateway_kwargs["audience"] = audience
     if pairing_store_path is not None:
         gateway_kwargs["pairing_store_path"] = pairing_store_path
     gateway = build_gateway(**gateway_kwargs)
@@ -126,8 +143,9 @@ async def run_server(
                 supervisor = host_edge_supervisor_factory(
                     gateway=gateway,
                     url=build_managed_host_edge_url(server_info["url"]),
-                    token=token,
                     device_id=host_edge_device_id,
+                    identity_home=identity_home
+                    or (pairing_store_path or state_path).parent.parent,
                     idle_timeout_s=host_edge_idle_timeout_s,
                 )
                 await supervisor.start()
@@ -149,13 +167,9 @@ def build_runtime_server_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the v0 personal runtime server.")
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind.")
     parser.add_argument("--port", type=int, default=8765, help="Port to bind.")
-    parser.add_argument("--token", default="dev-token", help="Shared development token.")
     parser.add_argument(
-        "--token-env",
-        help=(
-            "Name of an environment variable containing the shared edge token. "
-            "When set, this value takes precedence over --token."
-        ),
+        "--edge-audience",
+        help="Canonical Runtime audience signed by Device Edges.",
     )
     parser.add_argument(
         "--state-path",
@@ -207,24 +221,6 @@ def build_runtime_server_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def resolve_runtime_token(
-    args: argparse.Namespace,
-    parser: argparse.ArgumentParser | None = None,
-) -> str:
-    token_env = getattr(args, "token_env", None)
-    if not token_env:
-        return args.token
-
-    token = os.environ.get(token_env)
-    if token:
-        return token
-
-    message = f"environment variable {token_env!r} is required by --token-env"
-    if parser is not None:
-        parser.error(message)
-    raise SystemExit(message)
-
-
 def main() -> None:
     parser = build_runtime_server_parser()
     args = parser.parse_args()
@@ -233,7 +229,6 @@ def main() -> None:
         run_server(
             host=args.host,
             port=args.port,
-            token=resolve_runtime_token(args, parser),
             state_path=Path(args.state_path),
             pairing_store_path=Path(args.pairing_store_path),
             llm_config_path=Path(args.runtime_config_path)
@@ -244,6 +239,7 @@ def main() -> None:
             manage_host_edge=args.host_edge_enabled,
             host_edge_device_id=args.host_edge_device_id,
             host_edge_idle_timeout_s=args.host_edge_idle_timeout,
+            audience=args.edge_audience,
         )
     )
 
@@ -261,7 +257,6 @@ __all__ = [
     "build_runtime_server_message",
     "build_runtime_server_parser",
     "main",
-    "resolve_runtime_token",
     "run_server",
 ]
 

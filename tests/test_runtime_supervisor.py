@@ -19,7 +19,7 @@ def _home() -> tuple[TemporaryDirectory, PersonalHome]:
     return directory, home
 
 
-def test_start_builds_home_derived_runtime_command_without_exposing_token() -> None:
+def test_start_builds_home_derived_runtime_command_without_any_runtime_token() -> None:
     directory, home = _home()
     launches: list[tuple[list[str], dict]] = []
     try:
@@ -43,9 +43,9 @@ def test_start_builds_home_derived_runtime_command_without_exposing_token() -> N
         assert str(home.pairing_store_path) in command
         assert "--ready-file-path" in command
         assert str(home.runtime_ready_path) in command
-        assert "--token-env" in command
-        assert kwargs["env"]["OPENHALO_RUNTIME_TOKEN"]
-        assert kwargs["env"]["OPENHALO_RUNTIME_TOKEN"] not in command
+        assert "--token-env" not in command
+        assert "--token" not in command
+        assert "OPENHALO_RUNTIME_TOKEN" not in kwargs["env"]
         assert home.runtime_pid_path.read_text(encoding="utf-8") == "719\n"
     finally:
         directory.cleanup()

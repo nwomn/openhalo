@@ -116,9 +116,16 @@ class PersonalHome:
         if version != 1:
             raise ValueError(f"unsupported configuration version: {version}")
         payload.setdefault("version", 1)
+        migrated = False
+        runtime = payload.get("runtime")
+        if isinstance(runtime, dict) and "shared_token" in runtime:
+            runtime.pop("shared_token")
+            migrated = True
         terminal_edge = payload.get("terminal_edge")
         if isinstance(terminal_edge, dict) and "device_token" in terminal_edge:
             payload.pop("terminal_edge")
+            migrated = True
+        if migrated:
             self._save_configuration(payload)
         return payload
 
