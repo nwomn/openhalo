@@ -50,6 +50,74 @@ def _last_error(replies: list[dict]) -> dict | None:
 
 
 class GatewayTests(unittest.IsolatedAsyncioTestCase):
+    async def test_interaction_update_projects_safe_receipt_with_authorized_real_device_name(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(persist_state=False)
+        gateway.state.register_device(
+            "terminal-edge-1",
+            "desktop-cli",
+            display_name="Maya's Terminal",
+        )
+        gateway.state.register_device(
+            "android-edge-1",
+            "android-phone",
+            display_name="Maya's Phone",
+        )
+        interaction = gateway.state.update_interaction(
+            "interaction-1",
+            status="completed",
+            requesting_device_id="terminal-edge-1",
+            outcome_delivery_required=True,
+            participant_device_ids=["terminal-edge-1", "android-edge-1"],
+            completion={"visibility": "visible", "summary": "Done."},
+            outcome_receipt_entries=[
+                {
+                    "sequence": 1,
+                    "kind": "request_received",
+                    "occurred_at": "2030-01-01T10:42:00Z",
+                },
+                {
+                    "sequence": 2,
+                    "kind": "confirmed",
+                    "occurred_at": "2030-01-01T10:43:00Z",
+                    "device_id": "android-edge-1",
+                },
+            ],
+        )
+
+        reply = gateway._build_interaction_update_replies(interaction)[0]
+
+        receipt = reply["interaction"]["outcome_receipt"]
+        assert receipt["entries"][1]["device_name"] == "Maya's Phone"
+        assert "android-edge-1" not in repr(receipt)
+
+    async def test_safe_lifecycle_and_action_result_append_receipt_entries(self) -> None:
+        gateway = RuntimeGateway(persist_state=False)
+        registration = gateway._register_interaction_for_frame(
+            {
+                "type": "event_push",
+                "device_id": "terminal-edge-1",
+                "capability": "text.input",
+                "payload": {"text": "Send this to my phone"},
+            }
+        )
+        interaction_id = registration.interaction.interaction_id
+
+        gateway.emit_interaction_progress(
+            interaction_id=interaction_id,
+            interaction_turn_id="turn-1",
+            phase="deliberating",
+            state="active",
+            presentation_hint="working",
+        )
+        interaction = gateway._interaction_payload(interaction_id)
+
+        assert [entry["kind"] for entry in interaction["outcome_receipt_entries"]] == [
+            "request_received",
+            "started",
+        ]
+
     async def test_pairing_connect_requires_a_valid_p256_proof_before_connect_ok(
         self,
     ) -> None:

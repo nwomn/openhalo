@@ -640,6 +640,11 @@ class RuntimeOrchestrator:
         )
         planned_action["interaction_id"] = interaction_id
         planned_action["interaction_turn_id"] = interaction_turn_id
+        self.gateway._append_outcome_receipt_entry(
+            interaction_id,
+            kind="delivery",
+            device_id=execution_outcome["target_device_id"],
+        )
         return planned_action
 
     def _record_resolved_turn(
@@ -854,6 +859,11 @@ class RuntimeOrchestrator:
             action_request["interaction_turn_id"] = interaction_turn_id
             action_request["action_batch_id"] = batch_id
             action_request["action_id"] = action_id
+            self.gateway._append_outcome_receipt_entry(
+                interaction_id,
+                kind="delivery",
+                device_id=execution_outcome["target_device_id"],
+            )
             action_requests.append(action_request)
         self.gateway.state.update_interaction(
             interaction_id,

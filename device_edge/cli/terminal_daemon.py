@@ -22,6 +22,9 @@ from device_edge.shared.identity import DeviceIdentity
 from device_edge.shared.identity import create_ephemeral_identity
 from device_edge.shared.identity import load_or_create_identity
 from device_edge.shared.session_client import SessionClient
+from device_edge.cli.presentation import PresentationState
+from device_edge.cli.presentation import reduce_interaction_update
+from device_edge.cli.presentation import reduce_progress_frame
 from edge_api.protocol import with_api_version
 from openhalo_common.diagnostics import DiagnosticBoundaryRecorder
 from openhalo_common.diagnostics import JsonlDiagnosticRecorder
@@ -77,6 +80,7 @@ class TerminalEdgeDaemon:
         self.local_command_count = 0
         self.quit_requested = False
         self.transcript = deque(maxlen=self.transcript_limit)
+        self.presentation = PresentationState(transcript_limit=self.transcript_limit)
         self.device = {
             "device_id": device_id,
             "device_name": device_id,
@@ -226,6 +230,10 @@ class TerminalEdgeDaemon:
     def render_runtime_line(self, message: str) -> None:
         self.clear_progress()
         self._write_line("runtime", message)
+
+    def render_receipt_line(self, message: str) -> None:
+        self.clear_progress()
+        self._write_line("receipt", message)
 
     def render_progress_phase(self, interaction_id: str, phase: str) -> None:
         message = self.progress_messages.get(phase)
@@ -449,6 +457,8 @@ class TerminalEdgeDaemon:
 
     def handle_interaction_frame(self, frame: dict) -> None:
         interaction = frame["interaction"]
+        previous_receipts = self.presentation.receipts
+        self.presentation = reduce_interaction_update(self.presentation, frame)
         self.pending_interaction_id = interaction.get("interaction_id")
         if interaction.get("status") == "completed":
             self.pending_runtime_reply = False
@@ -456,10 +466,23 @@ class TerminalEdgeDaemon:
             self.clear_progress()
         visibility = interaction.get("visibility", "visible")
         summary = interaction.get("summary", "").strip()
+        interaction_id = interaction.get("interaction_id")
+        receipt = (
+            self.presentation.receipts.get(interaction_id)
+            if isinstance(interaction_id, str)
+            else None
+        )
+        if receipt is not None and previous_receipts.get(interaction_id) != receipt:
+            self.render_receipt_line(receipt.compact_line)
+            return
         if summary and visibility != "silent":
             self.render_runtime_line(summary)
 
     def handle_interaction_progress_frame(self, frame: dict) -> None:
+        previous_presentation = self.presentation
+        self.presentation = reduce_progress_frame(self.presentation, frame)
+        if self.presentation == previous_presentation:
+            return
         progress = frame.get("progress", {})
         interaction_id = progress.get("interaction_id")
         sequence = progress.get("sequence")

@@ -37,6 +37,8 @@ from personal_runtime.execution_planning import ExecutionPlanner
 from personal_runtime.interaction_pool import InteractionPool
 from personal_runtime.mobile_liveness import record_mobile_session_state
 from personal_runtime.mobile_liveness import update_mobile_liveness_after_observations
+from personal_runtime.outcome_receipt import append_receipt_entry
+from personal_runtime.outcome_receipt import project_outcome_receipt
 from personal_runtime.pairing_store import PairingError
 from personal_runtime.pairing_store import PairingStore
 from personal_runtime.presence_router import PresenceRouter
@@ -194,7 +196,7 @@ class RuntimeGateway:
         }
         if origin == "agent_initiative":
             trigger["initiative_reason"] = payload["agent_initiative"].get("reason")
-        return self.interaction_pool.register(
+        registration = self.interaction_pool.register(
             origin=origin,
             causal_scope=causal_scope,
             trigger=trigger,
@@ -210,6 +212,16 @@ class RuntimeGateway:
             ),
             outcome_delivery_required=is_explicit_user_intent,
         )
+        if registration.created:
+            self.state.update_interaction(
+                registration.interaction.interaction_id,
+                outcome_receipt_entries=append_receipt_entry(
+                    [],
+                    kind="request_received",
+                    occurred_at=_utc_now(),
+                ),
+            )
+        return registration
 
     def _interaction_payload(self, interaction_id: str) -> dict | None:
         return next(
@@ -354,6 +366,15 @@ class RuntimeGateway:
                 "provenance": action_intent.get("provenance", {}),
             }
         self.state.record_action_result(result)
+        interaction_id = frame.get("interaction_id")
+        if isinstance(interaction_id, str) and interaction_id:
+            self._append_outcome_receipt_entry(
+                interaction_id,
+                kind="confirmed"
+                if result.get("status") == "ok"
+                else "failed",
+                device_id=frame.get("device_id"),
+            )
         return frame
 
     def _build_interaction_record(
@@ -499,21 +520,64 @@ class RuntimeGateway:
             return []
         visibility = interaction.get("completion", {}).get("visibility", "visible")
         summary = interaction.get("completion", {}).get("summary", "")
+        interaction_payload = {
+            "interaction_id": interaction["interaction_id"],
+            "status": interaction["status"],
+            "summary": summary,
+            "visibility": visibility,
+            "completion": interaction.get("completion", {}),
+        }
+        receipt = self._project_outcome_receipt(interaction)
+        if receipt is not None:
+            interaction_payload["outcome_receipt"] = receipt
         replies = [
             build_interaction_update(
                 requesting_device_id,
-                {
-                    "interaction_id": interaction["interaction_id"],
-                    "status": interaction["status"],
-                    "summary": summary,
-                    "visibility": visibility,
-                    "completion": interaction.get("completion", {}),
-                },
+                interaction_payload,
                 trace_recorder=self.trace_recorder,
                 correlation=correlation,
             )
         ]
         return replies
+
+    def _project_outcome_receipt(self, interaction: dict) -> dict | None:
+        names = {
+            device_id: record.get("display_name", device_id)
+            for device_id, record in self.state.device_registry.items()
+        }
+        return project_outcome_receipt(
+            entries=interaction.get("outcome_receipt_entries"),
+            state=interaction.get("status"),
+            participant_device_ids=interaction.get("participant_device_ids", []),
+            device_names=names,
+        )
+
+    def _append_outcome_receipt_entry(
+        self,
+        interaction_id: str,
+        *,
+        kind: str,
+        device_id: str | None = None,
+    ) -> None:
+        interaction = self._interaction_payload(interaction_id)
+        if interaction is None:
+            return
+        entries = list(interaction.get("outcome_receipt_entries", []))
+        if any(
+            entry.get("kind") == kind and entry.get("device_id") == device_id
+            for entry in entries
+            if isinstance(entry, dict)
+        ):
+            return
+        self.state.update_interaction(
+            interaction_id,
+            outcome_receipt_entries=append_receipt_entry(
+                entries,
+                kind=kind,
+                occurred_at=_utc_now(),
+                device_id=device_id,
+            ),
+        )
 
     def _progress_recipients_for_interaction(self, interaction: dict) -> list[str]:
         """Return authorized, progress-capable Edge participants only."""
@@ -564,6 +628,11 @@ class RuntimeGateway:
             occurred_at=occurred_at or _utc_now(),
             presentation_hint=presentation_hint,
         )
+        if phase in {"deliberating", "researching", "planning"}:
+            self._append_outcome_receipt_entry(
+                interaction_id,
+                kind="started",
+            )
         self.state.update_interaction(
             interaction_id,
             display_progress_sequence=progress["sequence"],
@@ -1467,6 +1536,7 @@ class RuntimeGateway:
                     message="Device is paired for a different Runtime audience.",
                     device_id=device_id,
                 )
+            display_name = record.get("display_name")
             try:
                 public_key_der = decode_base64url(record["public_key"])
             except (KeyError, ValueError):
@@ -1656,6 +1726,7 @@ class RuntimeGateway:
             pending.device_type,
             role=pending.device_role,
             profile=pending.device_profile,
+            display_name=pending.display_name,
         )
         self._record_trace("STATE", "registered device", device_id=pending.device_id)
         self.online_device_ids.add(pending.device_id)

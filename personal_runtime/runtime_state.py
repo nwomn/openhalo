@@ -53,6 +53,7 @@ class RuntimeState:
         device_type: str,
         role: str | None = None,
         profile: dict | None = None,
+        display_name: str | None = None,
     ) -> None:
         self.devices.setdefault(
             device_id,
@@ -69,6 +70,8 @@ class RuntimeState:
             self.device_registry[device_id]["role"] = role
         if profile is not None:
             self.device_registry[device_id]["profile"] = profile
+        if isinstance(display_name, str) and display_name.strip():
+            self.device_registry[device_id]["display_name"] = display_name.strip()
 
     def register_capability(self, device_id: str, capability_name: str | dict) -> None:
         if isinstance(capability_name, dict):
