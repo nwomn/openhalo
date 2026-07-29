@@ -22,7 +22,7 @@ class PairingStoreTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp_directory.cleanup()
 
-    def test_claiming_fresh_code_issues_device_token_without_persisting_secrets(
+    def test_claiming_fresh_code_registers_public_key_without_persisting_the_code(
         self,
     ) -> None:
         pairing_code = self.store.create_pairing_code(
@@ -30,26 +30,27 @@ class PairingStoreTests(unittest.TestCase):
             now=NOW,
         )
 
-        device_token = self.store.claim_pairing_code(
+        public_key = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEtest"
+        self.store.claim_pairing_code(
             pairing_code,
             device_id="android-edge-1",
             device_type="android-phone",
+            display_name="Maya's Phone",
+            audience="wss://runtime.example/openhalo/edge",
+            public_key=public_key,
             now=NOW,
         )
 
         persisted = self.store_path.read_text(encoding="utf-8")
         payload = json.loads(persisted)
 
-        self.assertTrue(device_token)
         self.assertNotIn(pairing_code, persisted)
-        self.assertNotIn(device_token, persisted)
-        self.assertTrue(
-            self.store.authenticate_device(
-                "android-edge-1",
-                device_token,
-                now=NOW,
-            )
+        self.assertEqual(payload["version"], 2)
+        self.assertEqual(payload["devices"]["android-edge-1"]["public_key"], public_key)
+        self.assertEqual(
+            payload["devices"]["android-edge-1"]["display_name"], "Maya's Phone"
         )
+        self.assertNotIn("credential_hash", payload["devices"]["android-edge-1"])
         self.assertEqual(
             payload["devices"]["android-edge-1"]["device_type"],
             "android-phone",
@@ -64,6 +65,9 @@ class PairingStoreTests(unittest.TestCase):
             pairing_code,
             device_id="android-edge-1",
             device_type="android-phone",
+            display_name="Maya's Phone",
+            audience="wss://runtime.example/openhalo/edge",
+            public_key="public-key-1",
             now=NOW,
         )
 
@@ -72,29 +76,31 @@ class PairingStoreTests(unittest.TestCase):
                 pairing_code,
                 device_id="android-edge-2",
                 device_type="android-phone",
+                display_name="Another Phone",
+                audience="wss://runtime.example/openhalo/edge",
+                public_key="public-key-2",
                 now=NOW,
             )
 
-    def test_device_credential_survives_store_restart(self) -> None:
+    def test_public_key_record_survives_store_restart(self) -> None:
         pairing_code = self.store.create_pairing_code(
             ttl_seconds=600,
             now=NOW,
         )
-        device_token = self.store.claim_pairing_code(
+        self.store.claim_pairing_code(
             pairing_code,
             device_id="android-edge-1",
             device_type="android-phone",
+            display_name="Maya's Phone",
+            audience="wss://runtime.example/openhalo/edge",
+            public_key="public-key",
             now=NOW,
         )
 
         restarted_store = PairingStore(self.store_path)
 
-        self.assertTrue(
-            restarted_store.authenticate_device(
-                "android-edge-1",
-                device_token,
-                now=NOW,
-            )
+        self.assertEqual(
+            restarted_store.get_device("android-edge-1")["public_key"], "public-key"
         )
 
     def test_expired_pairing_code_is_rejected(self) -> None:
@@ -108,27 +114,43 @@ class PairingStoreTests(unittest.TestCase):
                 pairing_code,
                 device_id="android-edge-1",
                 device_type="android-phone",
+                display_name="Maya's Phone",
+                audience="wss://runtime.example/openhalo/edge",
+                public_key="public-key",
                 now=NOW + timedelta(seconds=61),
             )
 
-    def test_revoked_device_token_is_rejected(self) -> None:
+    def test_revoked_device_public_key_is_rejected(self) -> None:
         pairing_code = self.store.create_pairing_code(
             ttl_seconds=600,
             now=NOW,
         )
-        device_token = self.store.claim_pairing_code(
+        self.store.claim_pairing_code(
             pairing_code,
             device_id="android-edge-1",
             device_type="android-phone",
+            display_name="Maya's Phone",
+            audience="wss://runtime.example/openhalo/edge",
+            public_key="public-key",
             now=NOW,
         )
 
         self.store.revoke_device("android-edge-1", now=NOW)
 
-        self.assertFalse(
-            self.store.authenticate_device(
-                "android-edge-1",
-                device_token,
-                now=NOW,
-            )
+        self.assertIsNone(self.store.get_active_device("android-edge-1"))
+
+    def test_loading_a_v1_registry_discards_bearer_records_and_pairing_codes(self) -> None:
+        self.store_path.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "pairing_codes": {"old-code-hash": {"expires_at": "2030-01-02T00:00:00Z"}},
+                    "devices": {"old-device": {"credential_hash": "secret"}},
+                }
+            ),
+            encoding="utf-8",
         )
+
+        self.assertEqual(self.store.list_devices(), [])
+        migrated = json.loads(self.store_path.read_text(encoding="utf-8"))
+        self.assertEqual(migrated, {"version": 2, "pairing_codes": {}, "devices": {}})

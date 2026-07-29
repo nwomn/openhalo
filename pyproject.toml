@@ -3,6 +3,7 @@ name = "openhalo"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
+    "cryptography>=46,<47",
     "websockets>=12,<16",
     "textual",
     "hermes-agent @ git+https://github.com/NousResearch/hermes-agent.git@e12626b34fb1024bf00f40f4759647f9cbd3f198",

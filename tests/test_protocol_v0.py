@@ -3,6 +3,11 @@ import tomllib
 import unittest
 from pathlib import Path
 
+from edge_api.auth import build_challenge_payload
+from edge_api.auth import generate_private_key
+from edge_api.auth import public_key_spki_der
+from edge_api.auth import sign_challenge
+from edge_api.auth import verify_challenge_signature
 from edge_api.protocol import API_VERSION
 from edge_api.protocol import build_capability_announce_frame
 from edge_api.protocol import build_connect_frame
@@ -38,9 +43,47 @@ class ImportSmokeTests(unittest.TestCase):
                 "personal_runtime",
             ],
         )
+        self.assertIn("cryptography>=46,<47", payload["project"]["dependencies"])
 
 
 class ProtocolTests(unittest.TestCase):
+    def test_uses_the_v2_public_protocol_only(self) -> None:
+        self.assertEqual(API_VERSION, "edge.runtime.v2")
+        with self.assertRaisesRegex(ValueError, "Unsupported api_version"):
+            validate_frame({"api_version": "edge.runtime.v1", "type": "connect"})
+
+    def test_p256_authentication_signature_binds_all_challenge_fields(self) -> None:
+        private_key = generate_private_key()
+        payload = build_challenge_payload(
+            audience="wss://runtime.example/openhalo/edge",
+            device_id="terminal-edge-1",
+            session_id="session-1",
+            challenge_id="challenge-1",
+            nonce="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY",
+            expires_at="2030-01-01T12:01:00Z",
+        )
+        signature = sign_challenge(private_key, payload)
+
+        self.assertTrue(
+            verify_challenge_signature(
+                public_key_spki_der(private_key.public_key()), payload, signature
+            )
+        )
+        self.assertFalse(
+            verify_challenge_signature(
+                public_key_spki_der(private_key.public_key()),
+                build_challenge_payload(
+                    audience="wss://other.example/openhalo/edge",
+                    device_id="terminal-edge-1",
+                    session_id="session-1",
+                    challenge_id="challenge-1",
+                    nonce="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY",
+                    expires_at="2030-01-01T12:01:00Z",
+                ),
+                signature,
+            )
+        )
+
     def test_accepts_versioned_interaction_progress_frame(self) -> None:
         frame = {
             "api_version": API_VERSION,
@@ -60,16 +103,22 @@ class ProtocolTests(unittest.TestCase):
 
         self.assertEqual(validate_frame(frame), frame)
 
-    def test_builds_connect_frame(self) -> None:
+    def test_builds_pairing_connect_frame_without_a_bearer_token(self) -> None:
         frame = build_connect_frame(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
-            token="dev-token",
+            audience="wss://runtime.example/openhalo/edge",
+            pairing_code="pairing-code",
+            public_key="cHVibGljLWtleQ",
+            display_name="Maya's Terminal",
         )
 
         self.assertEqual(frame["type"], "connect")
         self.assertEqual(frame["api_version"], API_VERSION)
         self.assertEqual(frame["device"]["device_id"], "desktop-dev-1")
+        self.assertEqual(frame["auth"]["kind"], "pairing")
+        self.assertEqual(frame["auth"]["pairing_code"], "pairing-code")
+        self.assertNotIn("token", frame["auth"])
 
     def test_builds_object_capability_announce_frame(self) -> None:
         frame = build_capability_announce_frame(

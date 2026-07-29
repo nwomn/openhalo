@@ -1,4 +1,4 @@
-"""Durable, Runtime-local device pairing and credential registry."""
+"""Durable, Runtime-local public-key device pairing registry."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ class PairingError(ValueError):
 
 
 class PairingStore:
-    """Store one-time pairing codes and per-device credential hashes locally."""
+    """Store one-time pairing codes and P-256 public device records locally."""
 
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -61,11 +61,15 @@ class PairingStore:
         *,
         device_id: str,
         device_type: str,
+        display_name: str,
+        audience: str,
+        public_key: str,
         now: datetime | None = None,
-    ) -> str:
+    ) -> None:
         pairing_code_hash = _secret_hash(pairing_code)
         claimed_at = _timestamp(now)
-        device_token = secrets.token_urlsafe(32)
+        if not all(isinstance(value, str) and value for value in (device_id, device_type, display_name, audience, public_key)):
+            raise PairingError("invalid_pairing_request")
 
         def claim(payload: dict) -> None:
             pairing_record = payload["pairing_codes"].get(pairing_code_hash)
@@ -84,43 +88,72 @@ class PairingStore:
             pairing_record["consumed_at"] = claimed_at
             pairing_record["consumed_by_device_id"] = device_id
             payload["devices"][device_id] = {
-                "credential_hash": _secret_hash(device_token),
                 "device_type": device_type,
+                "display_name": display_name,
+                "audience": audience,
+                "public_key": public_key,
+                "public_key_fingerprint": _public_key_fingerprint(public_key),
                 "paired_at": claimed_at,
                 "last_authenticated_at": claimed_at,
                 "revoked_at": None,
             }
 
         self._mutate(claim)
-        return device_token
 
-    def authenticate_device(
+    def record_authenticated(
         self,
         device_id: str,
-        device_token: str,
         *,
         now: datetime | None = None,
     ) -> bool:
         authenticated_at = _timestamp(now)
-        device_token_hash = _secret_hash(device_token)
         authenticated = False
 
         def authenticate(payload: dict) -> None:
             nonlocal authenticated
             device = payload["devices"].get(device_id)
-            if (
-                device is None
-                or device.get("revoked_at") is not None
-                or not secrets.compare_digest(
-                    device.get("credential_hash", ""), device_token_hash
-                )
-            ):
+            if device is None or device.get("revoked_at") is not None:
                 return
             device["last_authenticated_at"] = authenticated_at
             authenticated = True
 
         self._mutate(authenticate)
         return authenticated
+
+    def get_device(self, device_id: str) -> dict | None:
+        return self._read(
+            lambda payload: _copy_record(payload["devices"].get(device_id))
+        )
+
+    def get_active_device(self, device_id: str) -> dict | None:
+        return self._read(
+            lambda payload: _copy_record(
+                device
+                if (device := payload["devices"].get(device_id)) is not None
+                and device.get("revoked_at") is None
+                else None
+            )
+        )
+
+    def rename_device(
+        self,
+        device_id: str,
+        display_name: str,
+    ) -> bool:
+        if not isinstance(display_name, str) or not display_name.strip():
+            raise ValueError("display_name must not be empty")
+        renamed = False
+
+        def rename(payload: dict) -> None:
+            nonlocal renamed
+            device = payload["devices"].get(device_id)
+            if device is None:
+                return
+            device["display_name"] = display_name.strip()
+            renamed = True
+
+        self._mutate(rename)
+        return renamed
 
     def revoke_device(
         self,
@@ -161,6 +194,9 @@ class PairingStore:
                 {
                     "device_id": device_id,
                     "device_type": record["device_type"],
+                    "display_name": record["display_name"],
+                    "audience": record["audience"],
+                    "public_key_fingerprint": record["public_key_fingerprint"],
                     "paired_at": record["paired_at"],
                     "last_authenticated_at": record["last_authenticated_at"],
                     "revoked_at": record["revoked_at"],
@@ -196,8 +232,12 @@ class PairingStore:
 
     def _load_unlocked(self) -> dict:
         if not self.path.exists():
-            return {"version": 1, "pairing_codes": {}, "devices": {}}
-        return json.loads(self.path.read_text(encoding="utf-8"))
+            return _empty_payload()
+        payload = json.loads(self.path.read_text(encoding="utf-8"))
+        if payload.get("version") != 2:
+            payload = _empty_payload()
+            self._save_unlocked(payload)
+        return payload
 
     def _save_unlocked(self, payload: dict) -> None:
         descriptor, temporary_path = tempfile.mkstemp(
@@ -219,6 +259,18 @@ class PairingStore:
 
 def _secret_hash(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _public_key_fingerprint(value: str) -> str:
+    return f"sha256:{hashlib.sha256(value.encode('ascii')).hexdigest()}"
+
+
+def _copy_record(record: dict | None) -> dict | None:
+    return dict(record) if record is not None else None
+
+
+def _empty_payload() -> dict:
+    return {"version": 2, "pairing_codes": {}, "devices": {}}
 
 
 def _timestamp(value: datetime | None) -> str:

@@ -1,13 +1,15 @@
 """Public Edge API frame helpers.
 
-This module is intentionally small and dependency-free so external edges can
-reuse the same frame contract without importing Personal Runtime internals.
+This module is intentionally small so external edges can reuse the same frame
+contract without importing Personal Runtime internals.
 """
 
-API_VERSION = "edge.runtime.v1"
+API_VERSION = "edge.runtime.v2"
 
 REQUIRED_TYPES = {
     "connect",
+    "auth_challenge",
+    "auth_proof",
     "connect_ok",
     "capability_announce",
     "event_push",
@@ -38,10 +40,12 @@ def with_api_version(frame: dict) -> dict:
 def build_connect_frame(
     device_id: str,
     device_type: str,
-    token: str,
+    audience: str,
+    pairing_code: str | None = None,
+    public_key: str | None = None,
+    display_name: str | None = None,
     role: str | None = None,
     session_id: str | None = None,
-    auth_kind: str | None = None,
 ) -> dict:
     device = {
         "device_id": device_id,
@@ -49,14 +53,20 @@ def build_connect_frame(
     }
     if role is not None:
         device["role"] = role
-    auth = {"token": token}
-    if auth_kind is not None:
-        auth["kind"] = auth_kind
     frame = {
         "type": "connect",
         "device": device,
-        "auth": auth,
+        "audience": audience,
     }
+    if pairing_code is not None:
+        if not public_key or not display_name:
+            raise ValueError("Pairing connect requires public_key and display_name.")
+        frame["auth"] = {
+            "kind": "pairing",
+            "pairing_code": pairing_code,
+            "public_key": public_key,
+            "display_name": display_name,
+        }
     if session_id is not None:
         frame["session_id"] = session_id
     return with_api_version(frame)
