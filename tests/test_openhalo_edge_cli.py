@@ -10,12 +10,16 @@ from tempfile import TemporaryDirectory
 import pytest
 
 from device_edge.cli.terminal_daemon import TerminalEdgeDaemon
+from device_edge.shared.identity import load_or_create_identity
 from openhalo.edge_cli import TerminalCredentials
 from openhalo.edge_cli import main
 from openhalo.edge_cli import pair_terminal_edge
 from openhalo.home import PersonalHome
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.pairing_store import PairingStore
+
+
+TEST_LLM_CONFIG = Path(__file__).parent / "fixtures" / "llm-config-test.toml"
 
 
 def test_setup_persists_public_terminal_identity_metadata_without_printing_private_data() -> None:
@@ -130,6 +134,54 @@ def test_terminal_daemon_builds_an_uncredentialed_pre_auth_connect_frame() -> No
     connect = daemon.build_bootstrap_frames()[0]
     assert connect["audience"] == "wss://runtime.example.test/openhalo/edge"
     assert "auth" not in connect
+
+
+def test_paired_terminal_completes_a_real_v2_websocket_interaction() -> None:
+    async def scenario() -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory) / "home"
+            store = PairingStore(root / "runtime" / "pairing.json")
+            gateway = RuntimeGateway(
+                pairing_store=store,
+                persist_state=False,
+                llm_config_path=TEST_LLM_CONFIG,
+            )
+            pairing_code = store.create_pairing_code(ttl_seconds=300)
+
+            async with gateway.run_test_server() as server_info:
+                await pair_terminal_edge(
+                    url=server_info["url"],
+                    pairing_code=pairing_code,
+                    device_id="terminal-edge-9",
+                    display_name="Maya's Terminal",
+                    identity_home=root,
+                )
+                daemon = TerminalEdgeDaemon(
+                    device_id="terminal-edge-9",
+                    audience=server_info["url"],
+                    identity=load_or_create_identity(root, "terminal-edge-9"),
+                    display_name="Maya's Terminal",
+                )
+                await asyncio.wait_for(
+                    daemon.run_forever(
+                        url=server_info["url"],
+                        scripted_inputs=[
+                            {
+                                "text": "hello runtime",
+                                "observed_at": "2030-01-01T12:00:00Z",
+                            }
+                        ],
+                        startup_observed_at="2030-01-01T11:59:00Z",
+                        max_action_requests=1,
+                        max_sessions=1,
+                    ),
+                    timeout=5,
+                )
+
+            assert gateway.state.device_registry["terminal-edge-9"]["display_name"] == "Maya's Terminal"
+            assert any("Runtime heard: hello runtime" in line for line in daemon.transcript)
+
+    asyncio.run(scenario())
 
 
 def test_version_flag_prints_the_shared_development_identity() -> None:
