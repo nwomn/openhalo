@@ -18,6 +18,9 @@ from textual.widgets import Input
 from textual.widgets import RichLog
 from textual.widgets import Static
 
+from device_edge.cli.presentation import OutcomeReceipt
+from device_edge.cli.presentation import toggle_receipt
+
 
 class QueueLineInput:
     """Queue-backed readline adapter for the daemon live-input path."""
@@ -52,13 +55,63 @@ class QueueLineOutput:
         return None
 
 
+class OutcomeReceiptWidget(Static):
+    """Focusable local-only expansion control for one safe outcome receipt."""
+
+    can_focus = True
+
+    def __init__(self, receipt: OutcomeReceipt, *, on_toggle: Callable[[str], None]) -> None:
+        super().__init__(id=f"receipt-{receipt.interaction_id}")
+        self.receipt = receipt
+        self._on_toggle = on_toggle
+
+    def set_receipt(self, receipt: OutcomeReceipt) -> None:
+        self.receipt = receipt
+        self.refresh()
+
+    def toggle(self) -> None:
+        self._on_toggle(self.receipt.interaction_id)
+
+    def on_click(self) -> None:
+        self.focus()
+        self.toggle()
+
+    def on_key(self, event) -> None:
+        if event.key not in {"enter", "space"}:
+            return
+        event.stop()
+        self.toggle()
+
+    def render(self) -> Text:
+        if not self.receipt.expanded:
+            return Text(self.receipt.compact_line, style="bold #a8d8b9")
+        lines = [self.receipt.compact_line]
+        for entry in self.receipt.entries:
+            timestamp = entry.occurred_at[11:16] if len(entry.occurred_at) >= 16 else entry.occurred_at
+            detail = entry.device_name or _receipt_kind_label(entry.kind)
+            lines.append(f"{timestamp}  {detail}")
+        if self.receipt.summary:
+            lines.extend(("", self.receipt.summary))
+        return Text("\n".join(lines), style="#d8e0ea")
+
+
+def _receipt_kind_label(kind: str) -> str:
+    return {
+        "request_received": "Request received",
+        "started": "OpenHalo started",
+        "delivery": "Delivered",
+        "confirmed": "Confirmed",
+        "failed": "Could not complete",
+    }.get(kind, "Updated")
+
+
 class TerminalEdgeApp(App[None]):
     """Minimal full-screen terminal UI layered over the existing daemon."""
 
     CSS = """
     Screen {
-        background: #10151f;
-        color: #d8e0ea;
+        background: #151615;
+        color: #e4e5df;
     }
 
     #frame {
@@ -69,34 +122,52 @@ class TerminalEdgeApp(App[None]):
     #title-bar {
         height: 1;
         padding: 0 1;
-        background: #17324d;
-        color: #f5f7fa;
+        background: #252824;
+        color: #e4e5df;
         text-style: bold;
     }
 
     #status-bar {
         height: 1;
         padding: 0 1;
-        background: #1f2633;
-        color: #a8c2dd;
+        background: #1c1e1b;
+        color: #aeb6a8;
     }
 
     #transcript-log {
         height: 1fr;
-        background: #0d1117;
-        border: round #2e4057;
+        background: #151615;
+        border: none;
         padding: 0 1;
+    }
+
+    #receipt-list {
+        height: auto;
+        max-height: 9;
+        padding: 0 1;
+        background: #1a1c19;
+    }
+
+    OutcomeReceiptWidget {
+        width: 100%;
+        padding: 0 1;
+        color: #c8d8c3;
+    }
+
+    OutcomeReceiptWidget:focus {
+        background: #2a3128;
     }
 
     #command-input {
         margin: 1 0 0 0;
-        border: round #406080;
+        border: tall #5e715f;
+        background: #1a1c19;
     }
 
     #help-bar {
-        height: 2;
+        height: 1;
         padding: 0 1;
-        color: #8ea7c1;
+        color: #949b90;
     }
     """
 
@@ -120,12 +191,14 @@ class TerminalEdgeApp(App[None]):
         self.transcript_queue = transcript_queue
         self.start_session = start_session
         self.session_thread: threading.Thread | None = None
+        self._receipt_widgets: dict[str, OutcomeReceiptWidget] = {}
 
     def compose(self) -> ComposeResult:
         yield Vertical(
             Static(" OpenHalo  Terminal Edge", id="title-bar"),
             Static("", id="status-bar"),
             RichLog(id="transcript-log", wrap=True, markup=True, auto_scroll=True),
+            Vertical(id="receipt-list"),
             Input(
                 placeholder="Message runtime or use /help /status /history /quit",
                 id="command-input",
@@ -209,7 +282,42 @@ class TerminalEdgeApp(App[None]):
                 line = self.transcript_queue.get_nowait()
             except Empty:
                 break
+            if self._mount_receipt_for_line(line):
+                continue
             transcript.write(self._format_transcript_line(line))
+
+    def _mount_receipt_for_line(self, line: str) -> bool:
+        if not line.startswith("[receipt] "):
+            return False
+        compact_line = line.removeprefix("[receipt] ")
+        receipt = next(
+            (
+                candidate
+                for candidate in reversed(list(self.daemon.presentation.receipts.values()))
+                if candidate.compact_line == compact_line
+            ),
+            None,
+        )
+        if receipt is None:
+            return False
+        widget = self._receipt_widgets.get(receipt.interaction_id)
+        if widget is None:
+            widget = OutcomeReceiptWidget(receipt, on_toggle=self._toggle_receipt)
+            self._receipt_widgets[receipt.interaction_id] = widget
+            self.query_one("#receipt-list", Vertical).mount(widget)
+        else:
+            widget.set_receipt(receipt)
+        return True
+
+    def _toggle_receipt(self, interaction_id: str) -> None:
+        self.daemon.presentation = toggle_receipt(
+            self.daemon.presentation,
+            interaction_id,
+        )
+        receipt = self.daemon.presentation.receipts.get(interaction_id)
+        widget = self._receipt_widgets.get(interaction_id)
+        if receipt is not None and widget is not None:
+            widget.set_receipt(receipt)
 
     @staticmethod
     def _format_transcript_line(line: str) -> Text:
