@@ -51,3 +51,16 @@ def load_or_create_identity(home: Path, device_id: str) -> DeviceIdentity:
         public_key_fingerprint=public_key_fingerprint(public_key_der),
         path=path,
     )
+
+
+def create_ephemeral_identity() -> DeviceIdentity:
+    """Create a non-persistent identity for isolated tests only."""
+
+    private_key = generate_private_key()
+    public_key_der = public_key_spki_der(private_key.public_key())
+    return DeviceIdentity(
+        private_key=private_key,
+        public_key=encode_base64url(public_key_der),
+        public_key_fingerprint=public_key_fingerprint(public_key_der),
+        path=Path(),
+    )

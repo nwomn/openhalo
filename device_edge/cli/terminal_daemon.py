@@ -18,6 +18,9 @@ from contextlib import suppress
 import websockets
 
 from device_edge.shared.local_actions import execute_action
+from device_edge.shared.identity import DeviceIdentity
+from device_edge.shared.identity import create_ephemeral_identity
+from device_edge.shared.identity import load_or_create_identity
 from device_edge.shared.session_client import SessionClient
 from edge_api.protocol import with_api_version
 from openhalo_common.diagnostics import DiagnosticBoundaryRecorder
@@ -47,8 +50,9 @@ class TerminalEdgeDaemon:
     def __init__(
         self,
         device_id: str,
-        token: str,
-        auth_kind: str | None = None,
+        audience: str = "ws://127.0.0.1:8765",
+        identity: DeviceIdentity | None = None,
+        display_name: str | None = None,
         output_stream=None,
         input_stream=None,
         input_state_stream=None,
@@ -86,8 +90,9 @@ class TerminalEdgeDaemon:
         self.client = SessionClient(
             device_id=device_id,
             device_type="desktop-cli",
-            token=token,
-            auth_kind=auth_kind,
+            audience=audience,
+            identity=identity or create_ephemeral_identity(),
+            display_name=display_name,
             capabilities=[
                 "text.input",
                 "notification.show",
@@ -500,9 +505,17 @@ class TerminalEdgeDaemon:
         live_input_task = None
 
         try:
-            for frame in self.build_bootstrap_frames():
-                await self._send_frame(websocket, frame)
-            await self._recv_frame(websocket)
+            connect_frame, capability_frame = self.build_bootstrap_frames()
+            await self._send_frame(websocket, connect_frame)
+            challenge_frame = await self._recv_frame(websocket)
+            await self._send_frame(
+                websocket,
+                self.client.build_auth_proof_frame(challenge_frame),
+            )
+            connect_ok = await self._recv_frame(websocket)
+            if connect_ok.get("type") != "connect_ok":
+                raise RuntimeError("Runtime rejected terminal device authentication.")
+            await self._send_frame(websocket, capability_frame)
             self.connection_state = "connected"
             self.render_status_line(
                 f"Connected to runtime as {self.client.device_id}."
@@ -778,18 +791,13 @@ class TerminalEdgeDaemon:
 def build_terminal_daemon_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the M8 terminal edge daemon.")
     parser.add_argument("--url", required=True, help="Runtime WebSocket URL.")
-    parser.add_argument("--token", default="dev-token", help="Shared development token.")
-    parser.add_argument(
-        "--auth-kind",
-        choices=["legacy", "device"],
-        default="legacy",
-        help="Gateway authentication kind for the supplied token.",
-    )
+    parser.add_argument("--home", type=Path, help="OPENHALO_HOME identity directory.")
     parser.add_argument(
         "--device-id",
         default="terminal-edge-1",
         help="Terminal edge device id.",
     )
+    parser.add_argument("--display-name", help="Visible terminal device name.")
     parser.add_argument(
         "--startup-observed-at",
         help="Initial active terminal observation timestamp.",
@@ -860,9 +868,9 @@ def main(argv: list[str] | None = None) -> None:
 
         run_textual_terminal_daemon(
             url=args.url,
-            token=args.token,
-            auth_kind=None if args.auth_kind == "legacy" else args.auth_kind,
             device_id=args.device_id,
+            identity_home=args.home,
+            display_name=args.display_name,
             startup_observed_at=args.startup_observed_at,
             idle_timeout_s=args.idle_timeout,
             idle_observed_at=args.idle_observed_at,
@@ -878,8 +886,12 @@ def main(argv: list[str] | None = None) -> None:
         return
     daemon = TerminalEdgeDaemon(
         device_id=args.device_id,
-        token=args.token,
-        auth_kind=None if args.auth_kind == "legacy" else args.auth_kind,
+        audience=args.url,
+        identity=load_or_create_identity(
+            args.home or Path(os.environ.get("OPENHALO_HOME", Path.home() / ".openhalo")),
+            args.device_id,
+        ),
+        display_name=args.display_name,
         stdin_observed_at=args.stdin_observed_at,
         diagnostic_recorder=JsonlDiagnosticRecorder(args.diagnostic_log_path)
         if args.diagnostic_log_path is not None

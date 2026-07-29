@@ -150,11 +150,14 @@ class EdgeClientTests(unittest.TestCase):
         client = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
-            token="dev-token",
+            audience="wss://runtime.example/openhalo/edge",
         )
 
-        self.assertEqual(client.build_connect_frame()["type"], "connect")
-        self.assertIn("session_id", client.build_connect_frame())
+        connect = client.build_connect_frame()
+        self.assertEqual(connect["type"], "connect")
+        self.assertIn("session_id", connect)
+        self.assertEqual(connect["audience"], "wss://runtime.example/openhalo/edge")
+        self.assertNotIn("auth", connect)
         self.assertEqual(
             client.build_capability_announce_frame()["capabilities"],
             ["text.input", "notification.show"],

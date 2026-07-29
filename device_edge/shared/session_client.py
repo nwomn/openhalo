@@ -7,6 +7,8 @@ import websockets
 
 from device_edge.shared.capability_runtime import CapabilityRuntime
 from device_edge.shared.edge_session_link import EdgeSessionLink
+from device_edge.shared.identity import DeviceIdentity
+from device_edge.shared.identity import create_ephemeral_identity
 from device_edge.shared.local_action_executor import LocalActionExecutor
 from openhalo_common.diagnostics import build_trace_id
 from openhalo_common.diagnostics import build_turn_id
@@ -19,15 +21,17 @@ class SessionClient:
         self,
         device_id: str,
         device_type: str,
-        token: str,
-        auth_kind: str | None = None,
+        audience: str,
+        identity: DeviceIdentity | None = None,
+        display_name: str | None = None,
         trace_recorder=None,
         diagnostic_recorder=None,
         capabilities: list[str] | None = None,
     ) -> None:
         self.device_id = device_id
         self.device_type = device_type
-        self.token = token
+        self.audience = audience
+        self.identity = identity or create_ephemeral_identity()
         self.trace_recorder = trace_recorder
         self.edge_device = {
             "device_id": self.device_id,
@@ -37,8 +41,9 @@ class SessionClient:
         self.session_link = EdgeSessionLink(
             device_id=device_id,
             device_type=device_type,
-            token=token,
-            auth_kind=auth_kind,
+            audience=audience,
+            identity=self.identity,
+            display_name=display_name,
             diagnostic_recorder=diagnostic_recorder,
         )
         self.capability_runtime = CapabilityRuntime(
@@ -57,6 +62,9 @@ class SessionClient:
     def build_connect_frame(self) -> dict:
         self._record_trace("EDGE", "build connect frame", device_id=self.device_id)
         return self.session_link.build_connect_frame()
+
+    def build_auth_proof_frame(self, challenge_frame: dict) -> dict:
+        return self.session_link.build_auth_proof_frame(challenge_frame)
 
     def build_capability_announce_frame(self) -> dict:
         self._record_trace(
@@ -196,10 +204,14 @@ class SessionClient:
     async def run_websocket_client(self, url: str, text: str) -> dict:
         async with websockets.connect(url) as websocket:
             await websocket.send(json.dumps(self.build_connect_frame()))
+            challenge = json.loads(await websocket.recv())
+            await websocket.send(json.dumps(self.build_auth_proof_frame(challenge)))
+            connect_ok = json.loads(await websocket.recv())
+            if connect_ok.get("type") != "connect_ok":
+                raise ValueError("Runtime did not accept the device authentication proof.")
             await websocket.send(json.dumps(self.build_capability_announce_frame()))
             await websocket.send(json.dumps(self.build_text_event(text)))
 
-            await websocket.recv()
             await websocket.recv()
             action_request = json.loads(await websocket.recv())
             action_result = self.handle_action_request(action_request)

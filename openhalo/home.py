@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import secrets
 import tempfile
 from collections.abc import Mapping
 from pathlib import Path
@@ -30,6 +29,10 @@ class PersonalHome:
     @property
     def runtime_directory(self) -> Path:
         return self.root / "runtime"
+
+    @property
+    def devices_directory(self) -> Path:
+        return self.root / "devices"
 
     @property
     def log_directory(self) -> Path:
@@ -72,7 +75,7 @@ class PersonalHome:
         configuration = self.load_configuration()
         runtime = dict(configuration.get("runtime", {}))
         runtime.update({"host": host, "port": port})
-        runtime.setdefault("shared_token", secrets.token_urlsafe(32))
+        runtime.pop("shared_token", None)
         configuration["runtime"] = runtime
         self._save_configuration(configuration)
         return runtime
@@ -82,20 +85,24 @@ class PersonalHome:
         *,
         url: str,
         device_id: str,
-        device_token: str,
+        display_name: str,
+        public_key_fingerprint: str,
     ) -> None:
         if not url:
             raise ValueError("terminal Runtime URL must not be empty")
         if not device_id:
             raise ValueError("terminal device id must not be empty")
-        if not device_token:
-            raise ValueError("terminal device token must not be empty")
+        if not display_name:
+            raise ValueError("terminal display name must not be empty")
+        if not public_key_fingerprint:
+            raise ValueError("terminal public key fingerprint must not be empty")
         self._ensure_private_directories()
         configuration = self.load_configuration()
         configuration["terminal_edge"] = {
             "url": url,
             "device_id": device_id,
-            "device_token": device_token,
+            "display_name": display_name,
+            "public_key_fingerprint": public_key_fingerprint,
         }
         self._save_configuration(configuration)
 
@@ -109,10 +116,19 @@ class PersonalHome:
         if version != 1:
             raise ValueError(f"unsupported configuration version: {version}")
         payload.setdefault("version", 1)
+        terminal_edge = payload.get("terminal_edge")
+        if isinstance(terminal_edge, dict) and "device_token" in terminal_edge:
+            payload.pop("terminal_edge")
+            self._save_configuration(payload)
         return payload
 
     def _ensure_private_directories(self) -> None:
-        for directory in (self.root, self.runtime_directory, self.log_directory):
+        for directory in (
+            self.root,
+            self.runtime_directory,
+            self.log_directory,
+            self.devices_directory,
+        ):
             directory.mkdir(parents=True, exist_ok=True)
             os.chmod(directory, 0o700)
 

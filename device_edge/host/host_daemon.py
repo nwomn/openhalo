@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import shlex
 import sys
 from collections import deque
@@ -23,6 +24,9 @@ from device_edge.host.host_observers import build_host_metric_observations
 from device_edge.host.host_observers import build_runtime_health_observations
 from device_edge.host.host_observers import read_host_metric_snapshot
 from device_edge.host.runtime_control import PythonProcessAdapter
+from device_edge.shared.identity import DeviceIdentity
+from device_edge.shared.identity import create_ephemeral_identity
+from device_edge.shared.identity import load_or_create_identity
 from device_edge.shared.session_client import SessionClient
 from openhalo_common.diagnostics import TraceRecorder
 
@@ -31,10 +35,12 @@ class HostEdgeDaemon:
     def __init__(
         self,
         device_id: str,
-        token: str,
+        audience: str,
         runtime_control_adapter,
         host_metrics_provider,
         runtime_health_provider,
+        identity: DeviceIdentity | None = None,
+        display_name: str | None = None,
         history_limit: int = 20,
         trace_recorder: TraceRecorder | None = None,
         diagnostic_recorder=None,
@@ -58,7 +64,9 @@ class HostEdgeDaemon:
         self.client = SessionClient(
             device_id=device_id,
             device_type="server",
-            token=token,
+            audience=audience,
+            identity=identity or create_ephemeral_identity(),
+            display_name=display_name,
             capabilities=["host.metrics", "runtime.health", "runtime.control"],
             trace_recorder=trace_recorder,
             diagnostic_recorder=diagnostic_recorder,
@@ -206,8 +214,17 @@ class HostEdgeDaemon:
                 "sending bootstrap frames",
                 device_id=self.client.device_id,
             )
-        for frame in self.build_bootstrap_frames():
-            await self._send_frame(websocket, frame)
+        connect_frame, capability_frame = self.build_bootstrap_frames()
+        await self._send_frame(websocket, connect_frame)
+        challenge = await self._recv_frame(websocket)
+        await self._send_frame(
+            websocket,
+            self.client.build_auth_proof_frame(challenge),
+        )
+        connect_ok = await self._recv_frame(websocket)
+        if connect_ok.get("type") != "connect_ok":
+            raise RuntimeError("Runtime rejected host-edge authentication.")
+        await self._send_frame(websocket, capability_frame)
 
     async def _send_observation_cycle(self, websocket, observed_at: str) -> None:
         await self._send_observation_cycle_with_pending(
@@ -433,7 +450,7 @@ class HostEdgeDaemon:
 def build_host_daemon_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the host edge daemon.")
     parser.add_argument("--url", required=True, help="Runtime WebSocket URL.")
-    parser.add_argument("--token", default="dev-token", help="Shared development token.")
+    parser.add_argument("--home", type=Path, help="OPENHALO_HOME identity directory.")
     parser.add_argument("--device-id", default="host-edge-1", help="Host edge device id.")
     parser.add_argument(
         "--reconnect-delay",
@@ -608,10 +625,14 @@ def main(argv: list[str] | None = None) -> None:
     trace_recorder = build_trace_recorder(args)
     daemon = HostEdgeDaemon(
         device_id=args.device_id,
-        token=args.token,
+        audience=args.url,
         runtime_control_adapter=runtime_control_adapter,
         host_metrics_provider=read_host_metric_snapshot,
         runtime_health_provider=build_runtime_health_provider(runtime_control_adapter),
+        identity=load_or_create_identity(
+            args.home or Path(os.environ.get("OPENHALO_HOME", Path.home() / ".openhalo")),
+            args.device_id,
+        ),
         history_limit=args.history_limit,
         trace_recorder=trace_recorder,
         diagnostic_recorder=JsonlDiagnosticRecorder(args.diagnostic_log_path)

@@ -13,6 +13,10 @@ from dataclasses import dataclass
 import websockets
 
 from device_edge.cli.terminal_daemon import main as terminal_daemon_main
+from device_edge.shared.identity import load_or_create_identity
+from edge_api.auth import build_challenge_payload
+from edge_api.auth import encode_base64url
+from edge_api.auth import sign_challenge
 from edge_api.protocol import build_connect_frame
 from openhalo.home import PersonalHome
 from openhalo.version import format_cli_version
@@ -21,7 +25,8 @@ from openhalo.version import format_cli_version
 @dataclass(frozen=True)
 class TerminalCredentials:
     device_id: str
-    device_token: str
+    display_name: str
+    public_key_fingerprint: str
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -37,6 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
     setup.add_argument("--url", required=True, help="Runtime WebSocket URL.")
     setup.add_argument("--pairing-code", required=True, help="One-time code from openhalo pair.")
     setup.add_argument("--device-id", help="Stable device id for this terminal.")
+    setup.add_argument("--display-name", default="Terminal Edge", help="Visible device name.")
     subparsers.add_parser("status", help="Show saved Terminal Edge configuration.")
     run = subparsers.add_parser("run", help="Run the configured Terminal Edge.")
     run.add_argument("--line-mode", action="store_true", help="Use line mode instead of the terminal UI.")
@@ -59,11 +65,14 @@ def main(
             url=args.url,
             pairing_code=args.pairing_code,
             device_id=device_id,
+            display_name=args.display_name,
+            identity_home=personal_home.root,
         )
         personal_home.configure_terminal_edge(
             url=args.url,
             device_id=credentials.device_id,
-            device_token=credentials.device_token,
+            display_name=credentials.display_name,
+            public_key_fingerprint=credentials.public_key_fingerprint,
         )
         _emit({"state": "paired", "url": args.url, "device_id": credentials.device_id})
         return 0
@@ -90,25 +99,63 @@ async def pair_terminal_edge(
     url: str,
     pairing_code: str,
     device_id: str,
+    display_name: str,
+    identity_home,
 ) -> TerminalCredentials:
+    identity = load_or_create_identity(identity_home, device_id)
     frame = build_connect_frame(
         device_id=device_id,
         device_type="desktop-cli",
-        token=pairing_code,
-        auth_kind="pairing",
+        audience=url,
+        session_id=f"pair-{secrets.token_urlsafe(16)}",
+        pairing_code=pairing_code,
+        public_key=identity.public_key,
+        display_name=display_name,
     )
     async with websockets.connect(url) as websocket:
         await websocket.send(json.dumps(frame))
+        challenge = json.loads(await websocket.recv())
+        if challenge.get("type") == "error":
+            raise ValueError(challenge.get("message", "Runtime did not accept the pairing code."))
+        if challenge.get("type") != "auth_challenge":
+            raise ValueError("Runtime did not issue a pairing challenge.")
+        challenge_body = challenge.get("challenge")
+        if not isinstance(challenge_body, dict):
+            raise ValueError("Runtime returned an invalid pairing challenge.")
+        signature = sign_challenge(
+            identity.private_key,
+            build_challenge_payload(
+                audience=challenge["audience"],
+                device_id=challenge["device_id"],
+                session_id=challenge["session_id"],
+                challenge_id=challenge_body["challenge_id"],
+                nonce=challenge_body["nonce"],
+                expires_at=challenge_body["expires_at"],
+            ),
+        )
+        await websocket.send(
+            json.dumps(
+                {
+                    "api_version": frame["api_version"],
+                    "type": "auth_proof",
+                    "device_id": device_id,
+                    "session_id": frame["session_id"],
+                    "audience": url,
+                    "challenge_id": challenge_body["challenge_id"],
+                    "signature": encode_base64url(signature),
+                }
+            )
+        )
         reply = json.loads(await websocket.recv())
     if reply.get("type") == "error":
         raise ValueError(reply.get("message", "Runtime did not accept the pairing code."))
-    auth = reply.get("auth")
-    if reply.get("type") != "connect_ok" or not isinstance(auth, dict):
-        raise ValueError("Runtime did not return a paired-device credential.")
-    device_token = auth.get("token")
-    if auth.get("kind") != "device" or not isinstance(device_token, str) or not device_token:
-        raise ValueError("Runtime returned an invalid paired-device credential.")
-    return TerminalCredentials(device_id=device_id, device_token=device_token)
+    if reply.get("type") != "connect_ok":
+        raise ValueError("Runtime did not accept the device proof.")
+    return TerminalCredentials(
+        device_id=device_id,
+        display_name=display_name,
+        public_key_fingerprint=identity.public_key_fingerprint,
+    )
 
 
 def _resolve_pairing_exchange(
@@ -135,12 +182,12 @@ def _launch_terminal_edge(
     arguments = [
         "--url",
         configuration["url"],
-        "--token",
-        configuration["device_token"],
-        "--auth-kind",
-        "device",
         "--device-id",
         configuration["device_id"],
+        "--display-name",
+        configuration["display_name"],
+        "--home",
+        str(home.root),
     ]
     if tui:
         arguments.append("--tui")

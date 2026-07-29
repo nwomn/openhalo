@@ -1861,7 +1861,10 @@ class RuntimeGateway:
         server = await websockets.serve(self._websocket_handler, "127.0.0.1", 0)
         try:
             host, port = server.sockets[0].getsockname()[:2]
-            yield {"url": f"ws://{host}:{port}"}
+            url = f"ws://{host}:{port}"
+            if self.audience == "wss://runtime.invalid/openhalo/edge":
+                self.audience = url
+            yield {"url": url}
         finally:
             server.close()
             await server.wait_closed()

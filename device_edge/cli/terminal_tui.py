@@ -225,9 +225,9 @@ class TerminalEdgeApp(App[None]):
 def create_textual_terminal_app(
     *,
     url: str,
-    token: str,
-    auth_kind: str | None = None,
     device_id: str,
+    identity_home,
+    display_name: str | None,
     startup_observed_at: str | None,
     idle_timeout_s: float,
     idle_observed_at: str | None,
@@ -239,14 +239,18 @@ def create_textual_terminal_app(
     diagnostic_recorder=None,
 ) -> TerminalEdgeApp:
     from device_edge.cli.terminal_daemon import TerminalEdgeDaemon
+    from device_edge.shared.identity import load_or_create_identity
 
     input_queue: queue.Queue[str | None] = queue.Queue()
     input_state_queue: queue.Queue[dict] = queue.Queue()
     transcript_queue: queue.Queue[str] = queue.Queue()
     daemon = TerminalEdgeDaemon(
         device_id=device_id,
-        token=token,
-        auth_kind=auth_kind,
+        audience=url,
+        identity=load_or_create_identity(identity_home, device_id)
+        if identity_home is not None
+        else None,
+        display_name=display_name,
         output_stream=QueueLineOutput(transcript_queue),
         input_stream=QueueLineInput(input_queue),
         input_state_stream=input_state_queue,
@@ -281,9 +285,9 @@ def create_textual_terminal_app(
 def run_textual_terminal_daemon(
     *,
     url: str,
-    token: str,
-    auth_kind: str | None = None,
     device_id: str,
+    identity_home,
+    display_name: str | None,
     startup_observed_at: str | None,
     idle_timeout_s: float,
     idle_observed_at: str | None,
@@ -296,9 +300,9 @@ def run_textual_terminal_daemon(
 ) -> None:
     app = create_textual_terminal_app(
         url=url,
-        token=token,
-        auth_kind=auth_kind,
         device_id=device_id,
+        identity_home=identity_home,
+        display_name=display_name,
         startup_observed_at=startup_observed_at,
         idle_timeout_s=idle_timeout_s,
         idle_observed_at=idle_observed_at,

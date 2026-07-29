@@ -18,7 +18,7 @@ from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.pairing_store import PairingStore
 
 
-def test_setup_persists_only_issued_terminal_credentials_without_printing_them() -> None:
+def test_setup_persists_public_terminal_identity_metadata_without_printing_private_data() -> None:
     with TemporaryDirectory() as directory:
         home = PersonalHome(Path(directory) / "home")
         output = io.StringIO()
@@ -36,7 +36,8 @@ def test_setup_persists_only_issued_terminal_credentials_without_printing_them()
                 home=home,
                 pairing_exchange=lambda **kwargs: TerminalCredentials(
                     device_id=kwargs["device_id"],
-                    device_token="issued-device-token",
+                    display_name=kwargs["display_name"],
+                    public_key_fingerprint="sha256:terminal-public-key",
                 ),
             )
         payload = json.loads(output.getvalue())
@@ -48,17 +49,23 @@ def test_setup_persists_only_issued_terminal_credentials_without_printing_them()
         "state": "paired",
         "url": "wss://runtime.example.test/openhalo/edge",
     }
-    assert "issued-device-token" not in output.getvalue()
-    assert configuration["terminal_edge"]["device_token"] == "issued-device-token"
+    assert "private" not in output.getvalue()
+    assert configuration["terminal_edge"] == {
+        "device_id": "terminal-edge-9",
+        "display_name": "Terminal Edge",
+        "public_key_fingerprint": "sha256:terminal-public-key",
+        "url": "wss://runtime.example.test/openhalo/edge",
+    }
 
 
-def test_default_launch_uses_persisted_device_authentication_without_printing_token() -> None:
+def test_default_launch_uses_persisted_public_identity_without_printing_secrets() -> None:
     with TemporaryDirectory() as directory:
         home = PersonalHome(Path(directory) / "home")
         home.configure_terminal_edge(
             url="wss://runtime.example.test/openhalo/edge",
             device_id="terminal-edge-9",
-            device_token="issued-device-token",
+            display_name="Maya's Terminal",
+            public_key_fingerprint="sha256:terminal-public-key",
         )
         launched: list[list[str]] = []
         output = io.StringIO()
@@ -74,16 +81,16 @@ def test_default_launch_uses_persisted_device_authentication_without_printing_to
         [
             "--url",
             "wss://runtime.example.test/openhalo/edge",
-            "--token",
-            "issued-device-token",
-            "--auth-kind",
-            "device",
             "--device-id",
             "terminal-edge-9",
+            "--display-name",
+            "Maya's Terminal",
+            "--home",
+            str(home.root),
             "--tui",
         ]
     ]
-    assert "issued-device-token" not in output.getvalue()
+    assert "private" not in output.getvalue()
 
 
 def test_pair_terminal_edge_exchanges_the_one_time_code_with_the_real_gateway() -> None:
@@ -103,26 +110,26 @@ def test_pair_terminal_edge_exchanges_the_one_time_code_with_the_real_gateway() 
                     url=server_info["url"],
                     pairing_code=pairing_code,
                     device_id="terminal-edge-9",
+                    display_name="Maya's Terminal",
+                    identity_home=root / "home",
                 )
 
             assert credentials.device_id == "terminal-edge-9"
-            assert credentials.device_token
-            assert store.authenticate_device("terminal-edge-9", credentials.device_token)
+            assert credentials.public_key_fingerprint.startswith("sha256:")
+            assert store.get_device("terminal-edge-9")["display_name"] == "Maya's Terminal"
 
     asyncio.run(scenario())
 
 
-def test_terminal_daemon_uses_device_authentication_after_personal_pairing() -> None:
+def test_terminal_daemon_builds_an_uncredentialed_pre_auth_connect_frame() -> None:
     daemon = TerminalEdgeDaemon(
         device_id="terminal-edge-9",
-        token="issued-device-token",
-        auth_kind="device",
+        audience="wss://runtime.example.test/openhalo/edge",
     )
 
-    assert daemon.build_bootstrap_frames()[0]["auth"] == {
-        "kind": "device",
-        "token": "issued-device-token",
-    }
+    connect = daemon.build_bootstrap_frames()[0]
+    assert connect["audience"] == "wss://runtime.example.test/openhalo/edge"
+    assert "auth" not in connect
 
 
 def test_version_flag_prints_the_shared_development_identity() -> None:
