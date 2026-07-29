@@ -2,7 +2,6 @@ import asyncio
 import inspect
 import io
 import json
-import os
 import time
 import unittest
 from pathlib import Path
@@ -14,14 +13,14 @@ from device_edge.cli.cli_edge import LocalCliSession
 from device_edge.cli.cli_edge import run_cli_once, run_cli_once_over_websocket
 from device_edge.cli.terminal_daemon import TerminalEdgeDaemon
 from device_edge.host.host_daemon import HostEdgeDaemon
-from device_edge.shared.session_client import SessionClient
 from openhalo_common.diagnostics import InMemoryDiagnosticRecorder
 import personal_runtime.main as runtime_main
-from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.main import build_runtime_server_message
 from personal_runtime.main import build_runtime_server_parser
 from personal_runtime.main import run_server
 from personal_runtime.model_provider import ProposalPlan
+from tests.v2_test_support import V2RuntimeGateway as RuntimeGateway
+from tests.v2_test_support import V2SessionClient as SessionClient
 
 ROOT = Path(__file__).resolve().parents[1]
 TEST_LLM_CONFIG = ROOT / "tests" / "fixtures" / "llm-config-test.toml"
@@ -280,12 +279,10 @@ class RoundtripTests(unittest.IsolatedAsyncioTestCase):
         class FakeGateway:
             def __init__(
                 self,
-                token,
                 state_path,
                 llm_config_path,
                 diagnostic_log_path=None,
             ):
-                self.token = token
                 self.state_path = state_path
                 self.llm_config_path = llm_config_path
                 self.diagnostic_log_path = diagnostic_log_path
@@ -315,9 +312,9 @@ class RoundtripTests(unittest.IsolatedAsyncioTestCase):
                 await run_server(
                     host="127.0.0.1",
                     port=8765,
-                    token="dev-token",
                     state_path=Path(".runtime/test-state.json"),
                     llm_config_path=Path("tests/fixtures/llm-config-test.toml"),
+                    manage_host_edge=False,
                 )
 
         self.assertEqual(captured["host"], "127.0.0.1")
@@ -337,7 +334,6 @@ class RoundtripTests(unittest.IsolatedAsyncioTestCase):
         class FakeGateway:
             def __init__(
                 self,
-                token,
                 state_path,
                 llm_config_path,
                 diagnostic_log_path=None,
@@ -366,10 +362,10 @@ class RoundtripTests(unittest.IsolatedAsyncioTestCase):
                 await run_server(
                     host="127.0.0.1",
                     port=8765,
-                    token="dev-token",
                     state_path=Path(".runtime/test-state.json"),
                     llm_config_path=Path("tests/fixtures/llm-config-test.toml"),
                     diagnostic_log_path=Path(".runtime/diagnostics/runtime.jsonl"),
+                    manage_host_edge=False,
                 )
 
         self.assertEqual(
@@ -408,7 +404,7 @@ class RoundtripTests(unittest.IsolatedAsyncioTestCase):
 
         def build_fake_supervisor(**kwargs):
             self.assertEqual(kwargs["url"], "ws://127.0.0.1:8765")
-            self.assertEqual(kwargs["token"], "dev-token")
+            self.assertIn("identity_home", kwargs)
             return FakeSupervisor()
 
         async def stop_after_ready():
@@ -423,7 +419,6 @@ class RoundtripTests(unittest.IsolatedAsyncioTestCase):
                 await run_server(
                     host="127.0.0.1",
                     port=8765,
-                    token="dev-token",
                     state_path=Path(".runtime/test-state.json"),
                     host_edge_supervisor_factory=build_fake_supervisor,
                 )
@@ -468,7 +463,6 @@ class RoundtripTests(unittest.IsolatedAsyncioTestCase):
                 await run_server(
                     host="127.0.0.1",
                     port=8765,
-                    token="dev-token",
                     state_path=Path(".runtime/test-state.json"),
                     manage_host_edge=False,
                     host_edge_supervisor_factory=lambda **kwargs: factory_calls.append(
@@ -484,7 +478,6 @@ class CliEntryTests(unittest.TestCase):
         stdout = io.StringIO()
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             output_stream=stdout,
         )
 
@@ -522,7 +515,6 @@ class CliEntryTests(unittest.TestCase):
         stdout = io.StringIO()
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             output_stream=stdout,
             diagnostic_recorder=diagnostics,
         )
@@ -578,7 +570,6 @@ class CliEntryTests(unittest.TestCase):
 
     def test_local_cli_session_stays_alive_across_multiple_inputs(self) -> None:
         session = LocalCliSession(
-            token="dev-token",
             trace=True,
             config_path=TEST_LLM_CONFIG,
         )
@@ -703,12 +694,11 @@ class CliEntryTests(unittest.TestCase):
             "/var/lib/openhalo/pairing.json",
         )
 
-    def test_runtime_server_parser_accepts_token_env_name(self) -> None:
+    def test_runtime_server_parser_rejects_legacy_token_options(self) -> None:
         parser = build_runtime_server_parser()
 
-        args = parser.parse_args(["--token-env", "OPENHALO_EDGE_TOKEN"])
-
-        self.assertEqual(args.token_env, "OPENHALO_EDGE_TOKEN")
+        with self.assertRaises(SystemExit):
+            parser.parse_args(["--token-env", "OPENHALO_EDGE_TOKEN"])
 
     def test_runtime_server_parser_enables_host_edge_by_default_with_opt_out(self) -> None:
         parser = build_runtime_server_parser()
@@ -724,26 +714,8 @@ class CliEntryTests(unittest.TestCase):
         self.assertFalse(disabled_args.host_edge_enabled)
         self.assertEqual(disabled_args.host_edge_device_id, "host-edge-9")
 
-    def test_runtime_token_can_be_loaded_from_environment(self) -> None:
-        parser = build_runtime_server_parser()
-        args = parser.parse_args(["--token-env", "OPENHALO_EDGE_TOKEN"])
-
-        with patch.dict(os.environ, {"OPENHALO_EDGE_TOKEN": "runtime-secret"}):
-            token = runtime_main.resolve_runtime_token(args)
-
-        self.assertEqual(token, "runtime-secret")
-
-    def test_runtime_token_env_requires_existing_value(self) -> None:
-        parser = build_runtime_server_parser()
-        args = parser.parse_args(["--token-env", "OPENHALO_EDGE_TOKEN"])
-
-        with patch.dict(os.environ, {}, clear=True):
-            with self.assertRaises(SystemExit):
-                runtime_main.resolve_runtime_token(args)
-
     def test_local_cli_session_records_llm_profile_metadata_on_text_reply(self) -> None:
         session = LocalCliSession(
-            token="dev-token",
             trace=True,
             config_path=TEST_LLM_CONFIG,
         )
@@ -774,7 +746,6 @@ class CliEntryTests(unittest.TestCase):
 
     def test_local_cli_session_can_form_visible_action_from_help_text(self) -> None:
         session = LocalCliSession(
-            token="dev-token",
             trace=True,
             config_path=TEST_LLM_CONFIG,
         )
@@ -789,7 +760,6 @@ class CliEntryTests(unittest.TestCase):
 
     def test_local_cli_session_can_form_no_intervention_proposal_from_user_text(self) -> None:
         session = LocalCliSession(
-            token="dev-token",
             trace=True,
             config_path=TEST_LLM_CONFIG,
         )
@@ -805,7 +775,6 @@ class CliEntryTests(unittest.TestCase):
         self,
     ) -> None:
         session = LocalCliSession(
-            token="dev-token",
             trace=True,
             config_path=VISIBLE_ERROR_LLM_CONFIG,
         )
@@ -837,7 +806,6 @@ class CliEntryTests(unittest.TestCase):
 
     def test_local_cli_session_can_trigger_agent_initiative(self) -> None:
         session = LocalCliSession(
-            token="dev-token",
             trace=True,
             config_path=TEST_LLM_CONFIG,
         )
@@ -863,7 +831,6 @@ class CliEntryTests(unittest.TestCase):
         stdout = io.StringIO()
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             output_stream=stdout,
         )
 
@@ -1064,10 +1031,11 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
             llm_config_path=TEST_LLM_CONFIG,
         )
         async with gateway.run_test_server() as server_info:
+            pairing_code = gateway.pairing_store.create_pairing_code(ttl_seconds=600)
             result = await run_cli_once_over_websocket(
-                text="hello runtime",
+                text="hello",
                 url=server_info["url"],
-                token="dev-token",
+                pairing_code=pairing_code,
             )
 
         self.assertEqual(result["type"], "action_result")
@@ -1331,8 +1299,8 @@ class HostEdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
             supervisor = runtime_main.build_managed_host_edge_supervisor(
                 gateway=gateway,
                 url=server_info["url"],
-                token="dev-token",
                 device_id="host-edge-1",
+                identity_home=Path(".runtime/test-managed-host-home"),
                 idle_timeout_s=0.01,
             )
             await supervisor.start()

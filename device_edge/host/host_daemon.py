@@ -310,9 +310,6 @@ class HostEdgeDaemon:
             if ready_event is not None:
                 ready_event.set()
 
-            connect_reply = await self._recv_frame(websocket)
-            if connect_reply.get("type") != "connect_ok":
-                raise ConnectionError("Host Edge registration was not accepted.")
             if on_connected is not None:
                 on_connected()
 

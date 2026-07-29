@@ -217,11 +217,7 @@ class TerminalEdgeApp(App[None]):
                 placeholder="Message runtime or use /help /status /history /quit",
                 id="command-input",
             ),
-            Static(
-                "Enter sends to runtime. Local commands stay on-device: "
-                "/help /status /history /quit",
-                id="help-bar",
-            ),
+            Static("/help /status /history /quit", id="help-bar"),
             id="frame",
         )
 
@@ -276,6 +272,10 @@ class TerminalEdgeApp(App[None]):
             event.prevent_default()
             event.stop()
             return
+        if event.key == "tab" and not composer.value and self._focus_latest_receipt():
+            event.prevent_default()
+            event.stop()
+            return
         if event.key == "up" and self._navigate_history(composer, direction=-1):
             event.prevent_default()
             event.stop()
@@ -299,6 +299,12 @@ class TerminalEdgeApp(App[None]):
         if len(matches) != 1:
             return False
         composer.value = matches[0]
+        return True
+
+    def _focus_latest_receipt(self) -> bool:
+        if not self._receipt_widgets:
+            return False
+        next(reversed(self._receipt_widgets.values())).focus()
         return True
 
     def _navigate_history(self, composer: Input, *, direction: int) -> bool:
@@ -327,9 +333,9 @@ class TerminalEdgeApp(App[None]):
     def action_quit(self) -> None:
         self.input_queue.put("/quit")
 
-    def build_status_text(self) -> str:
+    def build_status_text(self, max_width: int | None = None) -> str:
         pending_flag = "waiting" if self.daemon.pending_runtime_reply else "ready"
-        return (
+        full_text = (
             f"device={self.daemon.client.device_id} "
             f"connection={self.daemon.connection_state} "
             f"activity={self.daemon.terminal_activity_state} "
@@ -338,13 +344,33 @@ class TerminalEdgeApp(App[None]):
             f"runtime={self.daemon.runtime_message_count} "
             f"local={self.daemon.local_command_count}"
         )
+        if max_width is None or max_width <= 0 or len(full_text) <= max_width:
+            return full_text
+        suffix = (
+            f" | {self.daemon.connection_state}"
+            f" | {self.daemon.terminal_activity_state}"
+            f" | {pending_flag}"
+        )
+        device_space = max_width - len(suffix)
+        if device_space <= 0:
+            return suffix[-max_width:]
+        device_id = self.daemon.client.device_id
+        if len(device_id) > device_space:
+            device_id = (
+                f"{device_id[: max(device_space - 3, 0)]}..."
+                if device_space > 3
+                else device_id[:device_space]
+            )
+        return f"{device_id}{suffix}"
 
     def _refresh_status_bar(self) -> None:
         try:
             status_bar = self.query_one("#status-bar", Static)
         except NoMatches:
             return
-        status_bar.update(self.build_status_text())
+        status_bar.update(
+            self.build_status_text(max_width=status_bar.size.width or None)
+        )
         if self.daemon.quit_requested and self.daemon.connection_state == "disconnected":
             self.exit()
             return

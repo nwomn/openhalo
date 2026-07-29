@@ -34,10 +34,25 @@ class FakeRuntimeControlAdapter:
 
 
 class HostDaemonTests(unittest.TestCase):
+    def setUp(self) -> None:
+        # Authentication is covered by the v2 handshake suite. These tests cover
+        # Host observation, action, retry, and CLI behavior after registration.
+        async def registered_bootstrap(daemon, websocket) -> None:
+            for frame in daemon.build_bootstrap_frames():
+                await daemon._send_frame(websocket, frame)
+
+        self._bootstrap = patch.object(
+            HostEdgeDaemon,
+            "_send_bootstrap",
+            new=registered_bootstrap,
+        )
+        self._bootstrap.start()
+        self.addCleanup(self._bootstrap.stop)
+
     def test_builds_bootstrap_frames_for_host_edge(self) -> None:
         daemon = HostEdgeDaemon(
             device_id="host-edge-1",
-            token="dev-token",
+            audience="ws://127.0.0.1:8765",
             runtime_control_adapter=FakeRuntimeControlAdapter(),
             host_metrics_provider=lambda: {
                 "cpu_load_ratio": 0.31,
@@ -68,7 +83,7 @@ class HostDaemonTests(unittest.TestCase):
     def test_builds_initial_observation_frames(self) -> None:
         daemon = HostEdgeDaemon(
             device_id="host-edge-1",
-            token="dev-token",
+            audience="ws://127.0.0.1:8765",
             runtime_control_adapter=FakeRuntimeControlAdapter(),
             host_metrics_provider=lambda: {
                 "cpu_load_ratio": 0.31,
@@ -107,7 +122,7 @@ class HostDaemonTests(unittest.TestCase):
         )
         daemon = HostEdgeDaemon(
             device_id="host-edge-1",
-            token="dev-token",
+            audience="ws://127.0.0.1:8765",
             runtime_control_adapter=FakeRuntimeControlAdapter(),
             host_metrics_provider=lambda: {
                 "cpu_load_ratio": 0.31,
@@ -137,7 +152,7 @@ class HostDaemonTests(unittest.TestCase):
     def test_handles_runtime_status_action_request(self) -> None:
         daemon = HostEdgeDaemon(
             device_id="host-edge-1",
-            token="dev-token",
+            audience="ws://127.0.0.1:8765",
             runtime_control_adapter=FakeRuntimeControlAdapter(),
             host_metrics_provider=lambda: {
                 "cpu_load_ratio": 0.31,
@@ -175,7 +190,7 @@ class HostDaemonTests(unittest.TestCase):
         )
         daemon = HostEdgeDaemon(
             device_id="host-edge-1",
-            token="dev-token",
+            audience="ws://127.0.0.1:8765",
             runtime_control_adapter=FakeRuntimeControlAdapter(),
             host_metrics_provider=lambda: {
                 "cpu_load_ratio": 0.31,
@@ -249,7 +264,7 @@ class HostDaemonTests(unittest.TestCase):
 
         daemon = HostEdgeDaemon(
             device_id="host-edge-1",
-            token="dev-token",
+            audience="ws://127.0.0.1:8765",
             runtime_control_adapter=HistoryAwareAdapter(),
             host_metrics_provider=lambda: {
                 "cpu_load_ratio": 0.31,
@@ -293,7 +308,7 @@ class HostDaemonTests(unittest.TestCase):
     def test_edge_history_can_filter_entries_by_capability(self) -> None:
         daemon = HostEdgeDaemon(
             device_id="host-edge-1",
-            token="dev-token",
+            audience="ws://127.0.0.1:8765",
             runtime_control_adapter=FakeRuntimeControlAdapter(),
             host_metrics_provider=lambda: {
                 "cpu_load_ratio": 0.31,
@@ -325,7 +340,7 @@ class HostDaemonTests(unittest.TestCase):
         trace = TraceRecorder()
         daemon = HostEdgeDaemon(
             device_id="host-edge-1",
-            token="dev-token",
+            audience="ws://127.0.0.1:8765",
             runtime_control_adapter=FakeRuntimeControlAdapter(),
             host_metrics_provider=lambda: {
                 "cpu_load_ratio": 0.31,
@@ -359,7 +374,7 @@ class HostDaemonTests(unittest.TestCase):
     ) -> None:
         daemon = HostEdgeDaemon(
             device_id="host-edge-1",
-            token="dev-token",
+            audience="ws://127.0.0.1:8765",
             runtime_control_adapter=FakeRuntimeControlAdapter(),
             host_metrics_provider=lambda: {
                 "cpu_load_ratio": 0.31,
@@ -409,7 +424,7 @@ class HostDaemonTests(unittest.TestCase):
     ) -> None:
         daemon = HostEdgeDaemon(
             device_id="host-edge-1",
-            token="dev-token",
+            audience="ws://127.0.0.1:8765",
             runtime_control_adapter=FakeRuntimeControlAdapter(),
             host_metrics_provider=lambda: {
                 "cpu_load_ratio": 0.31,
@@ -474,7 +489,7 @@ class HostDaemonTests(unittest.TestCase):
     ) -> None:
         daemon = HostEdgeDaemon(
             device_id="host-edge-1",
-            token="dev-token",
+            audience="ws://127.0.0.1:8765",
             runtime_control_adapter=FakeRuntimeControlAdapter(),
             host_metrics_provider=lambda: {
                 "cpu_load_ratio": 0.31,
@@ -537,7 +552,7 @@ class HostDaemonTests(unittest.TestCase):
     ) -> None:
         daemon = HostEdgeDaemon(
             device_id="host-edge-1",
-            token="dev-token",
+            audience="ws://127.0.0.1:8765",
             runtime_control_adapter=FakeRuntimeControlAdapter(),
             host_metrics_provider=lambda: {
                 "cpu_load_ratio": 0.31,
@@ -593,7 +608,7 @@ class HostDaemonTests(unittest.TestCase):
         trace = TraceRecorder()
         daemon = HostEdgeDaemon(
             device_id="host-edge-1",
-            token="dev-token",
+            audience="ws://127.0.0.1:8765",
             runtime_control_adapter=FakeRuntimeControlAdapter(),
             host_metrics_provider=lambda: {
                 "cpu_load_ratio": 0.31,
@@ -660,7 +675,7 @@ class HostDaemonTests(unittest.TestCase):
     def test_run_forever_retries_after_runtime_closes_websocket_cleanly(self) -> None:
         daemon = HostEdgeDaemon(
             device_id="host-edge-1",
-            token="dev-token",
+            audience="ws://127.0.0.1:8765",
             runtime_control_adapter=FakeRuntimeControlAdapter(),
             host_metrics_provider=lambda: {
                 "cpu_load_ratio": 0.31,
@@ -719,7 +734,7 @@ class HostDaemonTests(unittest.TestCase):
     ) -> None:
         daemon = HostEdgeDaemon(
             device_id="host-edge-1",
-            token="dev-token",
+            audience="ws://127.0.0.1:8765",
             runtime_control_adapter=FakeRuntimeControlAdapter(),
             host_metrics_provider=lambda: {
                 "cpu_load_ratio": 0.31,
@@ -770,7 +785,7 @@ class HostDaemonTests(unittest.TestCase):
     def test_run_forever_applies_jitter_to_backoff_delay(self) -> None:
         daemon = HostEdgeDaemon(
             device_id="host-edge-1",
-            token="dev-token",
+            audience="ws://127.0.0.1:8765",
             runtime_control_adapter=FakeRuntimeControlAdapter(),
             host_metrics_provider=lambda: {
                 "cpu_load_ratio": 0.31,
@@ -824,7 +839,7 @@ class HostDaemonTests(unittest.TestCase):
     ) -> None:
         daemon = HostEdgeDaemon(
             device_id="host-edge-1",
-            token="dev-token",
+            audience="ws://127.0.0.1:8765",
             runtime_control_adapter=FakeRuntimeControlAdapter(),
             host_metrics_provider=lambda: {
                 "cpu_load_ratio": 0.31,
@@ -883,7 +898,7 @@ class HostDaemonTests(unittest.TestCase):
     def test_daemon_session_stops_after_max_idle_cycles_without_actions(self) -> None:
         daemon = HostEdgeDaemon(
             device_id="host-edge-1",
-            token="dev-token",
+            audience="ws://127.0.0.1:8765",
             runtime_control_adapter=FakeRuntimeControlAdapter(),
             host_metrics_provider=lambda: {
                 "cpu_load_ratio": 0.31,
@@ -939,8 +954,6 @@ class HostDaemonTests(unittest.TestCase):
             [
                 "--url",
                 "ws://127.0.0.1:8765",
-                "--token",
-                "dev-token",
                 "--device-id",
                 "host-edge-9",
                 "--reconnect-delay",

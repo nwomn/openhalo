@@ -1,5 +1,6 @@
 import json
 import importlib
+import inspect
 import unittest
 from pathlib import Path
 
@@ -7,17 +8,26 @@ import websockets
 
 from device_edge.shared.capability_runtime import CapabilityRuntime
 from device_edge.shared.edge_session_link import EdgeSessionLink
+from device_edge.shared.identity import create_ephemeral_identity
 from device_edge.shared.local_actions import execute_action
 from device_edge.shared.local_action_executor import LocalActionExecutor
 from device_edge.shared.session_client import SessionClient
+from device_edge.cli.cli_edge import run_cli_once
 from openhalo_common.diagnostics import InMemoryDiagnosticRecorder
-from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.trace_recorder import TraceRecorder
+from tests.v2_test_support import TEST_AUDIENCE
+from tests.v2_test_support import authenticate_websocket_edge
+from tests.v2_test_support import build_test_edge
+from tests.v2_test_support import create_test_gateway
+from tests.v2_test_support import provision_test_edge
 
 TEST_LLM_CONFIG = Path("tests/fixtures/llm-config-test.toml")
 
 
 class EdgeClientTests(unittest.TestCase):
+    def test_local_cli_helper_does_not_accept_a_bearer_token(self) -> None:
+        self.assertNotIn("token", inspect.signature(run_cli_once).parameters)
+
     def test_new_edge_subpackages_expose_shared_cli_and_host_modules(self) -> None:
         shared_module = importlib.import_module("device_edge.shared.session_client")
         cli_module = importlib.import_module("device_edge.cli.cli_edge")
@@ -77,7 +87,8 @@ class EdgeClientTests(unittest.TestCase):
         link = EdgeSessionLink(
             device_id="terminal-edge-1",
             device_type="desktop-cli",
-            token="dev-token",
+            audience=TEST_AUDIENCE,
+            identity=create_ephemeral_identity(),
             diagnostic_recorder=diagnostics,
         )
         correlation = {
@@ -167,7 +178,7 @@ class EdgeClientTests(unittest.TestCase):
         client = SessionClient(
             device_id="host-edge-1",
             device_type="server",
-            token="dev-token",
+            audience=TEST_AUDIENCE,
             capabilities=["host.metrics"],
         )
 
@@ -198,7 +209,7 @@ class EdgeClientTests(unittest.TestCase):
         client = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
-            token="dev-token",
+            audience=TEST_AUDIENCE,
         )
 
         result = client.handle_action_request(
@@ -219,7 +230,7 @@ class EdgeClientTests(unittest.TestCase):
         client = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
-            token="dev-token",
+            audience=TEST_AUDIENCE,
         )
 
         result = client.handle_action_request(
@@ -250,7 +261,7 @@ class EdgeClientTests(unittest.TestCase):
         client = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
-            token="dev-token",
+            audience=TEST_AUDIENCE,
         )
 
         frame = client.build_direct_action_event(
@@ -274,7 +285,7 @@ class EdgeClientTests(unittest.TestCase):
         client = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
-            token="dev-token",
+            audience=TEST_AUDIENCE,
         )
 
         frame = client.build_direct_action_event(
@@ -297,7 +308,7 @@ class EdgeClientTests(unittest.TestCase):
         client = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
-            token="dev-token",
+            audience=TEST_AUDIENCE,
         )
 
         frame = client.build_agent_initiative_event(
@@ -324,7 +335,7 @@ class EdgeClientTests(unittest.TestCase):
         client = SessionClient(
             device_id="terminal-edge-1",
             device_type="desktop-cli",
-            token="dev-token",
+            audience=TEST_AUDIENCE,
             capabilities=["text.input", "notification.show", "terminal.context"],
         )
 
@@ -350,7 +361,7 @@ class EdgeClientTests(unittest.TestCase):
         client = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
-            token="dev-token",
+            audience=TEST_AUDIENCE,
             trace_recorder=trace,
         )
 
@@ -386,7 +397,7 @@ class EdgeClientTests(unittest.TestCase):
         client = SessionClient(
             device_id="terminal-edge-1",
             device_type="desktop-cli",
-            token="dev-token",
+            audience=TEST_AUDIENCE,
             diagnostic_recorder=diagnostics,
         )
 
@@ -407,7 +418,7 @@ class EdgeClientTests(unittest.TestCase):
         client = SessionClient(
             device_id="host-edge-1",
             device_type="server",
-            token="dev-token",
+            audience=TEST_AUDIENCE,
             capabilities=["host.metrics"],
             diagnostic_recorder=diagnostics,
         )
@@ -439,25 +450,30 @@ class EdgeClientTests(unittest.TestCase):
 
 class EdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
     async def test_websocket_client_receives_action_and_returns_action_result(self) -> None:
-        gateway = RuntimeGateway(
-            shared_token="dev-token",
+        gateway = create_test_gateway(
             llm_config_path=TEST_LLM_CONFIG,
-        )
-        client = SessionClient(
-            device_id="desktop-dev-1",
-            device_type="desktop-cli",
-            token="dev-token",
+            audience="wss://runtime.invalid/openhalo/edge",
         )
 
         async with gateway.run_test_server() as server_info:
+            edge = build_test_edge(
+                device_id="desktop-dev-1",
+                device_type="desktop-cli",
+                display_name="Test Desktop",
+                audience=server_info["url"],
+            )
+            client = edge.client
+            provision_test_edge(gateway, edge)
             async with websockets.connect(server_info["url"]) as websocket:
-                await websocket.send(json.dumps(client.build_connect_frame()))
+                await authenticate_websocket_edge(websocket, edge)
                 await websocket.send(json.dumps(client.build_capability_announce_frame()))
                 await websocket.send(json.dumps(client.build_text_event("hello")))
 
-                await websocket.recv()
-                await websocket.recv()
-                action_request = json.loads(await websocket.recv())
+                while True:
+                    frame = json.loads(await websocket.recv())
+                    if frame["type"] == "action_request":
+                        action_request = frame
+                        break
                 action_result = client.handle_action_request(action_request)
 
         self.assertEqual(action_request["type"], "action_request")
@@ -465,20 +481,23 @@ class EdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(action_result["result"]["status"], "ok")
 
     async def test_websocket_client_helper_uses_explicit_url(self) -> None:
-        gateway = RuntimeGateway(
-            shared_token="dev-token",
+        gateway = create_test_gateway(
             llm_config_path=TEST_LLM_CONFIG,
-        )
-        client = SessionClient(
-            device_id="desktop-dev-1",
-            device_type="desktop-cli",
-            token="dev-token",
+            audience="wss://runtime.invalid/openhalo/edge",
         )
 
         async with gateway.run_test_server() as server_info:
+            edge = build_test_edge(
+                device_id="desktop-dev-1",
+                device_type="desktop-cli",
+                display_name="Test Desktop",
+                audience=server_info["url"],
+            )
+            client = edge.client
+            provision_test_edge(gateway, edge)
             action_result = await client.run_websocket_client(
                 url=server_info["url"],
-                text="hello explicit url",
+                text="hello",
             )
 
         self.assertEqual(action_result["type"], "action_result")

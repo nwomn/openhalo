@@ -10,7 +10,6 @@ from websockets.exceptions import ConnectionClosedError
 from websockets.exceptions import ConnectionClosedOK
 from websockets.frames import Close
 
-from device_edge.shared.session_client import SessionClient
 from edge_api.auth import build_challenge_payload
 from edge_api.auth import encode_base64url
 from edge_api.auth import generate_private_key
@@ -19,9 +18,14 @@ from edge_api.auth import sign_challenge
 from edge_api.protocol import API_VERSION
 from edge_api.protocol import build_connect_frame
 from personal_runtime.agent_executor import InterventionProposal
-from personal_runtime.gateway_server import RuntimeGateway
+from personal_runtime.gateway_server import RuntimeGateway as ProductionRuntimeGateway
 from personal_runtime.pairing_store import PairingStore
 from personal_runtime.runtime_state import RuntimeState
+from tests.v2_test_support import authenticate_websocket_edge
+from tests.v2_test_support import build_test_edge
+from tests.v2_test_support import provision_test_edge
+from tests.v2_test_support import V2RuntimeGateway as RuntimeGateway
+from tests.v2_test_support import V2SessionClient as SessionClient
 
 ROOT = Path(__file__).resolve().parents[1]
 TEST_LLM_CONFIG = ROOT / "tests" / "fixtures" / "llm-config-test.toml"
@@ -211,7 +215,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
     async def test_gateway_rejects_bearer_connect_and_never_binds_a_session(
         self,
     ) -> None:
-        gateway = RuntimeGateway(
+        gateway = ProductionRuntimeGateway(
             shared_token="dev-token",
             persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
@@ -349,6 +353,13 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
         )
+        edge = build_test_edge(
+            device_id="android-edge-1",
+            device_type="android-phone",
+            display_name="Test Phone",
+            audience=gateway.audience,
+        )
+        provision_test_edge(gateway, edge)
 
         class ReplacementWebSocket:
             def __init__(self) -> None:
@@ -365,16 +376,11 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
 
             def __aiter__(self):
                 async def frames():
+                    yield json.dumps(edge.client.build_connect_frame())
+                    while not self.sent_frames:
+                        await asyncio.sleep(0)
                     yield json.dumps(
-                        {
-                            "api_version": API_VERSION,
-                            "type": "connect",
-                            "device": {
-                                "device_id": "android-edge-1",
-                                "device_type": "android-phone",
-                            },
-                            "auth": {"token": "dev-token"},
-                        }
+                        edge.client.build_auth_proof_frame(self.sent_frames[-1])
                     )
                     gateway.live_connections["android-edge-1"] = replacement_websocket
                     gateway.online_device_ids.add("android-edge-1")
@@ -401,6 +407,13 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
         )
+        edge = build_test_edge(
+            device_id="android-edge-1",
+            device_type="android-phone",
+            display_name="Test Phone",
+            audience=gateway.audience,
+        )
+        provision_test_edge(gateway, edge)
 
         class DisconnectWebSocket:
             def __init__(self) -> None:
@@ -408,16 +421,11 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
 
             def __aiter__(self):
                 async def frames():
+                    yield json.dumps(edge.client.build_connect_frame())
+                    while not self.sent_frames:
+                        await asyncio.sleep(0)
                     yield json.dumps(
-                        {
-                            "api_version": API_VERSION,
-                            "type": "connect",
-                            "device": {
-                                "device_id": "android-edge-1",
-                                "device_type": "android-phone",
-                            },
-                            "auth": {"token": "dev-token"},
-                        }
+                        edge.client.build_auth_proof_frame(self.sent_frames[-1])
                     )
                     raise ConnectionClosedOK(Close(1000, "normal close"), None)
 
@@ -1195,40 +1203,19 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             llm_config_path=TEST_LLM_CONFIG,
         )
         async with gateway.run_test_server() as server_info:
+            edge = build_test_edge(
+                device_id="desktop-dev-1",
+                device_type="desktop-cli",
+                display_name="Test Desktop",
+                audience=server_info["url"],
+            )
+            provision_test_edge(gateway, edge)
             async with websockets.connect(server_info["url"]) as websocket:
+                connect_ok = await authenticate_websocket_edge(websocket, edge)
                 await websocket.send(
-                    json.dumps(
-                        {
-                            "type": "connect",
-                            "device": {
-                                "device_id": "desktop-dev-1",
-                                "device_type": "desktop-cli",
-                            },
-                            "auth": {"token": "dev-token"},
-                        }
-                    )
+                    json.dumps(edge.client.build_capability_announce_frame())
                 )
-                await websocket.send(
-                    json.dumps(
-                        {
-                            "type": "capability_announce",
-                            "device_id": "desktop-dev-1",
-                            "capabilities": ["text.input", "notification.show"],
-                        }
-                    )
-                )
-                await websocket.send(
-                    json.dumps(
-                        {
-                            "type": "event_push",
-                            "device_id": "desktop-dev-1",
-                            "capability": "text.input",
-                            "payload": {"text": "hello"},
-                        }
-                    )
-                )
-
-                connect_ok = json.loads(await websocket.recv())
+                await websocket.send(json.dumps(edge.client.build_text_event("hello")))
                 event_ack = json.loads(await websocket.recv())
                 action_request = json.loads(await websocket.recv())
 
@@ -1555,21 +1542,16 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         )
 
         async with gateway.run_test_server() as server_info:
+            edge = build_test_edge(
+                device_id="attacker-edge-1",
+                device_type="desktop-cli",
+                display_name="Test Attacker",
+                audience=server_info["url"],
+            )
+            provision_test_edge(gateway, edge)
             async with websockets.connect(server_info["url"]) as websocket:
-                await websocket.send(
-                    json.dumps(
-                        {
-                            "type": "connect",
-                            "device": {
-                                "device_id": "attacker-edge-1",
-                                "device_type": "desktop-cli",
-                            },
-                            "auth": {"token": "dev-token"},
-                        }
-                    )
-                )
                 self.assertEqual(
-                    json.loads(await websocket.recv())["type"],
+                    (await authenticate_websocket_edge(websocket, edge))["type"],
                     "connect_ok",
                 )
                 await websocket.send(
@@ -1596,35 +1578,34 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         )
 
         async with gateway.run_test_server() as server_info:
+            first_edge = build_test_edge(
+                device_id="desktop-dev-1",
+                device_type="desktop-cli",
+                display_name="Test Desktop",
+                audience=server_info["url"],
+            )
+            provision_test_edge(gateway, first_edge)
             async with websockets.connect(server_info["url"]) as first_websocket:
-                await first_websocket.send(
-                    json.dumps(
-                        {
-                            "type": "connect",
-                            "device": {
-                                "device_id": "desktop-dev-1",
-                                "device_type": "desktop-cli",
-                            },
-                            "auth": {"token": "dev-token"},
-                        }
-                    )
-                )
                 self.assertEqual(
-                    json.loads(await first_websocket.recv())["type"],
+                    (
+                        await authenticate_websocket_edge(
+                            first_websocket,
+                            first_edge,
+                        )
+                    )["type"],
                     "connect_ok",
                 )
+                second_edge = build_test_edge(
+                    device_id="desktop-dev-1",
+                    device_type="desktop-cli",
+                    display_name="Test Desktop",
+                    audience=server_info["url"],
+                )
+                second_edge.client.identity = first_edge.identity
+                second_edge.client.session_link.identity = first_edge.identity
                 async with websockets.connect(server_info["url"]) as second_websocket:
                     await second_websocket.send(
-                        json.dumps(
-                            {
-                                "type": "connect",
-                                "device": {
-                                    "device_id": "desktop-dev-1",
-                                    "device_type": "desktop-cli",
-                                },
-                                "auth": {"token": "dev-token"},
-                            }
-                        )
+                        json.dumps(second_edge.client.build_connect_frame())
                     )
                     error = json.loads(await second_websocket.recv())
 
@@ -1643,40 +1624,19 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         )
 
         async with gateway.run_test_server() as server_info:
+            edge = build_test_edge(
+                device_id="desktop-dev-1",
+                device_type="desktop-cli",
+                display_name="Test Desktop",
+                audience=server_info["url"],
+            )
+            provision_test_edge(gateway, edge)
             async with websockets.connect(server_info["url"]) as websocket:
+                connect_ok = await authenticate_websocket_edge(websocket, edge)
                 await websocket.send(
-                    json.dumps(
-                        {
-                            "type": "connect",
-                            "device": {
-                                "device_id": "desktop-dev-1",
-                                "device_type": "desktop-cli",
-                            },
-                            "auth": {"token": "dev-token"},
-                        }
-                    )
+                    json.dumps(edge.client.build_capability_announce_frame())
                 )
-                await websocket.send(
-                    json.dumps(
-                        {
-                            "type": "capability_announce",
-                            "device_id": "desktop-dev-1",
-                            "capabilities": ["text.input", "notification.show"],
-                        }
-                    )
-                )
-                await websocket.send(
-                    json.dumps(
-                        {
-                            "type": "event_push",
-                            "device_id": "desktop-dev-1",
-                            "capability": "text.input",
-                            "payload": {"text": "hello"},
-                        }
-                    )
-                )
-
-                connect_ok = json.loads(await websocket.recv())
+                await websocket.send(json.dumps(edge.client.build_text_event("hello")))
                 event_ack = json.loads(await websocket.recv())
                 interaction_update = json.loads(await websocket.recv())
 

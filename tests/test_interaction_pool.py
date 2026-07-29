@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import unittest
 
-from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.interaction_pool import InteractionPool
 from personal_runtime.runtime_state import RuntimeState
+from tests.v2_test_support import create_test_gateway
 
 
 class InteractionPoolTests(unittest.TestCase):
@@ -370,8 +370,7 @@ class InteractionPoolTests(unittest.TestCase):
             participant_device_ids=["terminal-1"],
         ).interaction
         restored_state = RuntimeState.from_dict(state.to_dict())
-        gateway = RuntimeGateway(
-            shared_token="dev-token",
+        gateway = create_test_gateway(
             state=restored_state,
             persist_state=False,
         )

@@ -323,11 +323,18 @@ an ignored `config/runtime-config.openai-local.toml` is not assumed to exist in
 every worktree. Override `OPENHALO_DEV_STATE_PATH` when separate runs need
 separate evidence.
 
+Create a one-time code from the development pairing store, then pair an
+isolated Terminal Edge home through the public v2 ceremony:
+
 ```bash
-.venv/bin/python -m device_edge.cli.terminal_daemon \
+.venv/bin/python -m personal_runtime.pairing_cli create \
+  --store .runtime/android-openai-dev-pairing.json
+export OPENHALO_HOME="$PWD/.runtime/terminal-edge-dev-home"
+.venv/bin/python -m openhalo.edge_cli setup \
   --url ws://127.0.0.1:18765 \
-  --token dev-token \
-  --device-id terminal-edge-1
+  --pairing-code <one-time-code> \
+  --display-name "Terminal Edge Dev"
+.venv/bin/python -m openhalo.edge_cli run
 ```
 
 Use `--host-edge-idle-timeout 30` on the Runtime command to control the
@@ -535,13 +542,17 @@ the Runtime and one source edge together:
    bin/run-runtime-dev
    ```
 
-2. Start the terminal edge in a second terminal:
+2. Create a code, pair an isolated Terminal Edge home, then start it:
 
    ```bash
-   .venv/bin/python -m device_edge.cli.terminal_daemon \
+   .venv/bin/python -m personal_runtime.pairing_cli create \
+     --store .runtime/android-openai-dev-pairing.json
+   export OPENHALO_HOME="$PWD/.runtime/terminal-edge-dev-home"
+   .venv/bin/python -m openhalo.edge_cli setup \
      --url ws://127.0.0.1:18765 \
-     --token dev-token \
-     --device-id terminal-edge-1
+     --pairing-code <one-time-code> \
+     --display-name "Terminal Edge Dev"
+   .venv/bin/python -m openhalo.edge_cli run
    ```
 
 3. In the terminal edge, send normal user text such as `你好`, `你是谁？`, and `check runtime status`.
@@ -616,7 +627,8 @@ OPENHALO_DEV_RUNTIME_HOST=127.0.0.1 bin/run-runtime-dev
 Preferred full-screen TUI mode:
 
 ```bash
-.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token --tui
+export OPENHALO_HOME="$PWD/.runtime/terminal-edge-dev-home"
+.venv/bin/python -m openhalo.edge_cli run
 ```
 
 The new `--tui` mode uses a Textual full-screen UI as the preferred resident terminal surface. The first MVP intentionally keeps the same daemon/runtime protocol path while replacing the plain log stream with a fixed layout:
@@ -632,7 +644,8 @@ The TUI draft-input signal is also part of the idle-sensing behavior: a nonempty
 Use the older non-TUI foreground command as the compatibility fallback when you need a plain line-oriented terminal session or when diagnosing UI-specific problems:
 
 ```bash
-.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token
+export OPENHALO_HOME="$PWD/.runtime/terminal-edge-dev-home"
+.venv/bin/python -m openhalo.edge_cli run --line-mode
 ```
 
 Type a line and press Enter to send a normal `text.input` event. Leave the terminal idle to let the daemon emit an idle observation. The bounded `bin/verify-terminal-edge` flow remains the preferred acceptance script when you want a repeatable proof run instead of manual `stdin` interaction.
@@ -642,7 +655,7 @@ For manual live-terminal acceptance, repeated explicit user input should continu
 For the current manual `M11` acceptance bar, prefer one real user-scenario foreground session instead of isolated command pokes:
 
 1. Start the runtime with `OPENHALO_DEV_RUNTIME_HOST=127.0.0.1 bin/run-runtime-dev`; it starts `host-edge-1` automatically.
-2. Start the terminal surface with `.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token --tui`.
+2. Create a one-time code with `personal_runtime.pairing_cli create --store .runtime/android-openai-dev-pairing.json`, then pair and start the terminal surface through `openhalo.edge_cli setup` and `openhalo.edge_cli run` using an isolated `OPENHALO_HOME`.
 3. Send `hello runtime`.
    Expectation: the session shows both `[user] hello runtime` and one real `[runtime] ...` reply line on the same resident session.
 4. Send `check runtime status`.
@@ -652,7 +665,7 @@ For the current manual `M11` acceptance bar, prefer one real user-scenario foreg
 6. Send `/quit`.
    Expectation: the TUI exits cleanly without a reconnect loop.
 
-If you need the plain compatibility path instead of the TUI, run `.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token` and apply the same user-scenario expectations to the line-oriented transcript.
+If you need the plain compatibility path instead of the TUI, run `.venv/bin/python -m openhalo.edge_cli run --line-mode` with the paired `OPENHALO_HOME` and apply the same user-scenario expectations to the line-oriented transcript.
 
 For the current live-terminal baseline, a single `Ctrl+C` in the foreground terminal-daemon session should now terminate the CLI device cleanly during normal TTY use. If manual acceptance still requires repeated interrupt signals, treat that as a terminal-edge interaction regression rather than expected behavior.
 

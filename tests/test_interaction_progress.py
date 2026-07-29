@@ -6,6 +6,7 @@ import unittest
 import websockets
 
 from device_edge.cli.terminal_daemon import TerminalEdgeDaemon
+from device_edge.shared.identity import create_ephemeral_identity
 from device_edge.shared.session_client import SessionClient
 from openhalo_common.diagnostics import InMemoryDiagnosticRecorder
 from personal_runtime.agent_executor import InterventionProposal
@@ -18,6 +19,9 @@ from personal_runtime.agent_harness import HarnessOutcome
 from personal_runtime.agent_harness import RuntimeActionIntent
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.runtime_state import RuntimeState
+from tests.v2_test_support import build_test_edge
+from tests.v2_test_support import connect_test_edge_sync
+from tests.v2_test_support import create_test_gateway
 
 
 class InteractionProgressRuntimeTests(unittest.TestCase):
@@ -25,26 +29,21 @@ class InteractionProgressRuntimeTests(unittest.TestCase):
         capabilities = ["text.input", "notification.show", "terminal.context"]
         if supports_progress:
             capabilities.append("interaction.progress")
-        client = SessionClient(
+        edge = build_test_edge(
             device_id="terminal-edge-1",
             device_type="desktop-cli",
-            token="dev-token",
+            display_name="Test Terminal",
+            audience=gateway.audience,
             capabilities=capabilities,
         )
-        gateway.run_roundtrip(
-            [
-                client.build_connect_frame(),
-                client.build_capability_announce_frame(),
-            ]
-        )
-        return client
+        connect_test_edge_sync(gateway, edge)
+        return edge.client
 
     def test_visible_terminal_interaction_emits_safe_ordered_progress(self) -> None:
         diagnostics = InMemoryDiagnosticRecorder(
             timestamp_provider=lambda: "2026-07-18T10:00:00Z"
         )
-        gateway = RuntimeGateway(
-            shared_token="dev-token",
+        gateway = create_test_gateway(
             persist_state=False,
             diagnostic_recorder=diagnostics,
         )
@@ -87,7 +86,7 @@ class InteractionProgressRuntimeTests(unittest.TestCase):
         self.assertNotIn("Hermes", str(rendered_diagnostics))
 
     def test_interaction_without_progress_capability_keeps_normal_result_path(self) -> None:
-        gateway = RuntimeGateway(shared_token="dev-token", persist_state=False)
+        gateway = create_test_gateway(persist_state=False)
         client = self._connect_terminal(gateway, supports_progress=False)
 
         replies = gateway.run_roundtrip([client.build_text_event("hello runtime")])
@@ -99,8 +98,7 @@ class InteractionProgressRuntimeTests(unittest.TestCase):
 
     def test_runtime_console_shows_progress_without_an_edge_recipient(self) -> None:
         rendered = []
-        gateway = RuntimeGateway(
-            shared_token="dev-token",
+        gateway = create_test_gateway(
             persist_state=False,
             runtime_event_emitter=rendered.append,
         )
@@ -164,8 +162,7 @@ class InteractionProgressRuntimeTests(unittest.TestCase):
                     ),
                 )
 
-        gateway = RuntimeGateway(
-            shared_token="dev-token",
+        gateway = create_test_gateway(
             persist_state=False,
             agent_harness=ActionThenCompleteHarness(),
         )
@@ -234,8 +231,7 @@ class InteractionProgressRuntimeTests(unittest.TestCase):
                     ),
                 )
 
-        gateway = RuntimeGateway(
-            shared_token="dev-token",
+        gateway = create_test_gateway(
             persist_state=False,
             agent_harness=ActionThenFollowUpHarness(),
         )
@@ -278,8 +274,7 @@ class InteractionProgressRuntimeTests(unittest.TestCase):
                 "outcome_delivery_required": True,
             }
         )
-        first_gateway = RuntimeGateway(
-            shared_token="dev-token",
+        first_gateway = create_test_gateway(
             persist_state=False,
             state=state,
         )
@@ -292,8 +287,7 @@ class InteractionProgressRuntimeTests(unittest.TestCase):
             presentation_hint="working",
         )[0]
 
-        restarted_gateway = RuntimeGateway(
-            shared_token="dev-token",
+        restarted_gateway = create_test_gateway(
             persist_state=False,
             state=state,
         )
@@ -344,8 +338,7 @@ class InteractionProgressRuntimeTests(unittest.TestCase):
                     ),
                 )
 
-        gateway = RuntimeGateway(
-            shared_token="dev-token",
+        gateway = create_test_gateway(
             persist_state=False,
             agent_harness=BatchHarness(),
         )
@@ -397,15 +390,15 @@ class InteractionProgressWebSocketTests(unittest.IsolatedAsyncioTestCase):
                     ),
                 )
 
-        gateway = RuntimeGateway(
-            shared_token="dev-token",
+        gateway = create_test_gateway(
             persist_state=False,
             agent_harness=ActionHarness(),
         )
-        client = SessionClient(
+        edge = build_test_edge(
             device_id="terminal-edge-1",
             device_type="desktop-cli",
-            token="dev-token",
+            display_name="Test Terminal",
+            audience=gateway.audience,
             capabilities=[
                 "text.input",
                 "notification.show",
@@ -413,12 +406,8 @@ class InteractionProgressWebSocketTests(unittest.IsolatedAsyncioTestCase):
                 "interaction.progress",
             ],
         )
-        gateway.run_roundtrip(
-            [
-                client.build_connect_frame(),
-                client.build_capability_announce_frame(),
-            ]
-        )
+        connect_test_edge_sync(gateway, edge)
+        client = edge.client
         streamed: list[dict] = []
 
         async def capture_stream(replies: list[dict]) -> None:
@@ -489,18 +478,27 @@ class InteractionProgressWebSocketTests(unittest.IsolatedAsyncioTestCase):
                 super().handle_interaction_frame(frame)
 
         harness = SlowHarness()
-        gateway = RuntimeGateway(
-            shared_token="dev-token",
+        gateway = create_test_gateway(
             persist_state=False,
             agent_harness=harness,
-        )
-        terminal = RecordingTerminalEdgeDaemon(
-            device_id="terminal-edge-1",
-            token="dev-token",
-            output_stream=io.StringIO(),
+            audience="wss://runtime.invalid/openhalo/edge",
         )
 
         async with gateway.run_test_server() as server_info:
+            terminal = RecordingTerminalEdgeDaemon(
+                device_id="terminal-edge-1",
+                audience=server_info["url"],
+                identity=create_ephemeral_identity(),
+                display_name="Test Terminal",
+                output_stream=io.StringIO(),
+            )
+            gateway.pairing_store.provision_local_device(
+                device_id=terminal.client.device_id,
+                device_type=terminal.client.device_type,
+                display_name=terminal.client.session_link.display_name,
+                audience=gateway.audience,
+                public_key=terminal.client.identity.public_key,
+            )
             async with websockets.connect(server_info["url"]) as websocket:
                 session_task = asyncio.create_task(
                     terminal.run_scripted_session(
@@ -596,18 +594,27 @@ class InteractionProgressWebSocketTests(unittest.IsolatedAsyncioTestCase):
                     ),
                 )
 
-        gateway = RuntimeGateway(
-            shared_token="dev-token",
+        gateway = create_test_gateway(
             persist_state=False,
             agent_harness=ActionThenCompleteHarness(),
-        )
-        terminal = RecordingTerminalEdgeDaemon(
-            device_id="terminal-edge-1",
-            token="dev-token",
-            output_stream=io.StringIO(),
+            audience="wss://runtime.invalid/openhalo/edge",
         )
 
         async with gateway.run_test_server() as server_info:
+            terminal = RecordingTerminalEdgeDaemon(
+                device_id="terminal-edge-1",
+                audience=server_info["url"],
+                identity=create_ephemeral_identity(),
+                display_name="Test Terminal",
+                output_stream=io.StringIO(),
+            )
+            gateway.pairing_store.provision_local_device(
+                device_id=terminal.client.device_id,
+                device_type=terminal.client.device_type,
+                display_name=terminal.client.session_link.display_name,
+                audience=gateway.audience,
+                public_key=terminal.client.identity.public_key,
+            )
             async with websockets.connect(server_info["url"]) as websocket:
                 results = await asyncio.wait_for(
                     terminal.run_scripted_session(

@@ -4,20 +4,26 @@ import argparse
 import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from device_edge.host.host_daemon import HostEdgeDaemon
+from device_edge.shared.identity import create_ephemeral_identity
 from device_edge.shared.session_client import SessionClient
+from edge_api.protocol import build_connect_frame
 from openhalo_common.diagnostics import InMemoryDiagnosticRecorder
 from personal_runtime.chain_inspection import build_chain_report
 from personal_runtime.chain_inspection import format_chain_report
 from personal_runtime.gateway_server import RuntimeGateway
+from personal_runtime.pairing_store import PairingStore
 from personal_runtime.trace_recorder import TraceRecorder
+
+
+LOCAL_CLI_AUDIENCE = "ws://127.0.0.1:18765"
 
 
 class LocalCliSession:
     def __init__(
         self,
-        token: str = "dev-token",
         trace: bool = False,
         config_path: Path | None = None,
         grounding_edge_history_fetcher=None,
@@ -25,28 +31,48 @@ class LocalCliSession:
     ) -> None:
         self.trace_recorder = TraceRecorder() if trace else None
         self.diagnostic_recorder = diagnostic_recorder
+        self._temporary_directory = TemporaryDirectory()
+        self.pairing_store = PairingStore(
+            Path(self._temporary_directory.name) / "pairing.json"
+        )
         self.gateway = RuntimeGateway(
-            shared_token=token,
             trace_recorder=self.trace_recorder,
             persist_state=False,
             llm_config_path=config_path,
             grounding_edge_history_fetcher=grounding_edge_history_fetcher,
             diagnostic_recorder=diagnostic_recorder,
+            pairing_store=self.pairing_store,
+            audience=LOCAL_CLI_AUDIENCE,
         )
         self.client = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
-            token=token,
+            audience=LOCAL_CLI_AUDIENCE,
+            identity=create_ephemeral_identity(),
+            display_name="Local CLI",
             trace_recorder=self.trace_recorder,
             diagnostic_recorder=diagnostic_recorder,
         )
-        self.gateway.run_roundtrip(
-            [
-                self.client.build_connect_frame(),
-                self.client.build_capability_announce_frame(),
-            ]
-        )
+        self.register_edge(self.client)
         self._trace_offset = 0
+
+    def register_edge(self, client: SessionClient) -> None:
+        self.pairing_store.provision_local_device(
+            device_id=client.device_id,
+            device_type=client.device_type,
+            display_name=client.session_link.display_name,
+            audience=client.audience,
+            public_key=client.identity.public_key,
+        )
+        challenge = self.gateway.run_roundtrip([client.build_connect_frame()])[-1]
+        if challenge.get("type") != "auth_challenge":
+            raise RuntimeError("Local CLI did not receive an authentication challenge.")
+        connect_ok = self.gateway.run_roundtrip(
+            [client.build_auth_proof_frame(challenge)]
+        )[-1]
+        if connect_ok.get("type") != "connect_ok":
+            raise RuntimeError("Local CLI authentication was not accepted.")
+        self.gateway.run_roundtrip([client.build_capability_announce_frame()])
 
     def send_text(self, text: str) -> dict:
         replies = self.gateway.run_roundtrip(
@@ -200,11 +226,10 @@ class LocalCliSession:
 
 def run_cli_once(
     text: str,
-    token: str = "dev-token",
     trace: bool = False,
     config_path: Path | None = None,
 ) -> dict | tuple[dict, list[str]]:
-    session = LocalCliSession(token=token, trace=trace, config_path=config_path)
+    session = LocalCliSession(trace=trace, config_path=config_path)
     result = session.send_text(text)
     if trace:
         return result, session.drain_trace_lines()
@@ -213,7 +238,6 @@ def run_cli_once(
 
 def inspect_cli_once(
     text: str,
-    token: str = "dev-token",
     config_path: Path | None = None,
 ) -> dict:
     observed_at = (
@@ -222,19 +246,18 @@ def inspect_cli_once(
         .isoformat()
         .replace("+00:00", "Z")
     )
-    host_daemon = _build_inspection_host_daemon(
-        token=token,
-        observed_at=observed_at,
-    )
     diagnostic_recorder = InMemoryDiagnosticRecorder()
     session = LocalCliSession(
-        token=token,
         trace=True,
         config_path=config_path,
-        grounding_edge_history_fetcher=lambda: _fetch_inspection_edge_history(
-            host_daemon
-        ),
         diagnostic_recorder=diagnostic_recorder,
+    )
+    host_daemon = _build_inspection_host_daemon(
+        audience=session.client.audience,
+        observed_at=observed_at,
+    )
+    session.gateway.grounding_edge_history_fetcher = lambda: _fetch_inspection_edge_history(
+        host_daemon
     )
     session.gateway.state.upsert_goal(
         goal_id="goal-1",
@@ -243,16 +266,14 @@ def inspect_cli_once(
         summary="Watch runtime health signals.",
         updated_at="2026-06-22T10:00:00Z",
     )
-    session.gateway.run_roundtrip(
-        host_daemon.build_bootstrap_frames() + host_daemon.build_observation_frames(observed_at=observed_at)
-    )
+    session.register_edge(host_daemon.client)
+    session.gateway.run_roundtrip(host_daemon.build_observation_frames(observed_at=observed_at))
     action_result = session.send_text(text)
     return build_chain_report(session, action_result)
 
 
 def inspect_agent_initiative_once(
     action_capability: str = "runtime.status",
-    token: str = "dev-token",
     config_path: Path | None = None,
 ) -> dict:
     observed_at = (
@@ -261,19 +282,18 @@ def inspect_agent_initiative_once(
         .isoformat()
         .replace("+00:00", "Z")
     )
-    host_daemon = _build_inspection_host_daemon(
-        token=token,
-        observed_at=observed_at,
-    )
     diagnostic_recorder = InMemoryDiagnosticRecorder()
     session = LocalCliSession(
-        token=token,
         trace=True,
         config_path=config_path,
-        grounding_edge_history_fetcher=lambda: _fetch_inspection_edge_history(
-            host_daemon
-        ),
         diagnostic_recorder=diagnostic_recorder,
+    )
+    host_daemon = _build_inspection_host_daemon(
+        audience=session.client.audience,
+        observed_at=observed_at,
+    )
+    session.gateway.grounding_edge_history_fetcher = lambda: _fetch_inspection_edge_history(
+        host_daemon
     )
     session.gateway.state.upsert_goal(
         goal_id="goal-1",
@@ -284,9 +304,8 @@ def inspect_agent_initiative_once(
     )
     host_daemon.trace_recorder = session.trace_recorder
     host_daemon.client.trace_recorder = session.trace_recorder
-    session.gateway.run_roundtrip(
-        host_daemon.build_bootstrap_frames() + host_daemon.build_observation_frames(observed_at=observed_at)
-    )
+    session.register_edge(host_daemon.client)
+    session.gateway.run_roundtrip(host_daemon.build_observation_frames(observed_at=observed_at))
     action_result = session.trigger_agent_initiative(
         action_capability=action_capability,
         reason="manual_inspection",
@@ -300,20 +319,51 @@ def inspect_agent_initiative_once(
 async def run_cli_once_over_websocket(
     text: str,
     url: str,
-    token: str = "dev-token",
+    pairing_code: str,
 ) -> dict:
+    identity = create_ephemeral_identity()
     client = SessionClient(
         device_id="desktop-dev-1",
         device_type="desktop-cli",
-        token=token,
+        audience=url,
+        identity=identity,
+        display_name="Local CLI",
     )
-    return await client.run_websocket_client(url=url, text=text)
+    pairing_connect = build_connect_frame(
+        device_id=client.device_id,
+        device_type=client.device_type,
+        audience=url,
+        session_id=client.session_id,
+        pairing_code=pairing_code,
+        public_key=identity.public_key,
+        display_name="Local CLI",
+    )
+    import json
+    import websockets
+
+    async with websockets.connect(url) as websocket:
+        await websocket.send(json.dumps(pairing_connect))
+        challenge = json.loads(await websocket.recv())
+        await websocket.send(json.dumps(client.build_auth_proof_frame(challenge)))
+        connect_ok = json.loads(await websocket.recv())
+        if connect_ok.get("type") != "connect_ok":
+            raise RuntimeError("Runtime rejected Local CLI authentication.")
+        await websocket.send(json.dumps(client.build_capability_announce_frame()))
+        await websocket.send(json.dumps(client.build_text_event(text)))
+        await websocket.recv()
+        action_request = json.loads(await websocket.recv())
+        action_result = client.handle_action_request(action_request)
+        await websocket.send(json.dumps(action_result))
+        return action_result
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the v0 device edge CLI.")
     parser.add_argument("--url", help="Runtime WebSocket URL for real client/server mode.")
-    parser.add_argument("--token", default="dev-token", help="Shared development token.")
+    parser.add_argument(
+        "--pairing-code",
+        help="One-time pairing code required for real client/server mode.",
+    )
     parser.add_argument("--text", help="Optional text input to send without prompting.")
     parser.add_argument(
         "--llm-config-path",
@@ -359,14 +409,19 @@ def main() -> None:
         print("CLI edge ready. Type one line to send to the runtime:")
         text = args.text or input("> ").strip()
     if args.url:
+        if not args.pairing_code:
+            parser.error("--url requires --pairing-code")
         result = asyncio.run(
-            run_cli_once_over_websocket(text=text, url=args.url, token=args.token)
+            run_cli_once_over_websocket(
+                text=text,
+                url=args.url,
+                pairing_code=args.pairing_code,
+            )
         )
     else:
         config_path = Path(args.llm_config_path) if args.llm_config_path else None
         if args.inspect_agent_initiative:
             report = inspect_agent_initiative_once(
-                token=args.token,
                 config_path=config_path,
             )
             print(format_chain_report(report))
@@ -374,20 +429,19 @@ def main() -> None:
             print(f"Action result: {result['result']['status']}")
             return
         if args.inspect_prompt_contract:
-            report = inspect_cli_once(text, token=args.token, config_path=config_path)
+            report = inspect_cli_once(text, config_path=config_path)
             print(format_chain_report(report))
             result = report["action_result"]
             print(f"Action result: {result['result']['status']}")
             return
         if args.inspect_chain:
-            report = inspect_cli_once(text, token=args.token, config_path=config_path)
+            report = inspect_cli_once(text, config_path=config_path)
             print(format_chain_report(report))
             result = report["action_result"]
             print(f"Action result: {result['result']['status']}")
             return
         local_result = run_cli_once(
             text,
-            token=args.token,
             trace=args.trace,
             config_path=config_path,
         )
@@ -445,12 +499,14 @@ class _InspectionRuntimeStatusAdapter:
 
 
 def _build_inspection_host_daemon(
-    token: str,
+    audience: str,
     observed_at: str,
 ) -> HostEdgeDaemon:
     return HostEdgeDaemon(
         device_id="host-edge-1",
-        token=token,
+        audience=audience,
+        identity=create_ephemeral_identity(),
+        display_name="Runtime Host",
         runtime_control_adapter=_InspectionRuntimeStatusAdapter(),
         host_metrics_provider=lambda: {
             "cpu_load_ratio": 0.31,

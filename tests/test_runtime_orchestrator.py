@@ -6,8 +6,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import json
 
-from device_edge.shared.session_client import SessionClient
-from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.runtime_orchestrator import RuntimeOrchestrator
 from openhalo_common.diagnostics import InMemoryDiagnosticRecorder
 from openhalo_common.diagnostics import JsonlDiagnosticRecorder
@@ -23,6 +21,8 @@ from personal_runtime.agent_harness import HarnessOutcome
 from personal_runtime.agent_harness import RuntimeActionIntent
 from personal_runtime.hermes_adapter import HermesHarnessRunner
 from personal_runtime.presence_router import PresenceRouter
+from tests.v2_test_support import V2RuntimeGateway as RuntimeGateway
+from tests.v2_test_support import V2SessionClient as SessionClient
 
 
 TEST_LLM_CONFIG = Path("tests/fixtures/llm-config-test.toml")

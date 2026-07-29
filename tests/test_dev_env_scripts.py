@@ -52,8 +52,13 @@ class DevEnvWorkflowTests(unittest.TestCase):
         contents = script_path.read_text(encoding="utf-8")
         self.assertIn("18765", contents)
         self.assertIn(".runtime/android-openai-dev-state.json", contents)
+        self.assertIn(".runtime/android-openai-dev-pairing.json", contents)
         self.assertIn("config/runtime-config.toml", contents)
         self.assertIn("personal_runtime.main", contents)
+        self.assertIn('HOST="${OPENHALO_DEV_RUNTIME_HOST:-127.0.0.1}"', contents)
+        self.assertIn("--pairing-store-path", contents)
+        self.assertNotIn("--token", contents)
+        self.assertNotIn("OPENHALO_DEV_EDGE_TOKEN", contents)
 
     def test_runtime_deploy_document_describes_the_personal_installation(self) -> None:
         document_path = ROOT / "docs" / "runtime-deploy.md"
@@ -98,7 +103,7 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("/history", contents)
         self.assertIn("/quit", contents)
         self.assertIn("Session status", contents)
-        self.assertIn("--tui", contents)
+        self.assertIn("openhalo.edge_cli run", contents)
         self.assertIn("Textual", contents)
         self.assertIn("full-screen", contents)
         self.assertIn("status bar", contents)
@@ -107,10 +112,9 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("fallback", contents)
         self.assertIn("docs/terminal-tui.md", contents)
         self.assertIn("bin/run-runtime-dev", contents)
-        self.assertIn(
-            ".venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token --tui",
-            contents,
-        )
+        self.assertIn("personal_runtime.pairing_cli create", contents)
+        self.assertIn("openhalo.edge_cli", contents)
+        self.assertNotIn("--token dev-token", contents)
         self.assertIn("hello runtime", contents)
         self.assertIn("check runtime status", contents)
         self.assertIn("real user-scenario foreground session", contents)
@@ -121,7 +125,7 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertTrue(document_path.exists())
         contents = document_path.read_text(encoding="utf-8")
         self.assertIn("Textual UI mode", contents)
-        self.assertIn("--tui", contents)
+        self.assertIn("openhalo.edge_cli run", contents)
         self.assertIn("status bar", contents)
         self.assertIn("transcript pane", contents)
         self.assertIn("input box", contents)
@@ -132,10 +136,9 @@ class DevEnvWorkflowTests(unittest.TestCase):
         self.assertIn("Ctrl+C", contents)
         self.assertIn("Current Limits", contents)
         self.assertIn("bin/run-runtime-dev", contents)
-        self.assertIn(
-            ".venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token --tui",
-            contents,
-        )
+        self.assertIn("personal_runtime.pairing_cli create", contents)
+        self.assertIn("openhalo.edge_cli", contents)
+        self.assertNotIn("--token dev-token", contents)
         self.assertIn("real user scenario", contents)
         self.assertIn("check runtime status", contents)
 

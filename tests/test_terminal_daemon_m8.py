@@ -692,8 +692,8 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
         async with app.run_test() as pilot:
             await pilot.pause()
             status_bar = app.query_one("#status-bar", Static)
-            self.assertIn("connection=connected", str(status_bar.content))
-            self.assertIn("state=waiting", str(status_bar.content))
+            self.assertIn("connected", str(status_bar.content))
+            self.assertIn("waiting", str(status_bar.content))
 
     async def test_textual_terminal_app_drains_transcript_queue_into_log(self) -> None:
         from device_edge.cli.terminal_tui import TerminalEdgeApp

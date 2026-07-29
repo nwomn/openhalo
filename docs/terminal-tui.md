@@ -16,13 +16,25 @@ Start the runtime first:
 OPENHALO_DEV_RUNTIME_HOST=127.0.0.1 bin/run-runtime-dev
 ```
 
-Then start the full-screen terminal edge:
+Create a one-time development pairing code:
 
 ```bash
-.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token --tui
+.venv/bin/python -m personal_runtime.pairing_cli create \
+  --store .runtime/android-openai-dev-pairing.json
 ```
 
-If you need the older compatibility path, omit `--tui` and use the line-oriented foreground daemon.
+Pair and launch the full-screen Terminal Edge with an isolated local home:
+
+```bash
+export OPENHALO_HOME="$PWD/.runtime/terminal-tui-dev-home"
+.venv/bin/python -m openhalo.edge_cli setup \
+  --url ws://127.0.0.1:18765 \
+  --pairing-code <one-time-code> \
+  --display-name "Terminal TUI Dev"
+.venv/bin/python -m openhalo.edge_cli run
+```
+
+For the line-oriented fallback, run `.venv/bin/python -m openhalo.edge_cli run --line-mode` with the same `OPENHALO_HOME`.
 
 ## Layout
 
@@ -111,10 +123,17 @@ Use one foreground session and validate a real user scenario instead of isolated
 OPENHALO_DEV_RUNTIME_HOST=127.0.0.1 bin/run-runtime-dev
 ```
 
-2. In a second terminal, start the TUI with:
+2. Create a code, pair the TUI, and start it in a second terminal:
 
 ```bash
-.venv/bin/python -m device_edge.cli.terminal_daemon --url ws://127.0.0.1:18765 --token dev-token --tui
+.venv/bin/python -m personal_runtime.pairing_cli create \
+  --store .runtime/android-openai-dev-pairing.json
+export OPENHALO_HOME="$PWD/.runtime/terminal-tui-dev-home"
+.venv/bin/python -m openhalo.edge_cli setup \
+  --url ws://127.0.0.1:18765 \
+  --pairing-code <one-time-code> \
+  --display-name "Terminal TUI Dev"
+.venv/bin/python -m openhalo.edge_cli run
 ```
 
 3. Wait for the TUI to connect and confirm the full-screen layout appears with a visible status bar, transcript pane, input box, and help bar.

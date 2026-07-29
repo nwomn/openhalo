@@ -83,6 +83,53 @@ class TerminalTuiReceiptTests(unittest.IsolatedAsyncioTestCase):
 
         assert daemon.presentation.receipts["interaction-1"].expanded is True
 
+    async def test_empty_composer_tab_focuses_receipt_for_keyboard_expansion(self) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            audience="ws://127.0.0.1:8765",
+        )
+        daemon.handle_interaction_frame(
+            {
+                "interaction": {
+                    "interaction_id": "interaction-1",
+                    "status": "completed",
+                    "summary": "Done.",
+                    "outcome_receipt": {
+                        "version": 1,
+                        "state": "completed",
+                        "entries": [
+                            {
+                                "sequence": 1,
+                                "kind": "confirmed",
+                                "occurred_at": "2030-01-01T10:43:00Z",
+                                "device_name": "Runtime Host",
+                            }
+                        ],
+                    },
+                }
+            }
+        )
+        transcript_queue: queue.Queue[str] = queue.Queue()
+        transcript_queue.put(daemon.transcript[-1])
+        app = TerminalEdgeApp(
+            daemon=daemon,
+            input_queue=queue.Queue(),
+            input_state_queue=queue.Queue(),
+            transcript_queue=transcript_queue,
+        )
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            composer = app.query_one("#command-input", Input)
+            widget = app.query_one("#receipt-interaction-1", OutcomeReceiptWidget)
+            composer.focus()
+            await pilot.press("tab")
+            assert app.focused is widget
+            await pilot.press("space")
+            await pilot.pause()
+
+        assert daemon.presentation.receipts["interaction-1"].expanded is True
+
     async def test_terminal_app_keeps_progress_in_one_active_row_outside_the_transcript(self) -> None:
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
@@ -135,6 +182,22 @@ class TerminalTuiReceiptTests(unittest.IsolatedAsyncioTestCase):
 
             assert composer.value == "Keep this unfinished message"
             assert daemon.presentation.draft == "Keep this unfinished message"
+
+    async def test_terminal_app_compacts_status_text_to_the_available_width(self) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-with-a-long-device-identifier",
+            audience="ws://127.0.0.1:8765",
+        )
+        daemon.connection_state = "connected"
+        daemon.terminal_activity_state = "active"
+        app = TerminalEdgeApp(
+            daemon=daemon,
+            input_queue=queue.Queue(),
+            input_state_queue=queue.Queue(),
+            transcript_queue=queue.Queue(),
+        )
+
+        self.assertLessEqual(len(app.build_status_text(max_width=42)), 42)
 
     async def test_terminal_app_completes_local_commands_and_navigates_input_history(
         self,
