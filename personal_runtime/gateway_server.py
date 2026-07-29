@@ -1,8 +1,8 @@
 """Minimal in-memory gateway loop for the v0 runtime."""
 
-import json
 import asyncio
-from hmac import compare_digest
+import json
+import secrets
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from contextlib import suppress
@@ -10,6 +10,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC
 from datetime import datetime
+from datetime import timedelta
 from itertools import count
 from pathlib import Path
 from uuid import uuid4
@@ -18,6 +19,12 @@ import websockets
 from websockets.exceptions import ConnectionClosedError
 from websockets.exceptions import ConnectionClosedOK
 
+from edge_api.auth import build_challenge_payload
+from edge_api.auth import decode_base64url
+from edge_api.auth import encode_base64url
+from edge_api.auth import is_expired
+from edge_api.auth import is_p256_public_key
+from edge_api.auth import verify_challenge_signature
 from edge_api.protocol import validate_frame, with_api_version
 from personal_runtime.action_layer import build_interaction_progress
 from personal_runtime.action_layer import build_interaction_update
@@ -62,17 +69,25 @@ _STREAMED_PROGRESS_PHASES = frozenset(
 
 
 @dataclass(frozen=True)
-class ConnectAuthentication:
-    authorized: bool
-    error_code: str | None = None
-    error_message: str | None = None
-    issued_device_token: str | None = None
+class PendingAuthentication:
+    device_id: str
+    device_type: str
+    device_role: str | None
+    device_profile: str | None
+    audience: str
+    session_id: str
+    challenge_id: str
+    nonce: str
+    expires_at: str
+    public_key_der: bytes
+    pairing_code: str | None = None
+    display_name: str | None = None
 
 
 class RuntimeGateway:
     def __init__(
         self,
-        shared_token: str,
+        shared_token: str | None = None,
         state_path: Path | None = None,
         state: RuntimeState | None = None,
         trace_recorder: TraceRecorder | None = None,
@@ -84,8 +99,10 @@ class RuntimeGateway:
         runtime_instance_id: str = "runtime-main",
         agent_harness=None,
         pairing_store: PairingStore | None = None,
+        audience: str = "wss://runtime.invalid/openhalo/edge",
     ) -> None:
-        self.shared_token = shared_token
+        del shared_token
+        self.audience = audience
         self.state_store = JsonStateStore(
             state_path or Path(".runtime/state.json")
         )
@@ -111,6 +128,7 @@ class RuntimeGateway:
         self.diagnostic_recorder = diagnostic_recorder
         self.runtime_instance_id = runtime_instance_id
         self.pairing_store = pairing_store
+        self.pending_authentications: dict[str, PendingAuthentication] = {}
         self.orchestrator = RuntimeOrchestrator(self)
         self._action_request_counter = count(1)
         self.proposal_formation = ProposalFormation(
@@ -848,8 +866,6 @@ class RuntimeGateway:
     def _handle_frames_sync(
         self,
         frames: list[dict],
-        *,
-        connect_authentication: ConnectAuthentication | None = None,
     ) -> list[dict]:
         replies = []
         for raw_frame in frames:
@@ -860,51 +876,10 @@ class RuntimeGateway:
                     "received connect",
                     device_id=frame["device"]["device_id"],
                 )
-                authentication = (
-                    connect_authentication
-                    if connect_authentication is not None
-                    else self._authenticate_connect_frame(frame)
-                )
-                connect_authentication = None
-                if not authentication.authorized:
-                    replies.append(
-                        self._build_public_error(
-                            code=authentication.error_code or "unauthorized",
-                            message=authentication.error_message or "unauthorized",
-                        )
-                    )
-                    continue
-                self.state.register_device(
-                    frame["device"]["device_id"],
-                    frame["device"]["device_type"],
-                    role=frame["device"].get("role"),
-                    profile=frame["device"].get("profile"),
-                )
-                self._record_trace(
-                    "STATE",
-                    "registered device",
-                    device_id=frame["device"]["device_id"],
-                )
-                self.online_device_ids.add(frame["device"]["device_id"])
-                record_mobile_session_state(
-                    self.state,
-                    frame["device"]["device_id"],
-                    status="connected",
-                    observed_at=_utc_now(),
-                )
-                self._persist_state()
-                self._emit_runtime_event(
-                    "Edge connected: "
-                    f"{frame['device']['device_id']} "
-                    f"({frame['device']['device_type']})"
-                )
-                connect_ok = {"type": "connect_ok"}
-                if authentication.issued_device_token is not None:
-                    connect_ok["auth"] = {
-                        "kind": "device",
-                        "token": authentication.issued_device_token,
-                    }
-                replies.append(with_api_version(connect_ok))
+                replies.append(self._begin_authentication(frame))
+            elif frame["type"] == "auth_proof":
+                reply, _ = self._complete_authentication(frame)
+                replies.append(reply)
             elif frame["type"] == "capability_announce":
                 self._record_trace(
                     "GATEWAY",
@@ -1168,8 +1143,6 @@ class RuntimeGateway:
     async def _handle_websocket_frame(
         self,
         frame: dict,
-        *,
-        connect_authentication: ConnectAuthentication | None = None,
         progress_sink=None,
     ) -> list[dict]:
         async with self._websocket_frame_lock:
@@ -1177,7 +1150,6 @@ class RuntimeGateway:
                 return await asyncio.to_thread(
                     self._handle_frames_sync,
                     [frame],
-                    connect_authentication=connect_authentication,
                 )
 
             loop = asyncio.get_running_loop()
@@ -1205,7 +1177,6 @@ class RuntimeGateway:
                 asyncio.to_thread(
                     self._handle_frames_sync,
                     [frame],
-                    connect_authentication=connect_authentication,
                 )
             )
             progress_task = asyncio.create_task(streamed_reply_queue.get())
@@ -1439,81 +1410,264 @@ class RuntimeGateway:
             summary="Dispatched runtime reply over websocket.",
         )
 
-    def _shared_token_matches(self, token: object) -> bool:
-        return isinstance(token, str) and compare_digest(token, self.shared_token)
+    def _begin_authentication(self, frame: dict) -> dict:
+        """Validate a pre-auth connect and issue one P-256 challenge."""
 
-    def _authenticate_connect_frame(self, frame: dict) -> ConnectAuthentication:
-        auth = frame.get("auth")
         device = frame.get("device")
-        if not isinstance(auth, dict) or not isinstance(device, dict):
-            return ConnectAuthentication(
-                authorized=False,
-                error_code="unauthorized",
-                error_message="connect requires device and auth objects.",
+        if not isinstance(device, dict):
+            return self._build_public_error(
+                code="invalid_connect",
+                message="connect requires a device object.",
             )
         device_id = device.get("device_id")
         device_type = device.get("device_type")
-        token = auth.get("token")
-        if (
-            not isinstance(device_id, str)
-            or not isinstance(device_type, str)
-            or not isinstance(token, str)
+        session_id = frame.get("session_id")
+        audience = frame.get("audience")
+        if not all(
+            isinstance(value, str) and value
+            for value in (device_id, device_type, session_id, audience)
         ):
-            return ConnectAuthentication(
-                authorized=False,
-                error_code="unauthorized",
-                error_message="connect requires a device identity and token.",
+            return self._build_public_error(
+                code="invalid_connect",
+                message="connect requires device_id, device_type, session_id, and audience.",
+            )
+        if audience != self.audience:
+            return self._build_public_error(
+                code="audience_mismatch",
+                message="Runtime audience was not accepted.",
+                device_id=device_id,
+            )
+        if session_id in self.pending_authentications:
+            return self._build_public_error(
+                code="session_in_use",
+                message="A pre-authentication session is already active.",
+                device_id=device_id,
             )
 
-        kind = auth.get("kind", "legacy")
-        if kind == "pairing":
+        auth = frame.get("auth")
+        pairing_code = None
+        display_name = None
+        if auth is None:
             if self.pairing_store is None:
-                return ConnectAuthentication(
-                    authorized=False,
-                    error_code="pairing_unavailable",
-                    error_message="Runtime device pairing is not configured.",
+                return self._build_public_error(
+                    code="pairing_required",
+                    message="This device must be paired before reconnecting.",
+                    device_id=device_id,
+                )
+            record = self.pairing_store.get_active_device(device_id)
+            if record is None:
+                return self._build_public_error(
+                    code="pairing_required",
+                    message="This device must be paired before reconnecting.",
+                    device_id=device_id,
+                )
+            if record.get("audience") != audience:
+                return self._build_public_error(
+                    code="audience_mismatch",
+                    message="Device is paired for a different Runtime audience.",
+                    device_id=device_id,
                 )
             try:
-                device_token = self.pairing_store.claim_pairing_code(
-                    token,
+                public_key_der = decode_base64url(record["public_key"])
+            except (KeyError, ValueError):
+                return self._build_public_error(
+                    code="invalid_device_identity",
+                    message="Stored device identity is invalid.",
                     device_id=device_id,
-                    device_type=device_type,
                 )
-            except PairingError as exc:
-                return ConnectAuthentication(
-                    authorized=False,
-                    error_code=exc.code,
-                    error_message="Pairing code was not accepted.",
-                )
-            return ConnectAuthentication(
-                authorized=True,
-                issued_device_token=device_token,
+        elif not isinstance(auth, dict) or auth.get("kind") != "pairing":
+            return self._build_public_error(
+                code="unsupported_auth_kind",
+                message="Bearer and shared-token authentication are not supported.",
+                device_id=device_id,
             )
-
-        if kind == "device":
-            if self.pairing_store is None or not self.pairing_store.authenticate_device(
-                device_id,
-                token,
+        else:
+            if self.pairing_store is None:
+                return self._build_public_error(
+                    code="pairing_unavailable",
+                    message="Runtime device pairing is not configured.",
+                    device_id=device_id,
+                )
+            pairing_code = auth.get("pairing_code")
+            public_key = auth.get("public_key")
+            display_name = auth.get("display_name")
+            if not all(
+                isinstance(value, str) and value
+                for value in (pairing_code, public_key, display_name)
             ):
-                return ConnectAuthentication(
-                    authorized=False,
-                    error_code="unauthorized",
-                    error_message="Device credential was not accepted.",
+                return self._build_public_error(
+                    code="invalid_pairing_request",
+                    message="Pairing requires a code, public key, and device name.",
+                    device_id=device_id,
                 )
-            return ConnectAuthentication(authorized=True)
+            try:
+                public_key_der = decode_base64url(public_key)
+            except ValueError:
+                return self._build_public_error(
+                    code="invalid_device_identity",
+                    message="Device public key is not valid base64url.",
+                    device_id=device_id,
+                )
 
-        if kind in {None, "legacy"} and self._shared_token_matches(token):
-            return ConnectAuthentication(authorized=True)
-        if kind not in {None, "legacy"}:
-            return ConnectAuthentication(
-                authorized=False,
-                error_code="unsupported_auth_kind",
-                error_message="Unsupported connect auth kind.",
+        if not is_p256_public_key(public_key_der):
+            return self._build_public_error(
+                code="invalid_device_identity",
+                message="Device public key must be a P-256 DER SPKI value.",
+                device_id=device_id,
             )
-        return ConnectAuthentication(
-            authorized=False,
-            error_code="unauthorized",
-            error_message="unauthorized",
+        expires_at = (datetime.now(UTC) + timedelta(seconds=60)).isoformat().replace(
+            "+00:00", "Z"
+        )
+        pending = PendingAuthentication(
+            device_id=device_id,
+            device_type=device_type,
+            device_role=device.get("role"),
+            device_profile=device.get("profile"),
+            audience=audience,
+            session_id=session_id,
+            challenge_id=str(uuid4()),
+            nonce=encode_base64url(secrets.token_bytes(32)),
+            expires_at=expires_at,
+            public_key_der=public_key_der,
+            pairing_code=pairing_code,
+            display_name=display_name,
+        )
+        self.pending_authentications[session_id] = pending
+        return with_api_version(
+            {
+                "type": "auth_challenge",
+                "device_id": device_id,
+                "session_id": session_id,
+                "audience": audience,
+                "challenge": {
+                    "version": 1,
+                    "challenge_id": pending.challenge_id,
+                    "nonce": pending.nonce,
+                    "expires_at": pending.expires_at,
+                },
+            }
+        )
+
+    def _complete_authentication(self, frame: dict) -> tuple[dict, str | None]:
+        """Verify a one-time proof, then register the authenticated device."""
+
+        session_id = frame.get("session_id")
+        if not isinstance(session_id, str):
+            return (
+                self._build_public_error(
+                    code="invalid_auth_proof",
+                    message="auth_proof requires session_id.",
+                    device_id=frame.get("device_id"),
+                ),
+                None,
+            )
+        pending = self.pending_authentications.pop(session_id, None)
+        if pending is None:
+            return (
+                self._build_public_error(
+                    code="unknown_challenge",
+                    message="Authentication challenge is unknown or already used.",
+                    device_id=frame.get("device_id"),
+                ),
+                None,
+            )
+        if (
+            frame.get("device_id") != pending.device_id
+            or frame.get("audience") != pending.audience
+            or frame.get("challenge_id") != pending.challenge_id
+        ):
+            return (
+                self._build_public_error(
+                    code="invalid_auth_proof",
+                    message="Authentication proof does not match its challenge.",
+                    device_id=pending.device_id,
+                ),
+                None,
+            )
+        try:
+            signature = decode_base64url(frame.get("signature"))
+        except ValueError:
+            return (
+                self._build_public_error(
+                    code="invalid_auth_proof",
+                    message="Authentication proof signature is invalid.",
+                    device_id=pending.device_id,
+                ),
+                None,
+            )
+        if is_expired(pending.expires_at, now=datetime.now(UTC)) or not verify_challenge_signature(
+            pending.public_key_der,
+            build_challenge_payload(
+                audience=pending.audience,
+                device_id=pending.device_id,
+                session_id=pending.session_id,
+                challenge_id=pending.challenge_id,
+                nonce=pending.nonce,
+                expires_at=pending.expires_at,
+            ),
+            signature,
+        ):
+            return (
+                self._build_public_error(
+                    code="invalid_auth_proof",
+                    message="Authentication proof was not accepted.",
+                    device_id=pending.device_id,
+                ),
+                None,
+            )
+        if pending.pairing_code is not None:
+            assert self.pairing_store is not None
+            try:
+                self.pairing_store.claim_pairing_code(
+                    pending.pairing_code,
+                    device_id=pending.device_id,
+                    device_type=pending.device_type,
+                    display_name=pending.display_name or pending.device_id,
+                    audience=pending.audience,
+                    public_key=encode_base64url(pending.public_key_der),
+                )
+            except PairingError as error:
+                return (
+                    self._build_public_error(
+                        code=error.code,
+                        message="Pairing code was not accepted.",
+                        device_id=pending.device_id,
+                    ),
+                    None,
+                )
+        elif self.pairing_store is None or not self.pairing_store.record_authenticated(
+            pending.device_id
+        ):
+            return (
+                self._build_public_error(
+                    code="unauthorized",
+                    message="Device is no longer authorized.",
+                    device_id=pending.device_id,
+                ),
+                None,
+            )
+
+        self._activate_authenticated_device(pending)
+        return with_api_version({"type": "connect_ok"}), pending.device_id
+
+    def _activate_authenticated_device(self, pending: PendingAuthentication) -> None:
+        self.state.register_device(
+            pending.device_id,
+            pending.device_type,
+            role=pending.device_role,
+            profile=pending.device_profile,
+        )
+        self._record_trace("STATE", "registered device", device_id=pending.device_id)
+        self.online_device_ids.add(pending.device_id)
+        record_mobile_session_state(
+            self.state,
+            pending.device_id,
+            status="connected",
+            observed_at=_utc_now(),
+        )
+        self._persist_state()
+        self._emit_runtime_event(
+            f"Edge connected: {pending.device_id} ({pending.device_type})"
         )
 
     def _websocket_session_error(
@@ -1588,9 +1742,69 @@ class RuntimeGateway:
 
     async def _websocket_handler(self, websocket) -> None:
         registered_device_id = None
+        pending_session_id = None
         try:
             async for raw_frame in websocket:
                 frame = self._normalize_public_frame(validate_frame(json.loads(raw_frame)))
+                if registered_device_id is None:
+                    if frame.get("type") == "connect":
+                        if pending_session_id is not None:
+                            await self._send_frame(
+                                websocket,
+                                self._build_public_error(
+                                    code="authentication_pending",
+                                    message="Complete the outstanding authentication challenge first.",
+                                ),
+                            )
+                            continue
+                        device = frame.get("device")
+                        device_id = device.get("device_id") if isinstance(device, dict) else None
+                        if isinstance(device_id, str):
+                            availability_error = self._websocket_connect_availability_error(
+                                device_id, websocket
+                            )
+                            if availability_error is not None:
+                                await self._send_frame(websocket, availability_error)
+                                continue
+                        reply = self._begin_authentication(frame)
+                        if reply.get("type") == "auth_challenge":
+                            pending_session_id = reply["session_id"]
+                        await self._send_frame(websocket, reply)
+                        continue
+                    if frame.get("type") == "auth_proof":
+                        if frame.get("session_id") != pending_session_id:
+                            await self._send_frame(
+                                websocket,
+                                self._build_public_error(
+                                    code="unknown_challenge",
+                                    message="Authentication challenge is unknown or already used.",
+                                    device_id=frame.get("device_id"),
+                                ),
+                            )
+                            continue
+                        reply, authenticated_device_id = self._complete_authentication(frame)
+                        pending_session_id = None
+                        if authenticated_device_id is not None:
+                            availability_error = self._websocket_connect_availability_error(
+                                authenticated_device_id, websocket
+                            )
+                            if availability_error is not None:
+                                self.online_device_ids.discard(authenticated_device_id)
+                                await self._send_frame(websocket, availability_error)
+                                continue
+                            self.live_connections[authenticated_device_id] = websocket
+                            registered_device_id = authenticated_device_id
+                        await self._send_frame(websocket, reply)
+                        continue
+                    await self._send_frame(
+                        websocket,
+                        self._build_public_error(
+                            code="not_connected",
+                            message="A successful authentication proof is required before sending post-connect frames.",
+                            device_id=frame.get("device_id"),
+                        ),
+                    )
+                    continue
                 session_error = self._websocket_session_error(
                     frame,
                     registered_device_id,
@@ -1598,44 +1812,6 @@ class RuntimeGateway:
                 if session_error is not None:
                     await self._send_frame(websocket, session_error)
                     continue
-
-                connect_authentication = None
-                if frame.get("type") == "connect":
-                    device = frame.get("device")
-                    if isinstance(device, dict):
-                        device_id = device.get("device_id")
-                        if isinstance(device_id, str):
-                            availability_error = (
-                                self._websocket_connect_availability_error(
-                                    device_id,
-                                    websocket,
-                                )
-                            )
-                            if availability_error is not None:
-                                await self._send_frame(websocket, availability_error)
-                                continue
-                    connect_authentication = self._authenticate_connect_frame(frame)
-                    if not connect_authentication.authorized:
-                        await self._send_frame(
-                            websocket,
-                            self._build_public_error(
-                                code=connect_authentication.error_code
-                                or "unauthorized",
-                                message=connect_authentication.error_message
-                                or "unauthorized",
-                            ),
-                        )
-                        continue
-
-                bound_device_id, bind_error = self._bind_websocket_connect(
-                    frame,
-                    websocket,
-                )
-                if bind_error is not None:
-                    await self._send_frame(websocket, bind_error)
-                    continue
-                if bound_device_id is not None:
-                    registered_device_id = bound_device_id
 
                 source_device_id = registered_device_id
 
@@ -1648,15 +1824,8 @@ class RuntimeGateway:
 
                 replies = await self._handle_websocket_frame(
                     frame,
-                    connect_authentication=connect_authentication,
                     progress_sink=dispatch_streamed_progress,
                 )
-                if (
-                    bound_device_id is not None
-                    and not any(reply["type"] == "connect_ok" for reply in replies)
-                ):
-                    self._release_websocket_session(bound_device_id, websocket)
-                    registered_device_id = None
                 await self._dispatch_websocket_replies(
                     source_device_id,
                     websocket,

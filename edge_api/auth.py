@@ -48,6 +48,18 @@ def public_key_fingerprint(public_key_der: bytes) -> str:
     return f"sha256:{hashlib.sha256(public_key_der).hexdigest()}"
 
 
+def is_p256_public_key(public_key_der: bytes) -> bool:
+    from cryptography.hazmat.primitives.serialization import load_der_public_key
+
+    try:
+        public_key = load_der_public_key(public_key_der)
+    except (ValueError, TypeError):
+        return False
+    return isinstance(public_key, ec.EllipticCurvePublicKey) and isinstance(
+        public_key.curve, ec.SECP256R1
+    )
+
+
 def build_challenge_payload(
     *,
     audience: str,
@@ -95,9 +107,7 @@ def verify_challenge_signature(
         from cryptography.hazmat.primitives.serialization import load_der_public_key
 
         public_key = load_der_public_key(public_key_der)
-        if not isinstance(public_key, ec.EllipticCurvePublicKey) or not isinstance(
-            public_key.curve, ec.SECP256R1
-        ):
+        if not is_p256_public_key(public_key_der):
             return False
         public_key.verify(signature, payload, ec.ECDSA(hashes.SHA256()))
     except (InvalidSignature, ValueError, TypeError):

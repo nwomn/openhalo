@@ -11,7 +11,13 @@ from websockets.exceptions import ConnectionClosedOK
 from websockets.frames import Close
 
 from device_edge.shared.session_client import SessionClient
+from edge_api.auth import build_challenge_payload
+from edge_api.auth import encode_base64url
+from edge_api.auth import generate_private_key
+from edge_api.auth import public_key_spki_der
+from edge_api.auth import sign_challenge
 from edge_api.protocol import API_VERSION
+from edge_api.protocol import build_connect_frame
 from personal_runtime.agent_executor import InterventionProposal
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.pairing_store import PairingStore
@@ -44,6 +50,176 @@ def _last_error(replies: list[dict]) -> dict | None:
 
 
 class GatewayTests(unittest.IsolatedAsyncioTestCase):
+    async def test_pairing_connect_requires_a_valid_p256_proof_before_connect_ok(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            pairing_store = PairingStore(Path(directory) / "pairing.json")
+            pairing_code = pairing_store.create_pairing_code(
+                ttl_seconds=600,
+                now=datetime.now(UTC),
+            )
+            gateway = RuntimeGateway(
+                shared_token="unused",
+                pairing_store=pairing_store,
+                persist_state=False,
+                llm_config_path=TEST_LLM_CONFIG,
+                audience="wss://runtime.example/openhalo/edge",
+            )
+            private_key = generate_private_key()
+            connect = build_connect_frame(
+                device_id="terminal-edge-1",
+                device_type="desktop-cli",
+                audience="wss://runtime.example/openhalo/edge",
+                session_id="session-1",
+                pairing_code=pairing_code,
+                public_key=encode_base64url(
+                    public_key_spki_der(private_key.public_key())
+                ),
+                display_name="Maya's Terminal",
+            )
+
+            challenge = (await gateway.handle_test_frames([connect]))[-1]
+
+            self.assertEqual(challenge["type"], "auth_challenge")
+            self.assertNotIn("terminal-edge-1", gateway.state.devices)
+            auth_challenge = challenge["challenge"]
+            signature = sign_challenge(
+                private_key,
+                build_challenge_payload(
+                    audience=challenge["audience"],
+                    device_id=challenge["device_id"],
+                    session_id=challenge["session_id"],
+                    challenge_id=auth_challenge["challenge_id"],
+                    nonce=auth_challenge["nonce"],
+                    expires_at=auth_challenge["expires_at"],
+                ),
+            )
+            replies = await gateway.handle_test_frames(
+                [
+                    {
+                        "api_version": API_VERSION,
+                        "type": "auth_proof",
+                        "device_id": "terminal-edge-1",
+                        "session_id": "session-1",
+                        "audience": "wss://runtime.example/openhalo/edge",
+                        "challenge_id": auth_challenge["challenge_id"],
+                        "signature": encode_base64url(signature),
+                    }
+                ]
+            )
+
+            self.assertEqual(replies[-1]["type"], "connect_ok")
+            self.assertNotIn("auth", replies[-1])
+            self.assertEqual(
+                pairing_store.get_device("terminal-edge-1")["display_name"],
+                "Maya's Terminal",
+            )
+
+    async def test_gateway_rejects_bearer_connect_and_never_binds_a_session(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            audience="wss://runtime.example/openhalo/edge",
+        )
+
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "api_version": API_VERSION,
+                    "type": "connect",
+                    "device": {
+                        "device_id": "terminal-edge-1",
+                        "device_type": "desktop-cli",
+                    },
+                    "session_id": "session-1",
+                    "audience": "wss://runtime.example/openhalo/edge",
+                    "auth": {"token": "dev-token"},
+                }
+            ]
+        )
+
+        self.assertEqual(replies[-1]["type"], "error")
+        self.assertEqual(replies[-1]["code"], "unsupported_auth_kind")
+        self.assertNotIn("terminal-edge-1", gateway.state.devices)
+
+    async def test_websocket_binds_only_after_auth_proof(self) -> None:
+        with TemporaryDirectory() as directory:
+            pairing_store = PairingStore(Path(directory) / "pairing.json")
+            pairing_code = pairing_store.create_pairing_code(ttl_seconds=600)
+            gateway = RuntimeGateway(
+                shared_token="unused",
+                pairing_store=pairing_store,
+                persist_state=False,
+                llm_config_path=TEST_LLM_CONFIG,
+                audience="wss://runtime.example/openhalo/edge",
+            )
+            private_key = generate_private_key()
+
+            class AuthenticatedWebSocket:
+                def __init__(self) -> None:
+                    self.sent_frames = []
+
+                def __aiter__(self):
+                    async def frames():
+                        yield json.dumps(
+                            build_connect_frame(
+                                device_id="terminal-edge-1",
+                                device_type="desktop-cli",
+                                audience="wss://runtime.example/openhalo/edge",
+                                session_id="session-1",
+                                pairing_code=pairing_code,
+                                public_key=encode_base64url(
+                                    public_key_spki_der(private_key.public_key())
+                                ),
+                                display_name="Maya's Terminal",
+                            )
+                        )
+                        while not self.sent_frames:
+                            await asyncio.sleep(0)
+                        challenge = self.sent_frames[-1]
+                        auth_challenge = challenge["challenge"]
+                        yield json.dumps(
+                            {
+                                "api_version": API_VERSION,
+                                "type": "auth_proof",
+                                "device_id": "terminal-edge-1",
+                                "session_id": "session-1",
+                                "audience": "wss://runtime.example/openhalo/edge",
+                                "challenge_id": auth_challenge["challenge_id"],
+                                "signature": encode_base64url(
+                                    sign_challenge(
+                                        private_key,
+                                        build_challenge_payload(
+                                            audience=challenge["audience"],
+                                            device_id=challenge["device_id"],
+                                            session_id=challenge["session_id"],
+                                            challenge_id=auth_challenge["challenge_id"],
+                                            nonce=auth_challenge["nonce"],
+                                            expires_at=auth_challenge["expires_at"],
+                                        ),
+                                    )
+                                ),
+                            }
+                        )
+
+                    return frames()
+
+                async def send(self, frame: str) -> None:
+                    self.sent_frames.append(json.loads(frame))
+
+            websocket = AuthenticatedWebSocket()
+            await gateway._websocket_handler(websocket)
+
+            self.assertEqual(
+                [frame["type"] for frame in websocket.sent_frames],
+                ["auth_challenge", "connect_ok"],
+            )
+            self.assertNotIn("terminal-edge-1", gateway.live_connections)
+
     async def test_dispatch_to_source_uses_current_connection_after_reconnect(
         self,
     ) -> None:
