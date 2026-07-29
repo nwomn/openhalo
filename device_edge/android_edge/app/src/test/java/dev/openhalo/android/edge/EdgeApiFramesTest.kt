@@ -9,50 +9,73 @@ import org.junit.Test
 
 class EdgeApiFramesTest {
     @Test
-    fun pairingConnectFrameUsesTheOneTimePairingAuthenticationKind() {
+    fun pairingConnectFrameRegistersP256PublicKeyWithoutBearerToken() {
         val frame = buildConnectFrame(
-            "android-edge-test",
-            EdgeAuthentication(AUTH_KIND_PAIRING, "one-time-code")
+            deviceId = "android-edge-test",
+            audience = "wss://runtime.example/openhalo/edge",
+            sessionId = "session-1",
+            pairing = PairingConnectRequest(
+                pairingCode = "one-time-code",
+                publicKey = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQc",
+                displayName = "Maya's Phone"
+            )
         )
 
         val auth = frame.getJSONObject("auth")
         assertEquals("connect", frame.getString("type"))
         assertEquals(AUTH_KIND_PAIRING, auth.getString("kind"))
-        assertEquals("one-time-code", auth.getString("token"))
+        assertEquals("one-time-code", auth.getString("pairing_code"))
+        assertEquals("Maya's Phone", auth.getString("display_name"))
+        assertFalse(auth.has("token"))
     }
 
     @Test
-    fun deviceConnectFrameUsesThePersistedDeviceAuthenticationKind() {
+    fun reconnectConnectFrameSendsOnlyDeviceIdentityAndAudience() {
         val frame = buildConnectFrame(
-            "android-edge-test",
-            EdgeAuthentication(AUTH_KIND_DEVICE, "device-credential")
+            deviceId = "android-edge-test",
+            audience = "wss://runtime.example/openhalo/edge",
+            sessionId = "session-1"
         )
 
-        val auth = frame.getJSONObject("auth")
-        assertEquals(AUTH_KIND_DEVICE, auth.getString("kind"))
-        assertEquals("device-credential", auth.getString("token"))
+        assertEquals(EDGE_API_VERSION, frame.getString("api_version"))
+        assertEquals("wss://runtime.example/openhalo/edge", frame.getString("audience"))
+        assertFalse(frame.has("auth"))
     }
 
     @Test
-    fun pairedDeviceCredentialParserAcceptsOnlyConnectOkDeviceCredentials() {
-        val paired = JSONObject()
-            .put("type", "connect_ok")
-            .put(
-                "auth",
-                JSONObject()
-                    .put("kind", AUTH_KIND_DEVICE)
-                    .put("token", "device-credential")
-            )
+    fun authProofBindsAudienceDeviceSessionAndChallenge() {
+        val challenge = AuthChallenge(
+            deviceId = "android-edge-test",
+            audience = "wss://runtime.example/openhalo/edge",
+            sessionId = "session-1",
+            challengeId = "challenge-1",
+            nonce = "bm9uY2U",
+            expiresAt = "2030-01-01T12:01:00Z"
+        )
+        val proof = buildAuthProofFrame(challenge, "c2lnbmF0dXJl")
 
-        assertEquals("device-credential", parsePairedDeviceCredential(paired))
-        assertEquals(null, parsePairedDeviceCredential(JSONObject().put("type", "connect_ok")))
+        assertEquals("auth_proof", proof.getString("type"))
+        assertEquals("challenge-1", proof.getString("challenge_id"))
+        assertEquals("c2lnbmF0dXJl", proof.getString("signature"))
+    }
+
+    @Test
+    fun canonicalChallengePayloadMatchesThePublicV2Contract() {
+        val challenge = AuthChallenge(
+            deviceId = "android-edge-test",
+            audience = "wss://runtime.example/openhalo/edge",
+            sessionId = "session-1",
+            challengeId = "challenge-1",
+            nonce = "bm9uY2U",
+            expiresAt = "2030-01-01T12:01:00Z"
+        )
+
         assertEquals(
-            null,
-            parsePairedDeviceCredential(
-                JSONObject()
-                    .put("type", "connect_ok")
-                    .put("auth", JSONObject().put("kind", AUTH_KIND_LEGACY).put("token", "shared"))
-            )
+            "edge.runtime.v2.auth\n" +
+                "wss://runtime.example/openhalo/edge\n" +
+                "android-edge-test\n" +
+                "session-1\nchallenge-1\nbm9uY2U\n2030-01-01T12:01:00Z",
+            canonicalChallengePayload(challenge)
         )
     }
 
@@ -91,11 +114,11 @@ class EdgeApiFramesTest {
     }
 
     @Test
-    fun androidSessionRequiresEitherPairingCodeOrDeviceCredentialInEveryMode() {
-        assertTrue(devicePairingRequired("", ""))
-        assertFalse(devicePairingRequired("device-credential", ""))
-        assertFalse(devicePairingRequired("", "one-time-code"))
-        assertTrue(devicePairingRequired("   ", "   "))
+    fun androidSessionRequiresPairingUntilADeviceKeyRegistrationSucceeds() {
+        assertTrue(devicePairingRequired(false, ""))
+        assertFalse(devicePairingRequired(true, ""))
+        assertFalse(devicePairingRequired(false, "one-time-code"))
+        assertTrue(devicePairingRequired(false, "   "))
     }
 
     @Test

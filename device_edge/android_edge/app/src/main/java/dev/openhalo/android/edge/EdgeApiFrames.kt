@@ -6,7 +6,7 @@ import java.net.URI
 import java.net.URISyntaxException
 import java.time.Instant
 
-const val EDGE_API_VERSION = "edge.runtime.v1"
+const val EDGE_API_VERSION = "edge.runtime.v2"
 const val RUNTIME_MODE_DEVELOPMENT = "development"
 const val RUNTIME_MODE_STABLE = "stable"
 val DEVELOPMENT_RUNTIME_URL: String = BuildConfig.OPENHALO_DEV_RUNTIME_URL
@@ -25,6 +25,31 @@ data class EdgeAuthentication(
     val kind: String,
     val token: String
 )
+
+data class PairingConnectRequest(
+    val pairingCode: String,
+    val publicKey: String,
+    val displayName: String
+)
+
+data class AuthChallenge(
+    val deviceId: String,
+    val audience: String,
+    val sessionId: String,
+    val challengeId: String,
+    val nonce: String,
+    val expiresAt: String
+)
+
+fun canonicalChallengePayload(challenge: AuthChallenge): String = listOf(
+    "edge.runtime.v2.auth",
+    challenge.audience,
+    challenge.deviceId,
+    challenge.sessionId,
+    challenge.challengeId,
+    challenge.nonce,
+    challenge.expiresAt
+).joinToString("\n")
 
 fun runtimeUrlForMode(runtimeMode: String): String =
     if (runtimeMode == RUNTIME_MODE_STABLE) STABLE_RUNTIME_URL else DEVELOPMENT_RUNTIME_URL
@@ -54,6 +79,64 @@ fun buildConnectFrame(deviceId: String, authentication: EdgeAuthentication): JSO
 
 fun buildConnectFrame(deviceId: String, token: String): JSONObject =
     buildConnectFrame(deviceId, EdgeAuthentication(AUTH_KIND_LEGACY, token))
+
+fun buildConnectFrame(
+    deviceId: String,
+    audience: String,
+    sessionId: String,
+    pairing: PairingConnectRequest? = null
+): JSONObject {
+    val frame = JSONObject()
+        .put("api_version", EDGE_API_VERSION)
+        .put("type", "connect")
+        .put(
+            "device",
+            JSONObject()
+                .put("device_id", deviceId)
+                .put("device_type", "android-phone")
+                .put("role", "interactive_surface")
+        )
+        .put("audience", audience)
+        .put("session_id", sessionId)
+    if (pairing != null) {
+        frame.put(
+            "auth",
+            JSONObject()
+                .put("kind", AUTH_KIND_PAIRING)
+                .put("pairing_code", pairing.pairingCode)
+                .put("public_key", pairing.publicKey)
+                .put("display_name", pairing.displayName)
+        )
+    }
+    return frame
+}
+
+fun buildAuthProofFrame(challenge: AuthChallenge, signature: String): JSONObject =
+    JSONObject()
+        .put("api_version", EDGE_API_VERSION)
+        .put("type", "auth_proof")
+        .put("device_id", challenge.deviceId)
+        .put("audience", challenge.audience)
+        .put("session_id", challenge.sessionId)
+        .put("challenge_id", challenge.challengeId)
+        .put("signature", signature)
+
+fun parseAuthChallenge(frame: JSONObject, deviceId: String, sessionId: String, audience: String): AuthChallenge? {
+    if (frame.optString("type") != "auth_challenge" ||
+        frame.optString("device_id") != deviceId ||
+        frame.optString("session_id") != sessionId ||
+        frame.optString("audience") != audience
+    ) {
+        return null
+    }
+    val challenge = frame.optJSONObject("challenge") ?: return null
+    if (challenge.optInt("version") != 1) return null
+    val challengeId = challenge.optString("challenge_id").trim()
+    val nonce = challenge.optString("nonce").trim()
+    val expiresAt = challenge.optString("expires_at").trim()
+    if (challengeId.isBlank() || nonce.isBlank() || expiresAt.isBlank()) return null
+    return AuthChallenge(deviceId, audience, sessionId, challengeId, nonce, expiresAt)
+}
 
 fun parsePairedDeviceCredential(frame: JSONObject): String? {
     if (frame.optString("type") != "connect_ok") {
@@ -91,6 +174,9 @@ fun runtimeUrlValidationError(runtimeMode: String, runtimeUrl: String): String? 
 
 fun devicePairingRequired(deviceCredential: String, pairingCode: String): Boolean =
     deviceCredential.isBlank() && pairingCode.isBlank()
+
+fun devicePairingRequired(isPaired: Boolean, pairingCode: String): Boolean =
+    !isPaired && pairingCode.isBlank()
 
 fun buildCapabilityAnnounceFrame(deviceId: String): JSONObject =
     JSONObject()
