@@ -51,7 +51,8 @@ def test_setup_creates_private_runtime_config_without_printing_owner_token() -> 
 
     assert exit_code == 0
     assert payload == {"host": "127.0.0.1", "port": 8765, "state": "configured"}
-    assert persisted["runtime"]["shared_token"] not in output
+    assert "shared_token" not in persisted["runtime"]
+    assert "shared_token" not in output
     assert runtime_config_exists
     assert "replace-with-provider-api-key" in runtime_config
 
@@ -80,6 +81,36 @@ def test_pair_devices_and_revoke_use_the_personal_pairing_store_without_leaking_
     assert json.loads(devices_output)["devices"][0]["device_id"] == "terminal-edge-1"
     assert revoke_exit == 0
     assert json.loads(revoke_output) == {"device_id": "terminal-edge-1", "revoked": True}
+
+
+def test_rename_updates_the_owner_visible_device_name() -> None:
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+        _run(home, "setup")
+        pairing_code = json.loads(_run(home, "pair")[1])["pairing_code"]
+        PairingStore(home.pairing_store_path).claim_pairing_code(
+            pairing_code,
+            device_id="terminal-edge-1",
+            device_type="terminal-edge",
+            display_name="Workstation Terminal",
+            audience="wss://runtime.example/openhalo/edge",
+            public_key="terminal-public-key",
+        )
+
+        rename_exit, rename_output = _run(
+            home,
+            "rename",
+            "terminal-edge-1",
+            "Maya's Terminal",
+        )
+        _, devices_output = _run(home, "devices")
+
+    assert rename_exit == 0
+    assert json.loads(rename_output) == {
+        "device_id": "terminal-edge-1",
+        "renamed": True,
+    }
+    assert json.loads(devices_output)["devices"][0]["display_name"] == "Maya's Terminal"
 
 
 def test_lifecycle_and_doctor_commands_report_safe_owner_facing_state() -> None:

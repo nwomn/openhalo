@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from device_edge.cli.presentation import PresentationState
+from device_edge.cli.presentation import reduce_connection_state
+from device_edge.cli.presentation import reduce_draft
 from device_edge.cli.presentation import reduce_interaction_update
 from device_edge.cli.presentation import reduce_progress_frame
 from device_edge.cli.presentation import toggle_receipt
@@ -143,3 +145,40 @@ def test_terminal_daemon_reduces_safe_receipts_without_rendering_runtime_trace()
 
     assert daemon.presentation.receipts["interaction-1"].summary == "Done."
     assert daemon.transcript[-1].startswith("[receipt]")
+
+
+def test_connection_loss_settles_progress_and_preserves_the_local_draft() -> None:
+    state = PresentationState(
+        active_progress={"interaction-1": "executing"},
+        draft="Keep this unfinished message",
+    )
+
+    next_state = reduce_connection_state(state, "retrying")
+
+    assert next_state.connection_state == "retrying"
+    assert next_state.active_progress == {}
+    assert next_state.draft == "Keep this unfinished message"
+    assert reduce_draft(next_state, "").draft == ""
+
+
+def test_receipt_history_is_bounded_to_the_retained_transcript_window() -> None:
+    state = PresentationState(transcript_limit=2)
+
+    for index in range(3):
+        state = reduce_interaction_update(
+            state,
+            {
+                "interaction": {
+                    "interaction_id": f"interaction-{index}",
+                    "status": "completed",
+                    "summary": "Done.",
+                    "outcome_receipt": _receipt(),
+                }
+            },
+        )
+
+    assert [line.interaction_id for line in state.transcript] == [
+        "interaction-1",
+        "interaction-2",
+    ]
+    assert set(state.receipts) == {"interaction-1", "interaction-2"}

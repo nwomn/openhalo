@@ -28,6 +28,7 @@ from device_edge.shared.identity import DeviceIdentity
 from device_edge.shared.identity import create_ephemeral_identity
 from device_edge.shared.identity import load_or_create_identity
 from device_edge.shared.session_client import SessionClient
+from edge_api.endpoint import validate_runtime_endpoint
 from openhalo_common.diagnostics import TraceRecorder
 
 
@@ -45,6 +46,7 @@ class HostEdgeDaemon:
         trace_recorder: TraceRecorder | None = None,
         diagnostic_recorder=None,
     ) -> None:
+        validate_runtime_endpoint(audience)
         self.runtime_control_adapter = runtime_control_adapter
         self.host_metrics_provider = host_metrics_provider
         self.runtime_health_provider = runtime_health_provider

@@ -62,6 +62,30 @@ def test_setup_persists_public_terminal_identity_metadata_without_printing_priva
     }
 
 
+def test_setup_refuses_a_non_loopback_plaintext_runtime_endpoint() -> None:
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+
+        with pytest.raises(ValueError, match="must use wss"):
+            main(
+                [
+                    "setup",
+                    "--url",
+                    "ws://runtime.example.test/openhalo/edge",
+                    "--pairing-code",
+                    "one-time-code",
+                ],
+                home=home,
+                pairing_exchange=lambda **kwargs: TerminalCredentials(
+                    device_id=kwargs["device_id"],
+                    display_name=kwargs["display_name"],
+                    public_key_fingerprint="sha256:terminal-public-key",
+                ),
+            )
+
+    assert "terminal_edge" not in home.load_configuration()
+
+
 def test_default_launch_uses_persisted_public_identity_without_printing_secrets() -> None:
     with TemporaryDirectory() as directory:
         home = PersonalHome(Path(directory) / "home")

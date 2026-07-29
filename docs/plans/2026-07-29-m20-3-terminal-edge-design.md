@@ -1,8 +1,15 @@
 # M20.3 Terminal Edge Design
 
-**Status:** Accepted design baseline; implementation not started.
+**Status:** Quiet Edge implementation complete and automatically verified; M20.3 human acceptance pending.
 
 **Goal:** Turn the resident terminal into a stable, attractive, long-running `Device Edge` without turning it into an agent host, a Runtime console, or a shell/tool console.
+
+## Implementation Status
+
+- The Textual default now uses one bounded, chronological `VerticalScroll` transcript for ordinary lines and compact outcome receipts; it keeps public progress in one replaceable active row above the fixed composer.
+- Receipts expand only from the locally retained safe projection. The composer retains drafts through reconnect, completes unique slash commands with `Tab`, restores local history with arrow keys, and clears an unsent draft with `Esc`.
+- Terminal reconnects recoverable network/WebSocket failures with bounded exponential backoff. Remote Runtime endpoints require `wss://`; plaintext `ws://` remains limited to explicit loopback development.
+- Focused reducer, Textual UI, CLI setup, endpoint-trust, and real v2 pairing/interaction regressions pass. A real TTY run covering resize, a slow interaction, cross-device receipt, reconnect, and clean exit remains required before milestone acceptance.
 
 ## Architecture Position
 

@@ -22,7 +22,10 @@ from device_edge.shared.identity import DeviceIdentity
 from device_edge.shared.identity import create_ephemeral_identity
 from device_edge.shared.identity import load_or_create_identity
 from device_edge.shared.session_client import SessionClient
+from edge_api.endpoint import validate_runtime_endpoint
 from device_edge.cli.presentation import PresentationState
+from device_edge.cli.presentation import reduce_connection_state
+from device_edge.cli.presentation import reduce_draft
 from device_edge.cli.presentation import reduce_interaction_update
 from device_edge.cli.presentation import reduce_progress_frame
 from edge_api.protocol import with_api_version
@@ -37,8 +40,10 @@ def terminal_supports_textual_fullscreen() -> bool:
 
 
 class TerminalEdgeDaemon:
-    transcript_limit = 12
+    transcript_limit = 200
     max_deferred_frames = 64
+    reconnect_initial_delay_s = 0.25
+    reconnect_max_delay_s = 5.0
     progress_messages = {
         "deliberating": "正在理解你的请求...",
         "researching": "正在查询相关信息...",
@@ -63,6 +68,7 @@ class TerminalEdgeDaemon:
         stdin_observed_at: str | None = None,
         diagnostic_recorder=None,
     ) -> None:
+        validate_runtime_endpoint(audience)
         self.output_stream = output_stream or sys.stdout
         self.input_stream = input_stream or sys.stdin
         self.input_state_stream = input_state_stream
@@ -105,6 +111,16 @@ class TerminalEdgeDaemon:
             ],
             diagnostic_recorder=diagnostic_recorder,
         )
+
+    def set_connection_state(self, connection_state: str) -> None:
+        self.connection_state = connection_state
+        self.presentation = reduce_connection_state(
+            self.presentation,
+            connection_state,
+        )
+
+    def set_draft(self, draft: str) -> None:
+        self.presentation = reduce_draft(self.presentation, draft)
 
     @staticmethod
     def _default_timestamp_provider() -> str:
@@ -539,7 +555,7 @@ class TerminalEdgeDaemon:
             if connect_ok.get("type") != "connect_ok":
                 raise RuntimeError("Runtime rejected terminal device authentication.")
             await self._send_frame(websocket, capability_frame)
-            self.connection_state = "connected"
+            self.set_connection_state("connected")
             self.render_status_line(
                 f"Connected to runtime as {self.client.device_id}."
             )
@@ -767,7 +783,7 @@ class TerminalEdgeDaemon:
                     results.append(result)
                     await self._send_frame(websocket, result)
         finally:
-            self.connection_state = "disconnected"
+            self.set_connection_state("disconnected")
             self.clear_progress()
             if live_input_task is not None and not live_input_task.done():
                 live_input_task.cancel()
@@ -791,22 +807,37 @@ class TerminalEdgeDaemon:
         enable_live_input: bool = False,
     ) -> None:
         session_count = 0
+        reconnect_delay_s = self.reconnect_initial_delay_s
         while max_sessions is None or session_count < max_sessions:
             if self.quit_requested:
                 break
-            async with websockets.connect(url) as websocket:
-                await self.run_scripted_session(
-                    websocket=websocket,
-                    scripted_inputs=scripted_inputs or [],
-                    startup_observed_at=startup_observed_at,
-                    idle_after_inputs=True,
-                    idle_timeout_s=idle_timeout_s,
-                    idle_observed_at=idle_observed_at,
-                    max_idle_cycles=max_idle_cycles,
-                    max_action_requests=max_action_requests,
-                    enable_live_input=enable_live_input,
+            self.set_connection_state("connecting")
+            try:
+                async with websockets.connect(url) as websocket:
+                    await self.run_scripted_session(
+                        websocket=websocket,
+                        scripted_inputs=scripted_inputs or [],
+                        startup_observed_at=startup_observed_at,
+                        idle_after_inputs=True,
+                        idle_timeout_s=idle_timeout_s,
+                        idle_observed_at=idle_observed_at,
+                        max_idle_cycles=max_idle_cycles,
+                        max_action_requests=max_action_requests,
+                        enable_live_input=enable_live_input,
+                    )
+            except (OSError, websockets.WebSocketException):
+                if self.quit_requested:
+                    break
+                self.set_connection_state("retrying")
+                self.render_status_line("Runtime connection unavailable. Retrying.")
+                await asyncio.sleep(reconnect_delay_s)
+                reconnect_delay_s = min(
+                    reconnect_delay_s * 2,
+                    self.reconnect_max_delay_s,
                 )
+                continue
             session_count += 1
+            reconnect_delay_s = self.reconnect_initial_delay_s
             if self.quit_requested:
                 break
 

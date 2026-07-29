@@ -24,6 +24,9 @@ _PROGRESS_PHASES = frozenset(
         "cancelled",
     }
 )
+_CONNECTION_STATES = frozenset(
+    {"connecting", "connected", "retrying", "disconnected", "failed"}
+)
 
 
 @dataclass(frozen=True)
@@ -61,6 +64,29 @@ class PresentationState:
     connection_state: str = "disconnected"
     draft: str = ""
     transcript_limit: int = 200
+
+
+def reduce_connection_state(
+    state: PresentationState, connection_state: str
+) -> PresentationState:
+    """Apply a local session-state change without inventing a Runtime outcome."""
+
+    if connection_state not in _CONNECTION_STATES:
+        return state
+    active_progress = (
+        state.active_progress if connection_state == "connected" else {}
+    )
+    return replace(
+        state,
+        connection_state=connection_state,
+        active_progress=active_progress,
+    )
+
+
+def reduce_draft(state: PresentationState, draft: str) -> PresentationState:
+    if not isinstance(draft, str):
+        return state
+    return replace(state, draft=draft)
 
 
 def reduce_progress_frame(state: PresentationState, frame: dict) -> PresentationState:
@@ -123,6 +149,7 @@ def reduce_interaction_update(state: PresentationState, frame: dict) -> Presenta
             TranscriptLine("receipt", receipt.compact_line, interaction_id),
             state.transcript_limit,
         )
+        receipts = _retained_receipts(receipts, transcript)
         return replace(
             state,
             transcript=transcript,
@@ -140,6 +167,7 @@ def reduce_interaction_update(state: PresentationState, frame: dict) -> Presenta
             state,
             transcript=transcript,
             active_progress=active,
+            receipts=_retained_receipts(state.receipts, transcript),
             settled_interactions=frozenset(settled),
         )
     return replace(
@@ -221,3 +249,18 @@ def _append(
     transcript: tuple[TranscriptLine, ...], line: TranscriptLine, limit: int
 ) -> tuple[TranscriptLine, ...]:
     return (*transcript, line)[-max(limit, 1) :]
+
+
+def _retained_receipts(
+    receipts: dict[str, OutcomeReceipt], transcript: tuple[TranscriptLine, ...]
+) -> dict[str, OutcomeReceipt]:
+    retained_interaction_ids = {
+        line.interaction_id
+        for line in transcript
+        if line.kind == "receipt" and line.interaction_id is not None
+    }
+    return {
+        interaction_id: receipt
+        for interaction_id, receipt in receipts.items()
+        if interaction_id in retained_interaction_ids
+    }

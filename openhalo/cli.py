@@ -45,6 +45,9 @@ def build_parser() -> argparse.ArgumentParser:
     pair = subparsers.add_parser("pair", help="Create a one-time device pairing code.")
     pair.add_argument("--ttl-seconds", type=int, default=600)
     subparsers.add_parser("devices", help="List paired-device metadata.")
+    rename = subparsers.add_parser("rename", help="Rename one paired device.")
+    rename.add_argument("device_id")
+    rename.add_argument("display_name")
     revoke = subparsers.add_parser("revoke", help="Revoke one paired device.")
     revoke.add_argument("device_id")
     return parser
@@ -77,6 +80,15 @@ def main(
         _require_runtime_configuration(personal_home)
         _emit({"devices": PairingStore(personal_home.pairing_store_path).list_devices()})
         return 0
+
+    if args.command == "rename":
+        _require_runtime_configuration(personal_home)
+        renamed = PairingStore(personal_home.pairing_store_path).rename_device(
+            args.device_id,
+            args.display_name,
+        )
+        _emit({"device_id": args.device_id, "renamed": renamed})
+        return 0 if renamed else 1
 
     if args.command == "revoke":
         _require_runtime_configuration(personal_home)

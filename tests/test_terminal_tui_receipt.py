@@ -8,6 +8,9 @@ from device_edge.cli.presentation import ReceiptEntry
 from device_edge.cli.terminal_daemon import TerminalEdgeDaemon
 from device_edge.cli.terminal_tui import TerminalEdgeApp
 from device_edge.cli.terminal_tui import OutcomeReceiptWidget
+from textual.containers import VerticalScroll
+from textual.widgets import Input
+from textual.widgets import Static
 
 
 def test_receipt_widget_shows_compact_line_then_expanded_safe_timeline() -> None:
@@ -79,3 +82,97 @@ class TerminalTuiReceiptTests(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
 
         assert daemon.presentation.receipts["interaction-1"].expanded is True
+
+    async def test_terminal_app_keeps_progress_in_one_active_row_outside_the_transcript(self) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            audience="ws://127.0.0.1:8765",
+        )
+        daemon.handle_interaction_progress_frame(
+            {
+                "progress": {
+                    "version": 1,
+                    "interaction_id": "interaction-1",
+                    "sequence": 1,
+                    "phase": "planning",
+                    "state": "active",
+                }
+            }
+        )
+        transcript_queue: queue.Queue[str] = queue.Queue()
+        transcript_queue.put("[progress] 正在准备下一步...")
+        app = TerminalEdgeApp(
+            daemon=daemon,
+            input_queue=queue.Queue(),
+            input_state_queue=queue.Queue(),
+            transcript_queue=transcript_queue,
+        )
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            active_progress = app.query_one("#active-progress", Static)
+            transcript = app.query_one("#transcript-log", VerticalScroll)
+            assert "正在准备下一步" in str(active_progress.content)
+            assert len(transcript.children) == 0
+
+    async def test_terminal_app_preserves_draft_while_the_daemon_retries(self) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            audience="ws://127.0.0.1:8765",
+        )
+        app = TerminalEdgeApp(
+            daemon=daemon,
+            input_queue=queue.Queue(),
+            input_state_queue=queue.Queue(),
+            transcript_queue=queue.Queue(),
+        )
+
+        async with app.run_test() as pilot:
+            composer = app.query_one("#command-input", Input)
+            composer.value = "Keep this unfinished message"
+            daemon.connection_state = "retrying"
+            await pilot.pause()
+
+            assert composer.value == "Keep this unfinished message"
+            assert daemon.presentation.draft == "Keep this unfinished message"
+
+    async def test_terminal_app_completes_local_commands_and_navigates_input_history(
+        self,
+    ) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            audience="ws://127.0.0.1:8765",
+        )
+        input_queue: queue.Queue[str | None] = queue.Queue()
+        app = TerminalEdgeApp(
+            daemon=daemon,
+            input_queue=input_queue,
+            input_state_queue=queue.Queue(),
+            transcript_queue=queue.Queue(),
+        )
+
+        async with app.run_test() as pilot:
+            composer = app.query_one("#command-input", Input)
+            composer.value = "/he"
+            await pilot.press("tab")
+            assert composer.value == "/help"
+
+            await pilot.press("enter")
+            composer.value = "First request"
+            await pilot.press("enter")
+            composer.value = "Second request"
+            await pilot.press("enter")
+            await pilot.press("up")
+            assert composer.value == "Second request"
+            await pilot.press("up")
+            assert composer.value == "First request"
+            await pilot.press("down")
+            assert composer.value == "Second request"
+            await pilot.press("escape")
+            assert composer.value == ""
+
+        assert [input_queue.get_nowait() for _ in range(3)] == [
+            "/help",
+            "First request",
+            "Second request",
+        ]

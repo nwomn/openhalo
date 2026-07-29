@@ -17,6 +17,7 @@ from device_edge.shared.identity import load_or_create_identity
 from edge_api.auth import build_challenge_payload
 from edge_api.auth import encode_base64url
 from edge_api.auth import sign_challenge
+from edge_api.endpoint import validate_runtime_endpoint
 from edge_api.protocol import build_connect_frame
 from openhalo.home import PersonalHome
 from openhalo.version import format_cli_version
@@ -59,6 +60,7 @@ def main(
     args = build_parser().parse_args(argv)
     personal_home = home or PersonalHome.from_environment()
     if args.command == "setup":
+        validate_runtime_endpoint(args.url)
         device_id = args.device_id or f"terminal-edge-{secrets.token_hex(4)}"
         credentials = _resolve_pairing_exchange(
             pairing_exchange or pair_terminal_edge,
@@ -102,6 +104,7 @@ async def pair_terminal_edge(
     display_name: str,
     identity_home,
 ) -> TerminalCredentials:
+    validate_runtime_endpoint(url)
     identity = load_or_create_identity(identity_home, device_id)
     frame = build_connect_frame(
         device_id=device_id,

@@ -11,9 +11,10 @@ from unittest import mock
 
 import websockets
 from textual.widgets import Input
-from textual.widgets import RichLog
 from textual.widgets import Static
+from textual.containers import VerticalScroll
 
+from device_edge.cli.presentation import PresentationState
 from device_edge.cli.terminal_daemon import TerminalEdgeDaemon
 from device_edge.cli.terminal_daemon import build_terminal_daemon_parser
 from device_edge.cli.terminal_daemon import main
@@ -21,12 +22,46 @@ from device_edge.cli.terminal_daemon import main
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _auth_challenge(daemon: TerminalEdgeDaemon) -> dict:
+    return {
+        "type": "auth_challenge",
+        "device_id": daemon.client.device_id,
+        "session_id": daemon.client.session_id,
+        "audience": daemon.client.audience,
+        "challenge": {
+            "version": 1,
+            "challenge_id": "test-challenge",
+            "nonce": "dGVzdC1ub25jZQ",
+            "expires_at": "2030-01-01T00:01:00Z",
+        },
+    }
+
+
+class _V2HandshakeAdapter:
+    """Adds the v2 auth exchange around legacy session-behavior fakes."""
+
+    def __init__(self, daemon: TerminalEdgeDaemon, websocket) -> None:
+        self.daemon = daemon
+        self.websocket = websocket
+        self.challenge_delivered = False
+
+    async def send(self, payload: str) -> None:
+        if json.loads(payload).get("type") == "auth_proof":
+            return
+        await self.websocket.send(payload)
+
+    async def recv(self) -> str:
+        if not self.challenge_delivered:
+            self.challenge_delivered = True
+            return json.dumps(_auth_challenge(self.daemon))
+        return await self.websocket.recv()
+
+
 class TerminalEdgeDaemonTests(unittest.TestCase):
     def test_progress_frame_renders_a_local_phase_and_replaces_current_phase(self) -> None:
         stdout = io.StringIO()
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             output_stream=stdout,
         )
 
@@ -70,7 +105,6 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
     def test_progress_frame_ignores_a_stale_sequence_and_clears_when_settled(self) -> None:
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             output_stream=io.StringIO(),
         )
         active = {
@@ -116,7 +150,6 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
         output = TtyOutput()
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             output_stream=output,
         )
         active = {
@@ -170,7 +203,6 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
         stdout = io.StringIO()
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             output_stream=stdout,
         )
 
@@ -186,7 +218,6 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
         stdout = io.StringIO()
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             output_stream=stdout,
         )
         daemon.connection_state = "connected"
@@ -211,7 +242,6 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
         stdout = io.StringIO()
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             output_stream=stdout,
         )
         daemon.transcript.extend(
@@ -237,7 +267,6 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
         stdout = io.StringIO()
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             output_stream=stdout,
         )
 
@@ -251,7 +280,6 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
         stdout = io.StringIO()
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             output_stream=stdout,
         )
 
@@ -290,7 +318,6 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
         output = TtyOutput()
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             output_stream=output,
         )
         daemon.handle_interaction_progress_frame(
@@ -330,7 +357,6 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
         stdout = io.StringIO()
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             output_stream=stdout,
         )
 
@@ -364,7 +390,6 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
         stdout = io.StringIO()
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             output_stream=stdout,
         )
         daemon.pending_runtime_reply = True
@@ -388,7 +413,6 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
         stdout = io.StringIO()
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             output_stream=stdout,
         )
         daemon.pending_runtime_reply = True
@@ -413,7 +437,6 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
         stdout = io.StringIO()
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             output_stream=stdout,
         )
 
@@ -486,7 +509,6 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
     def test_build_user_input_frames_use_session_client_correlation(self) -> None:
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
         )
 
         frames = daemon.build_user_input_frames(
@@ -548,8 +570,9 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
 
         app = create_textual_terminal_app(
             url="ws://127.0.0.1:8765",
-            token="dev-token",
             device_id="terminal-edge-1",
+            identity_home=None,
+            display_name=None,
             startup_observed_at=None,
             idle_timeout_s=30.0,
             idle_observed_at=None,
@@ -631,7 +654,6 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
 
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
         )
         app = TerminalEdgeApp(
             daemon=daemon,
@@ -643,7 +665,7 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
         async with app.run_test() as pilot:
             await pilot.pause()
             self.assertIsNotNone(app.query_one("#status-bar", Static))
-            self.assertIsNotNone(app.query_one("#transcript-log", RichLog))
+            self.assertIsNotNone(app.query_one("#transcript-log", VerticalScroll))
             input_widget = app.query_one("#command-input", Input)
             self.assertIn("/help", input_widget.placeholder)
             help_bar = app.query_one("#help-bar", Static)
@@ -656,7 +678,6 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
 
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
         )
         daemon.connection_state = "connected"
         daemon.terminal_activity_state = "active"
@@ -679,7 +700,6 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
 
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
         )
         transcript_queue: queue.Queue[str] = queue.Queue()
         transcript_queue.put("[system] Connected to runtime.")
@@ -693,15 +713,14 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
         async with app.run_test() as pilot:
             await pilot.pause()
             await pilot.pause()
-            transcript_log = app.query_one("#transcript-log", RichLog)
-            self.assertGreaterEqual(len(transcript_log.lines), 1)
+            transcript_log = app.query_one("#transcript-log", VerticalScroll)
+            self.assertGreaterEqual(len(transcript_log.children), 1)
 
     async def test_textual_terminal_app_records_draft_input_state_changes(self) -> None:
         from device_edge.cli.terminal_tui import TerminalEdgeApp
 
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
         )
         input_state_queue: queue.Queue[dict] = queue.Queue()
         app = TerminalEdgeApp(
@@ -732,7 +751,6 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
 
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
         )
         daemon.quit_requested = True
         daemon.connection_state = "disconnected"
@@ -755,7 +773,6 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
     def test_builds_bootstrap_frames_for_terminal_edge(self) -> None:
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
         )
 
         bootstrap_frames = daemon.build_bootstrap_frames()
@@ -775,7 +792,6 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
     def test_builds_terminal_activity_observation_frame(self) -> None:
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
         )
 
         frame = daemon.build_terminal_activity_frame(
@@ -797,7 +813,6 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
     def test_builds_pull_text_event_after_marking_terminal_active(self) -> None:
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
         )
 
         frames = daemon.build_user_input_frames(
@@ -819,7 +834,6 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
     async def test_expected_frame_wait_rejects_excess_deferred_frames(self) -> None:
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
         )
 
         class NonAcknowledgingWebSocket:
@@ -902,11 +916,10 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
         stdout = io.StringIO()
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             output_stream=stdout,
         )
 
-        websocket = ProgressBeforeActionWebSocket()
+        websocket = _V2HandshakeAdapter(daemon, ProgressBeforeActionWebSocket())
         try:
             results = await asyncio.wait_for(
                 daemon.run_scripted_session(
@@ -935,7 +948,6 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
     async def test_run_forever_stops_reconnecting_after_quit_command(self) -> None:
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
         )
         session_calls: list[int] = []
 
@@ -966,12 +978,77 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(session_calls), 1)
 
+    async def test_run_forever_retries_a_connection_failure_without_losing_local_draft(
+        self,
+    ) -> None:
+        daemon = TerminalEdgeDaemon(device_id="terminal-edge-1")
+        daemon.set_draft("Keep this unfinished message")
+        daemon.presentation = PresentationState(
+            active_progress={"interaction-1": "executing"},
+            draft=daemon.presentation.draft,
+            transcript_limit=daemon.transcript_limit,
+        )
+        connection_states: list[str] = []
+        original_set_connection_state = daemon.set_connection_state
+
+        def record_connection_state(connection_state: str) -> None:
+            connection_states.append(connection_state)
+            original_set_connection_state(connection_state)
+
+        daemon.set_connection_state = record_connection_state  # type: ignore[method-assign]
+        session_calls: list[int] = []
+
+        async def fake_run_scripted_session(**kwargs) -> list[dict]:
+            session_calls.append(1)
+            daemon.quit_requested = True
+            return []
+
+        daemon.run_scripted_session = fake_run_scripted_session  # type: ignore[method-assign]
+        connection_attempts = 0
+
+        class FailingThenWorkingConnection:
+            async def __aenter__(self):
+                nonlocal connection_attempts
+                connection_attempts += 1
+                if connection_attempts == 1:
+                    raise OSError("runtime unavailable")
+                return object()
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        original_connect = websockets.connect
+        original_sleep = asyncio.sleep
+        retry_delays: list[float] = []
+
+        async def record_sleep(delay: float) -> None:
+            retry_delays.append(delay)
+
+        websockets.connect = lambda url: FailingThenWorkingConnection()  # type: ignore[assignment]
+        asyncio.sleep = record_sleep  # type: ignore[assignment]
+        try:
+            await daemon.run_forever(
+                url="ws://127.0.0.1:8765",
+                max_sessions=5,
+                enable_live_input=True,
+            )
+        finally:
+            websockets.connect = original_connect  # type: ignore[assignment]
+            asyncio.sleep = original_sleep  # type: ignore[assignment]
+
+        self.assertEqual(connection_attempts, 2)
+        self.assertEqual(session_calls, [1])
+        self.assertEqual(retry_delays, [0.25])
+        self.assertIn("connecting", connection_states)
+        self.assertIn("retrying", connection_states)
+        self.assertEqual(daemon.presentation.draft, "Keep this unfinished message")
+        self.assertEqual(daemon.presentation.active_progress, {})
+
     async def test_daemon_session_handles_live_help_command_without_runtime_event(
         self,
     ) -> None:
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             input_stream=io.StringIO("/help\n"),
             output_stream=io.StringIO(),
             timestamp_provider=lambda: "2026-06-22T10:09:00Z",
@@ -994,7 +1071,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                 raise RuntimeError("StopIteration")
 
         results = await daemon.run_scripted_session(
-            websocket=FakeWebSocket(),
+            websocket=_V2HandshakeAdapter(daemon, FakeWebSocket()),
             scripted_inputs=[],
             startup_observed_at=None,
             idle_after_inputs=True,
@@ -1025,7 +1102,6 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
         )
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             input_stream=io.StringIO("\nhello runtime\n"),
             timestamp_provider=lambda: next(observed_at_values),
         )
@@ -1064,7 +1140,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                 )
 
         results = await daemon.run_scripted_session(
-            websocket=FakeWebSocket(),
+            websocket=_V2HandshakeAdapter(daemon, FakeWebSocket()),
             scripted_inputs=[],
             startup_observed_at=None,
             idle_after_inputs=True,
@@ -1117,7 +1193,6 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
         )
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             input_state_stream=input_state_queue,
             timestamp_provider=lambda: next(observed_at_values),
         )
@@ -1142,7 +1217,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                 return json.dumps({"type": "event_ack"})
 
         await daemon.run_scripted_session(
-            websocket=FakeWebSocket(),
+            websocket=_V2HandshakeAdapter(daemon, FakeWebSocket()),
             scripted_inputs=[],
             startup_observed_at=None,
             idle_after_inputs=True,
@@ -1178,7 +1253,6 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
         input_state_queue: queue.Queue[dict] = queue.Queue()
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             input_state_stream=input_state_queue,
             timestamp_provider=lambda: next(observed_at_values),
         )
@@ -1217,7 +1291,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
 
         await asyncio.gather(
             daemon.run_scripted_session(
-                websocket=FakeWebSocket(),
+                websocket=_V2HandshakeAdapter(daemon, FakeWebSocket()),
                 scripted_inputs=[],
                 startup_observed_at=None,
                 idle_after_inputs=True,
@@ -1264,13 +1338,12 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
         )
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             input_stream=io.StringIO("hello?\nstatus?\n"),
             timestamp_provider=lambda: next(observed_at_values),
         )
         sent_frames: list[dict] = []
         recv_queue: list[dict] = [
-            {"type": "connect_ok"},
+                {"type": "connect_ok"},
             {"type": "event_ack"},
         ]
 
@@ -1302,7 +1375,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                 return json.dumps(recv_queue.pop(0))
 
         results = await daemon.run_scripted_session(
-            websocket=FakeWebSocket(),
+            websocket=_V2HandshakeAdapter(daemon, FakeWebSocket()),
             scripted_inputs=[],
             startup_observed_at=None,
             idle_after_inputs=True,
@@ -1334,14 +1407,13 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
         )
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             input_stream=io.StringIO("hello runtime\n"),
             output_stream=io.StringIO(),
             timestamp_provider=lambda: next(observed_at_values),
         )
         sent_frames: list[dict] = []
         recv_queue: list[dict] = [
-            {"type": "connect_ok"},
+                {"type": "connect_ok"},
             {"type": "event_ack"},
         ]
 
@@ -1373,7 +1445,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                 return json.dumps(recv_queue.pop(0))
 
         results = await daemon.run_scripted_session(
-            websocket=FakeWebSocket(),
+            websocket=_V2HandshakeAdapter(daemon, FakeWebSocket()),
             scripted_inputs=[],
             startup_observed_at=None,
             idle_after_inputs=True,
@@ -1398,14 +1470,13 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
         )
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             input_stream=io.StringIO("hello runtime\n"),
             output_stream=io.StringIO(),
             timestamp_provider=lambda: next(observed_at_values),
         )
         sent_frames: list[dict] = []
         recv_queue: list[dict] = [
-            {"type": "connect_ok"},
+                {"type": "connect_ok"},
             {"type": "event_ack"},
         ]
         injected_runtime_push = False
@@ -1459,7 +1530,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                 return json.dumps(recv_queue.pop(0))
 
         results = await daemon.run_scripted_session(
-            websocket=FakeWebSocket(),
+            websocket=_V2HandshakeAdapter(daemon, FakeWebSocket()),
             scripted_inputs=[],
             startup_observed_at=None,
             idle_after_inputs=True,
@@ -1483,7 +1554,6 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
         )
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             input_stream=io.StringIO("hello runtime\n"),
             output_stream=io.StringIO(),
             timestamp_provider=lambda: next(observed_at_values),
@@ -1545,7 +1615,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
         try:
             results = await asyncio.wait_for(
                 daemon.run_scripted_session(
-                    websocket=FakeWebSocket(),
+                    websocket=_V2HandshakeAdapter(daemon, FakeWebSocket()),
                     scripted_inputs=[],
                     startup_observed_at=None,
                     idle_after_inputs=True,
@@ -1570,7 +1640,6 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
         )
         sent_frames: list[dict] = []
         recv_frames = iter(
@@ -1601,7 +1670,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                 return json.dumps(next(recv_frames))
 
         results = await daemon.run_scripted_session(
-            websocket=FakeWebSocket(),
+            websocket=_V2HandshakeAdapter(daemon, FakeWebSocket()),
             scripted_inputs=[
                 {
                     "text": "hello runtime",
@@ -1624,7 +1693,6 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
         )
         sent_frames: list[dict] = []
         recv_frames = iter(
@@ -1650,7 +1718,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                 return json.dumps(next(recv_frames))
 
         results = await daemon.run_scripted_session(
-            websocket=FakeWebSocket(),
+            websocket=_V2HandshakeAdapter(daemon, FakeWebSocket()),
             scripted_inputs=[],
             startup_observed_at="2026-06-22T10:10:00Z",
             idle_after_inputs=True,
@@ -1673,7 +1741,6 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
         )
         sent_frames: list[dict] = []
         recv_frames = iter(
@@ -1702,7 +1769,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                 return json.dumps(next(recv_frames))
 
         results = await daemon.run_scripted_session(
-            websocket=FakeWebSocket(),
+            websocket=_V2HandshakeAdapter(daemon, FakeWebSocket()),
             scripted_inputs=[
                 {
                     "text": "check runtime status",
@@ -1729,7 +1796,6 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
         )
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
             timestamp_provider=lambda: next(observed_at_values),
         )
         sent_frames: list[dict] = []
@@ -1753,7 +1819,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                 return json.dumps({"type": "event_ack"})
 
         results = await daemon.run_scripted_session(
-            websocket=FakeWebSocket(),
+            websocket=_V2HandshakeAdapter(daemon, FakeWebSocket()),
             scripted_inputs=[],
             startup_observed_at=None,
             idle_after_inputs=True,
@@ -1776,7 +1842,6 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
     async def test_daemon_session_cancels_pending_live_input_task_on_exit(self) -> None:
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
-            token="dev-token",
         )
         sent_frames: list[dict] = []
         read_started = asyncio.Event()
@@ -1822,7 +1887,7 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
                 raise RuntimeError("StopIteration")
 
         results = await daemon.run_scripted_session(
-            websocket=FakeWebSocket(),
+            websocket=_V2HandshakeAdapter(daemon, FakeWebSocket()),
             scripted_inputs=[],
             startup_observed_at="2026-06-22T10:10:00Z",
             idle_after_inputs=True,

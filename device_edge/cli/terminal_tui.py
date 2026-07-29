@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections import deque
 from contextlib import suppress
 import queue
 from queue import Empty
@@ -13,9 +14,9 @@ from rich.text import Text
 from textual.app import App
 from textual.app import ComposeResult
 from textual.containers import Vertical
+from textual.containers import VerticalScroll
 from textual.css.query import NoMatches
 from textual.widgets import Input
-from textual.widgets import RichLog
 from textual.widgets import Static
 
 from device_edge.cli.presentation import OutcomeReceipt
@@ -108,6 +109,9 @@ def _receipt_kind_label(kind: str) -> str:
 class TerminalEdgeApp(App[None]):
     """Minimal full-screen terminal UI layered over the existing daemon."""
 
+    _local_commands = ("/help", "/status", "/history", "/quit")
+    _history_limit = 100
+
     CSS = """
     Screen {
         background: #151615;
@@ -141,11 +145,11 @@ class TerminalEdgeApp(App[None]):
         padding: 0 1;
     }
 
-    #receipt-list {
-        height: auto;
-        max-height: 9;
+    #active-progress {
+        height: 1;
         padding: 0 1;
         background: #1a1c19;
+        color: #a9cbe0;
     }
 
     OutcomeReceiptWidget {
@@ -156,6 +160,12 @@ class TerminalEdgeApp(App[None]):
 
     OutcomeReceiptWidget:focus {
         background: #2a3128;
+    }
+
+    .transcript-line {
+        width: 100%;
+        height: auto;
+        padding: 0 1;
     }
 
     #command-input {
@@ -192,13 +202,17 @@ class TerminalEdgeApp(App[None]):
         self.start_session = start_session
         self.session_thread: threading.Thread | None = None
         self._receipt_widgets: dict[str, OutcomeReceiptWidget] = {}
+        self._transcript_widgets: deque[Static] = deque()
+        self._command_history: deque[str] = deque(maxlen=self._history_limit)
+        self._history_index: int | None = None
+        self._history_draft = ""
 
     def compose(self) -> ComposeResult:
         yield Vertical(
             Static(" OpenHalo  Terminal Edge", id="title-bar"),
             Static("", id="status-bar"),
-            RichLog(id="transcript-log", wrap=True, markup=True, auto_scroll=True),
-            Vertical(id="receipt-list"),
+            VerticalScroll(id="transcript-log"),
+            Static("", id="active-progress"),
             Input(
                 placeholder="Message runtime or use /help /status /history /quit",
                 id="command-input",
@@ -212,10 +226,15 @@ class TerminalEdgeApp(App[None]):
         )
 
     def on_mount(self) -> None:
-        self.query_one("#command-input", Input).focus()
+        composer = self.query_one("#command-input", Input)
+        composer.value = self.daemon.presentation.draft
+        composer.focus()
         self._refresh_status_bar()
+        self._refresh_active_progress()
+        self._drain_transcript_queue()
         self.set_interval(0.1, self._drain_transcript_queue)
         self.set_interval(0.1, self._refresh_status_bar)
+        self.set_interval(0.1, self._refresh_active_progress)
         if self.start_session is not None:
             self.session_thread = threading.Thread(
                 target=self.start_session,
@@ -229,17 +248,81 @@ class TerminalEdgeApp(App[None]):
         if not text:
             event.input.value = ""
             return
+        if not self._command_history or self._command_history[-1] != text:
+            self._command_history.append(text)
+        self._history_index = None
+        self._history_draft = ""
         self.input_queue.put(text)
         event.input.value = ""
 
     async def on_input_changed(self, event: Input.Changed) -> None:
         draft = event.value
+        self.daemon.set_draft(draft)
         self.input_state_queue.put(
             {
                 "state": "draft_nonempty" if draft else "draft_empty",
                 "draft_length": len(draft),
             }
         )
+
+    def on_key(self, event) -> None:
+        try:
+            composer = self.query_one("#command-input", Input)
+        except NoMatches:
+            return
+        if not composer.has_focus:
+            return
+        if event.key == "tab" and self._complete_local_command(composer):
+            event.prevent_default()
+            event.stop()
+            return
+        if event.key == "up" and self._navigate_history(composer, direction=-1):
+            event.prevent_default()
+            event.stop()
+            return
+        if event.key == "down" and self._navigate_history(composer, direction=1):
+            event.prevent_default()
+            event.stop()
+            return
+        if event.key == "escape":
+            composer.value = ""
+            self._history_index = None
+            self._history_draft = ""
+            event.prevent_default()
+            event.stop()
+
+    def _complete_local_command(self, composer: Input) -> bool:
+        value = composer.value
+        if not value.startswith("/") or any(character.isspace() for character in value):
+            return False
+        matches = [command for command in self._local_commands if command.startswith(value)]
+        if len(matches) != 1:
+            return False
+        composer.value = matches[0]
+        return True
+
+    def _navigate_history(self, composer: Input, *, direction: int) -> bool:
+        if not self._command_history:
+            return False
+        history = list(self._command_history)
+        if direction < 0:
+            if self._history_index is None:
+                self._history_draft = composer.value
+                self._history_index = len(history) - 1
+            else:
+                self._history_index = max(self._history_index - 1, 0)
+            composer.value = history[self._history_index]
+            return True
+        if self._history_index is None:
+            return False
+        if self._history_index >= len(history) - 1:
+            composer.value = self._history_draft
+            self._history_index = None
+            self._history_draft = ""
+            return True
+        self._history_index += 1
+        composer.value = history[self._history_index]
+        return True
 
     def action_quit(self) -> None:
         self.input_queue.put("/quit")
@@ -274,7 +357,7 @@ class TerminalEdgeApp(App[None]):
 
     def _drain_transcript_queue(self) -> None:
         try:
-            transcript = self.query_one("#transcript-log", RichLog)
+            transcript = self.query_one("#transcript-log", VerticalScroll)
         except NoMatches:
             return
         while True:
@@ -282,9 +365,36 @@ class TerminalEdgeApp(App[None]):
                 line = self.transcript_queue.get_nowait()
             except Empty:
                 break
+            if line.startswith("[progress]"):
+                continue
             if self._mount_receipt_for_line(line):
                 continue
-            transcript.write(self._format_transcript_line(line))
+            self._mount_transcript_line(transcript, line)
+
+    def _refresh_active_progress(self) -> None:
+        try:
+            active_progress = self.query_one("#active-progress", Static)
+        except NoMatches:
+            return
+        phase = next(reversed(self.daemon.presentation.active_progress.values()), None)
+        message = self.daemon.progress_messages.get(phase, "")
+        active_progress.update(message)
+
+    def _mount_transcript_line(self, transcript: VerticalScroll, line: str) -> None:
+        widget = Static(
+            self._format_transcript_line(line),
+            classes="transcript-line",
+        )
+        self._mount_transcript_widget(transcript, widget)
+
+    def _mount_transcript_widget(
+        self, transcript: VerticalScroll, widget: Static
+    ) -> None:
+        transcript.mount(widget)
+        self._transcript_widgets.append(widget)
+        while len(self._transcript_widgets) > self.daemon.transcript_limit:
+            self._transcript_widgets.popleft().remove()
+        transcript.scroll_end(animate=False)
 
     def _mount_receipt_for_line(self, line: str) -> bool:
         if not line.startswith("[receipt] "):
@@ -304,7 +414,8 @@ class TerminalEdgeApp(App[None]):
         if widget is None:
             widget = OutcomeReceiptWidget(receipt, on_toggle=self._toggle_receipt)
             self._receipt_widgets[receipt.interaction_id] = widget
-            self.query_one("#receipt-list", Vertical).mount(widget)
+            transcript = self.query_one("#transcript-log", VerticalScroll)
+            self._mount_transcript_widget(transcript, widget)
         else:
             widget.set_receipt(receipt)
         return True
