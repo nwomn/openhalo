@@ -9,8 +9,8 @@ data class AndroidEdgeConfig(
     val runtimeMode: String,
     val runtimeUrl: String,
     val deviceId: String,
-    val edgeToken: String,
-    val deviceCredential: String = ""
+    val isPaired: Boolean = false,
+    val requiresRePairing: Boolean = false
 )
 
 data class AndroidEdgeHistoryItem(
@@ -27,6 +27,8 @@ object AndroidEdgePreferences {
     private const val KEY_DEVICE_ID = "device_id"
     private const val KEY_EDGE_TOKEN = "edge_token"
     private const val KEY_DEVICE_CREDENTIAL = "device_credential"
+    private const val KEY_DEVICE_PAIRED = "device_paired"
+    private const val KEY_REPAIR_REQUIRED = "repair_required"
     private const val KEY_EVENT_HISTORY = "event_history"
     private const val KEY_CONVERSATION_HISTORY = "conversation_history"
     private const val KEY_BACKGROUND_KEEPALIVE = "background_keepalive"
@@ -41,14 +43,22 @@ object AndroidEdgePreferences {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val runtimeMode = prefs.getString(KEY_RUNTIME_MODE, RUNTIME_MODE_STABLE)
             ?: RUNTIME_MODE_STABLE
+        val wasLegacyCredentialed = prefs.contains(KEY_EDGE_TOKEN) || prefs.contains(KEY_DEVICE_CREDENTIAL)
+        if (wasLegacyCredentialed) {
+            prefs.edit()
+                .remove(KEY_EDGE_TOKEN)
+                .remove(KEY_DEVICE_CREDENTIAL)
+                .putBoolean(KEY_DEVICE_PAIRED, false)
+                .putBoolean(KEY_REPAIR_REQUIRED, true)
+                .commit()
+        }
         return AndroidEdgeConfig(
             runtimeMode = runtimeMode,
             runtimeUrl = prefs.getString(KEY_RUNTIME_URL, runtimeUrlForMode(runtimeMode))
                 ?: runtimeUrlForMode(runtimeMode),
             deviceId = prefs.getString(KEY_DEVICE_ID, newDeviceId()) ?: newDeviceId(),
-            edgeToken = prefs.getString(KEY_EDGE_TOKEN, edgeTokenForMode(runtimeMode))
-                ?: edgeTokenForMode(runtimeMode),
-            deviceCredential = prefs.getString(KEY_DEVICE_CREDENTIAL, "").orEmpty()
+            isPaired = prefs.getBoolean(KEY_DEVICE_PAIRED, false),
+            requiresRePairing = prefs.getBoolean(KEY_REPAIR_REQUIRED, false)
         )
     }
 
@@ -58,29 +68,32 @@ object AndroidEdgePreferences {
             .putString(KEY_RUNTIME_MODE, config.runtimeMode)
             .putString(KEY_RUNTIME_URL, config.runtimeUrl)
             .putString(KEY_DEVICE_ID, config.deviceId)
-            .putString(KEY_EDGE_TOKEN, config.edgeToken)
-            .putString(KEY_DEVICE_CREDENTIAL, config.deviceCredential)
+            .putBoolean(KEY_DEVICE_PAIRED, config.isPaired)
+            .putBoolean(KEY_REPAIR_REQUIRED, config.requiresRePairing)
+            .remove(KEY_EDGE_TOKEN)
+            .remove(KEY_DEVICE_CREDENTIAL)
             .apply()
     }
 
-    fun savePairedDeviceCredential(
-        context: Context,
-        config: AndroidEdgeConfig,
-        deviceCredential: String
-    ): Boolean {
+    fun clearPairingState(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .remove(KEY_EDGE_TOKEN)
+            .remove(KEY_DEVICE_CREDENTIAL)
+            .putBoolean(KEY_DEVICE_PAIRED, false)
+            .putBoolean(KEY_REPAIR_REQUIRED, true)
+            .commit()
+    }
+
+    fun markDevicePaired(context: Context, config: AndroidEdgeConfig): Boolean {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_RUNTIME_MODE, config.runtimeMode)
             .putString(KEY_RUNTIME_URL, config.runtimeUrl)
             .putString(KEY_DEVICE_ID, config.deviceId)
-            .putString(KEY_EDGE_TOKEN, config.edgeToken)
-            .putString(KEY_DEVICE_CREDENTIAL, deviceCredential)
-            .commit()
-    }
-
-    fun clearDeviceCredential(context: Context): Boolean {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
+            .putBoolean(KEY_DEVICE_PAIRED, true)
+            .putBoolean(KEY_REPAIR_REQUIRED, false)
+            .remove(KEY_EDGE_TOKEN)
             .remove(KEY_DEVICE_CREDENTIAL)
             .commit()
     }

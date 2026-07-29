@@ -180,9 +180,11 @@ fun M17BootstrapScreen(
     var useStableRuntime by remember { mutableStateOf(storedConfig.runtimeMode == RUNTIME_MODE_STABLE) }
     var runtimeUrl by remember { mutableStateOf(storedConfig.runtimeUrl) }
     var deviceId by remember { mutableStateOf(storedConfig.deviceId) }
-    var edgeToken by remember { mutableStateOf(storedConfig.edgeToken) }
-    var hasPairedDeviceCredential by remember {
-        mutableStateOf(storedConfig.deviceCredential.isNotBlank())
+    var hasPairedDeviceIdentity by remember {
+        mutableStateOf(storedConfig.isPaired)
+    }
+    var requiresRePairing by remember {
+        mutableStateOf(storedConfig.requiresRePairing)
     }
     var backgroundKeepAlive by remember {
         mutableStateOf(AndroidEdgePreferences.backgroundKeepAliveEnabled(appContext))
@@ -229,18 +231,22 @@ fun M17BootstrapScreen(
         val unsubscribe = EdgeDiagnosticsStore.subscribe { next ->
             (context as? ComponentActivity)?.runOnUiThread {
                 diagnostics = next
-                if (next.authenticationState == AUTH_KIND_DEVICE) {
-                    hasPairedDeviceCredential = true
-                } else if (next.authenticationState == "credential_rejected") {
-                    hasPairedDeviceCredential = false
+                if (next.authenticationState == "device_key") {
+                    hasPairedDeviceIdentity = true
+                    requiresRePairing = false
+                } else if (next.authenticationState == "device_key_rejected") {
+                    hasPairedDeviceIdentity = false
+                    requiresRePairing = true
                 }
                 historyVersion += 1
             } ?: run {
                 diagnostics = next
-                if (next.authenticationState == AUTH_KIND_DEVICE) {
-                    hasPairedDeviceCredential = true
-                } else if (next.authenticationState == "credential_rejected") {
-                    hasPairedDeviceCredential = false
+                if (next.authenticationState == "device_key") {
+                    hasPairedDeviceIdentity = true
+                    requiresRePairing = false
+                } else if (next.authenticationState == "device_key_rejected") {
+                    hasPairedDeviceIdentity = false
+                    requiresRePairing = true
                 }
                 historyVersion += 1
             }
@@ -269,7 +275,7 @@ fun M17BootstrapScreen(
         diagnostics,
         runtimeUrl,
         currentNotificationState,
-        hasPairedDeviceCredential
+        hasPairedDeviceIdentity
     )
     BackHandler(enabled = diagnosticsOpen) {
         diagnosticsOpen = false
@@ -291,19 +297,21 @@ fun M17BootstrapScreen(
                     useStableRuntime = checked
                     val nextMode = if (checked) RUNTIME_MODE_STABLE else RUNTIME_MODE_DEVELOPMENT
                     runtimeUrl = runtimeUrlForMode(nextMode)
-                    edgeToken = edgeTokenForMode(nextMode)
-                    saveConfig(appContext, nextMode, runtimeUrl, deviceId, edgeToken)
-                    hasPairedDeviceCredential = false
+                    saveConfig(appContext, nextMode, runtimeUrl, deviceId)
+                    hasPairedDeviceIdentity = false
+                    requiresRePairing = false
                 },
                 onRuntimeUrlChanged = {
                     runtimeUrl = it
-                    saveConfig(appContext, runtimeMode, runtimeUrl, deviceId, edgeToken)
-                    hasPairedDeviceCredential = false
+                    saveConfig(appContext, runtimeMode, runtimeUrl, deviceId)
+                    hasPairedDeviceIdentity = false
+                    requiresRePairing = false
                 },
                 onDeviceIdChanged = {
                     deviceId = it
-                    saveConfig(appContext, runtimeMode, runtimeUrl, deviceId, edgeToken)
-                    hasPairedDeviceCredential = false
+                    saveConfig(appContext, runtimeMode, runtimeUrl, deviceId)
+                    hasPairedDeviceIdentity = false
+                    requiresRePairing = false
                 },
                 onSendObservations = {
                     startEdgeService(appContext, AndroidEdgeService.sendObservationsIntent(appContext))
@@ -346,8 +354,7 @@ fun M17BootstrapScreen(
                                     appContext,
                                     runtimeMode,
                                     runtimeUrl,
-                                    deviceId,
-                                    edgeToken
+                                    deviceId
                                 )
                             )
                         }
@@ -379,15 +386,18 @@ fun M17BootstrapScreen(
                 diagnosticsUnlocked = diagnosticsUnlocked,
                 onRuntimeUrlChanged = {
                     runtimeUrl = it
-                    saveConfig(appContext, runtimeMode, runtimeUrl, deviceId, edgeToken)
-                    hasPairedDeviceCredential = false
+                    saveConfig(appContext, runtimeMode, runtimeUrl, deviceId)
+                    hasPairedDeviceIdentity = false
+                    requiresRePairing = false
                 },
                 onDeviceIdChanged = {
                     deviceId = it
-                    saveConfig(appContext, runtimeMode, runtimeUrl, deviceId, edgeToken)
-                    hasPairedDeviceCredential = false
+                    saveConfig(appContext, runtimeMode, runtimeUrl, deviceId)
+                    hasPairedDeviceIdentity = false
+                    requiresRePairing = false
                 },
-                isDevicePaired = hasPairedDeviceCredential,
+                isDevicePaired = hasPairedDeviceIdentity,
+                requiresRePairing = requiresRePairing,
                 onPairingCodeSubmitted = { pairingCode ->
                     startEdgeService(
                         appContext,
@@ -396,7 +406,6 @@ fun M17BootstrapScreen(
                             runtimeMode,
                             runtimeUrl,
                             deviceId,
-                            edgeToken,
                             pairingCode
                         )
                     )
@@ -440,16 +449,15 @@ fun M17BootstrapScreen(
                 onResetConnection = {
                     startEdgeService(appContext, AndroidEdgeService.stopIntent(appContext))
                     runtimeUrl = runtimeUrlForMode(runtimeMode)
-                    edgeToken = edgeTokenForMode(runtimeMode)
                     saveConfig(
                         appContext,
                         runtimeMode,
                         runtimeUrl,
                         deviceId,
-                        edgeToken,
-                        clearDeviceCredential = true
+                        clearPairingState = true
                     )
-                    hasPairedDeviceCredential = false
+                    hasPairedDeviceIdentity = false
+                    requiresRePairing = false
                 },
                 onClearCache = {
                     AndroidEdgePreferences.clearHistory(appContext)
@@ -1018,6 +1026,7 @@ private fun SettingsScreen(
     runtimeUrl: String,
     deviceId: String,
     isDevicePaired: Boolean,
+    requiresRePairing: Boolean,
     notificationState: String,
     backgroundKeepAlive: Boolean,
     screenContextObservation: Boolean,
@@ -1087,7 +1096,11 @@ private fun SettingsScreen(
             SettingsDivider()
             EditableSettingsRow(
                 title = "Device pairing",
-                value = if (isDevicePaired) "Paired" else "Not paired",
+                value = when {
+                    isDevicePaired -> "Paired"
+                    requiresRePairing -> "Re-pairing required"
+                    else -> "Not paired"
+                },
                 tag = AndroidEdgeTestTags.SETTINGS_DEVICE_PAIRING,
                 onClick = { editTarget = SettingsEditTarget.PairingCode() }
             )
@@ -1594,12 +1607,11 @@ private fun saveConfig(
     runtimeMode: String,
     runtimeUrl: String,
     deviceId: String,
-    edgeToken: String,
-    clearDeviceCredential: Boolean = false
+    clearPairingState: Boolean = false
 ) {
     val existing = AndroidEdgePreferences.loadConfig(context)
-    val preserveDeviceCredential =
-        !clearDeviceCredential &&
+    val sameRuntimeIdentity =
+        !clearPairingState &&
             existing.runtimeMode == runtimeMode &&
             existing.runtimeUrl == runtimeUrl &&
             existing.deviceId == deviceId
@@ -1609,8 +1621,8 @@ private fun saveConfig(
             runtimeMode = runtimeMode,
             runtimeUrl = runtimeUrl,
             deviceId = deviceId,
-            edgeToken = edgeToken,
-            deviceCredential = if (preserveDeviceCredential) existing.deviceCredential else ""
+            isPaired = sameRuntimeIdentity && existing.isPaired,
+            requiresRePairing = sameRuntimeIdentity && existing.requiresRePairing
         )
     )
 }
@@ -1619,11 +1631,11 @@ private fun productConnectionState(
     diagnostics: EdgeDiagnostics,
     runtimeUrl: String,
     notificationState: String,
-    hasPairedDeviceCredential: Boolean
+    hasPairedDeviceIdentity: Boolean
 ): String =
     when {
         runtimeUrl.isBlank() -> "needs_setup"
-        !hasPairedDeviceCredential -> "needs_setup"
+        !hasPairedDeviceIdentity -> "needs_setup"
         notificationState == "denied" || notificationStateFromDiagnostics(diagnostics) == "denied" -> "restricted"
         diagnostics.reconnectStatus.startsWith("retrying") -> "reconnecting"
         diagnostics.connectionState == "connected" -> "connected"

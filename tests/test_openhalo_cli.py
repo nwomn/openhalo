@@ -63,17 +63,20 @@ def test_pair_devices_and_revoke_use_the_personal_pairing_store_without_leaking_
 
         exit_code, pair_output = _run(home, "pair", "--ttl-seconds", "120")
         pairing_code = json.loads(pair_output)["pairing_code"]
-        device_token = PairingStore(home.pairing_store_path).claim_pairing_code(
+        PairingStore(home.pairing_store_path).claim_pairing_code(
             pairing_code,
             device_id="terminal-edge-1",
             device_type="terminal-edge",
+            display_name="Workstation Terminal",
+            audience="wss://runtime.example/openhalo/edge",
+            public_key="terminal-public-key",
         )
         _, devices_output = _run(home, "devices")
         revoke_exit, revoke_output = _run(home, "revoke", "terminal-edge-1")
 
     assert exit_code == 0
     assert pairing_code not in devices_output
-    assert device_token not in devices_output
+    assert "credential" not in devices_output
     assert json.loads(devices_output)["devices"][0]["device_id"] == "terminal-edge-1"
     assert revoke_exit == 0
     assert json.loads(revoke_output) == {"device_id": "terminal-edge-1", "revoked": True}

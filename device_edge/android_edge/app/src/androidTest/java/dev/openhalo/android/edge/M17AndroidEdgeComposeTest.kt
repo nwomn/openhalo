@@ -385,19 +385,40 @@ class M17AndroidEdgeComposeTest {
     }
 
     @Test
-    fun configPersistsRuntimeIdentityAndSecretConfiguredState() {
+    fun configPersistsRuntimeIdentityAndDeviceKeyPairingState() {
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
         val expected = AndroidEdgeConfig(
             runtimeMode = RUNTIME_MODE_DEVELOPMENT,
             runtimeUrl = "ws://10.0.2.2:18765",
             deviceId = "android-edge-test",
-            edgeToken = "test-token"
+            isPaired = true
         )
 
         AndroidEdgePreferences.saveConfig(appContext, expected)
         val actual = AndroidEdgePreferences.loadConfig(appContext)
 
         assertEquals(expected, actual)
+    }
+
+    @Test
+    fun legacyBearerPreferencesAreClearedAndRequireRePairing() {
+        val appContext = InstrumentationRegistry.getInstrumentation().targetContext
+        val preferences = appContext.getSharedPreferences(
+            "openhalo_android_edge",
+            android.content.Context.MODE_PRIVATE
+        )
+        preferences.edit()
+            .putString("edge_token", "obsolete-token")
+            .putString("device_credential", "obsolete-credential")
+            .putBoolean("device_paired", true)
+            .commit()
+
+        val config = AndroidEdgePreferences.loadConfig(appContext)
+
+        assertFalse(config.isPaired)
+        assertTrue(config.requiresRePairing)
+        assertFalse(preferences.contains("edge_token"))
+        assertFalse(preferences.contains("device_credential"))
     }
 
     @Test
@@ -422,14 +443,13 @@ class M17AndroidEdgeComposeTest {
     }
 
     @Test
-    fun serviceIntentBuildersPreserveActionsAndTextPayload() {
+    fun serviceIntentBuildersPreserveActionsAndTextPayloadWithoutBearerSecrets() {
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
         val start = AndroidEdgeService.startIntent(
             appContext,
             runtimeMode = RUNTIME_MODE_DEVELOPMENT,
             runtimeUrl = "ws://10.0.2.2:18765",
-            deviceId = "android-edge-test",
-            edgeToken = "test-token"
+            deviceId = "android-edge-test"
         )
         val submit = AndroidEdgeService.submitTextIntent(appContext, "hello runtime")
         val observations = AndroidEdgeService.sendObservationsIntent(appContext)
@@ -439,7 +459,7 @@ class M17AndroidEdgeComposeTest {
         assertEquals(RUNTIME_MODE_DEVELOPMENT, start.getStringExtra(AndroidEdgeService.EXTRA_RUNTIME_MODE))
         assertEquals("ws://10.0.2.2:18765", start.getStringExtra(AndroidEdgeService.EXTRA_RUNTIME_URL))
         assertEquals("android-edge-test", start.getStringExtra(AndroidEdgeService.EXTRA_DEVICE_ID))
-        assertEquals("test-token", start.getStringExtra(AndroidEdgeService.EXTRA_EDGE_TOKEN))
+        assertFalse(start.hasExtra("edge_token"))
         assertEquals(AndroidEdgeService.ACTION_SUBMIT_TEXT, submit.action)
         assertEquals("hello runtime", submit.getStringExtra(AndroidEdgeService.EXTRA_TEXT_COMMAND))
         assertEquals(AndroidEdgeService.ACTION_SEND_OBSERVATIONS, observations.action)

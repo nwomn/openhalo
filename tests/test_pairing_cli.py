@@ -45,6 +45,9 @@ class PairingCliTests(unittest.TestCase):
             pairing_code,
             device_id="android-edge-1",
             device_type="android-phone",
+            display_name="Maya's Phone",
+            audience="wss://runtime.example/openhalo/edge",
+            public_key="test-public-key",
             now=datetime(2030, 1, 1, tzinfo=UTC),
         )
 

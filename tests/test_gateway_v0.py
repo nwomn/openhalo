@@ -49,6 +49,30 @@ def _last_error(replies: list[dict]) -> dict | None:
     )
 
 
+def _auth_proof(private_key, challenge: dict) -> dict:
+    challenge_body = challenge["challenge"]
+    signature = sign_challenge(
+        private_key,
+        build_challenge_payload(
+            audience=challenge["audience"],
+            device_id=challenge["device_id"],
+            session_id=challenge["session_id"],
+            challenge_id=challenge_body["challenge_id"],
+            nonce=challenge_body["nonce"],
+            expires_at=challenge_body["expires_at"],
+        ),
+    )
+    return {
+        "api_version": API_VERSION,
+        "type": "auth_proof",
+        "device_id": challenge["device_id"],
+        "session_id": challenge["session_id"],
+        "audience": challenge["audience"],
+        "challenge_id": challenge_body["challenge_id"],
+        "signature": encode_base64url(signature),
+    }
+
+
 class GatewayTests(unittest.IsolatedAsyncioTestCase):
     async def test_interaction_update_projects_safe_receipt_with_authorized_real_device_name(
         self,
@@ -1212,7 +1236,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(event_ack["type"], "event_ack")
         self.assertEqual(action_request["type"], "action_request")
 
-    async def test_pairing_connect_issues_device_credential_for_later_reconnect(
+    async def test_pairing_connect_registers_a_key_for_later_signed_reconnect(
         self,
     ) -> None:
         with TemporaryDirectory() as temporary_directory:
@@ -1224,46 +1248,45 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                 persist_state=False,
                 llm_config_path=TEST_LLM_CONFIG,
             )
+            private_key = generate_private_key()
 
             async with gateway.run_test_server() as server_info:
                 async with websockets.connect(server_info["url"]) as websocket:
                     await websocket.send(
                         json.dumps(
-                            {
-                                "type": "connect",
-                                "device": {
-                                    "device_id": "android-edge-1",
-                                    "device_type": "android-phone",
-                                },
-                                "auth": {
-                                    "kind": "pairing",
-                                    "token": pairing_code,
-                                },
-                            }
+                            build_connect_frame(
+                                device_id="android-edge-1",
+                                device_type="android-phone",
+                                audience=server_info["url"],
+                                session_id="pairing-session",
+                                pairing_code=pairing_code,
+                                public_key=encode_base64url(
+                                    public_key_spki_der(private_key.public_key())
+                                ),
+                                display_name="Maya's Phone",
+                            )
                         )
                     )
+                    challenge = json.loads(await websocket.recv())
+                    await websocket.send(json.dumps(_auth_proof(private_key, challenge)))
                     paired = json.loads(await websocket.recv())
 
-                device_token = paired["auth"]["token"]
                 self.assertEqual(paired["type"], "connect_ok")
-                self.assertEqual(paired["auth"]["kind"], "device")
+                self.assertNotIn("auth", paired)
 
                 async with websockets.connect(server_info["url"]) as websocket:
                     await websocket.send(
                         json.dumps(
-                            {
-                                "type": "connect",
-                                "device": {
-                                    "device_id": "android-edge-1",
-                                    "device_type": "android-phone",
-                                },
-                                "auth": {
-                                    "kind": "device",
-                                    "token": device_token,
-                                },
-                            }
+                            build_connect_frame(
+                                device_id="android-edge-1",
+                                device_type="android-phone",
+                                audience=server_info["url"],
+                                session_id="reconnect-session",
+                            )
                         )
                     )
+                    challenge = json.loads(await websocket.recv())
+                    await websocket.send(json.dumps(_auth_proof(private_key, challenge)))
                     reconnected = json.loads(await websocket.recv())
 
         self.assertEqual(reconnected["type"], "connect_ok")
@@ -1279,24 +1302,24 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                 persist_state=False,
                 llm_config_path=TEST_LLM_CONFIG,
             )
+            private_key = generate_private_key()
 
             async with gateway.run_test_server() as server_info:
                 async with websockets.connect(server_info["url"]) as websocket:
+                    invalid_connect = build_connect_frame(
+                        device_id="android-edge-1",
+                        device_type="android-phone",
+                        audience=server_info["url"],
+                        session_id="invalid-session",
+                        pairing_code=pairing_code,
+                        public_key=encode_base64url(
+                            public_key_spki_der(private_key.public_key())
+                        ),
+                        display_name="Maya's Phone",
+                    )
+                    invalid_connect["api_version"] = "edge.runtime.unsupported"
                     await websocket.send(
-                        json.dumps(
-                            {
-                                "api_version": "edge.runtime.unsupported",
-                                "type": "connect",
-                                "device": {
-                                    "device_id": "android-edge-1",
-                                    "device_type": "android-phone",
-                                },
-                                "auth": {
-                                    "kind": "pairing",
-                                    "token": pairing_code,
-                                },
-                            }
-                        )
+                        json.dumps(invalid_connect)
                     )
                     with self.assertRaises(ConnectionClosedError):
                         await websocket.recv()
@@ -1304,19 +1327,23 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                 async with websockets.connect(server_info["url"]) as websocket:
                     await websocket.send(
                         json.dumps(
-                            {
-                                "type": "connect",
-                                "device": {
-                                    "device_id": "android-edge-1",
-                                    "device_type": "android-phone",
-                                },
-                                "auth": {
-                                    "kind": "pairing",
-                                    "token": pairing_code,
-                                },
-                            }
+                            build_connect_frame(
+                                device_id="android-edge-1",
+                                device_type="android-phone",
+                                audience=server_info["url"],
+                                session_id="valid-session",
+                                pairing_code=pairing_code,
+                                public_key=encode_base64url(
+                                    public_key_spki_der(private_key.public_key())
+                                ),
+                                display_name="Maya's Phone",
+                            )
                         )
                     )
+                    challenge = json.loads(await websocket.recv())
+                    self.assertEqual(challenge["type"], "auth_challenge")
+                    self.assertIsNone(pairing_store.get_device("android-edge-1"))
+                    await websocket.send(json.dumps(_auth_proof(private_key, challenge)))
                     paired = json.loads(await websocket.recv())
 
         self.assertEqual(paired["type"], "connect_ok")
@@ -1326,71 +1353,66 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         with TemporaryDirectory() as temporary_directory:
             pairing_store = PairingStore(Path(temporary_directory) / "pairing.json")
-            pairing_code = pairing_store.create_pairing_code(ttl_seconds=600)
+            existing_pairing_code = pairing_store.create_pairing_code(ttl_seconds=600)
             gateway = RuntimeGateway(
                 shared_token="dev-token",
                 pairing_store=pairing_store,
                 persist_state=False,
                 llm_config_path=TEST_LLM_CONFIG,
             )
+            existing_private_key = generate_private_key()
+            competing_private_key = generate_private_key()
 
             async with gateway.run_test_server() as server_info:
                 async with websockets.connect(server_info["url"]) as existing_socket:
                     await existing_socket.send(
                         json.dumps(
-                            {
-                                "type": "connect",
-                                "device": {
-                                    "device_id": "android-edge-1",
-                                    "device_type": "android-phone",
-                                },
-                                "auth": {"token": "dev-token"},
-                            }
+                            build_connect_frame(
+                                device_id="android-edge-1",
+                                device_type="android-phone",
+                                audience=server_info["url"],
+                                session_id="existing-session",
+                                pairing_code=existing_pairing_code,
+                                public_key=encode_base64url(
+                                    public_key_spki_der(existing_private_key.public_key())
+                                ),
+                                display_name="Maya's Phone",
+                            )
                         )
                     )
-                    self.assertEqual(
-                        json.loads(await existing_socket.recv())["type"],
-                        "connect_ok",
+                    existing_challenge = json.loads(await existing_socket.recv())
+                    await existing_socket.send(
+                        json.dumps(_auth_proof(existing_private_key, existing_challenge))
                     )
+                    self.assertEqual(json.loads(await existing_socket.recv())["type"], "connect_ok")
 
+                    competing_pairing_code = pairing_store.create_pairing_code(ttl_seconds=600)
                     async with websockets.connect(server_info["url"]) as websocket:
                         await websocket.send(
                             json.dumps(
-                                {
-                                    "type": "connect",
-                                    "device": {
-                                        "device_id": "android-edge-1",
-                                        "device_type": "android-phone",
-                                    },
-                                    "auth": {
-                                        "kind": "pairing",
-                                        "token": pairing_code,
-                                    },
-                                }
+                                build_connect_frame(
+                                    device_id="android-edge-1",
+                                    device_type="android-phone",
+                                    audience=server_info["url"],
+                                    session_id="competing-session",
+                                    pairing_code=competing_pairing_code,
+                                    public_key=encode_base64url(
+                                        public_key_spki_der(competing_private_key.public_key())
+                                    ),
+                                    display_name="Maya's Phone",
+                                )
                             )
                         )
                         rejected = json.loads(await websocket.recv())
 
-                async with websockets.connect(server_info["url"]) as websocket:
-                    await websocket.send(
-                        json.dumps(
-                            {
-                                "type": "connect",
-                                "device": {
-                                    "device_id": "android-edge-1",
-                                    "device_type": "android-phone",
-                                },
-                                "auth": {
-                                    "kind": "pairing",
-                                    "token": pairing_code,
-                                },
-                            }
-                        )
-                    )
-                    paired = json.loads(await websocket.recv())
+            pairing_records = pairing_store.list_pairing_codes()
 
         self.assertEqual(rejected["code"], "device_already_connected")
-        self.assertEqual(paired["type"], "connect_ok")
+        self.assertEqual(len(pairing_records), 2)
+        self.assertEqual(
+            sum(record["consumed_at"] is None for record in pairing_records),
+            1,
+        )
 
     async def test_pairing_connect_rejects_expired_code(self) -> None:
         with TemporaryDirectory() as temporary_directory:
@@ -1405,33 +1427,37 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                 persist_state=False,
                 llm_config_path=TEST_LLM_CONFIG,
             )
+            private_key = generate_private_key()
+            audience = "wss://runtime.example/openhalo/edge"
+            gateway.audience = audience
 
+            challenge = (
+                await gateway.handle_test_frames(
+                    [
+                        build_connect_frame(
+                            device_id="android-edge-1",
+                            device_type="android-phone",
+                            audience=audience,
+                            session_id="expired-pairing-session",
+                            pairing_code=pairing_code,
+                            public_key=encode_base64url(
+                                public_key_spki_der(private_key.public_key())
+                            ),
+                            display_name="Maya's Phone",
+                        )
+                    ]
+                )
+            )[-1]
             replies = await gateway.handle_test_frames(
-                [
-                    {
-                        "type": "connect",
-                        "device": {
-                            "device_id": "android-edge-1",
-                            "device_type": "android-phone",
-                        },
-                        "auth": {"kind": "pairing", "token": pairing_code},
-                    }
-                ]
+                [_auth_proof(private_key, challenge)]
             )
 
-        self.assertEqual(replies[0]["type"], "error")
-        self.assertEqual(replies[0]["code"], "pairing_code_expired")
+        self.assertEqual(replies[-1]["type"], "error")
+        self.assertEqual(replies[-1]["code"], "pairing_code_expired")
 
-    async def test_device_connect_rejects_revoked_credential(self) -> None:
+    async def test_device_bearer_connect_is_rejected(self) -> None:
         with TemporaryDirectory() as temporary_directory:
             pairing_store = PairingStore(Path(temporary_directory) / "pairing.json")
-            pairing_code = pairing_store.create_pairing_code(ttl_seconds=600)
-            device_token = pairing_store.claim_pairing_code(
-                pairing_code,
-                device_id="android-edge-1",
-                device_type="android-phone",
-            )
-            pairing_store.revoke_device("android-edge-1")
             gateway = RuntimeGateway(
                 shared_token="dev-token",
                 pairing_store=pairing_store,
@@ -1442,18 +1468,21 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             replies = await gateway.handle_test_frames(
                 [
                     {
+                        "api_version": API_VERSION,
                         "type": "connect",
                         "device": {
                             "device_id": "android-edge-1",
                             "device_type": "android-phone",
                         },
-                        "auth": {"kind": "device", "token": device_token},
+                        "session_id": "legacy-bearer-session",
+                        "audience": gateway.audience,
+                        "auth": {"kind": "device", "token": "revoked-device-token"},
                     }
                 ]
             )
 
         self.assertEqual(replies[0]["type"], "error")
-        self.assertEqual(replies[0]["code"], "unauthorized")
+        self.assertEqual(replies[0]["code"], "unsupported_auth_kind")
 
     async def test_websocket_rejects_post_connect_frame_before_authentication(
         self,

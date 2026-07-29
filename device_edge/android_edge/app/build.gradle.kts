@@ -38,18 +38,8 @@ android {
         )
         buildConfigField(
             "String",
-            "OPENHALO_DEV_EDGE_TOKEN",
-            "\"${localProperty("openhalo.devEdgeToken", "")}\""
-        )
-        buildConfigField(
-            "String",
             "OPENHALO_STABLE_RUNTIME_URL",
             "\"${localProperty("openhalo.stableRuntimeUrl", "")}\""
-        )
-        buildConfigField(
-            "String",
-            "OPENHALO_STABLE_EDGE_TOKEN",
-            "\"${localProperty("openhalo.stableEdgeToken", "")}\""
         )
     }
 
