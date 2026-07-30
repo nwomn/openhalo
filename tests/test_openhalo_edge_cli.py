@@ -248,4 +248,4 @@ def test_version_flag_prints_the_shared_development_identity() -> None:
             main(["--version"], home=home)
 
     assert exit_code.value.code == 0
-    assert output.getvalue() == "openhalo-edge 0.1.0 (dev)\n"
+    assert output.getvalue() == "openhalo-edge 0.1.1 (dev)\n"
