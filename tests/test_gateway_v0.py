@@ -212,6 +212,51 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                 "Maya's Terminal",
             )
 
+    async def test_pairing_accepts_a_public_ws_endpoint_and_locks_reconnect_to_it(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            pairing_store = PairingStore(Path(directory) / "pairing.json")
+            pairing_code = pairing_store.create_pairing_code(ttl_seconds=600)
+            gateway = ProductionRuntimeGateway(
+                pairing_store=pairing_store,
+                persist_state=False,
+                llm_config_path=TEST_LLM_CONFIG,
+                audience="wss://runtime.example/openhalo/edge",
+            )
+            private_key = generate_private_key()
+            endpoint = "ws://198.51.100.15:8765"
+            connect = build_connect_frame(
+                device_id="terminal-edge-1",
+                device_type="desktop-cli",
+                audience=endpoint,
+                session_id="session-1",
+                pairing_code=pairing_code,
+                public_key=encode_base64url(public_key_spki_der(private_key.public_key())),
+                display_name="Maya's Terminal",
+            )
+
+            challenge = (await gateway.handle_test_frames([connect]))[-1]
+
+            self.assertEqual(challenge["type"], "auth_challenge")
+            connected = (await gateway.handle_test_frames([_auth_proof(private_key, challenge)]))[-1]
+            self.assertEqual(connected["type"], "connect_ok")
+            self.assertEqual(
+                pairing_store.get_device("terminal-edge-1")["audience"],
+                endpoint,
+            )
+
+            changed_endpoint = build_connect_frame(
+                device_id="terminal-edge-1",
+                device_type="desktop-cli",
+                audience="ws://198.51.100.15:9765",
+                session_id="session-2",
+            )
+            rejected = (await gateway.handle_test_frames([changed_endpoint]))[-1]
+
+            self.assertEqual(rejected["type"], "error")
+            self.assertEqual(rejected["code"], "audience_mismatch")
+
     async def test_gateway_rejects_bearer_connect_and_never_binds_a_session(
         self,
     ) -> None:

@@ -25,6 +25,7 @@ from edge_api.auth import encode_base64url
 from edge_api.auth import is_expired
 from edge_api.auth import is_p256_public_key
 from edge_api.auth import verify_challenge_signature
+from edge_api.endpoint import validate_runtime_endpoint
 from edge_api.protocol import validate_frame, with_api_version
 from personal_runtime.action_layer import build_interaction_progress
 from personal_runtime.action_layer import build_interaction_update
@@ -1500,10 +1501,12 @@ class RuntimeGateway:
                 code="invalid_connect",
                 message="connect requires device_id, device_type, session_id, and audience.",
             )
-        if audience != self.audience:
+        try:
+            validate_runtime_endpoint(audience)
+        except ValueError:
             return self._build_public_error(
-                code="audience_mismatch",
-                message="Runtime audience was not accepted.",
+                code="invalid_connect",
+                message="connect requires a complete ws:// or wss:// audience.",
                 device_id=device_id,
             )
         if session_id in self.pending_authentications:

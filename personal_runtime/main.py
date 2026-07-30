@@ -140,9 +140,12 @@ async def run_server(
             if ready_file_path is not None:
                 _write_ready_file(ready_file_path)
             if manage_host_edge:
+                host_edge_url = build_managed_host_edge_url(server_info["url"])
+                if audience is None:
+                    gateway.audience = host_edge_url
                 supervisor = host_edge_supervisor_factory(
                     gateway=gateway,
-                    url=build_managed_host_edge_url(server_info["url"]),
+                    url=host_edge_url,
                     device_id=host_edge_device_id,
                     identity_home=identity_home
                     or (pairing_store_path or state_path).parent.parent,
