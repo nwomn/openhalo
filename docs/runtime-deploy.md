@@ -181,8 +181,8 @@ candidate Gateway ready marker. If that start fails, it switches back to the
 prior release and restarts the old Runtime. A failed download or staging step
 does not stop the active Runtime.
 
-The first updater release (`v0.1.0`) used the GitHub REST API. On a host where
-an HTTP proxy exhausts or rejects that API's anonymous quota, use this one-time
+Updater releases before `v0.1.2` used the GitHub REST API. On a host where an
+HTTP proxy exhausts or rejects that API's anonymous quota, use this one-time
 bootstrap recovery to run the same owner commands directly:
 
 ```bash
@@ -190,7 +190,7 @@ env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY openhalo update --check
 env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY openhalo update
 ```
 
-Later updater releases use the static asset route above, so their normal
+Version `v0.1.2` and later use the static asset route above, so their normal
 `openhalo update` path does not depend on that REST API quota.
 
 Restore the previously selected program release explicitly with:
