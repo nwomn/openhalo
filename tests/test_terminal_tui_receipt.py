@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import queue
 import unittest
 
@@ -38,7 +39,55 @@ def test_receipt_widget_shows_compact_line_then_expanded_safe_timeline() -> None
     assert "10:42" in str(widget.render())
 
 
+def test_terminal_surface_restoration_clears_a_tty_after_textual_exits() -> None:
+    from device_edge.cli.terminal_tui import restore_terminal_surface
+
+    class TtyOutput(io.StringIO):
+        def isatty(self) -> bool:
+            return True
+
+    output = TtyOutput()
+
+    restore_terminal_surface(output)
+
+    assert output.getvalue() == "\x1b[0m\x1b[?25h\x1b[2J\x1b[H"
+
+
 class TerminalTuiReceiptTests(unittest.IsolatedAsyncioTestCase):
+    async def test_terminal_app_renders_a_quiet_edge_identity_and_connection_header(
+        self,
+    ) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            audience="ws://127.0.0.1:8765",
+        )
+        daemon.connection_state = "connected"
+        app = TerminalEdgeApp(
+            daemon=daemon,
+            input_queue=queue.Queue(),
+            input_state_queue=queue.Queue(),
+            transcript_queue=queue.Queue(),
+        )
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            title = app.query_one("#edge-title", Static)
+            context = app.query_one("#edge-context", Static)
+            connection = app.query_one("#connection-status", Static)
+
+            self.assertEqual(str(title.content), "OpenHalo")
+            self.assertIn("Terminal Edge", str(context.content))
+            self.assertEqual(str(connection.content), "● Connected")
+
+    def test_transcript_lines_use_product_speakers_not_protocol_prefixes(self) -> None:
+        user_line = TerminalEdgeApp._format_transcript_line("[user] Send the note")
+        runtime_line = TerminalEdgeApp._format_transcript_line("[runtime] Note sent")
+
+        self.assertIn("You", str(user_line))
+        self.assertIn("OpenHalo", str(runtime_line))
+        self.assertNotIn("[user]", str(user_line))
+        self.assertNotIn("[runtime]", str(runtime_line))
+
     async def test_terminal_app_mounts_and_toggles_a_safe_receipt(self) -> None:
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
@@ -198,6 +247,24 @@ class TerminalTuiReceiptTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertLessEqual(len(app.build_status_text(max_width=42)), 42)
+
+    async def test_terminal_app_keeps_composer_help_within_a_narrow_terminal(self) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            audience="ws://127.0.0.1:8765",
+        )
+        app = TerminalEdgeApp(
+            daemon=daemon,
+            input_queue=queue.Queue(),
+            input_state_queue=queue.Queue(),
+            transcript_queue=queue.Queue(),
+        )
+
+        help_text = app.build_help_text(max_width=60)
+
+        self.assertLessEqual(len(help_text), 60)
+        self.assertIn("Enter", help_text)
+        self.assertIn("Tab", help_text)
 
     async def test_terminal_app_completes_local_commands_and_navigates_input_history(
         self,

@@ -9,6 +9,7 @@ import json
 import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 import websockets
 
@@ -38,6 +39,10 @@ def build_parser() -> argparse.ArgumentParser:
         version=format_cli_version("openhalo-edge"),
         help="Show the installed OpenHalo Terminal Edge version.",
     )
+    parser.add_argument(
+        "--home",
+        help="OpenHalo home holding this terminal's paired configuration.",
+    )
     subparsers = parser.add_subparsers(dest="command")
     setup = subparsers.add_parser("setup", help="Pair this terminal with a Runtime.")
     setup.add_argument("--url", required=True, help="Runtime WebSocket URL.")
@@ -58,7 +63,11 @@ def main(
     terminal_main: Callable[[list[str]], None] = terminal_daemon_main,
 ) -> int:
     args = build_parser().parse_args(argv)
-    personal_home = home or PersonalHome.from_environment()
+    personal_home = home or (
+        PersonalHome(Path(args.home))
+        if args.home
+        else PersonalHome.from_environment()
+    )
     if args.command == "setup":
         validate_runtime_endpoint(args.url)
         device_id = args.device_id or f"terminal-edge-{secrets.token_hex(4)}"

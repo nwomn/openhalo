@@ -550,6 +550,37 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
         self.assertEqual(stream.readline(), "hello runtime\n")
         self.assertEqual(stream.readline(), "")
 
+    def test_input_state_drain_keeps_only_the_latest_draft_snapshot(self) -> None:
+        input_state_queue: queue.Queue[dict] = queue.Queue()
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            input_state_stream=input_state_queue,
+        )
+        input_state_queue.put({"state": "draft_nonempty", "draft_length": 1})
+        input_state_queue.put({"state": "draft_nonempty", "draft_length": 2})
+        input_state_queue.put({"state": "draft_nonempty", "draft_length": 3})
+
+        frames = daemon._drain_input_state_frames()
+
+        self.assertEqual(len(frames), 1)
+        self.assertEqual(
+            frames[0]["payload"]["observations"],
+            [
+                {
+                    "name": "terminal.input_state",
+                    "value": "draft_nonempty",
+                    "observed_at": mock.ANY,
+                    "confidence": 1.0,
+                },
+                {
+                    "name": "terminal.input_draft_length",
+                    "value": 3,
+                    "observed_at": mock.ANY,
+                    "confidence": 1.0,
+                },
+            ],
+        )
+
     def test_queue_output_stream_emits_completed_transcript_lines(self) -> None:
         from device_edge.cli.terminal_tui import QueueLineOutput
 
@@ -647,7 +678,7 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
 
 
 class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
-    async def test_textual_terminal_app_exposes_status_transcript_and_input_widgets(
+    async def test_textual_terminal_app_exposes_quiet_edge_header_transcript_and_composer(
         self,
     ) -> None:
         from device_edge.cli.terminal_tui import TerminalEdgeApp
@@ -664,14 +695,16 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
 
         async with app.run_test() as pilot:
             await pilot.pause()
-            self.assertIsNotNone(app.query_one("#status-bar", Static))
+            self.assertIsNotNone(app.query_one("#edge-title", Static))
+            self.assertIsNotNone(app.query_one("#edge-context", Static))
+            self.assertIsNotNone(app.query_one("#connection-status", Static))
             self.assertIsNotNone(app.query_one("#transcript-log", VerticalScroll))
             input_widget = app.query_one("#command-input", Input)
             self.assertIn("/help", input_widget.placeholder)
             help_bar = app.query_one("#help-bar", Static)
             self.assertIn("/quit", str(help_bar.content))
 
-    async def test_textual_terminal_app_renders_live_daemon_status_summary(
+    async def test_textual_terminal_app_renders_live_connection_state(
         self,
     ) -> None:
         from device_edge.cli.terminal_tui import TerminalEdgeApp
@@ -691,9 +724,8 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
 
         async with app.run_test() as pilot:
             await pilot.pause()
-            status_bar = app.query_one("#status-bar", Static)
-            self.assertIn("connected", str(status_bar.content))
-            self.assertIn("waiting", str(status_bar.content))
+            connection_status = app.query_one("#connection-status", Static)
+            self.assertEqual(str(connection_status.content), "● Connected")
 
     async def test_textual_terminal_app_drains_transcript_queue_into_log(self) -> None:
         from device_edge.cli.terminal_tui import TerminalEdgeApp

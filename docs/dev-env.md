@@ -627,9 +627,13 @@ OPENHALO_DEV_RUNTIME_HOST=127.0.0.1 bin/run-runtime-dev
 Preferred full-screen TUI mode:
 
 ```bash
-export OPENHALO_HOME="$PWD/.runtime/terminal-edge-dev-home"
-.venv/bin/python -m openhalo.edge_cli run
+EDGE_HOME="$PWD/.runtime/terminal-edge-dev-home"
+.venv/bin/python -m openhalo.edge_cli --home "$EDGE_HOME" run
 ```
+
+Use the same `EDGE_HOME` value when opening the paired Terminal Edge from a
+new shell. Pairing codes are one-time only, so a configured home is resumed
+with `openhalo.edge_cli --home "$EDGE_HOME" run`, not paired again.
 
 The new `--tui` mode uses a Textual full-screen UI as the preferred resident terminal surface. The first MVP intentionally keeps the same daemon/runtime protocol path while replacing the plain log stream with a fixed layout:
 
@@ -644,8 +648,8 @@ The TUI draft-input signal is also part of the idle-sensing behavior: a nonempty
 Use the older non-TUI foreground command as the compatibility fallback when you need a plain line-oriented terminal session or when diagnosing UI-specific problems:
 
 ```bash
-export OPENHALO_HOME="$PWD/.runtime/terminal-edge-dev-home"
-.venv/bin/python -m openhalo.edge_cli run --line-mode
+EDGE_HOME="$PWD/.runtime/terminal-edge-dev-home"
+.venv/bin/python -m openhalo.edge_cli --home "$EDGE_HOME" run --line-mode
 ```
 
 Type a line and press Enter to send a normal `text.input` event. Leave the terminal idle to let the daemon emit an idle observation. The bounded `bin/verify-terminal-edge` flow remains the preferred acceptance script when you want a repeatable proof run instead of manual `stdin` interaction.

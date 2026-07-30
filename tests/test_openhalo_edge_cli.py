@@ -121,6 +121,38 @@ def test_default_launch_uses_persisted_public_identity_without_printing_secrets(
     assert "private" not in output.getvalue()
 
 
+def test_explicit_home_reuses_a_paired_terminal_from_a_new_shell() -> None:
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "terminal-edge-home")
+        home.configure_terminal_edge(
+            url="wss://runtime.example.test/openhalo/edge",
+            device_id="terminal-edge-9",
+            display_name="Maya's Terminal",
+            public_key_fingerprint="sha256:terminal-public-key",
+        )
+        launched: list[list[str]] = []
+
+        exit_code = main(
+            ["--home", str(home.root), "run"],
+            terminal_main=lambda argv: launched.append(argv),
+        )
+
+    assert exit_code == 0
+    assert launched == [
+        [
+            "--url",
+            "wss://runtime.example.test/openhalo/edge",
+            "--device-id",
+            "terminal-edge-9",
+            "--display-name",
+            "Maya's Terminal",
+            "--home",
+            str(home.root),
+            "--tui",
+        ]
+    ]
+
+
 def test_pair_terminal_edge_exchanges_the_one_time_code_with_the_real_gateway() -> None:
     async def scenario() -> None:
         with TemporaryDirectory() as directory:

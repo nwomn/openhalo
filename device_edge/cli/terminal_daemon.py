@@ -150,7 +150,7 @@ class TerminalEdgeDaemon:
     def _drain_input_state_frames(self) -> list[dict]:
         if self.input_state_stream is None:
             return []
-        frames: list[dict] = []
+        latest_state_payload: dict | None = None
         while True:
             try:
                 state_payload = self.input_state_stream.get_nowait()
@@ -158,33 +158,36 @@ class TerminalEdgeDaemon:
                 break
             if not isinstance(state_payload, dict):
                 continue
-            observed_at = state_payload.get("observed_at") or self._next_observed_at()
-            observations = [
+            latest_state_payload = state_payload
+        if latest_state_payload is None:
+            return []
+
+        observed_at = latest_state_payload.get("observed_at") or self._next_observed_at()
+        observations = [
+            {
+                "name": "terminal.input_state",
+                "value": latest_state_payload.get("state", "draft_empty"),
+                "observed_at": observed_at,
+                "confidence": 1.0,
+            }
+        ]
+        if "draft_length" in latest_state_payload:
+            observations.append(
                 {
-                    "name": "terminal.input_state",
-                    "value": state_payload.get("state", "draft_empty"),
+                    "name": "terminal.input_draft_length",
+                    "value": latest_state_payload["draft_length"],
                     "observed_at": observed_at,
                     "confidence": 1.0,
                 }
-            ]
-            if "draft_length" in state_payload:
-                observations.append(
-                    {
-                        "name": "terminal.input_draft_length",
-                        "value": state_payload["draft_length"],
-                        "observed_at": observed_at,
-                        "confidence": 1.0,
-                    }
-                )
-            frames.append(
-                {
-                    "type": "event_push",
-                    "device_id": self.client.device_id,
-                    "capability": "terminal.context",
-                    "payload": {"observations": observations},
-                }
             )
-        return frames
+        return [
+            {
+                "type": "event_push",
+                "device_id": self.client.device_id,
+                "capability": "terminal.context",
+                "payload": {"observations": observations},
+            }
+        ]
 
     async def _wait_for_input_state_frames(self) -> list[dict]:
         while True:

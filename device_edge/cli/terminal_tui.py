@@ -7,12 +7,14 @@ from collections import deque
 from contextlib import suppress
 import queue
 from queue import Empty
+import sys
 import threading
 from typing import Callable
 
 from rich.text import Text
 from textual.app import App
 from textual.app import ComposeResult
+from textual.containers import Horizontal
 from textual.containers import Vertical
 from textual.containers import VerticalScroll
 from textual.css.query import NoMatches
@@ -21,6 +23,16 @@ from textual.widgets import Static
 
 from device_edge.cli.presentation import OutcomeReceipt
 from device_edge.cli.presentation import toggle_receipt
+
+
+def restore_terminal_surface(output_stream=None) -> None:
+    """Leave a clean visible terminal surface after Textual returns control."""
+
+    stream = output_stream or sys.stdout
+    if not stream.isatty():
+        return
+    stream.write("\x1b[0m\x1b[?25h\x1b[2J\x1b[H")
+    stream.flush()
 
 
 class QueueLineInput:
@@ -114,8 +126,8 @@ class TerminalEdgeApp(App[None]):
 
     CSS = """
     Screen {
-        background: #151615;
-        color: #e4e5df;
+        background: #10130f;
+        color: #e8ebe4;
     }
 
     #frame {
@@ -123,61 +135,104 @@ class TerminalEdgeApp(App[None]):
         layout: vertical;
     }
 
-    #title-bar {
+    #app-header {
+        height: 4;
+        padding: 0 2;
+        background: #1a2019;
+        border-bottom: solid #323c30;
+    }
+
+    #header-copy {
+        width: 1fr;
+        height: 4;
+        padding: 1 0;
+    }
+
+    #edge-title {
         height: 1;
-        padding: 0 1;
-        background: #252824;
-        color: #e4e5df;
+        color: #f1f5ed;
         text-style: bold;
     }
 
-    #status-bar {
+    #edge-context {
         height: 1;
-        padding: 0 1;
-        background: #1c1e1b;
-        color: #aeb6a8;
+        color: #9da99a;
+    }
+
+    #connection-status {
+        width: auto;
+        min-width: 15;
+        height: 4;
+        color: #8ed5a0;
+        content-align: center middle;
+        text-style: bold;
     }
 
     #transcript-log {
         height: 1fr;
-        background: #151615;
+        background: #10130f;
         border: none;
-        padding: 0 1;
+        padding: 1 2;
+        scrollbar-color: #3a4638;
+        scrollbar-color-hover: #5d7258;
     }
 
     #active-progress {
         height: 1;
-        padding: 0 1;
-        background: #1a1c19;
-        color: #a9cbe0;
+        padding: 0 2;
+        background: #151b15;
+        color: #abc8b1;
     }
 
     OutcomeReceiptWidget {
         width: 100%;
+        margin: 1 0 0 0;
         padding: 0 1;
-        color: #c8d8c3;
+        border-left: tall #618a6a;
+        background: #151b15;
+        color: #d4e1d0;
     }
 
     OutcomeReceiptWidget:focus {
-        background: #2a3128;
+        border-left: tall #a6d9a9;
+        background: #202a20;
     }
 
     .transcript-line {
         width: 100%;
         height: auto;
+        margin: 0 0 1 0;
         padding: 0 1;
     }
 
+    #composer-shell {
+        height: 5;
+        padding: 0 2;
+        background: #151a14;
+        border-top: solid #2d372c;
+    }
+
+    #composer-label {
+        height: 1;
+        color: #9da99a;
+    }
+
     #command-input {
-        margin: 1 0 0 0;
-        border: tall #5e715f;
-        background: #1a1c19;
+        height: 3;
+        border: tall #52694f;
+        background: #1b211a;
+        color: #edf2e9;
+    }
+
+    #command-input:focus {
+        border: tall #91c497;
     }
 
     #help-bar {
         height: 1;
-        padding: 0 1;
-        color: #949b90;
+        padding: 0 2;
+        background: #151a14;
+        color: #899687;
     }
     """
 
@@ -209,27 +264,44 @@ class TerminalEdgeApp(App[None]):
 
     def compose(self) -> ComposeResult:
         yield Vertical(
-            Static(" OpenHalo  Terminal Edge", id="title-bar"),
-            Static("", id="status-bar"),
+            Horizontal(
+                Vertical(
+                    Static("OpenHalo", id="edge-title"),
+                    Static(self._edge_context_text(), id="edge-context"),
+                    id="header-copy",
+                ),
+                Static("", id="connection-status"),
+                id="app-header",
+            ),
             VerticalScroll(id="transcript-log"),
             Static("", id="active-progress"),
-            Input(
-                placeholder="Message runtime or use /help /status /history /quit",
-                id="command-input",
+            Vertical(
+                Static("Message OpenHalo", id="composer-label"),
+                Input(
+                    placeholder="Write a message or use /help",
+                    id="command-input",
+                ),
+                id="composer-shell",
             ),
-            Static("/help /status /history /quit", id="help-bar"),
+            Static(self.build_help_text(), id="help-bar"),
             id="frame",
         )
+
+    def _edge_context_text(self) -> str:
+        display_name = self.daemon.client.session_link.display_name
+        return f"Terminal Edge · {display_name}"
 
     def on_mount(self) -> None:
         composer = self.query_one("#command-input", Input)
         composer.value = self.daemon.presentation.draft
         composer.focus()
         self._refresh_status_bar()
+        self._refresh_help_bar()
         self._refresh_active_progress()
         self._drain_transcript_queue()
         self.set_interval(0.1, self._drain_transcript_queue)
         self.set_interval(0.1, self._refresh_status_bar)
+        self.set_interval(0.1, self._refresh_help_bar)
         self.set_interval(0.1, self._refresh_active_progress)
         if self.start_session is not None:
             self.session_thread = threading.Thread(
@@ -334,38 +406,35 @@ class TerminalEdgeApp(App[None]):
         self.input_queue.put("/quit")
 
     def build_status_text(self, max_width: int | None = None) -> str:
-        pending_flag = "waiting" if self.daemon.pending_runtime_reply else "ready"
-        full_text = (
-            f"device={self.daemon.client.device_id} "
-            f"connection={self.daemon.connection_state} "
-            f"activity={self.daemon.terminal_activity_state} "
-            f"state={pending_flag} "
-            f"user={self.daemon.user_request_count} "
-            f"runtime={self.daemon.runtime_message_count} "
-            f"local={self.daemon.local_command_count}"
+        labels = {
+            "connected": "Connected",
+            "connecting": "Connecting",
+            "retrying": "Reconnecting",
+            "disconnected": "Offline",
+            "failed": "Needs attention",
+        }
+        text = f"● {labels.get(self.daemon.connection_state, 'Connecting')}"
+        if max_width is None or max_width <= 0 or len(text) <= max_width:
+            return text
+        return text[:max_width]
+
+    @staticmethod
+    def build_help_text(max_width: int | None = None) -> str:
+        options = (
+            "Enter to send · ↑↓ history · Tab commands/receipt · /help · /quit",
+            "Enter to send · ↑↓ history · Tab commands · /quit",
+            "Enter to send · Tab commands",
         )
-        if max_width is None or max_width <= 0 or len(full_text) <= max_width:
-            return full_text
-        suffix = (
-            f" | {self.daemon.connection_state}"
-            f" | {self.daemon.terminal_activity_state}"
-            f" | {pending_flag}"
+        if max_width is None or max_width <= 0:
+            return options[0]
+        return next(
+            (option for option in options if len(option) <= max_width),
+            options[-1][:max_width],
         )
-        device_space = max_width - len(suffix)
-        if device_space <= 0:
-            return suffix[-max_width:]
-        device_id = self.daemon.client.device_id
-        if len(device_id) > device_space:
-            device_id = (
-                f"{device_id[: max(device_space - 3, 0)]}..."
-                if device_space > 3
-                else device_id[:device_space]
-            )
-        return f"{device_id}{suffix}"
 
     def _refresh_status_bar(self) -> None:
         try:
-            status_bar = self.query_one("#status-bar", Static)
+            status_bar = self.query_one("#connection-status", Static)
         except NoMatches:
             return
         status_bar.update(
@@ -380,6 +449,13 @@ class TerminalEdgeApp(App[None]):
             and self.daemon.quit_requested
         ):
             self.exit()
+
+    def _refresh_help_bar(self) -> None:
+        try:
+            help_bar = self.query_one("#help-bar", Static)
+        except NoMatches:
+            return
+        help_bar.update(self.build_help_text(max_width=help_bar.size.width or None))
 
     def _drain_transcript_queue(self) -> None:
         try:
@@ -404,7 +480,7 @@ class TerminalEdgeApp(App[None]):
             return
         phase = next(reversed(self.daemon.presentation.active_progress.values()), None)
         message = self.daemon.progress_messages.get(phase, "")
-        active_progress.update(message)
+        active_progress.update(f"◇ {message}" if message else "")
 
     def _mount_transcript_line(self, transcript: VerticalScroll, line: str) -> None:
         widget = Static(
@@ -459,11 +535,20 @@ class TerminalEdgeApp(App[None]):
     @staticmethod
     def _format_transcript_line(line: str) -> Text:
         if line.startswith("[system]"):
-            return Text(line, style="bold #82cfff")
+            return Text.assemble(
+                ("System  ", "bold #8da9c5"),
+                (line.removeprefix("[system]").strip(), "#aeb9c4"),
+            )
         if line.startswith("[user]"):
-            return Text(line, style="bold #7be0ad")
+            return Text.assemble(
+                ("You  ", "bold #9fddb0"),
+                (line.removeprefix("[user]").strip(), "#e2eee1"),
+            )
         if line.startswith("[runtime]"):
-            return Text(line, style="bold #ffd27f")
+            return Text.assemble(
+                ("OpenHalo  ", "bold #d7c18e"),
+                (line.removeprefix("[runtime]").strip(), "#edf0e8"),
+            )
         return Text(line, style="#d8e0ea")
 
 
@@ -558,7 +643,10 @@ def run_textual_terminal_daemon(
         scripted_inputs=scripted_inputs,
         diagnostic_recorder=diagnostic_recorder,
     )
-    app.run()
+    try:
+        app.run()
+    finally:
+        restore_terminal_surface()
 
 
 __all__ = [
@@ -566,5 +654,6 @@ __all__ = [
     "QueueLineOutput",
     "TerminalEdgeApp",
     "create_textual_terminal_app",
+    "restore_terminal_surface",
     "run_textual_terminal_daemon",
 ]

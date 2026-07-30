@@ -26,43 +26,40 @@ Create a one-time development pairing code:
 Pair and launch the full-screen Terminal Edge with an isolated local home:
 
 ```bash
-export OPENHALO_HOME="$PWD/.runtime/terminal-tui-dev-home"
-.venv/bin/python -m openhalo.edge_cli setup \
+EDGE_HOME="$PWD/.runtime/terminal-tui-dev-home"
+.venv/bin/python -m openhalo.edge_cli --home "$EDGE_HOME" setup \
   --url ws://127.0.0.1:18765 \
   --pairing-code <one-time-code> \
   --display-name "Terminal TUI Dev"
-.venv/bin/python -m openhalo.edge_cli run
+.venv/bin/python -m openhalo.edge_cli --home "$EDGE_HOME" run
 ```
 
-For the line-oriented fallback, run `.venv/bin/python -m openhalo.edge_cli run --line-mode` with the same `OPENHALO_HOME`.
+The pairing code is consumed after this successful setup. To return in a new
+terminal, set `EDGE_HOME` to this same path and run
+`.venv/bin/python -m openhalo.edge_cli --home "$EDGE_HOME" run`; do not run
+`setup` again. For the line-oriented fallback, append `--line-mode` to that
+same command.
 
 ## Layout
 
-The current MVP layout is intentionally small and stable:
+The Quiet Edge layout is intentionally small and stable:
 
-- title bar: fixed app identity for the resident terminal surface
-- status bar: live connection, activity, pending state, and session counters
-- transcript pane: scrollable `[system]`, `[user]`, and `[runtime]` session history
-- input box: normal user text entry plus local slash commands
-- help bar: always-visible reminder of local command affordances
+- connection header: fixed OpenHalo identity, local Terminal Edge name, and a readable connection state
+- transcript pane: scrollable `System`, `You`, and `OpenHalo` conversation treatment rather than protocol-style prefixes
+- activity row: one safe live progress message for the active interaction
+- receipt: a compact, focusable settled outcome that expands locally into its safe public timeline
+- Composer: fixed message input plus local slash commands and width-adaptive keyboard help
 
 The transcript pane is the only area that should keep growing during use. The input box should remain visible while the session stays active.
 
-## Status Bar
+## Connection Header
 
-The status bar is the primary at-a-glance session summary.
-
-Current fields:
-
-- `device`: active terminal edge device id
-- `connection`: current websocket session state
-- `activity`: latest terminal activity state sent on the runtime path
-- `state`: `waiting` when a runtime reply is pending, otherwise `ready`
-- `user`: number of forwarded normal user requests
-- `runtime`: number of runtime-delivered messages rendered locally
-- `local`: number of edge-local slash commands handled without forwarding
-
-This status surface is edge-local UI state. It should help a foreground operator understand what the resident edge is doing without inspecting persisted runtime state by hand.
+The header is the primary at-a-glance session summary. It displays only the
+OpenHalo identity, the local Terminal Edge display name, and a readable state:
+`Connected`, `Connecting`, `Reconnecting`, `Offline`, or `Needs attention`.
+It intentionally omits runtime counters and implementation diagnostics. Those
+remain available through edge-local commands and diagnostics rather than
+competing with the foreground conversation.
 
 ## Local Commands
 
@@ -83,7 +80,7 @@ Current behavior:
 ## Interaction Rules
 
 - Normal text is sent through the existing runtime path and should still receive normal runtime replies.
-- Runtime-pushed messages should appear in the transcript with the `[runtime]` prefix.
+- Runtime-pushed messages should appear under the `OpenHalo` speaker label.
 - Repeated explicit user input should continue working in one resident session.
 - Presence cooldown logic is for runtime-initiated interruption, not for suppressing the user's own back-to-back requests.
 
@@ -128,25 +125,25 @@ OPENHALO_DEV_RUNTIME_HOST=127.0.0.1 bin/run-runtime-dev
 ```bash
 .venv/bin/python -m personal_runtime.pairing_cli create \
   --store .runtime/android-openai-dev-pairing.json
-export OPENHALO_HOME="$PWD/.runtime/terminal-tui-dev-home"
-.venv/bin/python -m openhalo.edge_cli setup \
+EDGE_HOME="$PWD/.runtime/terminal-tui-dev-home"
+.venv/bin/python -m openhalo.edge_cli --home "$EDGE_HOME" setup \
   --url ws://127.0.0.1:18765 \
   --pairing-code <one-time-code> \
   --display-name "Terminal TUI Dev"
-.venv/bin/python -m openhalo.edge_cli run
+.venv/bin/python -m openhalo.edge_cli --home "$EDGE_HOME" run
 ```
 
-3. Wait for the TUI to connect and confirm the full-screen layout appears with a visible status bar, transcript pane, input box, and help bar.
+3. Wait for the TUI to connect and confirm the Quiet Edge header, semantic transcript pane, active-progress row, fixed Composer, and keyboard help appear.
 4. Type `hello runtime` and press Enter.
-   Expectation: the transcript shows a `[user] hello runtime` line followed by one real `[runtime] ...` reply line rather than only echoing the user text or going silent.
+   Expectation: the transcript shows a `You` line followed by one real `OpenHalo` reply rather than only echoing the user text or going silent.
 5. Type `check runtime status` and press Enter.
    Expectation: the transcript shows the user line and then a runtime-delivered status response on the same resident session.
 6. Type `/status`.
    Expectation: the transcript updates locally with a readable session summary and no extra runtime request is created.
 7. Type `/history`.
-   Expectation: the transcript reprints recent `[system]`, `[user]`, and `[runtime]` lines from the same session.
+   Expectation: the transcript reprints recent `System`, `You`, and `OpenHalo` lines from the same session.
 8. Type `/quit`.
-   Expectation: the TUI exits cleanly back to the shell without a reconnect loop.
+   Expectation: the TUI exits cleanly back to a clear shell surface without a reconnect loop or residual UI pixels.
 
 ### Compact input sequence
 
