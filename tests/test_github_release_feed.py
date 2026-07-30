@@ -6,24 +6,15 @@ from openhalo.release_manager import GitHubReleaseFeed
 
 
 def test_latest_resolves_matching_verified_github_release_assets() -> None:
-    api_url = "https://api.github.com/repos/nwomn/openhalo/releases/latest"
-    manifest_url = "https://github.com/nwomn/openhalo/releases/download/v0.22.0/release-manifest.json"
+    latest_manifest_url = (
+        "https://github.com/nwomn/openhalo/releases/latest/download/release-manifest.json"
+    )
     checksum_url = "https://github.com/nwomn/openhalo/releases/download/v0.22.0/SHA256SUMS"
     archive_url = "https://github.com/nwomn/openhalo/releases/download/v0.22.0/openhalo-v0.22.0.tar.gz"
     commit = "a" * 40
     digest = "b" * 64
     documents = {
-        api_url: {
-            "tag_name": "v0.22.0",
-            "draft": False,
-            "prerelease": False,
-            "assets": [
-                {"name": "release-manifest.json", "browser_download_url": manifest_url},
-                {"name": "SHA256SUMS", "browser_download_url": checksum_url},
-                {"name": "openhalo-v0.22.0.tar.gz", "browser_download_url": archive_url},
-            ],
-        },
-        manifest_url: {
+        latest_manifest_url: {
             "version": "0.22.0",
             "tag": "v0.22.0",
             "commit": commit,
@@ -54,50 +45,45 @@ def test_latest_resolves_matching_verified_github_release_assets() -> None:
 
 
 def test_latest_rejects_a_manifest_that_is_not_an_object() -> None:
-    api_url = "https://api.github.com/repos/nwomn/openhalo/releases/latest"
-    manifest_url = "https://github.com/nwomn/openhalo/releases/download/v0.22.0/release-manifest.json"
-    checksum_url = "https://github.com/nwomn/openhalo/releases/download/v0.22.0/SHA256SUMS"
-    archive_url = "https://github.com/nwomn/openhalo/releases/download/v0.22.0/openhalo-v0.22.0.tar.gz"
-    documents = {
-        api_url: {
-            "tag_name": "v0.22.0",
-            "draft": False,
-            "prerelease": False,
-            "assets": [
-                {"name": "release-manifest.json", "browser_download_url": manifest_url},
-                {"name": "SHA256SUMS", "browser_download_url": checksum_url},
-                {"name": "openhalo-v0.22.0.tar.gz", "browser_download_url": archive_url},
-            ],
-        },
-        manifest_url: [],
-    }
+    latest_manifest_url = (
+        "https://github.com/nwomn/openhalo/releases/latest/download/release-manifest.json"
+    )
 
     with pytest.raises(ValueError, match="manifest must be an object"):
         GitHubReleaseFeed(
             "nwomn/openhalo",
-            download_json=lambda url: documents[url],
+            download_json=lambda url: [] if url == latest_manifest_url else None,
             download_text=lambda url: f"{'b' * 64}  openhalo-v0.22.0.tar.gz\n",
         ).latest()
 
 
+def test_latest_requires_a_manifest_archive_name() -> None:
+    latest_manifest_url = (
+        "https://github.com/nwomn/openhalo/releases/latest/download/release-manifest.json"
+    )
+    manifest = {
+        "version": "0.22.0",
+        "tag": "v0.22.0",
+        "commit": "a" * 40,
+        "archive_url": "https://example.invalid/openhalo-v0.22.0.tar.gz",
+        "sha256": "b" * 64,
+    }
+
+    with pytest.raises(ValueError, match="requires an archive name"):
+        GitHubReleaseFeed(
+            "nwomn/openhalo",
+            download_json=lambda url: manifest if url == latest_manifest_url else None,
+        ).latest()
+
+
 def test_latest_rejects_ambiguous_checksum_entries() -> None:
-    api_url = "https://api.github.com/repos/nwomn/openhalo/releases/latest"
-    manifest_url = "https://github.com/nwomn/openhalo/releases/download/v0.22.0/release-manifest.json"
+    latest_manifest_url = (
+        "https://github.com/nwomn/openhalo/releases/latest/download/release-manifest.json"
+    )
     checksum_url = "https://github.com/nwomn/openhalo/releases/download/v0.22.0/SHA256SUMS"
-    archive_url = "https://github.com/nwomn/openhalo/releases/download/v0.22.0/openhalo-v0.22.0.tar.gz"
     digest = "b" * 64
     documents = {
-        api_url: {
-            "tag_name": "v0.22.0",
-            "draft": False,
-            "prerelease": False,
-            "assets": [
-                {"name": "release-manifest.json", "browser_download_url": manifest_url},
-                {"name": "SHA256SUMS", "browser_download_url": checksum_url},
-                {"name": "openhalo-v0.22.0.tar.gz", "browser_download_url": archive_url},
-            ],
-        },
-        manifest_url: {
+        latest_manifest_url: {
             "version": "0.22.0",
             "tag": "v0.22.0",
             "commit": "a" * 40,

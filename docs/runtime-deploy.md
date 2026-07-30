@@ -162,9 +162,11 @@ openhalo update --check
 openhalo update
 ```
 
-`update --check` reads the latest published non-prerelease GitHub Release for
-`nwomn/openhalo` and reports whether its exact commit differs from the active
-release. `update` accepts a Release only when it contains all three assets:
+`update --check` reads `release-manifest.json` through GitHub's canonical
+latest-Release asset route for `nwomn/openhalo`, then reports whether its exact
+commit differs from the active release. This avoids GitHub's rate-limited REST
+API, while GitHub continues to select the latest published non-prerelease
+Release. `update` accepts a Release only when it contains all three assets:
 
 - `openhalo-<tag>.tar.gz`
 - `release-manifest.json`
@@ -178,6 +180,18 @@ the old process, switches the `current` link atomically, and waits for the
 candidate Gateway ready marker. If that start fails, it switches back to the
 prior release and restarts the old Runtime. A failed download or staging step
 does not stop the active Runtime.
+
+The first updater release (`v0.1.0`) used the GitHub REST API. On a host where
+an HTTP proxy exhausts or rejects that API's anonymous quota, use this one-time
+bootstrap recovery to run the same owner commands directly:
+
+```bash
+env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY openhalo update --check
+env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY openhalo update
+```
+
+Later updater releases use the static asset route above, so their normal
+`openhalo update` path does not depend on that REST API quota.
 
 Restore the previously selected program release explicitly with:
 

@@ -15,6 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from pathlib import PurePosixPath
+from urllib.parse import quote
 from urllib.parse import urlparse
 from urllib.request import Request
 from urllib.request import urlopen
@@ -75,7 +76,7 @@ class ReleaseManifest:
 
 
 class GitHubReleaseFeed:
-    """Resolve one complete immutable Runtime release from GitHub Releases."""
+    """Resolve one complete immutable Runtime release from GitHub Release assets."""
 
     def __init__(
         self,
@@ -91,62 +92,39 @@ class GitHubReleaseFeed:
         self._download_text = download_text or _download_text
 
     def latest(self) -> ReleaseManifest:
-        release = self._download_json(
-            f"https://api.github.com/repos/{self.repository}/releases/latest"
+        manifest = ReleaseManifest.from_dict(
+            self._download_json(self._latest_asset_url("release-manifest.json"))
         )
-        if not isinstance(release, dict):
-            raise ValueError("GitHub Release response must be an object")
-        if release.get("draft") or release.get("prerelease"):
-            raise ValueError("GitHub Release must be a published stable release")
-        tag = release.get("tag_name")
-        if not isinstance(tag, str) or not tag:
-            raise ValueError("GitHub Release has no tag name")
-
-        assets = _release_assets(release.get("assets"))
-        manifest_url = _required_asset_url(assets, "release-manifest.json")
-        checksums_url = _required_asset_url(assets, "SHA256SUMS")
-        manifest = ReleaseManifest.from_dict(self._download_json(manifest_url))
-        if manifest.tag != tag:
-            raise ValueError("release manifest tag does not match GitHub Release")
-        assert manifest.archive_name is not None
-        archive_url = _required_asset_url(assets, manifest.archive_name)
-        expected_checksum = _checksum_for(self._download_text(checksums_url), manifest.archive_name)
+        if manifest.tag is None:
+            raise ValueError("release manifest requires a tag")
+        if manifest.archive_name is None:
+            raise ValueError("release manifest requires an archive name")
+        expected_checksum = _checksum_for(
+            self._download_text(self._release_asset_url(manifest.tag, "SHA256SUMS")),
+            manifest.archive_name,
+        )
         if expected_checksum != manifest.sha256:
             raise ValueError("release manifest checksum does not match SHA256SUMS")
         return ReleaseManifest(
             version=manifest.version,
             commit=manifest.commit,
             sha256=manifest.sha256,
-            archive_url=archive_url,
+            archive_url=self._release_asset_url(manifest.tag, manifest.archive_name),
             tag=manifest.tag,
             archive_name=manifest.archive_name,
         )
 
+    def _latest_asset_url(self, name: str) -> str:
+        return (
+            f"https://github.com/{self.repository}/releases/latest/download/"
+            f"{quote(name, safe='')}"
+        )
 
-def _release_assets(payload: object) -> dict[str, str]:
-    if not isinstance(payload, list):
-        raise ValueError("GitHub Release has no asset list")
-    assets: dict[str, str] = {}
-    for asset in payload:
-        if not isinstance(asset, dict):
-            raise ValueError("GitHub Release asset must be an object")
-        name = asset.get("name")
-        url = asset.get("browser_download_url")
-        if not isinstance(name, str) or not name:
-            raise ValueError("GitHub Release asset has no name")
-        if not isinstance(url, str) or urlparse(url).scheme != "https":
-            raise ValueError("GitHub Release asset URL must use HTTPS")
-        if name in assets:
-            raise ValueError(f"GitHub Release contains duplicate asset: {name}")
-        assets[name] = url
-    return assets
-
-
-def _required_asset_url(assets: dict[str, str], name: str) -> str:
-    try:
-        return assets[name]
-    except KeyError as exc:
-        raise ValueError(f"GitHub Release is missing required asset: {name}") from exc
+    def _release_asset_url(self, tag: str, name: str) -> str:
+        return (
+            f"https://github.com/{self.repository}/releases/download/{quote(tag, safe='')}/"
+            f"{quote(name, safe='')}"
+        )
 
 
 def _checksum_for(contents: str, archive_name: str) -> str:
