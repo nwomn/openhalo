@@ -53,11 +53,10 @@ instead, use:
 openhalo setup --runtime-config /path/to/runtime-config.toml
 ```
 
-The default Runtime bind is `127.0.0.1:8765`. This private loopback port is
-not a remote Edge endpoint. Leave that default in place for a normal server
-deployment; change `--host` or `--port` only for a deliberate local-network or
-development topology. Keep the restart-heavy repository development path on
-`18765`.
+The owner-facing `openhalo setup` default bind is `0.0.0.0:8765`, so a remote
+Edge can use the server's IP address directly. Use `--host 127.0.0.1` only for
+an explicitly local-only Runtime. Keep the restart-heavy repository development
+path on `18765`.
 
 ## Run And Inspect
 
@@ -85,23 +84,24 @@ The detached Runtime survives shell exit while the machine remains up. It is
 not a system service and does not yet start itself again after a machine reboot;
 run `openhalo start` after reboot until per-user restart supervision is added.
 
-## Expose A Remote Edge Endpoint
+## Connect A Remote Edge
 
-For a server Runtime, terminate the public endpoint in a reverse proxy and
-forward WebSocket upgrades to the loopback Runtime. Remote Edges use the proxy
-URL, not `ws://<runtime-host>:8765`:
+The normal direct-IP Edge URL is:
+
+```text
+ws://<server-ip>:8765
+```
+
+No domain or reverse proxy is required. P-256 pairing and signed challenges
+remain mandatory, but `ws://` does not encrypt traffic. An owner may instead
+use a TLS-terminating proxy and a `wss://` URL:
 
 ```text
 wss://<runtime-domain>/openhalo/edge
 ```
 
-For an explicitly trusted test path, the corresponding non-TLS URL is:
-
-```text
-ws://<runtime-host>/openhalo/edge
-```
-
-For example, an nginx location needs the normal WebSocket upgrade forwarding:
+For that optional proxy topology, an nginx location needs normal WebSocket
+upgrade forwarding:
 
 ```nginx
 location /openhalo/edge {
@@ -113,10 +113,9 @@ location /openhalo/edge {
 }
 ```
 
-DNS, TLS certificates, firewall rules, and reverse-proxy provisioning remain
-the server owner's responsibility; `openhalo setup` and the installer do not
-create them. A public endpoint that carries a pairing code or device credential
-must use TLS (`wss://`).
+Firewall rules and optional DNS, TLS certificates, and reverse-proxy
+provisioning remain the server owner's responsibility; `openhalo setup` and the
+installer do not create them.
 
 ## Pair Devices
 
@@ -139,14 +138,13 @@ in the same `~/.openhalo/config.json` home. It does not require entering an IP
 address or token again:
 
 ```bash
-openhalo-edge setup --url wss://<runtime-domain>/openhalo/edge --pairing-code <one-time-code>
+openhalo-edge setup --url ws://<server-ip>:8765 --pairing-code <one-time-code>
 openhalo-edge
 ```
 
-Use a TLS-terminated `wss://` URL when the pairing or device credential crosses
-an untrusted network. Local development and explicitly trusted test paths may
-use `ws://`, but remote connections still go through the proxy path rather than
-the loopback Runtime port.
+Use either complete `ws://` or `wss://` URL. The selected endpoint is persisted
+for that device and must match on reconnect. `wss://` is compatible but never a
+requirement for direct IP pairing.
 
 ## Updating
 

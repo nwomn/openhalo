@@ -15,8 +15,9 @@ itself.
 
 This is an alpha source repository, not a hosted public Runtime. Do not expose
 a bearer-credential Runtime endpoint from these development instructions.
-Public Runtime deployment still requires the tracked TLS/WSS and mobile
-sensitive-screen governance work.
+Owner-paired `ws://` direct-IP and `wss://` endpoints are both supported; the
+former does not encrypt network traffic. Mobile sensitive-screen governance
+remains tracked work.
 
 ## What It Is
 
@@ -118,17 +119,19 @@ manages the colocated Host Edge. `openhalo pair` prints a one-time pairing code
 for the phone or computer Edge; its saved device credential means the Edge does
 not need the code again.
 
-For a remote Edge, configure the server's reverse-proxy URL, for example
-`wss://<runtime-domain>/openhalo/edge`, and enter the pairing code there. The
-Runtime itself stays on `127.0.0.1:8765`; do not point remote Edges at that
-loopback port. A public pairing or device-credential endpoint requires `wss://`.
+`openhalo setup` listens on `0.0.0.0:8765` by default, so a remote Edge can
+normally pair directly to `ws://<server-ip>:8765` without a domain or reverse
+proxy. `wss://<runtime-domain>/openhalo/edge` remains fully supported for an
+owner who wants TLS termination. Pairing, P-256 challenge proofs, and device
+revocation remain required for both transports; `ws://` intentionally does not
+encrypt the network traffic.
 
 To install only the Terminal Edge on another computer:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/nwomn/openhalo/<commit>/scripts/install.sh | bash -s -- --edge-only --ref <commit>
 export PATH="$HOME/.local/bin:$PATH"
-openhalo-edge setup --url wss://<runtime-domain>/openhalo/edge --pairing-code <one-time-code>
+openhalo-edge setup --url ws://<server-ip>:8765 --pairing-code <one-time-code>
 openhalo-edge
 ```
 
@@ -148,6 +151,10 @@ The update stages and verifies the Release archive without changing `~/.openhalo
 For a running Runtime, it starts the candidate only after the old process has
 stopped; if the candidate does not become ready, OpenHalo restores the prior
 program release and Runtime automatically.
+
+An existing installation retains its previous bind configuration across an
+update. To adopt the direct-IP default after updating, run `openhalo stop`,
+`openhalo setup`, and `openhalo start` once.
 
 ## Development Quick Start
 

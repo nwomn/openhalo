@@ -10,7 +10,7 @@ OpenHalo 是一个以存在感治理为中心的个人 Agent Runtime，核心链
 
 ## 项目状态
 
-这是一个 alpha 源码仓库，不是已托管的公网 Runtime。不要按这里的开发指令直接暴露携带 bearer credential 的 Runtime 端点；公网运行时仍需完成已跟踪的 TLS/WSS 和手机敏感屏幕采集治理工作。
+这是一个 alpha 源码仓库，不是已托管的公网 Runtime。不要按这里的开发指令直接暴露携带 bearer credential 的 Runtime 端点；owner 已配对的直连 IP `ws://` 和 `wss://` 都受支持，前者不提供网络传输加密。手机敏感屏幕采集治理仍是已跟踪工作。
 
 ## 这是什么
 
@@ -95,16 +95,17 @@ openhalo pair
 
 安装器把 `openhalo` 放到 `~/.local/bin`，在执行 `setup` 前不创建 Runtime 数据；个人配置、状态和已配对设备凭据都保存在 `~/.openhalo`。若它尚未在 `PATH` 中，请把 `~/.local/bin` 一次性写入登录 shell 配置。`openhalo start` 同时管理同机 Host Edge。`openhalo pair` 会输出一次性配对码，填入手机或电脑 Edge 后，Edge 会保存独立凭据，之后不必再次输入配对码。
 
-远端 Edge 应填写服务器反向代理 URL，例如
-`wss://<runtime-domain>/openhalo/edge`，再填入配对码。Runtime 本身保持监听
-`127.0.0.1:8765`；不要让远端 Edge 直连这个 loopback 端口。公网传输配对码或设备凭据必须使用 `wss://`。
+`openhalo setup` 默认监听 `0.0.0.0:8765`，所以远端 Edge 可直接填写
+`ws://<服务器IP>:8765` 并配对，无需域名或反向代理。`wss://<runtime-domain>/openhalo/edge`
+仍然完全兼容，供希望使用 TLS 终止的 owner 选择。两种连接都必须经过配对、P-256
+challenge proof 与设备撤销机制；`ws://` 有意不提供网络传输加密。
 
 在另一台电脑上只安装 Terminal Edge：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/nwomn/openhalo/<commit>/scripts/install.sh | bash -s -- --edge-only --ref <commit>
 export PATH="$HOME/.local/bin:$PATH"
-openhalo-edge setup --url wss://<runtime-domain>/openhalo/edge --pairing-code <one-time-code>
+openhalo-edge setup --url ws://<服务器IP>:8765 --pairing-code <one-time-code>
 openhalo-edge
 ```
 
@@ -123,6 +124,9 @@ openhalo update
 更新会校验并暂存 Release 归档，不会改写 `~/.openhalo`。对于正在运行的 Runtime，
 旧进程退出后才会启动候选版本；候选版本未达到就绪状态时，OpenHalo 会自动恢复
 此前的程序 release 和 Runtime。
+
+已有安装在更新时会保留原有监听配置。若要在更新后采用直连 IP 的默认监听方式，
+执行一次 `openhalo stop`、`openhalo setup`、`openhalo start` 即可。
 
 ## 开发快速开始
 

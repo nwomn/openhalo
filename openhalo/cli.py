@@ -33,7 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     setup = subparsers.add_parser("setup", help="Create or update personal Runtime configuration.")
-    setup.add_argument("--host", default="127.0.0.1", help="Runtime bind host.")
+    setup.add_argument("--host", default="0.0.0.0", help="Runtime bind host.")
     setup.add_argument("--port", default=8765, type=int, help="Runtime bind port.")
     setup.add_argument(
         "--runtime-config",

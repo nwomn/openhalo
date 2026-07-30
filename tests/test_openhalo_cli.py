@@ -86,6 +86,16 @@ def test_setup_creates_private_runtime_config_without_printing_owner_token() -> 
     assert "replace-with-provider-api-key" in runtime_config
 
 
+def test_setup_defaults_to_a_direct_ip_runtime_bind() -> None:
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+
+        exit_code, output = _run(home, "setup")
+
+    assert exit_code == 0
+    assert json.loads(output) == {"host": "0.0.0.0", "port": 8765, "state": "configured"}
+
+
 def test_pair_devices_and_revoke_use_the_personal_pairing_store_without_leaking_credentials() -> None:
     with TemporaryDirectory() as directory:
         home = PersonalHome(Path(directory) / "home")
