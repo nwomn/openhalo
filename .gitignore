@@ -2,6 +2,8 @@
 /references/hermes-agent/
 __pycache__/
 .pytest_cache/
+/.pytest-cache/
+/devices/
 *.pyc
 .venv/
 .coverage
