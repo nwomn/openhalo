@@ -13,6 +13,7 @@ from device_edge.cli.cli_edge import LocalCliSession
 from device_edge.cli.cli_edge import run_cli_once, run_cli_once_over_websocket
 from device_edge.cli.terminal_daemon import TerminalEdgeDaemon
 from device_edge.host.host_daemon import HostEdgeDaemon
+from device_edge.shared.identity import create_ephemeral_identity
 from openhalo_common.diagnostics import InMemoryDiagnosticRecorder
 import personal_runtime.main as runtime_main
 from personal_runtime.main import build_runtime_server_message
@@ -21,6 +22,9 @@ from personal_runtime.main import run_server
 from personal_runtime.model_provider import ProposalPlan
 from tests.v2_test_support import V2RuntimeGateway as RuntimeGateway
 from tests.v2_test_support import V2SessionClient as SessionClient
+from tests.v2_test_support import authenticate_websocket_edge
+from tests.v2_test_support import build_test_edge
+from tests.v2_test_support import provision_test_edge
 
 ROOT = Path(__file__).resolve().parents[1]
 TEST_LLM_CONFIG = ROOT / "tests" / "fixtures" / "llm-config-test.toml"
@@ -40,38 +44,82 @@ def _latest_non_post_action_proposal(interventions: list[dict]) -> dict:
     )
 
 
+def _build_paired_host_daemon(
+    gateway: RuntimeGateway,
+    *,
+    url: str,
+    runtime_control_adapter,
+    runtime_health_provider,
+) -> HostEdgeDaemon:
+    identity = create_ephemeral_identity()
+    gateway.pairing_store.provision_local_device(
+        device_id="host-edge-1",
+        device_type="server",
+        display_name="Runtime Host",
+        audience=url,
+        public_key=identity.public_key,
+    )
+    return HostEdgeDaemon(
+        device_id="host-edge-1",
+        audience=url,
+        identity=identity,
+        display_name="Runtime Host",
+        runtime_control_adapter=runtime_control_adapter,
+        host_metrics_provider=lambda: {
+            "cpu_load_ratio": 0.31,
+            "memory_used_bytes": 400,
+            "memory_available_bytes": 600,
+            "memory_pressure": "normal",
+            "net_rx_bytes": 10,
+            "net_tx_bytes": 12,
+        },
+        runtime_health_provider=runtime_health_provider,
+    )
+
+
 class RoundtripTests(unittest.IsolatedAsyncioTestCase):
     async def test_m17_1_mobile_style_registration_drives_planner_selection(
         self,
     ) -> None:
         gateway = RuntimeGateway(
-            shared_token="dev-token",
             persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
         )
+        clients = [
+            SessionClient(
+                device_id="terminal-edge-1",
+                device_type="desktop-cli",
+                display_name="Terminal Edge",
+                audience=gateway.audience,
+            ),
+            SessionClient(
+                device_id="phone-edge-1",
+                device_type="mobile",
+                display_name="Phone Edge",
+                audience=gateway.audience,
+            ),
+            SessionClient(
+                device_id="speaker-edge-1",
+                device_type="speaker",
+                display_name="Speaker Edge",
+                audience=gateway.audience,
+            ),
+            SessionClient(
+                device_id="desk-light-edge-1",
+                device_type="light",
+                display_name="Desk Light",
+                audience=gateway.audience,
+            ),
+        ]
+        for client in clients:
+            await gateway.handle_test_frames([client.build_connect_frame()])
 
         replies = await gateway.handle_test_frames(
             [
                 {
-                    "type": "connect",
-                    "device": {
-                        "device_id": "terminal-edge-1",
-                        "device_type": "desktop-cli",
-                    },
-                    "auth": {"token": "dev-token"},
-                },
-                {
                     "type": "capability_announce",
                     "device_id": "terminal-edge-1",
                     "capabilities": ["text.input"],
-                },
-                {
-                    "type": "connect",
-                    "device": {
-                        "device_id": "phone-edge-1",
-                        "device_type": "mobile",
-                    },
-                    "auth": {"token": "dev-token"},
                 },
                 {
                     "type": "capability_announce",
@@ -121,14 +169,6 @@ class RoundtripTests(unittest.IsolatedAsyncioTestCase):
                     ],
                 },
                 {
-                    "type": "connect",
-                    "device": {
-                        "device_id": "speaker-edge-1",
-                        "device_type": "speaker",
-                    },
-                    "auth": {"token": "dev-token"},
-                },
-                {
                     "type": "capability_announce",
                     "device_id": "speaker-edge-1",
                     "capabilities": [
@@ -151,14 +191,6 @@ class RoundtripTests(unittest.IsolatedAsyncioTestCase):
                             },
                         }
                     ],
-                },
-                {
-                    "type": "connect",
-                    "device": {
-                        "device_id": "desk-light-edge-1",
-                        "device_type": "light",
-                    },
-                    "auth": {"token": "dev-token"},
                 },
                 {
                     "type": "capability_announce",
@@ -247,14 +279,14 @@ class RoundtripTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_user_text_roundtrips_back_to_same_edge(self) -> None:
         gateway = RuntimeGateway(
-            shared_token="dev-token",
             persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
         )
         client = SessionClient(
             device_id="desktop-dev-1",
             device_type="desktop-cli",
-            token="dev-token",
+            display_name="Desktop Edge",
+            audience=gateway.audience,
         )
         replies = await gateway.handle_test_frames(
             [
@@ -858,21 +890,21 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
     async def test_websocket_connect_emits_runtime_connection_event(self) -> None:
         events: list[str] = []
         gateway = RuntimeGateway(
-            shared_token="dev-token",
             persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
         )
         gateway.runtime_event_emitter = events.append
-        client = SessionClient(
-            device_id="desktop-dev-1",
-            device_type="desktop-cli",
-            token="dev-token",
-        )
 
         async with gateway.run_test_server() as server_info:
+            edge = build_test_edge(
+                device_id="desktop-dev-1",
+                device_type="desktop-cli",
+                display_name="Desktop Edge",
+                audience=server_info["url"],
+            )
+            provision_test_edge(gateway, edge)
             async with websockets.connect(server_info["url"]) as websocket:
-                await websocket.send(json.dumps(client.build_connect_frame()))
-                connect_ok = json.loads(await websocket.recv())
+                connect_ok = await authenticate_websocket_edge(websocket, edge)
 
         self.assertEqual(connect_ok["type"], "connect_ok")
         self.assertEqual(
@@ -882,20 +914,22 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_websocket_roundtrip_records_action_result_on_gateway(self) -> None:
         gateway = RuntimeGateway(
-            shared_token="dev-token",
             persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
         )
-        client = SessionClient(
-            device_id="desktop-dev-1",
-            device_type="desktop-cli",
-            token="dev-token",
-        )
 
-        result = await client.run_websocket_roundtrip(
-            server_factory=gateway.run_test_server,
-            text="hello runtime",
-        )
+        async with gateway.run_test_server() as server_info:
+            edge = build_test_edge(
+                device_id="desktop-dev-1",
+                device_type="desktop-cli",
+                display_name="Desktop Edge",
+                audience=server_info["url"],
+            )
+            provision_test_edge(gateway, edge)
+            result = await edge.client.run_websocket_client(
+                url=server_info["url"],
+                text="hello runtime",
+            )
 
         self.assertEqual(result["type"], "action_result")
         self.assertEqual(result["result"]["status"], "ok")
@@ -920,14 +954,8 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
             )
 
         gateway = RuntimeGateway(
-            shared_token="dev-token",
             persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
-        )
-        client = SessionClient(
-            device_id="desktop-dev-1",
-            device_type="desktop-cli",
-            token="dev-token",
         )
 
         with patch(
@@ -935,17 +963,23 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
             side_effect=slow_generate_text_proposal_plan,
         ):
             async with gateway.run_test_server() as server_info:
+                edge = build_test_edge(
+                    device_id="desktop-dev-1",
+                    device_type="desktop-cli",
+                    display_name="Desktop Edge",
+                    audience=server_info["url"],
+                )
+                provision_test_edge(gateway, edge)
                 async with websockets.connect(
                     server_info["url"],
                     ping_timeout=0.2,
                 ) as websocket:
-                    await websocket.send(json.dumps(client.build_connect_frame()))
-                    connect_ok = json.loads(await websocket.recv())
+                    connect_ok = await authenticate_websocket_edge(websocket, edge)
                     await websocket.send(
-                        json.dumps(client.build_capability_announce_frame())
+                        json.dumps(edge.client.build_capability_announce_frame())
                     )
                     await websocket.send(
-                        json.dumps(client.build_text_event("slow provider check"))
+                        json.dumps(edge.client.build_text_event("slow provider check"))
                     )
 
                     pong_waiter = await asyncio.wait_for(
@@ -974,45 +1008,49 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_websocket_roundtrip_routes_action_to_other_connected_edge(self) -> None:
         gateway = RuntimeGateway(
-            shared_token="dev-token",
             persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
         )
-        source = SessionClient(
-            device_id="desktop-dev-1",
-            device_type="desktop-cli",
-            token="dev-token",
-        )
-        target = SessionClient(
-            device_id="desktop-dev-2",
-            device_type="desktop-cli",
-            token="dev-token",
-        )
 
         async with gateway.run_test_server() as server_info:
+            source = build_test_edge(
+                device_id="desktop-dev-1",
+                device_type="desktop-cli",
+                display_name="Source Desktop",
+                audience=server_info["url"],
+            )
+            target = build_test_edge(
+                device_id="desktop-dev-2",
+                device_type="desktop-cli",
+                display_name="Target Desktop",
+                audience=server_info["url"],
+            )
+            provision_test_edge(gateway, source)
+            provision_test_edge(gateway, target)
             async with websockets.connect(server_info["url"]) as source_ws:
                 async with websockets.connect(server_info["url"]) as target_ws:
-                    await source_ws.send(json.dumps(source.build_connect_frame()))
-                    await target_ws.send(json.dumps(target.build_connect_frame()))
-
-                    source_connect_ok = json.loads(await source_ws.recv())
-                    target_connect_ok = json.loads(await target_ws.recv())
+                    source_connect_ok = await authenticate_websocket_edge(
+                        source_ws, source
+                    )
+                    target_connect_ok = await authenticate_websocket_edge(
+                        target_ws, target
+                    )
 
                     await source_ws.send(
-                        json.dumps(source.build_capability_announce_frame())
+                        json.dumps(source.client.build_capability_announce_frame())
                     )
                     await target_ws.send(
-                        json.dumps(target.build_capability_announce_frame())
+                        json.dumps(target.client.build_capability_announce_frame())
                     )
                     await source_ws.send(
-                        json.dumps(source.build_text_event("hello routed runtime"))
+                        json.dumps(source.client.build_text_event("hello routed runtime"))
                     )
 
                     source_event_ack = json.loads(await asyncio.wait_for(source_ws.recv(), timeout=1))
                     action_request = json.loads(
                         await asyncio.wait_for(target_ws.recv(), timeout=1)
                     )
-                    action_result = target.handle_action_request(action_request)
+                    action_result = target.client.handle_action_request(action_request)
                     await target_ws.send(json.dumps(action_result))
 
         self.assertEqual(source_connect_ok["type"], "connect_ok")
@@ -1026,7 +1064,6 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_cli_websocket_helper_uses_real_gateway_server(self) -> None:
         gateway = RuntimeGateway(
-            shared_token="dev-token",
             persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
         )
@@ -1045,7 +1082,6 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         gateway = RuntimeGateway(
-            shared_token="dev-token",
             persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
         )
@@ -1058,29 +1094,21 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
                     "details": {"state": "running", "pid": 42137},
                 }
 
-        host_daemon = HostEdgeDaemon(
-            device_id="host-edge-1",
-            token="dev-token",
-            runtime_control_adapter=RuntimeStatusAdapter(),
-            host_metrics_provider=lambda: {
-                "cpu_load_ratio": 0.31,
-                "memory_used_bytes": 400,
-                "memory_available_bytes": 600,
-                "memory_pressure": "normal",
-                "net_rx_bytes": 10,
-                "net_tx_bytes": 12,
-            },
-            runtime_health_provider=lambda: {
-                "health_state": "healthy",
-                "process_pid": 42137,
-                "process_present": True,
-                "process_started_at": "2026-06-19T09:00:00Z",
-                "process_memory_rss_bytes": 28114944,
-            },
-        )
         ready = asyncio.Event()
 
         async with gateway.run_test_server() as server_info:
+            host_daemon = _build_paired_host_daemon(
+                gateway,
+                url=server_info["url"],
+                runtime_control_adapter=RuntimeStatusAdapter(),
+                runtime_health_provider=lambda: {
+                    "health_state": "healthy",
+                    "process_pid": 42137,
+                    "process_present": True,
+                    "process_started_at": "2026-06-19T09:00:00Z",
+                    "process_memory_rss_bytes": 28114944,
+                },
+            )
             daemon_task = asyncio.create_task(
                 host_daemon.run_websocket_control_session(
                     url=server_info["url"],
@@ -1089,15 +1117,18 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
             await ready.wait()
+            source = build_test_edge(
+                device_id="desktop-dev-1",
+                device_type="desktop-cli",
+                display_name="Desktop Edge",
+                audience=server_info["url"],
+            )
+            provision_test_edge(gateway, source)
             async with websockets.connect(server_info["url"]) as source_ws:
-                source = SessionClient(
-                    device_id="desktop-dev-1",
-                    device_type="desktop-cli",
-                    token="dev-token",
+                source_connect_ok = await authenticate_websocket_edge(source_ws, source)
+                await source_ws.send(
+                    json.dumps(source.client.build_capability_announce_frame())
                 )
-                await source_ws.send(json.dumps(source.build_connect_frame()))
-                await source_ws.send(json.dumps(source.build_capability_announce_frame()))
-                source_connect_ok = json.loads(await source_ws.recv())
                 await gateway.dispatch_agent_initiative(
                     source_device_id="desktop-dev-1",
                     initiative_request={
@@ -1126,7 +1157,6 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         gateway = RuntimeGateway(
-            shared_token="dev-token",
             persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
         )
@@ -1139,29 +1169,21 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
                     "details": {"state": "running", "pid": 42137},
                 }
 
-        host_daemon = HostEdgeDaemon(
-            device_id="host-edge-1",
-            token="dev-token",
-            runtime_control_adapter=RuntimeStatusAdapter(),
-            host_metrics_provider=lambda: {
-                "cpu_load_ratio": 0.31,
-                "memory_used_bytes": 400,
-                "memory_available_bytes": 600,
-                "memory_pressure": "normal",
-                "net_rx_bytes": 10,
-                "net_tx_bytes": 12,
-            },
-            runtime_health_provider=lambda: {
-                "health_state": "healthy",
-                "process_pid": 42137,
-                "process_present": True,
-                "process_started_at": "2026-06-19T09:00:00Z",
-                "process_memory_rss_bytes": 28114944,
-            },
-        )
         ready = asyncio.Event()
 
         async with gateway.run_test_server() as server_info:
+            host_daemon = _build_paired_host_daemon(
+                gateway,
+                url=server_info["url"],
+                runtime_control_adapter=RuntimeStatusAdapter(),
+                runtime_health_provider=lambda: {
+                    "health_state": "healthy",
+                    "process_pid": 42137,
+                    "process_present": True,
+                    "process_started_at": "2026-06-19T09:00:00Z",
+                    "process_memory_rss_bytes": 28114944,
+                },
+            )
             daemon_task = asyncio.create_task(
                 host_daemon.run_websocket_control_session(
                     url=server_info["url"],
@@ -1170,23 +1192,27 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
             await ready.wait()
+            source = build_test_edge(
+                device_id="desktop-dev-1",
+                device_type="desktop-cli",
+                display_name="Desktop Edge",
+                audience=server_info["url"],
+            )
+            provision_test_edge(gateway, source)
             async with websockets.connect(server_info["url"]) as websocket:
-                client = SessionClient(
-                    device_id="desktop-dev-1",
-                    device_type="desktop-cli",
-                    token="dev-token",
-                )
-                await websocket.send(json.dumps(client.build_connect_frame()))
+                await authenticate_websocket_edge(websocket, source)
                 await websocket.send(
-                    json.dumps(client.build_capability_announce_frame())
+                    json.dumps(source.client.build_capability_announce_frame())
                 )
                 await websocket.send(
-                    json.dumps(client.build_text_event("check runtime status"))
+                    json.dumps(source.client.build_text_event("check runtime status"))
                 )
-                await websocket.recv()
-                await websocket.recv()
+                event_ack = json.loads(
+                    await asyncio.wait_for(websocket.recv(), timeout=1)
+                )
             action_result = await asyncio.wait_for(daemon_task, timeout=1)
 
+        self.assertEqual(event_ack["type"], "event_ack")
         self.assertEqual(action_result["result"]["status"], "ok")
         self.assertEqual(action_result["result"]["capability"], "runtime.status")
         self.assertEqual(
@@ -1200,7 +1226,6 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         gateway = RuntimeGateway(
-            shared_token="dev-token",
             persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
         )
@@ -1213,35 +1238,37 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
                     "details": {"state": "running", "pid": 42137},
                 }
 
-        host_daemon = HostEdgeDaemon(
-            device_id="host-edge-1",
-            token="dev-token",
-            runtime_control_adapter=RuntimeStatusAdapter(),
-            host_metrics_provider=lambda: {
-                "cpu_load_ratio": 0.31,
-                "memory_used_bytes": 400,
-                "memory_available_bytes": 600,
-                "memory_pressure": "normal",
-                "net_rx_bytes": 10,
-                "net_tx_bytes": 12,
-            },
-            runtime_health_provider=lambda: {
-                "health_state": "healthy",
-                "process_pid": 42137,
-                "process_present": True,
-                "process_started_at": "2026-06-19T09:00:00Z",
-                "process_memory_rss_bytes": 28114944,
-            },
-        )
         ready = asyncio.Event()
         terminal_stdout = io.StringIO()
-        terminal_daemon = TerminalEdgeDaemon(
-            device_id="terminal-edge-1",
-            token="dev-token",
-            output_stream=terminal_stdout,
-        )
 
         async with gateway.run_test_server() as server_info:
+            host_daemon = _build_paired_host_daemon(
+                gateway,
+                url=server_info["url"],
+                runtime_control_adapter=RuntimeStatusAdapter(),
+                runtime_health_provider=lambda: {
+                    "health_state": "healthy",
+                    "process_pid": 42137,
+                    "process_present": True,
+                    "process_started_at": "2026-06-19T09:00:00Z",
+                    "process_memory_rss_bytes": 28114944,
+                },
+            )
+            terminal_identity = create_ephemeral_identity()
+            gateway.pairing_store.provision_local_device(
+                device_id="terminal-edge-1",
+                device_type="desktop-cli",
+                display_name="Terminal Edge",
+                audience=server_info["url"],
+                public_key=terminal_identity.public_key,
+            )
+            terminal_daemon = TerminalEdgeDaemon(
+                device_id="terminal-edge-1",
+                audience=server_info["url"],
+                identity=terminal_identity,
+                display_name="Terminal Edge",
+                output_stream=terminal_stdout,
+            )
             daemon_task = asyncio.create_task(
                 host_daemon.run_websocket_control_session(
                     url=server_info["url"],
@@ -1278,14 +1305,8 @@ class HostEdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         gateway = RuntimeGateway(
-            shared_token="dev-token",
             persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
-        )
-        source = SessionClient(
-            device_id="terminal-edge-1",
-            device_type="desktop-cli",
-            token="dev-token",
         )
 
         async def wait_for(predicate) -> None:
@@ -1296,6 +1317,13 @@ class HostEdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
             self.fail("condition was not reached")
 
         async with gateway.run_test_server() as server_info:
+            source = build_test_edge(
+                device_id="terminal-edge-1",
+                device_type="desktop-cli",
+                display_name="Terminal Edge",
+                audience=server_info["url"],
+            )
+            provision_test_edge(gateway, source)
             supervisor = runtime_main.build_managed_host_edge_supervisor(
                 gateway=gateway,
                 url=server_info["url"],
@@ -1319,14 +1347,13 @@ class HostEdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
                 )
 
                 async with websockets.connect(server_info["url"]) as source_ws:
-                    await source_ws.send(json.dumps(source.build_connect_frame()))
-                    connect_ok = json.loads(await source_ws.recv())
+                    connect_ok = await authenticate_websocket_edge(source_ws, source)
                     await source_ws.send(
-                        json.dumps(source.build_capability_announce_frame())
+                        json.dumps(source.client.build_capability_announce_frame())
                     )
                     await source_ws.send(
                         json.dumps(
-                            source.build_direct_action_event(
+                            source.client.build_direct_action_event(
                                 capability="runtime.status",
                                 payload={},
                                 target_device_id="host-edge-1",
@@ -1360,7 +1387,6 @@ class HostEdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_host_edge_receives_runtime_status_over_websocket(self) -> None:
         gateway = RuntimeGateway(
-            shared_token="dev-token",
             persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
         )
@@ -1373,29 +1399,21 @@ class HostEdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
                     "details": {"state": "running", "pid": 42137},
                 }
 
-        host_daemon = HostEdgeDaemon(
-            device_id="host-edge-1",
-            token="dev-token",
-            runtime_control_adapter=RuntimeStatusAdapter(),
-            host_metrics_provider=lambda: {
-                "cpu_load_ratio": 0.31,
-                "memory_used_bytes": 400,
-                "memory_available_bytes": 600,
-                "memory_pressure": "normal",
-                "net_rx_bytes": 10,
-                "net_tx_bytes": 12,
-            },
-            runtime_health_provider=lambda: {
-                "health_state": "healthy",
-                "process_pid": 42137,
-                "process_present": True,
-                "process_started_at": "2026-06-19T09:00:00Z",
-                "process_memory_rss_bytes": 28114944,
-            },
-        )
         ready = asyncio.Event()
 
         async with gateway.run_test_server() as server_info:
+            host_daemon = _build_paired_host_daemon(
+                gateway,
+                url=server_info["url"],
+                runtime_control_adapter=RuntimeStatusAdapter(),
+                runtime_health_provider=lambda: {
+                    "health_state": "healthy",
+                    "process_pid": 42137,
+                    "process_present": True,
+                    "process_started_at": "2026-06-19T09:00:00Z",
+                    "process_memory_rss_bytes": 28114944,
+                },
+            )
             daemon_task = asyncio.create_task(
                 host_daemon.run_websocket_control_session(
                     url=server_info["url"],
@@ -1404,32 +1422,27 @@ class HostEdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
             await ready.wait()
+            source = build_test_edge(
+                device_id="desktop-dev-1",
+                device_type="desktop-cli",
+                display_name="Desktop Edge",
+                audience=server_info["url"],
+            )
+            provision_test_edge(gateway, source)
             async with websockets.connect(server_info["url"]) as source_ws:
-                source = SessionClient(
-                    device_id="desktop-dev-1",
-                    device_type="desktop-cli",
-                    token="dev-token",
+                source_connect_ok = await authenticate_websocket_edge(source_ws, source)
+                await source_ws.send(
+                    json.dumps(source.client.build_capability_announce_frame())
                 )
-                await source_ws.send(json.dumps(source.build_connect_frame()))
-                await source_ws.send(json.dumps(source.build_capability_announce_frame()))
                 await source_ws.send(
                     json.dumps(
-                        {
-                            "type": "event_push",
-                            "device_id": "desktop-dev-1",
-                            "capability": "text.input",
-                            "payload": {
-                                "text": "",
-                                "direct_action": {
-                                    "target_device_id": "host-edge-1",
-                                    "capability": "runtime.status",
-                                    "payload": {},
-                                },
-                            },
-                        }
+                        source.client.build_direct_action_event(
+                            capability="runtime.status",
+                            payload={},
+                            target_device_id="host-edge-1",
+                        )
                     )
                 )
-                source_connect_ok = json.loads(await source_ws.recv())
                 source_event_ack = json.loads(await source_ws.recv())
             action_result = await asyncio.wait_for(daemon_task, timeout=1)
 
@@ -1444,7 +1457,6 @@ class HostEdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         gateway = RuntimeGateway(
-            shared_token="dev-token",
             persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
         )
@@ -1464,29 +1476,21 @@ class HostEdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
                     "details": details_by_capability[action["capability"]],
                 }
 
-        host_daemon = HostEdgeDaemon(
-            device_id="host-edge-1",
-            token="dev-token",
-            runtime_control_adapter=MultiActionAdapter(),
-            host_metrics_provider=lambda: {
-                "cpu_load_ratio": 0.31,
-                "memory_used_bytes": 400,
-                "memory_available_bytes": 600,
-                "memory_pressure": "normal",
-                "net_rx_bytes": 10,
-                "net_tx_bytes": 12,
-            },
-            runtime_health_provider=lambda: {
-                "health_state": "healthy",
-                "process_pid": 42137,
-                "process_present": True,
-                "process_started_at": "2026-06-19T09:00:00Z",
-                "process_memory_rss_bytes": 28114944,
-            },
-        )
         ready = asyncio.Event()
 
         async with gateway.run_test_server() as server_info:
+            host_daemon = _build_paired_host_daemon(
+                gateway,
+                url=server_info["url"],
+                runtime_control_adapter=MultiActionAdapter(),
+                runtime_health_provider=lambda: {
+                    "health_state": "healthy",
+                    "process_pid": 42137,
+                    "process_present": True,
+                    "process_started_at": "2026-06-19T09:00:00Z",
+                    "process_memory_rss_bytes": 28114944,
+                },
+            )
             daemon_task = asyncio.create_task(
                 host_daemon.run_websocket_daemon_session(
                     url=server_info["url"],
@@ -1501,53 +1505,46 @@ class HostEdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
             await ready.wait()
+            source = build_test_edge(
+                device_id="desktop-dev-1",
+                device_type="desktop-cli",
+                display_name="Desktop Edge",
+                audience=server_info["url"],
+            )
+            provision_test_edge(gateway, source)
             async with websockets.connect(server_info["url"]) as source_ws:
-                source = SessionClient(
-                    device_id="desktop-dev-1",
-                    device_type="desktop-cli",
-                    token="dev-token",
+                await authenticate_websocket_edge(source_ws, source)
+                await source_ws.send(
+                    json.dumps(source.client.build_capability_announce_frame())
                 )
-                await source_ws.send(json.dumps(source.build_connect_frame()))
-                await source_ws.send(json.dumps(source.build_capability_announce_frame()))
                 await source_ws.send(
                     json.dumps(
-                        {
-                            "type": "event_push",
-                            "device_id": "desktop-dev-1",
-                            "capability": "text.input",
-                            "payload": {
-                                "text": "",
-                                "direct_action": {
-                                    "target_device_id": "host-edge-1",
-                                    "capability": "runtime.status",
-                                    "payload": {},
-                                },
-                            },
-                        }
+                        source.client.build_direct_action_event(
+                            capability="runtime.status",
+                            payload={},
+                            target_device_id="host-edge-1",
+                        )
                     )
                 )
-                await source_ws.recv()
-                await source_ws.recv()
+                first_event_ack = json.loads(
+                    await asyncio.wait_for(source_ws.recv(), timeout=1)
+                )
                 await source_ws.send(
                     json.dumps(
-                        {
-                            "type": "event_push",
-                            "device_id": "desktop-dev-1",
-                            "capability": "text.input",
-                            "payload": {
-                                "text": "",
-                                "direct_action": {
-                                    "target_device_id": "host-edge-1",
-                                    "capability": "runtime.collect_logs",
-                                    "payload": {},
-                                },
-                            },
-                        }
+                        source.client.build_direct_action_event(
+                            capability="runtime.collect_logs",
+                            payload={},
+                            target_device_id="host-edge-1",
+                        )
                     )
                 )
-                await source_ws.recv()
+                second_event_ack = json.loads(
+                    await asyncio.wait_for(source_ws.recv(), timeout=1)
+                )
             action_results = await asyncio.wait_for(daemon_task, timeout=2)
 
+        self.assertEqual(first_event_ack["type"], "event_ack")
+        self.assertEqual(second_event_ack["type"], "event_ack")
         self.assertEqual(
             [result["result"]["capability"] for result in action_results],
             ["runtime.status", "runtime.collect_logs"],
@@ -1561,7 +1558,6 @@ class HostEdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
         self,
     ) -> None:
         gateway = RuntimeGateway(
-            shared_token="dev-token",
             persist_state=False,
             llm_config_path=TEST_LLM_CONFIG,
         )
@@ -1598,23 +1594,15 @@ class HostEdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
                     "details": {"handoff_expected": True},
                 }
 
-        host_daemon = HostEdgeDaemon(
-            device_id="host-edge-1",
-            token="dev-token",
-            runtime_control_adapter=RestartAdapter(),
-            host_metrics_provider=lambda: {
-                "cpu_load_ratio": 0.31,
-                "memory_used_bytes": 400,
-                "memory_available_bytes": 600,
-                "memory_pressure": "normal",
-                "net_rx_bytes": 10,
-                "net_tx_bytes": 12,
-            },
-            runtime_health_provider=restart_state.health_snapshot,
-        )
         ready = asyncio.Event()
 
         async with gateway.run_test_server() as server_info:
+            host_daemon = _build_paired_host_daemon(
+                gateway,
+                url=server_info["url"],
+                runtime_control_adapter=RestartAdapter(),
+                runtime_health_provider=restart_state.health_snapshot,
+            )
             daemon_task = asyncio.create_task(
                 host_daemon.run_websocket_control_session(
                     url=server_info["url"],
@@ -1624,33 +1612,30 @@ class HostEdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
             await ready.wait()
+            source = build_test_edge(
+                device_id="desktop-dev-1",
+                device_type="desktop-cli",
+                display_name="Desktop Edge",
+                audience=server_info["url"],
+            )
+            provision_test_edge(gateway, source)
             async with websockets.connect(server_info["url"]) as source_ws:
-                source = SessionClient(
-                    device_id="desktop-dev-1",
-                    device_type="desktop-cli",
-                    token="dev-token",
+                await authenticate_websocket_edge(source_ws, source)
+                await source_ws.send(
+                    json.dumps(source.client.build_capability_announce_frame())
                 )
-                await source_ws.send(json.dumps(source.build_connect_frame()))
-                await source_ws.send(json.dumps(source.build_capability_announce_frame()))
                 await source_ws.send(
                     json.dumps(
-                        {
-                            "type": "event_push",
-                            "device_id": "desktop-dev-1",
-                            "capability": "text.input",
-                            "payload": {
-                                "text": "",
-                                "direct_action": {
-                                    "target_device_id": "host-edge-1",
-                                    "capability": "runtime.restart",
-                                    "payload": {},
-                                },
-                            },
-                        }
+                        source.client.build_direct_action_event(
+                            capability="runtime.restart",
+                            payload={},
+                            target_device_id="host-edge-1",
+                        )
                     )
                 )
-                await source_ws.recv()
-                await source_ws.recv()
+                event_ack = json.loads(
+                    await asyncio.wait_for(source_ws.recv(), timeout=1)
+                )
             action_result = await asyncio.wait_for(daemon_task, timeout=1)
 
         pid_observations = [
@@ -1659,6 +1644,7 @@ class HostEdgeWebSocketTests(unittest.IsolatedAsyncioTestCase):
             if observation.name == "runtime.process_pid"
         ]
 
+        self.assertEqual(event_ack["type"], "event_ack")
         self.assertEqual(action_result["result"]["status"], "accepted")
         self.assertEqual(action_result["result"]["capability"], "runtime.restart")
         self.assertTrue(action_result["result"]["details"]["handoff_expected"])
