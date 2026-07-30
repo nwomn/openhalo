@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import ipaddress
 from urllib.parse import urlsplit
 
 
 def validate_runtime_endpoint(url: str) -> str:
-    """Reject a non-loopback plaintext Runtime endpoint."""
+    """Accept a complete owner-selected WebSocket Runtime endpoint."""
 
     if not isinstance(url, str) or not url:
         raise ValueError("Runtime endpoint must be a non-empty WebSocket URL.")
@@ -15,21 +14,6 @@ def validate_runtime_endpoint(url: str) -> str:
         parsed = urlsplit(url)
     except ValueError as exc:
         raise ValueError("Runtime endpoint must be a valid WebSocket URL.") from exc
-    if parsed.scheme == "wss" and parsed.hostname:
+    if parsed.scheme in {"ws", "wss"} and parsed.hostname:
         return url
-    if parsed.scheme == "ws" and _is_loopback_host(parsed.hostname):
-        return url
-    raise ValueError(
-        "Runtime endpoint must use wss://; ws:// is only allowed for loopback development."
-    )
-
-
-def _is_loopback_host(hostname: str | None) -> bool:
-    if hostname is None:
-        return False
-    if hostname.lower() == "localhost":
-        return True
-    try:
-        return ipaddress.ip_address(hostname).is_loopback
-    except ValueError:
-        return False
+    raise ValueError("Runtime endpoint must be a complete ws:// or wss:// URL.")
