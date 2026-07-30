@@ -155,23 +155,70 @@ selects its program release through an atomic `current` link, leaving prior
 release directories available for a later rollback path. It never installs from
 a branch checkout and never resets personal data as an update side effect.
 
-The present installer is the bootstrap/update path while release publishing is
-being established. It switches the selected program release but does not
-restart an already running Runtime. Update an installed Runtime explicitly:
+The fixed-commit installer remains the bootstrap path for a new machine. Once
+that installed version contains the updater, normal owner updates use GitHub
+Releases rather than a branch or a manually supplied commit:
 
 ```bash
-openhalo stop
-curl -fsSL https://raw.githubusercontent.com/nwomn/openhalo/<new-commit>/scripts/install.sh | bash -s -- --ref <new-commit>
-openhalo --version
-openhalo start
-openhalo status
+openhalo update --check
+openhalo update
 ```
 
-This preserves `~/.openhalo`, including compatible state and paired-device
-credentials. Automatic `openhalo update --check`, `openhalo update`,
-`openhalo rollback`, signed Release manifests, staged health checks, and
-automatic rollback remain M22 work; do not document or depend on those commands
-yet.
+`update --check` reads the latest published non-prerelease GitHub Release for
+`nwomn/openhalo` and reports whether its exact commit differs from the active
+release. `update` accepts a Release only when it contains all three assets:
+
+- `openhalo-<tag>.tar.gz`
+- `release-manifest.json`
+- `SHA256SUMS`
+
+The manifest and checksum file must name the same archive, digest, tag, and
+40-character commit. OpenHalo stages the verified archive into the private
+release root, leaving `current`, `previous`, and `OPENHALO_HOME` untouched
+until the candidate is installed successfully. For a running Runtime, it stops
+the old process, switches the `current` link atomically, and waits for the
+candidate Gateway ready marker. If that start fails, it switches back to the
+prior release and restarts the old Runtime. A failed download or staging step
+does not stop the active Runtime.
+
+Restore the previously selected program release explicitly with:
+
+```bash
+openhalo rollback
+```
+
+Updates and rollback only operate from an installed immutable release; a
+repository development command is not an installer. The current Release trust
+boundary is GitHub HTTPS plus the matching SHA-256 manifest and checksum asset.
+It verifies the published OpenHalo source archive, but candidate environment
+creation still resolves the package dependencies declared by that archive; a
+locked, hash-verified dependency wheelhouse is not implemented yet. Treat that
+as a supply-chain hardening gap alongside Release-manifest signing and key
+rotation. Persistent-state migration is also future work: releases must
+currently preserve compatible `OPENHALO_HOME` state, and the updater never runs
+or silently invents a migration.
+
+### Publish A Runtime Release
+
+Maintain a stable GitHub Release manually until CI publishing is introduced.
+Create a tag pointing at an exact 40-character commit, then build and upload
+the three required assets to the GitHub Release with the same tag:
+
+```bash
+python3 scripts/build_release.py \
+  --tag v<version> \
+  --commit <40-character-commit> \
+  --output ./dist/release
+gh release create v<version> \
+  ./dist/release/openhalo-v<version>.tar.gz \
+  ./dist/release/release-manifest.json \
+  ./dist/release/SHA256SUMS
+```
+
+The builder uses `git archive` at the exact supplied commit and writes the
+archive name, tag, commit, and SHA-256 into `release-manifest.json`. Do not
+upload a Runtime archive to an Android-only preview Release: `openhalo update`
+will reject releases without the complete Runtime asset set.
 
 ## Development Runtime
 

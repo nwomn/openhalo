@@ -6,12 +6,18 @@ import argparse
 import json
 import os
 import shutil
+import subprocess
+import tarfile
 from collections.abc import Callable
 from pathlib import Path
 
 from openhalo.home import PersonalHome
+from openhalo.release_manager import GitHubReleaseFeed
+from openhalo.release_manager import ReleaseLayout
+from openhalo.release_manager import ReleaseStager
 from openhalo.runtime_config_template import DEFAULT_RUNTIME_CONFIG
 from openhalo.runtime_supervisor import RuntimeSupervisor
+from openhalo.updater import ReleaseUpdater
 from openhalo.version import format_cli_version
 from personal_runtime.pairing_store import PairingStore
 
@@ -41,6 +47,9 @@ def build_parser() -> argparse.ArgumentParser:
     logs = subparsers.add_parser("logs", help="Show recent Runtime logs.")
     logs.add_argument("--lines", type=int, default=100, help="Number of log lines.")
     subparsers.add_parser("doctor", help="Check local OpenHalo setup.")
+    update = subparsers.add_parser("update", help="Install the latest stable Runtime release.")
+    update.add_argument("--check", action="store_true", help="Check for an update without changing Runtime files.")
+    subparsers.add_parser("rollback", help="Restore the previous Runtime release.")
 
     pair = subparsers.add_parser("pair", help="Create a one-time device pairing code.")
     pair.add_argument("--ttl-seconds", type=int, default=600)
@@ -58,6 +67,7 @@ def main(
     *,
     home: PersonalHome | None = None,
     supervisor_factory: Callable[[PersonalHome], RuntimeSupervisor] = RuntimeSupervisor,
+    updater_factory: Callable[[PersonalHome], ReleaseUpdater] | None = None,
 ) -> int:
     args = build_parser().parse_args(argv)
     personal_home = home or PersonalHome.from_environment()
@@ -95,6 +105,25 @@ def main(
         revoked = PairingStore(personal_home.pairing_store_path).revoke_device(args.device_id)
         _emit({"device_id": args.device_id, "revoked": revoked})
         return 0 if revoked else 1
+
+    if args.command == "update":
+        try:
+            updater = (updater_factory or _build_updater)(personal_home)
+            result = updater.check() if args.check else updater.update()
+            _emit(result)
+            return 1 if result.get("state") == "rolled_back" else 0
+        except (OSError, RuntimeError, ValueError, subprocess.SubprocessError, tarfile.TarError) as exc:
+            _emit({"state": "update_failed", "reason": str(exc)})
+            return 1
+
+    if args.command == "rollback":
+        try:
+            updater = (updater_factory or _build_updater)(personal_home)
+            _emit(updater.rollback())
+            return 0
+        except (OSError, RuntimeError, ValueError, subprocess.SubprocessError, tarfile.TarError) as exc:
+            _emit({"state": "update_failed", "reason": str(exc)})
+            return 1
 
     supervisor = supervisor_factory(personal_home)
     if args.command == "start":
@@ -140,6 +169,20 @@ def _doctor(home: PersonalHome) -> dict:
     if not home.runtime_config_path.exists():
         missing.append("runtime_config")
     return {"state": "ready" if not missing else "needs_attention", "missing": missing}
+
+
+def _build_updater(home: PersonalHome) -> ReleaseUpdater:
+    release_root = Path(
+        os.environ.get("OPENHALO_RELEASE_HOME", Path.home() / ".local/share/openhalo")
+    )
+    repository = os.environ.get("OPENHALO_GITHUB_REPOSITORY", "nwomn/openhalo")
+    layout = ReleaseLayout(release_root)
+    return ReleaseUpdater(
+        layout=layout,
+        feed=GitHubReleaseFeed(repository),
+        stager=ReleaseStager(layout),
+        supervisor_factory=lambda executable: RuntimeSupervisor(home, executable=executable),
+    )
 
 
 def _emit(payload: dict) -> None:

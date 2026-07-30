@@ -27,7 +27,9 @@ class RuntimeSupervisor:
         signal_sender: Callable[[int, int], None] = os.kill,
         ready_file_exists: Callable[[Path], bool] | None = None,
         startup_timeout_s: float = 5.0,
+        shutdown_timeout_s: float = 5.0,
         sleeper: Callable[[float], None] = time.sleep,
+        executable: Path | None = None,
     ) -> None:
         self.home = home
         self._launcher = launcher
@@ -36,12 +38,14 @@ class RuntimeSupervisor:
         self._signal_sender = signal_sender
         self._ready_file_exists = ready_file_exists or Path.exists
         self._startup_timeout_s = startup_timeout_s
+        self._shutdown_timeout_s = shutdown_timeout_s
         self._sleeper = sleeper
+        self._executable = executable
 
     def build_command(self) -> list[str]:
         runtime = self._runtime_configuration()
         return [
-            sys.executable,
+            str(self._executable or sys.executable),
             "-m",
             "personal_runtime.main",
             "--host",
@@ -117,6 +121,16 @@ class RuntimeSupervisor:
         content = self.home.runtime_log_path.read_text(encoding="utf-8", errors="replace")
         return "".join(content.splitlines(keepends=True)[-lines:])
 
+    def wait_until_stopped(self, *, timeout_s: float = 5.0) -> dict:
+        deadline = time.monotonic() + timeout_s
+        while True:
+            status = self.status()
+            if status["state"] != "running":
+                return status
+            if time.monotonic() >= deadline:
+                raise RuntimeError("OpenHalo Runtime did not stop before update; run openhalo logs")
+            self._sleeper(0.05)
+
     def _runtime_configuration(self) -> dict:
         configuration = self.home.load_configuration()
         runtime = configuration.get("runtime")
@@ -153,10 +167,18 @@ class RuntimeSupervisor:
                 )
             if time.monotonic() >= deadline:
                 self._signal_sender(pid, signal.SIGTERM)
+                self._wait_for_process_exit(pid)
                 self._remove_pid_file()
                 raise RuntimeError(
                     "OpenHalo Runtime did not become ready; run openhalo logs"
                 )
+            self._sleeper(0.05)
+
+    def _wait_for_process_exit(self, pid: int) -> None:
+        deadline = time.monotonic() + self._shutdown_timeout_s
+        while self._is_process_alive(pid):
+            if time.monotonic() >= deadline:
+                raise RuntimeError("OpenHalo Runtime did not stop after startup failure; run openhalo logs")
             self._sleeper(0.05)
 
 

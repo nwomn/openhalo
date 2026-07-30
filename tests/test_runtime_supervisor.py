@@ -116,3 +116,34 @@ def test_start_rejects_a_runtime_that_exits_before_gateway_is_ready() -> None:
         assert not home.runtime_pid_path.exists()
     finally:
         directory.cleanup()
+
+
+def test_start_timeout_waits_for_terminated_runtime_before_removing_its_pid() -> None:
+    directory, home = _home()
+    alive = {"value": True}
+    signals: list[tuple[int, int]] = []
+    sleeps: list[float] = []
+    try:
+        def sleeper(delay: float) -> None:
+            sleeps.append(delay)
+            alive["value"] = False
+
+        supervisor = RuntimeSupervisor(
+            home,
+            launcher=lambda *args, **kwargs: type("Process", (), {"pid": 721})(),
+            is_process_alive=lambda pid: alive["value"],
+            process_command=lambda pid: "python -m personal_runtime.main",
+            signal_sender=lambda pid, signal_value: signals.append((pid, signal_value)),
+            ready_file_exists=lambda path: False,
+            startup_timeout_s=0,
+            sleeper=sleeper,
+        )
+
+        with pytest.raises(RuntimeError, match="did not become ready"):
+            supervisor.start()
+
+        assert signals == [(721, signal.SIGTERM)]
+        assert sleeps == [0.05]
+        assert not home.runtime_pid_path.exists()
+    finally:
+        directory.cleanup()

@@ -31,6 +31,35 @@ class FakeSupervisor:
         return "runtime log\n" * lines
 
 
+class FakeUpdater:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def check(self) -> dict:
+        self.calls.append("check")
+        return {"current": "a" * 40, "state": "update_available", "target": "b" * 40}
+
+    def update(self) -> dict:
+        self.calls.append("update")
+        return {"state": "updated", "target": "b" * 40}
+
+    def rollback(self) -> dict:
+        self.calls.append("rollback")
+        return {"state": "rolled_back", "restored": "a" * 40}
+
+
+class FailingUpdater:
+    def check(self) -> dict:
+        raise ValueError("GitHub Release is missing required asset: release-manifest.json")
+
+
+class TarFailureUpdater:
+    def check(self) -> dict:
+        import tarfile
+
+        raise tarfile.ReadError("not a tar archive")
+
+
 def _run(home: PersonalHome, *argv: str) -> tuple[int, str]:
     output = io.StringIO()
     with redirect_stdout(output):
@@ -158,3 +187,74 @@ def test_version_flag_prints_a_development_identity_outside_a_release_layout() -
 
     assert exit_code.value.code == 0
     assert output.getvalue() == "openhalo 0.1.0 (dev)\n"
+
+
+def test_update_commands_delegate_to_the_owner_release_updater() -> None:
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+        updater = FakeUpdater()
+        output = io.StringIO()
+        with redirect_stdout(output):
+            check_exit = main(
+                ["update", "--check"],
+                home=home,
+                supervisor_factory=FakeSupervisor,
+                updater_factory=lambda _: updater,
+            )
+            update_exit = main(
+                ["update"],
+                home=home,
+                supervisor_factory=FakeSupervisor,
+                updater_factory=lambda _: updater,
+            )
+            rollback_exit = main(
+                ["rollback"],
+                home=home,
+                supervisor_factory=FakeSupervisor,
+                updater_factory=lambda _: updater,
+            )
+
+    payloads = [json.loads(line) for line in output.getvalue().splitlines()]
+    assert check_exit == update_exit == rollback_exit == 0
+    assert updater.calls == ["check", "update", "rollback"]
+    assert payloads == [
+        {"current": "a" * 40, "state": "update_available", "target": "b" * 40},
+        {"state": "updated", "target": "b" * 40},
+        {"restored": "a" * 40, "state": "rolled_back"},
+    ]
+
+
+def test_update_check_reports_release_validation_failure_without_a_traceback() -> None:
+    with TemporaryDirectory() as directory:
+        output = io.StringIO()
+        with redirect_stdout(output):
+            exit_code = main(
+                ["update", "--check"],
+                home=PersonalHome(Path(directory) / "home"),
+                supervisor_factory=FakeSupervisor,
+                updater_factory=lambda _: FailingUpdater(),
+            )
+
+    assert exit_code == 1
+    assert json.loads(output.getvalue()) == {
+        "reason": "GitHub Release is missing required asset: release-manifest.json",
+        "state": "update_failed",
+    }
+
+
+def test_update_check_reports_archive_failure_without_a_traceback() -> None:
+    with TemporaryDirectory() as directory:
+        output = io.StringIO()
+        with redirect_stdout(output):
+            exit_code = main(
+                ["update", "--check"],
+                home=PersonalHome(Path(directory) / "home"),
+                supervisor_factory=FakeSupervisor,
+                updater_factory=lambda _: TarFailureUpdater(),
+            )
+
+    assert exit_code == 1
+    assert json.loads(output.getvalue()) == {
+        "reason": "not a tar archive",
+        "state": "update_failed",
+    }

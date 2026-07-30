@@ -63,7 +63,7 @@ OpenHalo 正在面向几个清晰的部署场景建设：
 | 跨边缘交互 | 已实现公开 Edge API 的注册、观察、事件、动作、动作结果，以及经过 Presence 治理的路由 | 更广的真实设备场景和更丰富的 capability 覆盖 |
 | 环境/家庭 edge 生态 | 长期方向：智能家居、传感器和小型边缘 AI 节点成为额外的 `Device Edge` 参与者 | 桥接集成、设备画像、安全策略和低存在感环境交互设计 |
 | Mobile observation depth | `M17.5` 已验收：Android 可以上传被动的 `mobile.screen_context` / `mobile.screen_capture_health` evidence，并可通过 runtime context viewer 验证 | `M17.7` 负责观察保活/唤醒恢复；`M17.8` 负责 allowlist-first 的敏感屏幕采集治理 |
-| Product packaging | M22 个人安装基础：固定提交安装器、全局 `openhalo`/`openhalo-edge`、私有配置、Runtime 生命周期和 Terminal 配对 | 已签名 Release 发布、自动分阶段更新/回退、Windows 包和完整三端验收 |
+| Product packaging | M22 个人安装基础和 GitHub Release 更新/检查/回退：固定提交引导安装器、全局命令、私有配置、Runtime 生命周期、Terminal 配对、校验式 staging 和自动运行时回退 | manifest 签名、持久化状态迁移、Windows 包和完整三端验收 |
 
 完整路线图和里程碑状态见 [Project.md](Project.md)。
 
@@ -111,6 +111,18 @@ openhalo-edge
 Runtime 的日常控制命令是 `openhalo status`、`openhalo logs --lines 100` 和
 `openhalo stop`。反向代理、更新和排障的完整说明见
 [docs/runtime-deploy.md](docs/runtime-deploy.md)。
+
+首次用包含 updater 的版本完成安装后，日常更新只使用带有完整 Runtime
+资产的最新稳定 GitHub Release：
+
+```bash
+openhalo update --check
+openhalo update
+```
+
+更新会校验并暂存 Release 归档，不会改写 `~/.openhalo`。对于正在运行的 Runtime，
+旧进程退出后才会启动候选版本；候选版本未达到就绪状态时，OpenHalo 会自动恢复
+此前的程序 release 和 Runtime。
 
 ## 开发快速开始
 
