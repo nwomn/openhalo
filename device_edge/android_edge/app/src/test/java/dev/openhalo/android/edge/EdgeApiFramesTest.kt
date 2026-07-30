@@ -80,9 +80,9 @@ class EdgeApiFramesTest {
     }
 
     @Test
-    fun stablePairingRequiresWssWhileDevelopmentMayUseLocalWs() {
+    fun stablePairingAllowsWsOrWss() {
         assertTrue(pairingTransportAllowed(RUNTIME_MODE_STABLE, "wss://runtime.example/openhalo/edge"))
-        assertFalse(pairingTransportAllowed(RUNTIME_MODE_STABLE, "ws://runtime.example/openhalo/edge"))
+        assertTrue(pairingTransportAllowed(RUNTIME_MODE_STABLE, "ws://198.51.100.15:8765"))
         assertTrue(pairingTransportAllowed(RUNTIME_MODE_DEVELOPMENT, "ws://10.0.2.2:18765"))
     }
 
@@ -103,10 +103,7 @@ class EdgeApiFramesTest {
             "Runtime address must be a complete WebSocket URL.",
             runtimeUrlValidationError(RUNTIME_MODE_DEVELOPMENT, "wss://[invalid")
         )
-        assertEquals(
-            "Stable Runtime connections require a wss:// address.",
-            runtimeUrlValidationError(RUNTIME_MODE_STABLE, "ws://runtime.example/openhalo/edge")
-        )
+        assertNull(runtimeUrlValidationError(RUNTIME_MODE_STABLE, "ws://198.51.100.15:8765"))
         assertEquals(
             "Runtime address must include a host name or IP address.",
             runtimeUrlValidationError(RUNTIME_MODE_DEVELOPMENT, "wss:///openhalo/edge")

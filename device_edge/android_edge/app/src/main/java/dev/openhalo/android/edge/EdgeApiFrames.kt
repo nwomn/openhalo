@@ -105,7 +105,7 @@ fun parseAuthChallenge(frame: JSONObject, deviceId: String, sessionId: String, a
 }
 
 fun pairingTransportAllowed(runtimeMode: String, runtimeUrl: String): Boolean =
-    runtimeMode != RUNTIME_MODE_STABLE || runtimeUrl.trim().startsWith("wss://")
+    runtimeUrlValidationError(runtimeMode, runtimeUrl) == null
 
 fun runtimeUrlValidationError(runtimeMode: String, runtimeUrl: String): String? {
     val parsed = try {
@@ -120,9 +120,6 @@ fun runtimeUrlValidationError(runtimeMode: String, runtimeUrl: String): String? 
     }
     if (parsed.host.isNullOrBlank()) {
         return "Runtime address must include a host name or IP address."
-    }
-    if (runtimeMode == RUNTIME_MODE_STABLE && scheme != "wss") {
-        return "Stable Runtime connections require a wss:// address."
     }
     return null
 }
