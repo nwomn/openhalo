@@ -182,19 +182,21 @@ class ReleaseStager:
 
         self.layout._ensure_private_directories()
         staging = Path(tempfile.mkdtemp(prefix=".staging-", dir=self.layout.releases_directory))
+        installed_target = False
         try:
             archive = staging / "release.tar.gz"
             self._download(manifest.archive_url, archive)
             verify_archive(archive, manifest)
             source = staging / "source"
             _extract_archive(archive, source)
-            self._install(source, staging)
-            if not (staging / "venv/bin/python").is_file():
-                raise RuntimeError("release installation did not create a Python executable")
             os.replace(staging, target)
+            installed_target = True
+            self._install(target / "source", target)
+            if not (target / "venv/bin/python").is_file():
+                raise RuntimeError("release installation did not create a Python executable")
             return target
         except Exception:
-            shutil.rmtree(staging, ignore_errors=True)
+            shutil.rmtree(target if installed_target else staging, ignore_errors=True)
             raise
 
 

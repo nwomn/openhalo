@@ -142,9 +142,12 @@ def test_staging_a_verified_release_preserves_current_program_and_personal_data(
 
         def install(source: Path, release: Path) -> None:
             assert (source / "pyproject.toml").is_file()
+            assert release == layout.release_directory(candidate)
             python = release / "venv/bin/python"
             python.parent.mkdir(parents=True)
             python.touch()
+            launcher = release / "venv/bin/openhalo"
+            launcher.write_text(f"#!{python}\n", encoding="utf-8")
 
         staged = ReleaseStager(
             layout,
@@ -154,5 +157,8 @@ def test_staging_a_verified_release_preserves_current_program_and_personal_data(
 
         assert staged == layout.release_directory(candidate)
         assert (staged / "venv/bin/python").is_file()
+        assert (staged / "venv/bin/openhalo").read_text(encoding="utf-8") == (
+            f"#!{staged / 'venv/bin/python'}\n"
+        )
         assert layout.active_release() == current
         assert personal_state.read_text(encoding="utf-8") == '{"owner": "unchanged"}\n'
