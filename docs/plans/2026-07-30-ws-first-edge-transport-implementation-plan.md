@@ -200,9 +200,9 @@ Update `Project.md` with the ws/wss implementation and direct-IP acceptance evid
 
 After merging to `master`, create tag `v0.1.1`, build from its exact 40-character commit with `scripts/build_release.py`, and compare the manifest, `SHA256SUMS`, and downloaded archive SHA-256.
 
-**Step 4: Publish and perform live update**
+**Step 4: Publish and make the live update available**
 
-Create a stable GitHub Release with exactly the Runtime archive, manifest, and checksum assets. On the existing `v0.1.0` installed Runtime run `openhalo update`, then assert `openhalo --version`, `openhalo update --check`, and `openhalo status` report `v0.1.1`, `up_to_date`, and `running`.
+Create a stable GitHub Release with exactly the Runtime archive, manifest, and checksum assets. On the existing `v0.1.0` installed Runtime run only `openhalo update --check` and assert it reports `update_available` for `v0.1.1`; the owner performs the mutating `openhalo update` command personally.
 
 **Step 5: Commit**
 
