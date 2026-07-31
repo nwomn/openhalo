@@ -390,6 +390,64 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(old_websocket.sent_frames, [])
         self.assertEqual(current_websocket.sent_frames[-1]["type"], "event_ack")
 
+    async def test_dispatch_to_closed_source_releases_current_connection(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        class ClosedWebSocket:
+            async def send(self, frame: str) -> None:
+                raise ConnectionClosedOK(Close(1000, "normal close"), None)
+
+        websocket = ClosedWebSocket()
+        gateway.live_connections["android-edge-1"] = websocket
+        gateway.online_device_ids.add("android-edge-1")
+
+        await gateway._dispatch_websocket_replies(
+            "android-edge-1",
+            websocket,
+            [{"type": "event_ack"}],
+        )
+
+        self.assertNotIn("android-edge-1", gateway.live_connections)
+        self.assertNotIn("android-edge-1", gateway.online_device_ids)
+
+    async def test_dispatch_to_closed_target_releases_current_connection(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        class OpenWebSocket:
+            async def send(self, frame: str) -> None:
+                return None
+
+        class ClosedWebSocket:
+            async def send(self, frame: str) -> None:
+                raise ConnectionClosedOK(Close(1000, "normal close"), None)
+
+        source_socket = OpenWebSocket()
+        target_socket = ClosedWebSocket()
+        gateway.live_connections["android-edge-1"] = target_socket
+        gateway.online_device_ids.add("android-edge-1")
+
+        await gateway._dispatch_websocket_replies(
+            "terminal-edge-1",
+            source_socket,
+            [
+                {
+                    "type": "interaction_progress",
+                    "device_id": "android-edge-1",
+                }
+            ],
+        )
+
+        self.assertNotIn("android-edge-1", gateway.live_connections)
+        self.assertNotIn("android-edge-1", gateway.online_device_ids)
+
     async def test_replaced_websocket_close_does_not_clear_current_connection(
         self,
     ) -> None:

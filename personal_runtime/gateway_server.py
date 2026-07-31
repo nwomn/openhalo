@@ -1380,7 +1380,10 @@ class RuntimeGateway:
                             send_status="connection_closed",
                             error_class=type(exc).__name__,
                         )
-                        pass
+                        self._release_closed_websocket_session(
+                            target_device_id,
+                            target_websocket,
+                        )
                     continue
                 self._record_dispatch_diagnostic(
                     reply=reply,
@@ -1427,7 +1430,10 @@ class RuntimeGateway:
                     send_status="connection_closed",
                     error_class=type(exc).__name__,
                 )
-                pass
+                self._release_closed_websocket_session(
+                    source_device_id,
+                    source_websocket,
+                )
 
     def _record_dispatch_diagnostic(
         self,
@@ -1809,10 +1815,23 @@ class RuntimeGateway:
             )
         return None
 
-    def _release_websocket_session(self, device_id: str, websocket) -> None:
+    def _release_closed_websocket_session(self, device_id: str | None, websocket) -> None:
+        if device_id is None or not self._release_websocket_session(device_id, websocket):
+            return
+        record_mobile_session_state(
+            self.state,
+            device_id,
+            status="disconnected",
+            observed_at=_utc_now(),
+        )
+        self._persist_state()
+
+    def _release_websocket_session(self, device_id: str, websocket) -> bool:
         if self.live_connections.get(device_id) is websocket:
             del self.live_connections[device_id]
             self.online_device_ids.discard(device_id)
+            return True
+        return False
 
     async def _websocket_handler(self, websocket) -> None:
         registered_device_id = None
