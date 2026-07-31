@@ -51,6 +51,35 @@ def test_start_builds_home_derived_runtime_command_without_any_runtime_token() -
         directory.cleanup()
 
 
+def test_start_uses_persisted_proxy_and_ignores_host_proxy_environment(monkeypatch) -> None:
+    directory, home = _home()
+    launches: list[dict] = []
+    try:
+        home.configure_outbound_proxy("http://configured.example:8080")
+        monkeypatch.setenv("HTTP_PROXY", "http://host.example:8080")
+        monkeypatch.setenv("ALL_PROXY", "socks5://host.example:1080")
+        supervisor = RuntimeSupervisor(
+            home,
+            launcher=lambda command, **kwargs: launches.append(kwargs)
+            or type("Process", (), {"pid": 722})(),
+            is_process_alive=lambda pid: pid == 722,
+            process_command=lambda pid: "python -m personal_runtime.main",
+            ready_file_exists=lambda path: True,
+        )
+
+        supervisor.start()
+
+        environment = launches[0]["env"]
+        assert environment["HTTP_PROXY"] == "http://configured.example:8080"
+        assert environment["HTTPS_PROXY"] == "http://configured.example:8080"
+        assert environment["HTTP_PROXY"] != "http://host.example:8080"
+        assert "ALL_PROXY" not in environment
+        assert environment["NO_PROXY"] == "127.0.0.1,localhost,::1"
+        assert environment["no_proxy"] == "127.0.0.1,localhost,::1"
+    finally:
+        directory.cleanup()
+
+
 def test_start_is_idempotent_for_a_running_openhalo_runtime() -> None:
     directory, home = _home()
     try:

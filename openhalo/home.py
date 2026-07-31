@@ -8,6 +8,8 @@ import tempfile
 from collections.abc import Mapping
 from pathlib import Path
 
+from openhalo.outbound_proxy import validate_proxy_url
+
 
 class PersonalHome:
     """Resolve and manage persistent data that belongs to one OpenHalo owner."""
@@ -79,6 +81,42 @@ class PersonalHome:
         configuration["runtime"] = runtime
         self._save_configuration(configuration)
         return runtime
+
+    def outbound_proxy_url(self) -> str | None:
+        runtime = self.load_configuration().get("runtime")
+        if not isinstance(runtime, dict):
+            return None
+        outbound_proxy = runtime.get("outbound_proxy")
+        if outbound_proxy is None:
+            return None
+        if not isinstance(outbound_proxy, dict) or not isinstance(
+            outbound_proxy.get("url"), str
+        ):
+            raise ValueError("Runtime outbound proxy configuration is invalid")
+        return validate_proxy_url(outbound_proxy["url"]).url
+
+    def configure_outbound_proxy(self, url: str) -> None:
+        validated_url = validate_proxy_url(url).url
+        self._ensure_private_directories()
+        configuration = self.load_configuration()
+        runtime = configuration.get("runtime")
+        if not isinstance(runtime, dict):
+            raise ValueError("OpenHalo Runtime is not configured; run openhalo setup")
+        runtime = dict(runtime)
+        runtime["outbound_proxy"] = {"url": validated_url}
+        configuration["runtime"] = runtime
+        self._save_configuration(configuration)
+
+    def clear_outbound_proxy(self) -> None:
+        self._ensure_private_directories()
+        configuration = self.load_configuration()
+        runtime = configuration.get("runtime")
+        if not isinstance(runtime, dict):
+            raise ValueError("OpenHalo Runtime is not configured; run openhalo setup")
+        runtime = dict(runtime)
+        runtime.pop("outbound_proxy", None)
+        configuration["runtime"] = runtime
+        self._save_configuration(configuration)
 
     def configure_terminal_edge(
         self,

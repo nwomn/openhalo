@@ -84,6 +84,32 @@ The detached Runtime survives shell exit while the machine remains up. It is
 not a system service and does not yet start itself again after a machine reboot;
 run `openhalo start` after reboot until per-user restart supervision is added.
 
+## Configure Runtime Outbound Proxy
+
+The installed Runtime uses direct outbound HTTP by default. Its owner may
+configure an HTTP or HTTPS proxy for Provider and registered MCP HTTP traffic:
+
+```bash
+openhalo proxy show
+openhalo proxy set
+openhalo proxy test
+openhalo proxy clear
+```
+
+`proxy set` reads the complete proxy URL through a hidden prompt. It validates
+and probes the selected Provider path before saving. If the Runtime is already
+running, OpenHalo restarts it through the owner supervisor; a failed candidate
+start restores the previous configuration and Runtime. `proxy clear` applies
+the same transaction after a direct-path probe, so an unavailable direct path
+does not discard a working proxy configuration.
+
+`proxy show` and command results redact proxy credentials. The configuration is
+stored in the owner-only `~/.openhalo/config.json`; it is never written to
+Runtime diagnostics, logs, or support output. Shell proxy variables do not
+select the installed Runtime's route. Runtime-managed loopback Host Edge
+connections remain direct, and the outbound proxy does not change any external
+Edge `ws://` or `wss://` Gateway transport.
+
 ## Connect A Remote Edge
 
 The normal direct-IP Edge URL is:

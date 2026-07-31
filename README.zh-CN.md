@@ -113,6 +113,11 @@ Runtime 的日常控制命令是 `openhalo status`、`openhalo logs --lines 100`
 `openhalo stop`。反向代理、更新和排障的完整说明见
 [docs/runtime-deploy.md](docs/runtime-deploy.md)。
 
+Runtime 默认直连。使用 `openhalo proxy set` 配置 owner 私有的 HTTP/HTTPS
+代理，使用 `openhalo proxy show` 查看脱敏状态，使用 `openhalo proxy test`
+验证选定的 Provider 路径，或使用 `openhalo proxy clear` 恢复直连。代理凭据通过
+隐藏提示输入，命令输出不会显示凭据；这些命令不会改变 Edge WebSocket 传输。
+
 首次用包含 updater 的版本完成安装后，日常更新只使用带有完整 Runtime
 资产的最新稳定 GitHub Release：
 

@@ -139,6 +139,13 @@ Normal Runtime control is `openhalo status`, `openhalo logs --lines 100`, and
 `openhalo stop`. Full proxy, update, and troubleshooting instructions are in
 [docs/runtime-deploy.md](docs/runtime-deploy.md).
 
+The Runtime is direct by default. Configure an owner-only HTTP/HTTPS proxy with
+`openhalo proxy set`, inspect it with `openhalo proxy show`, verify the selected
+Provider path with `openhalo proxy test`, or return to direct access with
+`openhalo proxy clear`. Proxy credentials are entered through a hidden prompt
+and are redacted from command output; these commands never change Edge
+WebSocket transport.
+
 After first installing a build that includes the updater, normal updates use
 the latest stable GitHub Release with complete Runtime assets:
 

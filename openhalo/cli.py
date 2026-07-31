@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import os
 import shutil
@@ -12,6 +13,8 @@ from collections.abc import Callable
 from pathlib import Path
 
 from openhalo.home import PersonalHome
+from openhalo.outbound_proxy import OutboundProxyManager
+from openhalo.outbound_proxy import ProxyOperationError
 from openhalo.release_manager import GitHubReleaseFeed
 from openhalo.release_manager import ReleaseLayout
 from openhalo.release_manager import ReleaseStager
@@ -47,6 +50,12 @@ def build_parser() -> argparse.ArgumentParser:
     logs = subparsers.add_parser("logs", help="Show recent Runtime logs.")
     logs.add_argument("--lines", type=int, default=100, help="Number of log lines.")
     subparsers.add_parser("doctor", help="Check local OpenHalo setup.")
+    proxy = subparsers.add_parser("proxy", help="Manage Runtime outbound HTTP proxy.")
+    proxy_commands = proxy.add_subparsers(dest="proxy_command", required=True)
+    proxy_commands.add_parser("show", help="Show the redacted outbound proxy state.")
+    proxy_commands.add_parser("test", help="Test the selected Runtime outbound path.")
+    proxy_commands.add_parser("set", help="Set the outbound proxy from hidden input.")
+    proxy_commands.add_parser("clear", help="Clear the outbound proxy and use direct access.")
     update = subparsers.add_parser("update", help="Install the latest stable Runtime release.")
     update.add_argument("--check", action="store_true", help="Check for an update without changing Runtime files.")
     subparsers.add_parser("rollback", help="Restore the previous Runtime release.")
@@ -68,6 +77,8 @@ def main(
     home: PersonalHome | None = None,
     supervisor_factory: Callable[[PersonalHome], RuntimeSupervisor] = RuntimeSupervisor,
     updater_factory: Callable[[PersonalHome], ReleaseUpdater] | None = None,
+    proxy_manager_factory: Callable[[PersonalHome], OutboundProxyManager] | None = None,
+    proxy_url_reader: Callable[[], str] | None = None,
 ) -> int:
     args = build_parser().parse_args(argv)
     personal_home = home or PersonalHome.from_environment()
@@ -105,6 +116,53 @@ def main(
         revoked = PairingStore(personal_home.pairing_store_path).revoke_device(args.device_id)
         _emit({"device_id": args.device_id, "revoked": revoked})
         return 0 if revoked else 1
+
+    if args.command == "proxy":
+        try:
+            _require_runtime_configuration(personal_home)
+            manager = (
+                proxy_manager_factory(personal_home)
+                if proxy_manager_factory is not None
+                else OutboundProxyManager(
+                    personal_home,
+                    supervisor_factory=supervisor_factory,
+                )
+            )
+            if args.proxy_command == "show":
+                result = manager.show()
+            elif args.proxy_command == "test":
+                result = manager.test()
+            elif args.proxy_command == "set":
+                reader = proxy_url_reader or (lambda: getpass.getpass("Proxy URL: "))
+                result = manager.set(reader())
+            else:
+                result = manager.clear()
+            _emit(result)
+            return 0
+        except ProxyOperationError as exc:
+            _emit(
+                {
+                    "failure_class": exc.failure_class,
+                    "operation": exc.operation,
+                    "reason": exc.safe_reason,
+                    "state": (
+                        "proxy_rollback_failed"
+                        if exc.rollback_failed
+                        else "proxy_failed"
+                    ),
+                }
+            )
+            return 1
+        except (OSError, ValueError):
+            _emit(
+                {
+                    "failure_class": "invalid_configuration",
+                    "operation": args.proxy_command,
+                    "reason": "Runtime proxy configuration is invalid",
+                    "state": "proxy_failed",
+                }
+            )
+            return 1
 
     if args.command == "update":
         try:

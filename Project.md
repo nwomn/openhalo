@@ -2103,6 +2103,7 @@ Current progress summary:
 - Full regression verification should now watch formal `coverage.py` line coverage alongside pass/fail results. The current baseline is 87% line coverage over `personal_runtime`, `device_edge`, and `agent_guard` after 291 passing unittest cases; future full-test summaries should call out meaningful coverage drops or low-coverage risk areas, especially on the runtime/action/presence/model and edge paths
 - We have our own tested minimal protocol, edge session client, and gateway baseline, reducing the value of deeper OpenClaw gateway extraction work
 - We may still borrow ideas from OpenClaw protocol/client layers later, but that is now optional follow-on work rather than an open prerequisite
+- M22.1 outbound proxy implementation is now present in the owner Runtime path: `openhalo proxy set`, `show`, `test`, and `clear` use a private `OPENHALO_HOME` configuration, hidden URL input, redacted output, explicit direct/proxy preflight, and transactional Runtime restart with previous-configuration rollback. Runtime startup removes inherited proxy variables, injects only the persisted HTTP/HTTPS proxy, and keeps loopback Host Edge connections outside that route. Automated focused coverage passes; real installed acceptance of both enabled-proxy and cleared/direct Provider egress remains open.
 
 Next recommended update trigger:
 

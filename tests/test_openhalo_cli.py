@@ -11,6 +11,7 @@ import pytest
 
 from openhalo.cli import main
 from openhalo.home import PersonalHome
+from openhalo.outbound_proxy import ProxyOperationError
 from openhalo import version as version_module
 from personal_runtime.pairing_store import PairingStore
 
@@ -59,6 +60,47 @@ class TarFailureUpdater:
         import tarfile
 
         raise tarfile.ReadError("not a tar archive")
+
+
+class FakeProxyManager:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str | None]] = []
+
+    def show(self) -> dict:
+        self.calls.append(("show", None))
+        return {"state": "direct", "proxy_url": None, "authentication": "none"}
+
+    def test(self) -> dict:
+        self.calls.append(("test", None))
+        return {"state": "reachable", "mode": "direct", "latency_ms": 1}
+
+    def set(self, url: str) -> dict:
+        self.calls.append(("set", url))
+        return {
+            "state": "configured",
+            "proxy_url": "http://proxy.example:8080",
+            "authentication": "none",
+            "changed": True,
+            "runtime_restarted": False,
+        }
+
+    def clear(self) -> dict:
+        self.calls.append(("clear", None))
+        return {
+            "state": "direct",
+            "proxy_url": None,
+            "changed": True,
+            "runtime_restarted": False,
+        }
+
+
+class FailingProxyManager:
+    def set(self, _url: str) -> dict:
+        raise ProxyOperationError(
+            "set",
+            "proxy_authentication",
+            "proxy authentication was rejected",
+        )
 
 
 def _run(home: PersonalHome, *argv: str) -> tuple[int, str]:
@@ -186,7 +228,7 @@ def test_version_flag_reports_the_installed_release_identity(monkeypatch: pytest
             main(["--version"], home=home, supervisor_factory=FakeSupervisor)
 
     assert exit_code.value.code == 0
-    assert output.getvalue() == "openhalo 0.1.3 (aaaaaaa)\n"
+    assert output.getvalue() == "openhalo 0.1.6 (aaaaaaa)\n"
 
 
 def test_version_flag_prints_a_development_identity_outside_a_release_layout() -> None:
@@ -197,7 +239,7 @@ def test_version_flag_prints_a_development_identity_outside_a_release_layout() -
             main(["--version"], home=home, supervisor_factory=FakeSupervisor)
 
     assert exit_code.value.code == 0
-    assert output.getvalue() == "openhalo 0.1.3 (dev)\n"
+    assert output.getvalue() == "openhalo 0.1.6 (dev)\n"
 
 
 def test_version_fallback_matches_the_release_package_version(
@@ -209,7 +251,7 @@ def test_version_fallback_matches_the_release_package_version(
     monkeypatch.setattr(version_module, "distribution_version", package_not_installed)
 
     assert version_module.format_cli_version("openhalo", executable="/tmp/python") == (
-        "openhalo 0.1.3 (dev)"
+        "openhalo 0.1.6 (dev)"
     )
 
 
@@ -282,3 +324,75 @@ def test_update_check_reports_archive_failure_without_a_traceback() -> None:
         "reason": "not a tar archive",
         "state": "update_failed",
     }
+
+
+def test_proxy_commands_use_owner_manager_and_hidden_set_input() -> None:
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+        _run(home, "setup")
+        manager = FakeProxyManager()
+        output = io.StringIO()
+        with redirect_stdout(output):
+            show_exit = main(
+                ["proxy", "show"],
+                home=home,
+                supervisor_factory=FakeSupervisor,
+                proxy_manager_factory=lambda _: manager,
+            )
+            set_exit = main(
+                ["proxy", "set"],
+                home=home,
+                supervisor_factory=FakeSupervisor,
+                proxy_manager_factory=lambda _: manager,
+                proxy_url_reader=lambda: "http://proxy.example:8080",
+            )
+            test_exit = main(
+                ["proxy", "test"],
+                home=home,
+                supervisor_factory=FakeSupervisor,
+                proxy_manager_factory=lambda _: manager,
+            )
+            clear_exit = main(
+                ["proxy", "clear"],
+                home=home,
+                supervisor_factory=FakeSupervisor,
+                proxy_manager_factory=lambda _: manager,
+            )
+
+    payloads = [json.loads(line) for line in output.getvalue().splitlines()]
+    assert show_exit == set_exit == test_exit == clear_exit == 0
+    assert manager.calls == [
+        ("show", None),
+        ("set", "http://proxy.example:8080"),
+        ("test", None),
+        ("clear", None),
+    ]
+    assert payloads[0]["state"] == "direct"
+    assert payloads[1]["state"] == "configured"
+    assert payloads[2]["state"] == "reachable"
+    assert payloads[3]["state"] == "direct"
+
+
+def test_proxy_command_reports_safe_failure_and_nonzero_exit() -> None:
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+        _run(home, "setup")
+        output = io.StringIO()
+        with redirect_stdout(output):
+            exit_code = main(
+                ["proxy", "set"],
+                home=home,
+                supervisor_factory=FakeSupervisor,
+                proxy_manager_factory=lambda _: FailingProxyManager(),
+                proxy_url_reader=lambda: "http://alice:secret@proxy.example:8080",
+            )
+
+    assert exit_code == 1
+    payload = json.loads(output.getvalue())
+    assert payload == {
+        "failure_class": "proxy_authentication",
+        "operation": "set",
+        "reason": "proxy authentication was rejected",
+        "state": "proxy_failed",
+    }
+    assert "secret" not in output.getvalue()

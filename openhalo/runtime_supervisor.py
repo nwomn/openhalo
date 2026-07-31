@@ -12,6 +12,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from openhalo.home import PersonalHome
+from openhalo.outbound_proxy import build_runtime_environment
 
 
 class RuntimeSupervisor:
@@ -72,7 +73,10 @@ class RuntimeSupervisor:
         runtime = self._runtime_configuration()
         self.home.initialize_runtime(host=runtime["host"], port=runtime["port"])
         self.home.runtime_ready_path.unlink(missing_ok=True)
-        environment = dict(os.environ)
+        environment = build_runtime_environment(
+            dict(os.environ),
+            proxy_url=self.home.outbound_proxy_url(),
+        )
         environment.pop("OPENHALO_RUNTIME_TOKEN", None)
         self.home.log_directory.mkdir(parents=True, exist_ok=True)
         with self.home.runtime_log_path.open("a", encoding="utf-8") as log_file:
