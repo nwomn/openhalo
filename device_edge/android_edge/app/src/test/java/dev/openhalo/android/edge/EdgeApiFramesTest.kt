@@ -119,6 +119,15 @@ class EdgeApiFramesTest {
     }
 
     @Test
+    fun revokedDeviceAuthenticationFailureRequiresRePairing() {
+        assertTrue(authenticationFailureRequiresRePairing("pairing_required"))
+        assertTrue(authenticationFailureRequiresRePairing("unauthorized"))
+        assertTrue(authenticationFailureRequiresRePairing("audience_mismatch"))
+        assertTrue(authenticationFailureRequiresRePairing("invalid_auth_proof"))
+        assertFalse(authenticationFailureRequiresRePairing("invalid_pairing_code"))
+    }
+
+    @Test
     fun chatTranscriptKeepsDeliveredInputAndNotificationsButExcludesQueuedInput() {
         assertTrue(AndroidEdgePreferences.isChatTranscriptItem("notification.show -> ok", "notification"))
         assertTrue(AndroidEdgePreferences.isChatTranscriptItem("Submitted mobile.input", "event"))
@@ -442,6 +451,13 @@ class EdgeApiFramesTest {
         assertEquals(20_000L, reconnectDelayMillis(4))
         assertEquals(30_000L, reconnectDelayMillis(5))
         assertEquals(30_000L, reconnectDelayMillis(99))
+    }
+
+    @Test
+    fun pairingCodeIsRetainedOnlyInMemoryForReconnect() {
+        assertEquals("one-time-code", pairingCodeForReconnect(" one-time-code "))
+        assertNull(pairingCodeForReconnect("   "))
+        assertNull(pairingCodeForReconnect(null))
     }
 
     @Test

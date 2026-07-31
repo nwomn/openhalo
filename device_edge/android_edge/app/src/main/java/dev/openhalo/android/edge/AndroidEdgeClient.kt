@@ -502,9 +502,9 @@ class AndroidEdgeClient(
 
     private fun failAuthentication(webSocket: WebSocket, message: String, code: String = "") {
         val config = currentConfig
-        val rejectedDeviceIdentity =
-            code in setOf("unauthorized", "audience_mismatch", "invalid_auth_proof") && config?.isPaired == true
-        if (rejectedDeviceIdentity) {
+        val requiresRePairing =
+            authenticationFailureRequiresRePairing(code) && config?.isPaired == true
+        if (requiresRePairing) {
             AndroidEdgePreferences.clearPairingState(context)
             currentConfig = config.copy(isPaired = false, requiresRePairing = true)
         }
@@ -514,13 +514,19 @@ class AndroidEdgeClient(
         publish(
             state.copy(
                 connectionState = "disconnected",
-                authenticationState = if (rejectedDeviceIdentity) {
+                authenticationState = if (code == "pairing_required" && requiresRePairing) {
+                    "re_pairing_required"
+                } else if (requiresRePairing) {
                     "device_key_rejected"
                 } else {
                     "pairing_failed"
                 },
-                lastError = message,
-                reconnectStatus = "configuration required",
+                lastError = if (code == "pairing_required" && requiresRePairing) {
+                    "This device was revoked. Pair it again before reconnecting."
+                } else {
+                    message
+                },
+                reconnectStatus = if (requiresRePairing) "pairing required" else "configuration required",
                 nextReconnectAt = "",
                 lastDisconnectedAt = nowIso(),
                 lastDisconnectReason = code.ifBlank { "authentication failed" },
@@ -730,19 +736,9 @@ class AndroidEdgeClient(
         if (manualDisconnect || retryBlockedByConfiguration) {
             return
         }
-        if (pendingPairingCode != null) {
-            retryBlockedByConfiguration = true
-            publish(
-                state.copy(
-                    authenticationState = "pairing_interrupted",
-                    reconnectStatus = "enter a new pairing code",
-                    nextReconnectAt = ""
-                )
-            )
-            return
-        }
         val config = currentConfig ?: AndroidEdgePreferences.loadConfig(context)
         currentConfig = config
+        val pairingCode = pairingCodeForReconnect(pendingPairingCode)
         val nextAttempt = (state.reconnectAttempt + 1).coerceAtMost(MAX_RECONNECT_ATTEMPT)
         val delayMs = reconnectDelayMillis(nextAttempt)
         val nextAt = Instant.now().plusMillis(delayMs).toString()
@@ -762,7 +758,12 @@ class AndroidEdgeClient(
         reconnectHandler.removeCallbacksAndMessages(null)
         reconnectHandler.postDelayed({
             if (!manualDisconnect && state.connectionState != "connected") {
-                connect(config.runtimeMode, config.runtimeUrl, config.deviceId)
+                connect(
+                    config.runtimeMode,
+                    config.runtimeUrl,
+                    config.deviceId,
+                    pairingCode.orEmpty()
+                )
             }
         }, delayMs)
     }
@@ -857,3 +858,6 @@ fun reconnectDelayMillis(attempt: Int): Long {
     }
     return seconds * 1000L
 }
+
+fun pairingCodeForReconnect(pendingPairingCode: String?): String? =
+    pendingPairingCode?.trim()?.takeIf { it.isNotEmpty() }

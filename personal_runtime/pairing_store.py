@@ -76,6 +76,19 @@ class PairingStore:
             if pairing_record is None:
                 raise PairingError("invalid_pairing_code")
             if pairing_record["consumed_at"] is not None:
+                existing_device = payload["devices"].get(device_id)
+                if (
+                    pairing_record.get("consumed_by_device_id") == device_id
+                    and existing_device is not None
+                    and existing_device.get("device_type") == device_type
+                    and existing_device.get("audience") == audience
+                    and existing_device.get("public_key") == public_key
+                    and existing_device.get("revoked_at") is None
+                ):
+                    # The Edge may lose the transport after its proof is accepted but
+                    # before it receives connect_ok. Only that exact P-256 identity
+                    # may replay the code to complete the handshake.
+                    return
                 raise PairingError("pairing_code_consumed")
             if _parse_timestamp(pairing_record["expires_at"]) < _parse_timestamp(
                 claimed_at

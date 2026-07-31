@@ -82,6 +82,36 @@ class PairingStoreTests(unittest.TestCase):
                 now=NOW,
             )
 
+    def test_consumed_pairing_code_can_retry_only_for_the_same_identity(self) -> None:
+        pairing_code = self.store.create_pairing_code(
+            ttl_seconds=600,
+            now=NOW,
+        )
+        pairing = {
+            "device_id": "android-edge-1",
+            "device_type": "android-phone",
+            "display_name": "Maya's Phone",
+            "audience": "ws://198.51.100.15:8765",
+            "public_key": "public-key-1",
+        }
+        self.store.claim_pairing_code(pairing_code, now=NOW, **pairing)
+
+        self.store.claim_pairing_code(pairing_code, now=NOW, **pairing)
+
+        for field, value in (
+            ("device_id", "android-edge-2"),
+            ("device_type", "android-tablet"),
+            ("audience", "ws://198.51.100.16:8765"),
+            ("public_key", "different-public-key"),
+        ):
+            with self.subTest(field=field):
+                with self.assertRaisesRegex(PairingError, "pairing_code_consumed"):
+                    self.store.claim_pairing_code(
+                        pairing_code,
+                        now=NOW,
+                        **{**pairing, field: value},
+                    )
+
     def test_public_key_record_survives_store_restart(self) -> None:
         pairing_code = self.store.create_pairing_code(
             ttl_seconds=600,

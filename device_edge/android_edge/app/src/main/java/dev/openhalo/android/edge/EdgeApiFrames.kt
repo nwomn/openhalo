@@ -127,6 +127,14 @@ fun runtimeUrlValidationError(runtimeMode: String, runtimeUrl: String): String? 
 fun devicePairingRequired(isPaired: Boolean, pairingCode: String): Boolean =
     !isPaired && pairingCode.isBlank()
 
+fun authenticationFailureRequiresRePairing(code: String): Boolean =
+    code.trim() in setOf(
+        "unauthorized",
+        "audience_mismatch",
+        "invalid_auth_proof",
+        "pairing_required"
+    )
+
 fun buildCapabilityAnnounceFrame(deviceId: String): JSONObject =
     JSONObject()
         .put("api_version", EDGE_API_VERSION)

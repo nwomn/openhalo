@@ -234,7 +234,7 @@ fun M17BootstrapScreen(
                 if (next.authenticationState == "device_key") {
                     hasPairedDeviceIdentity = true
                     requiresRePairing = false
-                } else if (next.authenticationState == "device_key_rejected") {
+                } else if (next.authenticationState in setOf("device_key_rejected", "re_pairing_required")) {
                     hasPairedDeviceIdentity = false
                     requiresRePairing = true
                 }
@@ -244,7 +244,7 @@ fun M17BootstrapScreen(
                 if (next.authenticationState == "device_key") {
                     hasPairedDeviceIdentity = true
                     requiresRePairing = false
-                } else if (next.authenticationState == "device_key_rejected") {
+                } else if (next.authenticationState in setOf("device_key_rejected", "re_pairing_required")) {
                     hasPairedDeviceIdentity = false
                     requiresRePairing = true
                 }
@@ -576,7 +576,7 @@ private fun ConnectScreen(
         Spacer(Modifier.height(44.dp))
         Text(endpointSummary(runtimeUrl), color = Ink, fontSize = 22.sp)
         Spacer(Modifier.height(8.dp))
-        Text(connectionSubtitle(diagnostics), color = Muted, fontSize = 18.sp)
+        Text(connectionSubtitle(diagnostics, runtimeUrl), color = Muted, fontSize = 18.sp)
         Spacer(Modifier.height(56.dp))
         ConnectionStateSelector(connectionState)
         Spacer(Modifier.height(60.dp))
@@ -1682,15 +1682,13 @@ private fun statusDotColor(state: String): Color =
     }
 
 private fun endpointSummary(runtimeUrl: String): String =
-    runtimeUrl
-        .removePrefix("ws://")
-        .removePrefix("wss://")
-        .substringBefore("/")
-        .ifBlank { "runtime.local:8080" }
+    runtimeUrl.trim().ifBlank { "ws://runtime.local:8080" }
 
-private fun connectionSubtitle(diagnostics: EdgeDiagnostics): String =
+private fun connectionSubtitle(diagnostics: EdgeDiagnostics, runtimeUrl: String): String =
     when {
-        diagnostics.connectionState == "connected" -> "延迟 12ms · 安全连接"
+        diagnostics.connectionState == "connected" && runtimeUrl.trim().startsWith("wss://", ignoreCase = true) ->
+            "延迟 12ms · P-256 已验证 · WSS 加密传输"
+        diagnostics.connectionState == "connected" -> "延迟 12ms · P-256 已验证 · WS 不加密"
         diagnostics.lastError.isNotBlank() -> diagnostics.lastError.take(26)
         diagnostics.reconnectStatus.startsWith("retrying") -> diagnostics.reconnectStatus
         else -> "等待连接 · WebSocket"
