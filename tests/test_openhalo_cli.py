@@ -228,7 +228,7 @@ def test_version_flag_reports_the_installed_release_identity(monkeypatch: pytest
             main(["--version"], home=home, supervisor_factory=FakeSupervisor)
 
     assert exit_code.value.code == 0
-    assert output.getvalue() == "openhalo 0.1.6 (aaaaaaa)\n"
+    assert output.getvalue() == "openhalo 0.1.7 (aaaaaaa)\n"
 
 
 def test_version_flag_prints_a_development_identity_outside_a_release_layout() -> None:
@@ -239,7 +239,7 @@ def test_version_flag_prints_a_development_identity_outside_a_release_layout() -
             main(["--version"], home=home, supervisor_factory=FakeSupervisor)
 
     assert exit_code.value.code == 0
-    assert output.getvalue() == "openhalo 0.1.6 (dev)\n"
+    assert output.getvalue() == "openhalo 0.1.7 (dev)\n"
 
 
 def test_version_fallback_matches_the_release_package_version(
@@ -251,7 +251,7 @@ def test_version_fallback_matches_the_release_package_version(
     monkeypatch.setattr(version_module, "distribution_version", package_not_installed)
 
     assert version_module.format_cli_version("openhalo", executable="/tmp/python") == (
-        "openhalo 0.1.6 (dev)"
+        "openhalo 0.1.7 (dev)"
     )
 
 

@@ -177,6 +177,21 @@ def test_probe_http_endpoint_routes_through_explicit_proxy() -> None:
     assert server.request_seen is True
 
 
+def test_proxy_manager_default_probe_reaches_provider_endpoint(probe_server: str) -> None:
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+        home.initialize_runtime(host="127.0.0.1", port=8765)
+        manager = OutboundProxyManager(
+            home,
+            provider_endpoint_resolver=lambda _: probe_server,
+        )
+
+        result = manager.test()
+
+    assert result["state"] == "reachable"
+    assert result["http_status"] == 401
+
+
 def test_personal_home_persists_and_clears_outbound_proxy() -> None:
     with TemporaryDirectory() as directory:
         home = PersonalHome(Path(directory) / "home")

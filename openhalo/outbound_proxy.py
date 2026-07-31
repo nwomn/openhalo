@@ -144,7 +144,11 @@ class OutboundProxyManager:
     def _probe(self, proxy_url: str | None) -> ProbeResult:
         try:
             endpoint = self.provider_endpoint_resolver(self.home)
-            return self.probe(endpoint, proxy_url, self.timeout_s)
+            return self.probe(
+                endpoint,
+                proxy_url=proxy_url,
+                timeout_s=self.timeout_s,
+            )
         except ProxyOperationError:
             raise
         except Exception as exc:
