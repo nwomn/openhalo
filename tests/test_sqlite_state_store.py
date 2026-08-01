@@ -3,6 +3,7 @@ import os
 import stat
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest.mock import patch
 
@@ -128,6 +129,18 @@ class SQLiteRuntimeStateStoreTests(unittest.TestCase):
 
             restored = store.load()
             self.assertEqual([item["event_id"] for item in restored.events], ["event-1", "event-2"])
+
+    def test_save_can_run_from_gateway_worker_thread(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = SQLiteRuntimeStateStore(Path(directory) / "state.sqlite3")
+            store.save(RuntimeState())
+            state = RuntimeState()
+            state.record_event({"event_id": "worker-event"})
+
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                executor.submit(store.save, state).result()
+
+            self.assertEqual(store.load().events[-1]["event_id"], "worker-event")
 
     def test_deferred_save_batches_high_frequency_records_until_flush(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

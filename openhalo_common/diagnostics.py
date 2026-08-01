@@ -10,6 +10,7 @@ from pathlib import Path
 from collections.abc import Callable
 from datetime import UTC
 from datetime import datetime
+from threading import RLock
 
 
 SCHEMA_VERSION = "diagnostic.v1"
@@ -77,19 +78,21 @@ class JsonlDiagnosticWriter:
         self.path = path
         self.max_bytes = max_bytes
         self.backup_count = backup_count
+        self._lock = RLock()
 
     def record(self, event: DiagnosticEvent) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        encoded = json.dumps(event.to_dict(), ensure_ascii=True) + "\n"
-        encoded_bytes = encoded.encode("utf-8")
-        if (
-            self.path.exists()
-            and self.path.stat().st_size > 0
-            and self.path.stat().st_size + len(encoded_bytes) > self.max_bytes
-        ):
-            self._rotate()
-        with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(encoded)
+        with self._lock:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            encoded = json.dumps(event.to_dict(), ensure_ascii=True) + "\n"
+            encoded_bytes = encoded.encode("utf-8")
+            if (
+                self.path.exists()
+                and self.path.stat().st_size > 0
+                and self.path.stat().st_size + len(encoded_bytes) > self.max_bytes
+            ):
+                self._rotate()
+            with self.path.open("a", encoding="utf-8") as handle:
+                handle.write(encoded)
 
     def _rotate(self) -> None:
         if self.backup_count == 0:

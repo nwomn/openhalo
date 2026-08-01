@@ -873,6 +873,7 @@ class SQLiteRuntimeStateStore:
                 self.path,
                 timeout=5.0,
                 isolation_level=None,
+                check_same_thread=False,
             )
             self._connection.row_factory = sqlite3.Row
             self._connection.execute("PRAGMA journal_mode=WAL")

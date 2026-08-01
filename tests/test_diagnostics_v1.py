@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from openhalo_common.diagnostics import DiagnosticCorrelation
@@ -124,6 +125,32 @@ class DiagnosticsV1Tests(unittest.TestCase):
             self.assertLessEqual(len(backups), 2)
             self.assertLessEqual(path.stat().st_size, 1024)
             self.assertTrue(backups)
+
+    def test_jsonl_writer_serializes_concurrent_rotation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "runtime.jsonl"
+            recorder = JsonlDiagnosticRecorder(path, max_bytes=1024, backup_count=4)
+
+            def record(index: int) -> None:
+                recorder.record_boundary(
+                    side="runtime",
+                    module="Gateway",
+                    operation="receive_frame",
+                    phase="input",
+                    correlation={"event_id": f"event-{index}"},
+                    input_payload={"type": "event_push", "index": index},
+                    output_payload={},
+                    summary="Received event_push frame.",
+                )
+
+            with ThreadPoolExecutor(max_workers=16) as executor:
+                futures = [executor.submit(record, index) for index in range(1000)]
+                errors = [future.exception() for future in futures if future.exception()]
+
+            self.assertEqual(errors, [])
+            files = sorted(path.parent.glob("runtime.jsonl*"))
+            self.assertLessEqual(len(files), 5)
+            self.assertTrue(all(file.stat().st_size <= 1024 for file in files))
 
     def test_trace_ids_are_stable_strings_for_frame_correlation(self) -> None:
         self.assertTrue(build_trace_id("terminal-edge-1", 3).startswith("trace-"))

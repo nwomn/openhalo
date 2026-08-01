@@ -1878,12 +1878,14 @@ Implemented in this batch:
 - SQLite schema, bounded load projection, incremental record journal, retention/active-correlation protection, replay export, and owner `openhalo storage status|compact|export` commands.
 - Streaming JSON migration, staged SQLite-to-JSON rollback export, unmigrated/stale database guards, diagnostics size rotation, and context-viewer SQLite/legacy fallback support.
 - RuntimeState now trims live event, observation, interaction, intervention, action-result, harness-trace, and consolidation histories while preserving active interaction correlations; storage status reports recent write volume and old-data eligibility without payload bodies.
-- Full repository, migration, Gateway, diagnostics, CLI, updater, and runtime regression coverage passes on `master`: `813 passed, 4 skipped, 19 subtests passed`. A process-level smoke test confirms old-style `state.json` startup creates SQLite and leaves a small bounded rollback snapshot.
+- SQLite persistence now permits the Gateway's worker-thread saves through the store's existing lock, and JSONL diagnostic rotation serializes concurrent worker writes so neither boundary can fail under parallel Edge traffic.
+- Full repository, migration, Gateway, diagnostics, CLI, updater, and runtime regression coverage passes on `master`: `818 passed, 4 skipped, 19 subtests passed`. A process-level smoke test confirms old-style `state.json` startup creates SQLite and leaves a small bounded rollback snapshot.
 
 M19 acceptance gaps:
 
 - Long-running owner Runtime acceptance still needs to measure RSS, SQLite/WAL footprint, recent-write volume, and quota pressure under realistic observation traffic.
 - Full configured-provider Terminal, Android, Host, and multi-edge acceptance after migration and compaction remains outstanding.
+- The first owner run on `v0.1.11` exposed a Gateway-worker SQLite thread-affinity failure and a concurrent diagnostic-rotation race; both are covered by regression tests and are scheduled for the `v0.1.12` follow-up release before repeating live acceptance.
 - The first live `v0.1.7 -> v0.1.8` update safely rolled back on duplicate legacy record keys; the `v0.1.9` retry was then blocked by stale migration WAL/SHM sidecars, and the `v0.1.10` compatibility attempt exceeded the old updater's 5-second health gate on the 17.5-second large-state migration. The next `v0.1.11` release adds post-health migration snapshot commit; the owner must complete migration and bounded-snapshot verification through the current updater path.
 - No long-running human acceptance has yet demonstrated storage posture reporting, compaction, and continued Terminal, Android, Host, and multi-edge operation after cleanup.
 
