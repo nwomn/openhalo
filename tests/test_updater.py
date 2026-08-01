@@ -101,6 +101,100 @@ def test_failed_candidate_start_restores_previous_release_and_runtime() -> None:
         ]
 
 
+def test_update_continues_release_recovery_when_state_rollback_fails() -> None:
+    with TemporaryDirectory() as directory:
+        layout = ReleaseLayout(Path(directory) / "release-home")
+        current = "a" * 40
+        candidate = "b" * 40
+        for commit in (current, candidate):
+            python = layout.release_directory(commit) / "venv/bin/python"
+            python.parent.mkdir(parents=True)
+            python.touch()
+        layout.activate(current)
+        calls: list[str] = []
+
+        def fail_state_rollback() -> None:
+            raise RuntimeError("state rollback failed")
+
+        result = ReleaseUpdater(
+            layout=layout,
+            feed=_Feed(
+                ReleaseManifest(
+                    version="0.1.8",
+                    tag="v0.1.8",
+                    commit=candidate,
+                    archive_name="openhalo-v0.1.8.tar.gz",
+                    archive_url="https://example.test/openhalo-v0.1.8.tar.gz",
+                    sha256="c" * 64,
+                )
+            ),
+            stager=_Stager(layout.release_directory(candidate)),
+            supervisor_factory=lambda executable: _Supervisor(executable, calls),
+            state_rollback_migrator=fail_state_rollback,
+        ).update()
+
+        assert result["state"] == "rolled_back"
+        assert result["recovery_errors"] == ["state rollback failed"]
+        assert layout.active_release() == current
+        assert calls == [
+            "stop:current",
+            "wait:current",
+            f"start:{candidate}",
+            f"stop:{candidate}",
+            f"wait:{candidate}",
+            f"start:{current}",
+        ]
+
+
+def test_state_migration_runs_before_candidate_activation_and_start() -> None:
+    with TemporaryDirectory() as directory:
+        layout = ReleaseLayout(Path(directory) / "release-home")
+        current = "a" * 40
+        candidate = "b" * 40
+        for commit in (current, candidate):
+            python = layout.release_directory(commit) / "venv/bin/python"
+            python.parent.mkdir(parents=True)
+            python.touch()
+        layout.activate(current)
+        calls: list[str] = []
+
+        def migration(manifest: ReleaseManifest) -> None:
+            calls.append(f"migrate:{manifest.commit}")
+
+        class OrderedSupervisor(_Supervisor):
+            def stop(self) -> dict:
+                calls.append("stop")
+                return {"state": "stopping", "pid": 123}
+
+            def wait_until_stopped(self) -> None:
+                calls.append("wait")
+
+            def start(self) -> dict:
+                calls.append(f"start:{self._label()}")
+                return {"state": "running", "pid": 456}
+
+        manifest = ReleaseManifest(
+            version="0.1.9",
+            tag="v0.1.9",
+            commit=candidate,
+            archive_name="openhalo-v0.1.9.tar.gz",
+            archive_url="https://example.test/openhalo-v0.1.9.tar.gz",
+            sha256="c" * 64,
+            state_schema="sqlite-v1",
+        )
+
+        result = ReleaseUpdater(
+            layout=layout,
+            feed=_Feed(manifest),
+            stager=_Stager(layout.release_directory(candidate)),
+            supervisor_factory=lambda executable: OrderedSupervisor(executable, calls),
+            state_migrator=migration,
+        ).update()
+
+        assert result["state"] == "updated"
+        assert calls[:4] == ["stop", "wait", f"migrate:{candidate}", f"start:{candidate}"]
+
+
 def test_update_refuses_to_turn_a_development_command_into_an_installer() -> None:
     with TemporaryDirectory() as directory:
         layout = ReleaseLayout(Path(directory) / "release-home")

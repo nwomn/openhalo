@@ -16,6 +16,8 @@ from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.managed_host_edge import ManagedHostEdgeSupervisor
 from personal_runtime.model_provider import DEFAULT_CONFIG_PATH
 from personal_runtime.pairing_store import PairingStore
+from personal_runtime.state_migration import migrate_json_to_sqlite
+from personal_runtime.state_migration import write_bounded_legacy_snapshot
 
 
 def build_runtime_server_message(
@@ -124,6 +126,14 @@ async def run_server(
     identity_home: Path | None = None,
     host_edge_supervisor_factory=build_managed_host_edge_supervisor,
 ) -> None:
+    requested_state_path = Path(state_path)
+    state_path = resolve_runtime_state_path(requested_state_path)
+    legacy_snapshot_path = (
+        requested_state_path
+        if requested_state_path.name == "state.json"
+        and requested_state_path.parent.name == "runtime"
+        else None
+    )
     gateway_kwargs = dict(
         state_path=state_path,
         llm_config_path=llm_config_path,
@@ -137,6 +147,8 @@ async def run_server(
     async with gateway.run_server(host=host, port=port) as server_info:
         supervisor = None
         try:
+            if legacy_snapshot_path is not None and state_path.suffix == ".sqlite3":
+                write_bounded_legacy_snapshot(state_path, legacy_snapshot_path)
             if ready_file_path is not None:
                 _write_ready_file(ready_file_path)
             if manage_host_edge:
@@ -176,7 +188,7 @@ def build_runtime_server_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--state-path",
-        default=".runtime/state.json",
+        default=".runtime/state.sqlite3",
         help="Path to the persisted runtime state file.",
     )
     parser.add_argument(
@@ -253,6 +265,19 @@ def _write_ready_file(path: Path) -> None:
     os.chmod(path, 0o600)
 
 
+def resolve_runtime_state_path(state_path: Path) -> Path:
+    path = Path(state_path)
+    if path.name != "state.json" or path.parent.name != "runtime":
+        return path
+    database = path.with_suffix(".sqlite3")
+    if database.exists():
+        return database
+    if path.exists():
+        migrate_json_to_sqlite(path, database)
+        return database
+    return path
+
+
 __all__ = [
     "build_gateway",
     "build_managed_host_edge_url",
@@ -261,6 +286,7 @@ __all__ = [
     "build_runtime_server_parser",
     "main",
     "run_server",
+    "resolve_runtime_state_path",
 ]
 
 

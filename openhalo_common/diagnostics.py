@@ -65,19 +65,59 @@ class DiagnosticEvent:
 
 
 class JsonlDiagnosticWriter:
-    def __init__(self, path: Path) -> None:
+    def __init__(
+        self,
+        path: Path,
+        *,
+        max_bytes: int = 16 * 1024 * 1024,
+        backup_count: int = 4,
+    ) -> None:
+        if max_bytes < 1 or backup_count < 0:
+            raise ValueError("diagnostic rotation settings must be non-negative")
         self.path = path
+        self.max_bytes = max_bytes
+        self.backup_count = backup_count
 
     def record(self, event: DiagnosticEvent) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        encoded = json.dumps(event.to_dict(), ensure_ascii=True) + "\n"
+        encoded_bytes = encoded.encode("utf-8")
+        if (
+            self.path.exists()
+            and self.path.stat().st_size > 0
+            and self.path.stat().st_size + len(encoded_bytes) > self.max_bytes
+        ):
+            self._rotate()
         with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(event.to_dict(), ensure_ascii=True))
-            handle.write("\n")
+            handle.write(encoded)
+
+    def _rotate(self) -> None:
+        if self.backup_count == 0:
+            self.path.unlink(missing_ok=True)
+            return
+        oldest = self.path.with_name(f"{self.path.name}.{self.backup_count}")
+        oldest.unlink(missing_ok=True)
+        for index in range(self.backup_count - 1, 0, -1):
+            source = self.path.with_name(f"{self.path.name}.{index}")
+            if source.exists():
+                source.replace(self.path.with_name(f"{self.path.name}.{index + 1}"))
+        self.path.replace(self.path.with_name(f"{self.path.name}.1"))
 
 
 class JsonlDiagnosticRecorder:
-    def __init__(self, path: Path, timestamp_provider=None) -> None:
-        self.writer = JsonlDiagnosticWriter(path)
+    def __init__(
+        self,
+        path: Path,
+        timestamp_provider=None,
+        *,
+        max_bytes: int = 16 * 1024 * 1024,
+        backup_count: int = 4,
+    ) -> None:
+        self.writer = JsonlDiagnosticWriter(
+            path,
+            max_bytes=max_bytes,
+            backup_count=backup_count,
+        )
         self.timestamp_provider = timestamp_provider or _utc_timestamp
 
     def record(self, event: DiagnosticEvent) -> None:

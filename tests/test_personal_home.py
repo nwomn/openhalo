@@ -38,6 +38,14 @@ def test_environment_override_keeps_runtime_and_terminal_configuration_together(
     assert home.pairing_store_path == root / "runtime" / "pairing.json"
 
 
+def test_runtime_has_sqlite_database_path_and_legacy_json_path() -> None:
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+
+    assert home.state_database_path == home.root / "runtime" / "state.sqlite3"
+    assert home.legacy_state_path == home.root / "runtime" / "state.json"
+
+
 def test_configuration_and_private_directories_are_owner_only() -> None:
     with TemporaryDirectory() as directory:
         home = PersonalHome(Path(directory) / "home")

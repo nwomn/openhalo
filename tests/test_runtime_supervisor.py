@@ -38,7 +38,7 @@ def test_start_builds_home_derived_runtime_command_without_any_runtime_token() -
         assert status == {"state": "running", "pid": 719}
         assert command[:3] == [sys.executable, "-m", "personal_runtime.main"]
         assert "--state-path" in command
-        assert str(home.state_path) in command
+        assert str(home.state_database_path) in command
         assert "--pairing-store-path" in command
         assert str(home.pairing_store_path) in command
         assert "--ready-file-path" in command
@@ -47,6 +47,26 @@ def test_start_builds_home_derived_runtime_command_without_any_runtime_token() -
         assert "--token" not in command
         assert "OPENHALO_RUNTIME_TOKEN" not in kwargs["env"]
         assert home.runtime_pid_path.read_text(encoding="utf-8") == "719\n"
+    finally:
+        directory.cleanup()
+
+
+def test_start_uses_legacy_json_until_sqlite_migration_has_completed() -> None:
+    directory, home = _home()
+    try:
+        home.legacy_state_path.write_text("{}\n", encoding="utf-8")
+        supervisor = RuntimeSupervisor(
+            home,
+            launcher=lambda command, **kwargs: type("Process", (), {"pid": 719})(),
+            is_process_alive=lambda pid: pid == 719,
+            process_command=lambda pid: "python -m personal_runtime.main",
+            ready_file_exists=lambda path: True,
+        )
+
+        command = supervisor.build_command()
+
+        assert str(home.legacy_state_path) in command
+        assert str(home.state_database_path) not in command
     finally:
         directory.cleanup()
 

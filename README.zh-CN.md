@@ -63,7 +63,7 @@ OpenHalo 正在面向几个清晰的部署场景建设：
 | 跨边缘交互 | 已实现公开 Edge API 的注册、观察、事件、动作、动作结果，以及经过 Presence 治理的路由 | 更广的真实设备场景和更丰富的 capability 覆盖 |
 | 环境/家庭 edge 生态 | 长期方向：智能家居、传感器和小型边缘 AI 节点成为额外的 `Device Edge` 参与者 | 桥接集成、设备画像、安全策略和低存在感环境交互设计 |
 | Mobile observation depth | `M17.5` 已验收：Android 可以上传被动的 `mobile.screen_context` / `mobile.screen_capture_health` evidence，并可通过 runtime context viewer 验证 | `M17.7` 负责观察保活/唤醒恢复；`M17.8` 负责 allowlist-first 的敏感屏幕采集治理 |
-| Product packaging | M22 个人安装基础和 GitHub Release 更新/检查/回退：固定提交引导安装器、全局命令、私有配置、Runtime 生命周期、Terminal 配对、校验式 staging 和自动运行时回退 | manifest 签名、持久化状态迁移、Windows 包和完整三端验收 |
+| Product packaging | M22 个人安装基础和 GitHub Release 更新/检查/回退：固定提交引导安装器、全局命令、私有配置、Runtime 生命周期、Terminal 配对、校验式 staging、自动运行时回退，以及 M19 SQLite 迁移桥接 | manifest 签名、迁移版本的 owner 验收、Windows 包和完整三端验收 |
 
 完整路线图和里程碑状态见 [Project.md](Project.md)。
 

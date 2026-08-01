@@ -7,6 +7,14 @@ from personal_runtime.harness_provenance import sanitize_internal_tool_events
 
 
 HARNESS_PROVENANCE_HISTORY_LIMIT = RUNTIME_PROVENANCE_HISTORY_LIMIT
+EVENT_HISTORY_LIMIT = 2_000
+OBSERVATION_HISTORY_LIMIT = 10_000
+ACTION_RESULT_HISTORY_LIMIT = 2_000
+INTERACTION_HISTORY_LIMIT = 500
+INTERVENTION_HISTORY_LIMIT = 2_000
+MEMORY_CONSOLIDATION_HISTORY_LIMIT = 2_000
+HARNESS_TRACE_HISTORY_LIMIT = 2_000
+HARNESS_MEMORY_LIMIT = 5_000
 
 
 class RuntimeState:
@@ -46,6 +54,38 @@ class RuntimeState:
         self.harness_traces = []
         self.internal_tool_events = []
         self.hermes_memory_events = []
+        self._storage_operations = []
+
+    def _queue_record(
+        self,
+        collection: str,
+        payload: dict,
+        *,
+        record_key: str | None = None,
+    ) -> None:
+        self._storage_operations.append(
+            {
+                "kind": "record",
+                "collection": collection,
+                "payload": dict(payload),
+                "record_key": record_key,
+            }
+        )
+
+    def _queue_state_value(self, key: str, payload) -> None:
+        self._storage_operations.append(
+            {"kind": "state_value", "key": key, "payload": payload}
+        )
+
+    def mark_state_value(self, key: str, payload=None) -> None:
+        if payload is None:
+            payload = getattr(self, key)
+        self._queue_state_value(key, payload)
+
+    def drain_storage_operations(self) -> list[dict]:
+        operations = self._storage_operations
+        self._storage_operations = []
+        return operations
 
     def register_device(
         self,
@@ -72,6 +112,8 @@ class RuntimeState:
             self.device_registry[device_id]["profile"] = profile
         if isinstance(display_name, str) and display_name.strip():
             self.device_registry[device_id]["display_name"] = display_name.strip()
+        self._queue_state_value("devices", self._devices_payload())
+        self._queue_state_value("device_registry", self.device_registry)
 
     def register_capability(self, device_id: str, capability_name: str | dict) -> None:
         if isinstance(capability_name, dict):
@@ -97,9 +139,25 @@ class RuntimeState:
                         {},
                     )[observation["name"]] = dict(observation)
         self.devices[device_id]["capabilities"].add(capability_name)
+        self._queue_state_value("devices", self._devices_payload())
+        self._queue_state_value("capability_registry", self.capability_registry)
+        self._queue_state_value("observation_registry", self.observation_registry)
+
+    def record_event(self, event: dict) -> None:
+        payload = dict(event)
+        self.events.append(payload)
+        self._trim_history("events", EVENT_HISTORY_LIMIT)
+        self._queue_record("events", sanitize_event_for_storage(payload))
 
     def record_action_result(self, result: dict) -> None:
-        self.action_results.append(result)
+        payload = dict(result)
+        self.action_results.append(payload)
+        self._trim_history(
+            "action_results",
+            ACTION_RESULT_HISTORY_LIMIT,
+            preserve_active_links=True,
+        )
+        self._queue_record("action_results", payload)
 
     def record_harness_memory(
         self,
@@ -121,12 +179,28 @@ class RuntimeState:
                 "recorded_at": recorded_at,
             }
         )
+        self.harness_memory[key] = self.harness_memory[key][-HARNESS_MEMORY_LIMIT:]
+        self._queue_state_value("harness_memory", self.harness_memory)
 
     def record_memory_consolidation_candidate(self, candidate: dict) -> None:
-        self.memory_consolidation_candidates.append(dict(candidate))
+        payload = dict(candidate)
+        self.memory_consolidation_candidates.append(payload)
+        self._trim_history(
+            "memory_consolidation_candidates",
+            MEMORY_CONSOLIDATION_HISTORY_LIMIT,
+            preserve_active_links=True,
+        )
+        self._queue_record("memory_consolidation_candidates", payload)
 
     def record_harness_trace(self, trace: dict) -> None:
-        self.harness_traces.append(dict(trace))
+        payload = dict(trace)
+        self.harness_traces.append(payload)
+        self._trim_history(
+            "harness_traces",
+            HARNESS_TRACE_HISTORY_LIMIT,
+            preserve_active_links=True,
+        )
+        self._queue_record("harness_traces", payload)
 
     def record_internal_tool_events(
         self,
@@ -146,6 +220,7 @@ class RuntimeState:
                     **event,
                 }
             )
+            self._queue_record("internal_tool_events", self.internal_tool_events[-1])
         self.internal_tool_events = self.internal_tool_events[
             -HARNESS_PROVENANCE_HISTORY_LIMIT:
         ]
@@ -168,12 +243,31 @@ class RuntimeState:
                     **event,
                 }
             )
+            self._queue_record("hermes_memory_events", self.hermes_memory_events[-1])
         self.hermes_memory_events = self.hermes_memory_events[
             -HARNESS_PROVENANCE_HISTORY_LIMIT:
         ]
 
     def record_interaction(self, interaction: dict) -> None:
-        self.interactions.append(interaction)
+        payload = dict(interaction)
+        self.interactions.append(payload)
+        self._trim_history(
+            "interactions",
+            INTERACTION_HISTORY_LIMIT,
+            preserve_active=True,
+        )
+        self._queue_record(
+            "interactions",
+            payload,
+            record_key=payload.get("interaction_id"),
+        )
+
+    def mark_interaction_changed(self, interaction: dict) -> None:
+        self._queue_record(
+            "interactions",
+            interaction,
+            record_key=interaction.get("interaction_id"),
+        )
 
     def allocate_interaction_id(self) -> str:
         existing_ids = {
@@ -183,6 +277,7 @@ class RuntimeState:
         while f"interaction-{next_index}" in existing_ids:
             next_index += 1
         self.interaction_sequence = next_index
+        self._queue_state_value("interaction_sequence", next_index)
         return f"interaction-{next_index}"
 
     def allocate_interaction_turn_id(self) -> str:
@@ -197,6 +292,7 @@ class RuntimeState:
         while f"interaction-turn-{next_index}" in existing_ids:
             next_index += 1
         self.interaction_turn_sequence = next_index
+        self._queue_state_value("interaction_turn_sequence", next_index)
         return f"interaction-turn-{next_index}"
 
     def update_interaction(
@@ -208,19 +304,41 @@ class RuntimeState:
             if existing.get("interaction_id") == interaction_id:
                 updated = {**existing, **changes}
                 self.interactions[index] = updated
+                self._trim_history(
+                    "interactions",
+                    INTERACTION_HISTORY_LIMIT,
+                    preserve_active=True,
+                )
+                self.mark_interaction_changed(updated)
                 return updated
         created = {"interaction_id": interaction_id, **changes}
         self.interactions.append(created)
+        self._trim_history(
+            "interactions",
+            INTERACTION_HISTORY_LIMIT,
+            preserve_active=True,
+        )
+        self.mark_interaction_changed(created)
         return created
 
     def record_observation(self, observation: RuntimeObservation) -> None:
         self.observations.append(observation)
+        self._trim_history("observations", OBSERVATION_HISTORY_LIMIT)
+        self._queue_record("observations", observation.to_dict())
 
     def record_observations(self, observations: list[RuntimeObservation]) -> None:
-        self.observations.extend(observations)
+        for observation in observations:
+            self.record_observation(observation)
 
     def record_intervention(self, intervention: dict) -> None:
-        self.interventions.append(intervention)
+        payload = dict(intervention)
+        self.interventions.append(payload)
+        self._trim_history(
+            "interventions",
+            INTERVENTION_HISTORY_LIMIT,
+            preserve_active_links=True,
+        )
+        self._queue_record("interventions", payload)
 
     def record_model_health(
         self,
@@ -263,6 +381,7 @@ class RuntimeState:
         else:
             updated["last_success_at"] = observed_at
         self.model_health[profile] = updated
+        self._queue_state_value("model_health", self.model_health)
 
     def record_managed_host_edge_status(
         self,
@@ -280,6 +399,7 @@ class RuntimeState:
             "next_retry_delay_s": next_retry_delay_s,
             "updated_at": updated_at,
         }
+        self._queue_state_value("managed_host_edge", self.managed_host_edge)
 
     def upsert_goal(
         self,
@@ -299,18 +419,84 @@ class RuntimeState:
         for index, existing_goal in enumerate(self.tasks):
             if existing_goal.get("goal_id") == goal_id:
                 self.tasks[index] = goal_payload
+                self._queue_state_value("tasks", self.tasks)
                 return
         self.tasks.append(goal_payload)
+        self._queue_state_value("tasks", self.tasks)
+
+    def _trim_history(
+        self,
+        collection: str,
+        limit: int,
+        *,
+        preserve_active: bool = False,
+        preserve_active_links: bool = False,
+    ) -> None:
+        records = getattr(self, collection)
+        if len(records) <= limit:
+            return
+        active_ids = set()
+        if preserve_active or preserve_active_links:
+            active_ids = {
+                item.get("interaction_id")
+                for item in self.interactions
+                if isinstance(item, dict)
+                and item.get("interaction_id")
+                and item.get("status", "planned") != "completed"
+            }
+        preserved_indexes = []
+        if preserve_active:
+            preserved_indexes = [
+                index
+                for index, item in enumerate(records)
+                if isinstance(item, dict)
+                and item.get("status", "planned") != "completed"
+            ]
+        elif preserve_active_links:
+            preserved_indexes = [
+                index
+                for index, item in enumerate(records)
+                if isinstance(item, dict)
+                and item.get("interaction_id") in active_ids
+            ]
+        preserved_indexes = preserved_indexes[-limit:]
+        selected = set(preserved_indexes)
+        for index in range(len(records) - 1, -1, -1):
+            if len(selected) >= limit:
+                break
+            selected.add(index)
+        setattr(self, collection, [item for index, item in enumerate(records) if index in selected])
+
+    def _trim_hot_histories(self) -> None:
+        self._trim_history("interactions", INTERACTION_HISTORY_LIMIT, preserve_active=True)
+        self._trim_history("events", EVENT_HISTORY_LIMIT)
+        self._trim_history("observations", OBSERVATION_HISTORY_LIMIT)
+        self._trim_history(
+            "action_results",
+            ACTION_RESULT_HISTORY_LIMIT,
+            preserve_active_links=True,
+        )
+        self._trim_history(
+            "interventions",
+            INTERVENTION_HISTORY_LIMIT,
+            preserve_active_links=True,
+        )
+        self._trim_history(
+            "memory_consolidation_candidates",
+            MEMORY_CONSOLIDATION_HISTORY_LIMIT,
+            preserve_active_links=True,
+        )
+        self._trim_history(
+            "harness_traces",
+            HARNESS_TRACE_HISTORY_LIMIT,
+            preserve_active_links=True,
+        )
+        for kind, records in self.harness_memory.items():
+            self.harness_memory[kind] = records[-HARNESS_MEMORY_LIMIT:]
 
     def to_dict(self) -> dict:
         return {
-            "devices": {
-                device_id: {
-                    "device_type": payload["device_type"],
-                    "capabilities": sorted(payload["capabilities"]),
-                }
-                for device_id, payload in self.devices.items()
-            },
+            "devices": self._devices_payload(),
             "device_registry": self.device_registry,
             "capability_registry": self.capability_registry,
             "observation_registry": self.observation_registry,
@@ -334,6 +520,15 @@ class RuntimeState:
             "harness_traces": self.harness_traces,
             "internal_tool_events": self.internal_tool_events,
             "hermes_memory_events": self.hermes_memory_events,
+        }
+
+    def _devices_payload(self) -> dict:
+        return {
+            device_id: {
+                "device_type": payload["device_type"],
+                "capabilities": sorted(payload["capabilities"]),
+            }
+            for device_id, payload in self.devices.items()
         }
 
     @classmethod
@@ -390,7 +585,30 @@ class RuntimeState:
                 interaction_id=event.get("interaction_id", ""),
                 interaction_turn_id=event.get("interaction_turn_id", ""),
             )
+        state._trim_hot_histories()
+        state._storage_operations = []
         return state
+
+
+def sanitize_event_for_storage(event: dict) -> dict:
+    payload = dict(event)
+    body = payload.get("payload")
+    if not isinstance(body, dict) or not isinstance(body.get("observations"), list):
+        return payload
+    observations = body["observations"]
+    projected_body = {
+        key: value for key, value in body.items() if key != "observations"
+    }
+    projected_body["observation_count"] = len(observations)
+    projected_body["observation_names"] = sorted(
+        {
+            item.get("name")
+            for item in observations
+            if isinstance(item, dict) and isinstance(item.get("name"), str)
+        }
+    )
+    payload["payload"] = projected_body
+    return payload
 
 
 def _compatibility_capability_registration(capability_name: str) -> dict | None:

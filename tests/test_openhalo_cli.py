@@ -9,11 +9,15 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
+from openhalo.cli import _export_runtime_state_for_rollback
+from openhalo.cli import _migrate_runtime_state
 from openhalo.cli import main
 from openhalo.home import PersonalHome
 from openhalo.outbound_proxy import ProxyOperationError
 from openhalo import version as version_module
 from personal_runtime.pairing_store import PairingStore
+from personal_runtime.runtime_state import RuntimeState
+from personal_runtime.sqlite_state_store import SQLiteRuntimeStateStore
 
 
 class FakeSupervisor:
@@ -214,6 +218,321 @@ def test_lifecycle_and_doctor_commands_report_safe_owner_facing_state() -> None:
     assert "shared_token" not in doctor_output
 
 
+def test_sqlite_state_migration_is_owner_home_scoped_and_idempotent() -> None:
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+        home.initialize_runtime(host="127.0.0.1", port=8765)
+        home.legacy_state_path.write_text(
+            json.dumps(RuntimeState().to_dict()),
+            encoding="utf-8",
+        )
+
+        _migrate_runtime_state(home, "sqlite-v1")
+        first_size = home.state_database_path.stat().st_size
+        _migrate_runtime_state(home, "sqlite-v1")
+
+        assert home.state_database_path.exists()
+        assert home.state_database_path.stat().st_size == first_size
+        assert SQLiteRuntimeStateStore(home.state_database_path).load().to_dict()["events"] == []
+
+
+def test_sqlite_state_migration_rebuilds_stale_candidate_database() -> None:
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+        home.initialize_runtime(host="127.0.0.1", port=8765)
+        home.legacy_state_path.write_text(
+            json.dumps(RuntimeState().to_dict()),
+            encoding="utf-8",
+        )
+        _migrate_runtime_state(home, "sqlite-v1")
+        changed = RuntimeState()
+        changed.events.append({"event_id": "new-event", "timestamp": "2026-08-01T10:00:00Z"})
+        home.legacy_state_path.write_text(json.dumps(changed.to_dict()), encoding="utf-8")
+
+        _migrate_runtime_state(home, "sqlite-v1")
+
+        restored = SQLiteRuntimeStateStore(home.state_database_path).load()
+        assert restored.events[-1]["event_id"] == "new-event"
+
+
+def test_storage_status_reports_safe_sqlite_posture() -> None:
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+        home.initialize_runtime(host="127.0.0.1", port=8765)
+        store = SQLiteRuntimeStateStore(home.state_database_path)
+        store.save(RuntimeState())
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = main(["storage", "status"], home=home, supervisor_factory=FakeSupervisor)
+
+        payload = json.loads(output.getvalue())
+        assert exit_code == 0
+        assert payload["schema_version"] == "sqlite-v1"
+        assert payload["pressure"] == "normal"
+        assert "payload" not in output.getvalue()
+
+
+def test_storage_status_refuses_legacy_only_state_without_creating_empty_database() -> None:
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+        home.initialize_runtime(host="127.0.0.1", port=8765)
+        legacy = RuntimeState()
+        legacy.events.append({"event_id": "legacy-event"})
+        home.legacy_state_path.write_text(json.dumps(legacy.to_dict()), encoding="utf-8")
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = main(
+                ["storage", "status"],
+                home=home,
+                supervisor_factory=FakeSupervisor,
+            )
+
+        assert exit_code == 1
+        assert json.loads(output.getvalue())["state"] == "storage_failed"
+        assert not home.state_database_path.exists()
+        assert home.legacy_state_path.exists()
+
+
+def test_storage_export_refuses_legacy_only_state_without_creating_empty_database() -> None:
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+        home.initialize_runtime(host="127.0.0.1", port=8765)
+        home.legacy_state_path.write_text(json.dumps(RuntimeState().to_dict()), encoding="utf-8")
+        output = io.StringIO()
+        replay_path = Path(directory) / "replay.json"
+
+        with redirect_stdout(output):
+            exit_code = main(
+                ["storage", "export", str(replay_path)],
+                home=home,
+                supervisor_factory=FakeSupervisor,
+            )
+
+        assert exit_code == 1
+        assert not replay_path.exists()
+        assert not home.state_database_path.exists()
+
+
+def test_storage_status_uses_total_storage_footprint_for_quota_pressure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeQuotaStore:
+        def __init__(self, _path: Path) -> None:
+            pass
+
+        def storage_status(self) -> dict:
+            return {
+                "schema_version": "sqlite-v1",
+                "counts": {},
+                "bytes": {
+                    "database": 100,
+                    "wal": 600,
+                    "shm": 0,
+                    "footprint": 700,
+                    "live_pages": 1,
+                },
+                "database_limit_bytes": 500,
+            }
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr("openhalo.cli.SQLiteRuntimeStateStore", FakeQuotaStore)
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+        home.initialize_runtime(host="127.0.0.1", port=8765)
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = main(
+                ["storage", "status"],
+                home=home,
+                supervisor_factory=FakeSupervisor,
+            )
+
+        assert exit_code == 0
+        assert json.loads(output.getvalue())["pressure"] == "critical"
+
+
+def test_storage_status_closes_store_when_status_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailingStatusStore:
+        instance = None
+
+        def __init__(self, _path: Path) -> None:
+            FailingStatusStore.instance = self
+            self.closed = False
+
+        def storage_status(self) -> dict:
+            raise RuntimeError("status failed")
+
+        def close(self) -> None:
+            self.closed = True
+
+    monkeypatch.setattr("openhalo.cli.SQLiteRuntimeStateStore", FailingStatusStore)
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+        home.initialize_runtime(host="127.0.0.1", port=8765)
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = main(
+                ["storage", "status"],
+                home=home,
+                supervisor_factory=FakeSupervisor,
+            )
+
+        assert exit_code == 1
+        assert FailingStatusStore.instance.closed is True
+
+
+def test_storage_export_closes_store_when_export_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailingExportStore:
+        instance = None
+
+        def __init__(self, _path: Path) -> None:
+            FailingExportStore.instance = self
+            self.closed = False
+
+        def export_json(self, _path: Path, *, since: str | None = None) -> dict:
+            del since
+            raise RuntimeError("export failed")
+
+        def close(self) -> None:
+            self.closed = True
+
+    monkeypatch.setattr("openhalo.cli.SQLiteRuntimeStateStore", FailingExportStore)
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+        home.initialize_runtime(host="127.0.0.1", port=8765)
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = main(
+                ["storage", "export", str(Path(directory) / "replay.json")],
+                home=home,
+                supervisor_factory=FakeSupervisor,
+            )
+
+        assert exit_code == 1
+        assert FailingExportStore.instance.closed is True
+
+
+def test_storage_compact_closes_store_when_compaction_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailingCompactStore:
+        instance = None
+
+        def __init__(self, _path: Path) -> None:
+            FailingCompactStore.instance = self
+            self.closed = False
+
+        def enforce_retention(self, *, now: str) -> dict:
+            del now
+            raise RuntimeError("compact failed")
+
+        def compact(self, *, before: str, preserve_active: bool) -> dict:
+            del before, preserve_active
+            raise RuntimeError("compact failed")
+
+        def close(self) -> None:
+            self.closed = True
+
+    monkeypatch.setattr("openhalo.cli.SQLiteRuntimeStateStore", FailingCompactStore)
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+        home.initialize_runtime(host="127.0.0.1", port=8765)
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = main(
+                ["storage", "compact"],
+                home=home,
+                supervisor_factory=FakeSupervisor,
+            )
+
+        assert exit_code == 1
+        assert FailingCompactStore.instance.closed is True
+
+
+def test_state_migration_closes_existing_store_when_metadata_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailingMetadataStore:
+        instance = None
+
+        def __init__(self, _path: Path) -> None:
+            FailingMetadataStore.instance = self
+            self.closed = False
+
+        def metadata(self) -> dict:
+            raise RuntimeError("metadata failed")
+
+        def close(self) -> None:
+            self.closed = True
+
+    monkeypatch.setattr("openhalo.cli.SQLiteRuntimeStateStore", FailingMetadataStore)
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+        home.initialize_runtime(host="127.0.0.1", port=8765)
+        home.state_database_path.touch()
+        home.legacy_state_path.write_text("{}", encoding="utf-8")
+
+        with pytest.raises(RuntimeError, match="metadata failed"):
+            _migrate_runtime_state(home, "sqlite-v1")
+
+        assert FailingMetadataStore.instance.closed is True
+
+
+def test_storage_export_writes_replay_artifact() -> None:
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+        home.initialize_runtime(host="127.0.0.1", port=8765)
+        state = RuntimeState()
+        state.events.append({"event_id": "event-1", "timestamp": "2026-08-01T10:00:00Z"})
+        SQLiteRuntimeStateStore(home.state_database_path).save(state)
+        output_path = Path(directory) / "replay.json"
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            exit_code = main(
+                ["storage", "export", str(output_path)],
+                home=home,
+                supervisor_factory=FakeSupervisor,
+            )
+
+        assert exit_code == 0
+        assert json.loads(output.getvalue())["records"] == 1
+        assert json.loads(output_path.read_text(encoding="utf-8"))["events"][0]["event_id"] == "event-1"
+
+
+def test_rollback_export_keeps_legacy_state_when_sqlite_export_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+        home.initialize_runtime(host="127.0.0.1", port=8765)
+        home.legacy_state_path.write_text('{"events": [{"event_id": "old"}]}', encoding="utf-8")
+        SQLiteRuntimeStateStore(home.state_database_path).save(RuntimeState())
+
+        def fail_export(*_args, **_kwargs):
+            raise RuntimeError("export failed")
+
+        monkeypatch.setattr("openhalo.cli.export_sqlite_to_json", fail_export)
+
+        with pytest.raises(RuntimeError, match="export failed"):
+            _export_runtime_state_for_rollback(home)
+
+        assert json.loads(home.legacy_state_path.read_text(encoding="utf-8"))["events"][0]["event_id"] == "old"
+        assert not home.legacy_state_path.with_suffix(".json.pre-rollback").exists()
+
+
 def test_version_flag_reports_the_installed_release_identity(monkeypatch: pytest.MonkeyPatch) -> None:
     release_commit = "a" * 40
     executable = Path(
@@ -228,7 +547,7 @@ def test_version_flag_reports_the_installed_release_identity(monkeypatch: pytest
             main(["--version"], home=home, supervisor_factory=FakeSupervisor)
 
     assert exit_code.value.code == 0
-    assert output.getvalue() == "openhalo 0.1.7 (aaaaaaa)\n"
+    assert output.getvalue() == "openhalo 0.1.8 (aaaaaaa)\n"
 
 
 def test_version_flag_prints_a_development_identity_outside_a_release_layout() -> None:
@@ -239,7 +558,7 @@ def test_version_flag_prints_a_development_identity_outside_a_release_layout() -
             main(["--version"], home=home, supervisor_factory=FakeSupervisor)
 
     assert exit_code.value.code == 0
-    assert output.getvalue() == "openhalo 0.1.7 (dev)\n"
+    assert output.getvalue() == "openhalo 0.1.8 (dev)\n"
 
 
 def test_version_fallback_matches_the_release_package_version(
@@ -251,7 +570,7 @@ def test_version_fallback_matches_the_release_package_version(
     monkeypatch.setattr(version_module, "distribution_version", package_not_installed)
 
     assert version_module.format_cli_version("openhalo", executable="/tmp/python") == (
-        "openhalo 0.1.7 (dev)"
+        "openhalo 0.1.8 (dev)"
     )
 
 

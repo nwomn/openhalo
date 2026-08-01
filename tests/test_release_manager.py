@@ -39,6 +39,34 @@ def test_manifest_requires_an_immutable_commit_and_sha256() -> None:
             )
 
 
+def test_manifest_carries_supported_runtime_state_schema() -> None:
+    with TemporaryDirectory() as directory:
+        archive = Path(directory) / "release.tar.gz"
+        archive.write_bytes(b"release")
+        manifest = ReleaseManifest.from_dict(
+            {
+                "version": "0.1.9",
+                "commit": "a" * 40,
+                "archive_url": archive.as_uri(),
+                "sha256": hashlib.sha256(b"release").hexdigest(),
+                "state_schema": "sqlite-v1",
+            }
+        )
+
+        assert manifest.state_schema == "sqlite-v1"
+
+        with pytest.raises(ValueError, match="state schema"):
+            ReleaseManifest.from_dict(
+                {
+                    "version": "0.1.9",
+                    "commit": "a" * 40,
+                    "archive_url": archive.as_uri(),
+                    "sha256": hashlib.sha256(b"release").hexdigest(),
+                    "state_schema": "future-v2",
+                }
+            )
+
+
 def test_archive_verification_rejects_tampering_before_activation() -> None:
     with TemporaryDirectory() as directory:
         archive = Path(directory) / "release.tar.gz"

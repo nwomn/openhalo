@@ -38,11 +38,15 @@ class ReleaseUpdater:
         feed: ReleaseFeed,
         stager: ReleaseStaging,
         supervisor_factory: Callable[[Path | None], RuntimeControl],
+        state_migrator: Callable[[ReleaseManifest], None] | None = None,
+        state_rollback_migrator: Callable[[], None] | None = None,
     ) -> None:
         self.layout = layout
         self.feed = feed
         self.stager = stager
         self._supervisor_factory = supervisor_factory
+        self._state_migrator = state_migrator
+        self._state_rollback_migrator = state_rollback_migrator
 
     def check(self) -> dict:
         manifest = self.feed.latest()
@@ -79,6 +83,8 @@ class ReleaseUpdater:
         activated = False
         candidate_supervisor: RuntimeControl | None = None
         try:
+            if self._state_migrator is not None:
+                self._state_migrator(manifest)
             self.layout.activate(manifest.commit)
             activated = True
             if was_running:
@@ -91,16 +97,38 @@ class ReleaseUpdater:
                 "version": manifest.version,
             }
         except Exception:
+            recovery_errors: list[str] = []
             if candidate_supervisor is not None:
-                candidate_supervisor.stop()
-                candidate_supervisor.wait_until_stopped()
+                try:
+                    candidate_supervisor.stop()
+                    candidate_supervisor.wait_until_stopped()
+                except Exception as exc:
+                    recovery_errors.append(str(exc))
+            if self._state_rollback_migrator is not None:
+                try:
+                    self._state_rollback_migrator()
+                except Exception as exc:
+                    recovery_errors.append(str(exc))
             if activated:
-                self.layout.rollback()
+                try:
+                    self.layout.rollback()
+                except Exception as exc:
+                    recovery_errors.append(str(exc))
             if was_running:
-                self._supervisor_factory(
-                    self.layout.release_directory(current) / "venv/bin/python"
-                ).start()
-            return {"state": "rolled_back", "restored": current, "target": manifest.commit}
+                try:
+                    self._supervisor_factory(
+                        self.layout.release_directory(current) / "venv/bin/python"
+                    ).start()
+                except Exception as exc:
+                    recovery_errors.append(str(exc))
+            result = {
+                "state": "rolled_back",
+                "restored": current,
+                "target": manifest.commit,
+            }
+            if recovery_errors:
+                result["recovery_errors"] = recovery_errors
+            return result
 
     def rollback(self) -> dict:
         current = self.layout.active_release()
@@ -115,6 +143,8 @@ class ReleaseUpdater:
         switched = False
         target_supervisor: RuntimeControl | None = None
         try:
+            if self._state_rollback_migrator is not None:
+                self._state_rollback_migrator()
             restored = self.layout.rollback()
             switched = True
             if was_running:

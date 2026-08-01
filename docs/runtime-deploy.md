@@ -38,7 +38,8 @@ This creates one private owner directory:
 ~/.openhalo/
   config.json               Runtime and Terminal Edge configuration
   runtime-config.toml       Editable model/provider configuration
-  runtime/state.json        Runtime state
+  runtime/state.sqlite3     SQLite Runtime state and bounded history
+  runtime/state.json        Legacy JSON state kept for migration/rollback
   runtime/pairing.json      Hashed pairing records and device metadata
   runtime/runtime.pid       Runtime process identity
   logs/runtime.log          Runtime output
@@ -232,9 +233,28 @@ It verifies the published OpenHalo source archive, but candidate environment
 creation still resolves the package dependencies declared by that archive; a
 locked, hash-verified dependency wheelhouse is not implemented yet. Treat that
 as a supply-chain hardening gap alongside Release-manifest signing and key
-rotation. Persistent-state migration is also future work: releases must
-currently preserve compatible `OPENHALO_HOME` state, and the updater never runs
-or silently invents a migration.
+rotation. Runtime state migrations are versioned by the Release manifest. The
+M19 bridge migrates `runtime/state.json` to `runtime/state.sqlite3` before the
+candidate release is activated, keeps the original JSON source through the
+candidate health gate, then replaces it with a bounded rollback-compatible
+snapshot. A rollback to a pre-SQLite release can still consume that snapshot;
+the full SQLite history remains the authoritative source.
+
+Inspect or maintain the state without exposing payload bodies with:
+
+```bash
+openhalo storage status
+openhalo storage compact
+openhalo storage export ./runtime-replay.json --since 2026-08-01T00:00:00Z
+```
+
+The default balanced profile retains recent evidence for seven days (or its
+collection count limits), keeps completed interactions for thirty days, rotates
+diagnostics at 16 MiB with four backups, and enforces a 512 MiB SQLite
+database/WAL footprint quota. Before rejecting a write at that quota, Runtime
+compacts eligible old records while preserving active interaction correlations;
+`storage status` reports the current database, WAL, shared-memory, and quota
+pressure without including payload bodies.
 
 ### Publish A Runtime Release
 
@@ -246,7 +266,8 @@ the three required assets to the GitHub Release with the same tag:
 python3 scripts/build_release.py \
   --tag v<version> \
   --commit <40-character-commit> \
-  --output ./dist/release
+  --output ./dist/release \
+  --state-schema sqlite-v1
 gh release create v<version> \
   ./dist/release/openhalo-v<version>.tar.gz \
   ./dist/release/release-manifest.json \

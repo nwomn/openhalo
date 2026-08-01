@@ -15,22 +15,42 @@ from personal_runtime.mobile_liveness import build_mobile_liveness_view
 from personal_runtime.prompt_context import build_behavior_contract
 from personal_runtime.prompt_context import build_prompt_context_package
 from personal_runtime.runtime_state import RuntimeState
+from personal_runtime.sqlite_state_store import SQLiteRuntimeStateStore
 
 
-DEFAULT_STATE_PATH = Path(".runtime/state.json")
+DEFAULT_STATE_PATH = Path(".runtime/state.sqlite3")
 
 
 def load_state_payload(path: Path) -> dict:
     if not path.exists():
-        return {}
+        if path.suffix in {".sqlite", ".sqlite3", ".db"}:
+            legacy_path = path.with_suffix(".json")
+            if legacy_path.exists():
+                path = legacy_path
+            else:
+                return {}
+        else:
+            return {}
+    if path.suffix in {".sqlite", ".sqlite3", ".db"}:
+        return _load_sqlite_state(path).to_dict()
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def load_runtime_state(path: Path) -> RuntimeState:
+    if path.suffix in {".sqlite", ".sqlite3", ".db"} and path.exists():
+        return _load_sqlite_state(path)
     payload = load_state_payload(path)
     if not payload:
         return RuntimeState()
     return RuntimeState.from_dict(payload)
+
+
+def _load_sqlite_state(path: Path) -> RuntimeState:
+    store = SQLiteRuntimeStateStore(path)
+    try:
+        return store.load()
+    finally:
+        store.close()
 
 
 def load_diagnostic_events(path: Path | None, limit: int) -> list[dict]:

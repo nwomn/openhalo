@@ -135,6 +135,7 @@ class ProactiveTriggerGate:
             failure_episodes,
         )
         state.proactive_trigger_state = trigger_state
+        state.mark_state_value("proactive_trigger_state")
 
     def _classify_observation(
         self,

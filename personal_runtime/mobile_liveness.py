@@ -119,6 +119,7 @@ def update_mobile_liveness_after_observations(
             "provenance": "screen_context_observed_before_wake_request",
         }
         record["last_recovery_attempt"] = last_attempt
+    state.mark_state_value("mobile_liveness")
     return view
 
 
@@ -134,6 +135,7 @@ def record_mobile_session_state(
         "status": status,
         "observed_at": observed_at,
     }
+    state.mark_state_value("mobile_liveness")
 
 
 def request_mobile_wake_recovery(
@@ -196,6 +198,7 @@ def request_mobile_wake_recovery(
     state.mobile_liveness.setdefault(device_id, {})[
         "last_recovery_attempt"
     ] = attempt
+    state.mark_state_value("mobile_liveness")
     return attempt
 
 

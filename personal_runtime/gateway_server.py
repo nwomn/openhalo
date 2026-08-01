@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import time
 import secrets
 from collections.abc import Callable
 from contextlib import asynccontextmanager
@@ -48,7 +49,7 @@ from personal_runtime.runtime_console_presenter import RuntimeConsolePresenter
 from personal_runtime.runtime_orchestrator import RuntimeOrchestrator
 from personal_runtime.runtime_state import RuntimeState
 from personal_runtime.runtime_state import _compatibility_capability_registration
-from personal_runtime.state_store import JsonStateStore
+from personal_runtime.state_store import build_state_store
 from personal_runtime.trace_recorder import TraceRecorder
 
 
@@ -106,9 +107,12 @@ class RuntimeGateway:
     ) -> None:
         del shared_token
         self.audience = audience
-        self.state_store = JsonStateStore(
-            state_path or Path(".runtime/state.json")
+        default_state_path = (
+            Path(".runtime/state.sqlite3")
+            if persist_state
+            else Path(".runtime/state.json")
         )
+        self.state_store = build_state_store(state_path or default_state_path)
         if state is not None:
             self.state = state
         elif not persist_state and state_path is None:
@@ -132,6 +136,8 @@ class RuntimeGateway:
         self.runtime_instance_id = runtime_instance_id
         self.pairing_store = pairing_store
         self.pending_authentications: dict[str, PendingAuthentication] = {}
+        self._last_storage_maintenance_at = 0.0
+        self._deferred_storage_flush_handle = None
         self.orchestrator = RuntimeOrchestrator(self)
         self._action_request_counter = count(1)
         self.proposal_formation = ProposalFormation(
@@ -156,10 +162,59 @@ class RuntimeGateway:
         )
         self._websocket_frame_lock = asyncio.Lock()
 
-    def _persist_state(self) -> None:
+    def _persist_state(self, *, deferred: bool = False) -> None:
         if not self.persist_state:
             return
-        self.state_store.save(self.state)
+        self.state_store.save(self.state, deferred=deferred)
+        if deferred:
+            self._schedule_deferred_storage_flush()
+        self._maybe_maintain_storage()
+
+    def _persist_state_deferred(self) -> None:
+        try:
+            self._persist_state(deferred=True)
+        except TypeError as exc:
+            if "deferred" not in str(exc):
+                raise
+            self._persist_state()
+
+    def _schedule_deferred_storage_flush(self) -> None:
+        flush = getattr(self.state_store, "flush", None)
+        if flush is None or self._deferred_storage_flush_handle is not None:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        self._deferred_storage_flush_handle = loop.call_later(
+            0.25,
+            self._flush_deferred_storage,
+        )
+
+    def _flush_deferred_storage(self) -> None:
+        self._deferred_storage_flush_handle = None
+        flush = getattr(self.state_store, "flush", None)
+        if flush is not None:
+            flush()
+
+    def _close_state_store(self) -> None:
+        handle = self._deferred_storage_flush_handle
+        if handle is not None:
+            handle.cancel()
+            self._deferred_storage_flush_handle = None
+        close = getattr(self.state_store, "close", None)
+        if close is not None:
+            close()
+
+    def _maybe_maintain_storage(self) -> None:
+        maintain = getattr(self.state_store, "enforce_retention", None)
+        if maintain is None:
+            return
+        now = time.monotonic()
+        if now - self._last_storage_maintenance_at < 6 * 60 * 60:
+            return
+        maintain(now=_utc_now())
+        self._last_storage_maintenance_at = now
 
     def _next_interaction_id(self) -> str:
         return self.state.allocate_interaction_id()
@@ -638,7 +693,10 @@ class RuntimeGateway:
             interaction_id,
             display_progress_sequence=progress["sequence"],
         )
-        self._persist_state()
+        if phase in {"deliberating", "researching", "planning"}:
+            self._persist_state_deferred()
+        else:
+            self._persist_state()
         self.runtime_console_presenter.present(progress)
         recipients = self._progress_recipients_for_interaction(interaction)
         self._record_diagnostic(
@@ -982,7 +1040,7 @@ class RuntimeGateway:
                 if validation_error is not None:
                     replies.append(validation_error)
                     continue
-                self.state.events.append(frame)
+                self.state.record_event(frame)
                 self.state.record_observations(
                     self._extract_runtime_observations(frame)
                 )
@@ -997,7 +1055,7 @@ class RuntimeGateway:
                     "recorded event_push",
                     capability=frame["capability"],
                 )
-                self._persist_state()
+                self._persist_state_deferred()
                 replies.extend(self._build_event_replies(frame))
             elif frame["type"] == "action_result":
                 recordable = self._can_record_action_result(frame)
@@ -1961,6 +2019,7 @@ class RuntimeGateway:
         finally:
             server.close()
             await server.wait_closed()
+            self._close_state_store()
 
     @asynccontextmanager
     async def run_server(self, host: str = "127.0.0.1", port: int = 8765):
@@ -1974,6 +2033,7 @@ class RuntimeGateway:
         finally:
             server.close()
             await server.wait_closed()
+            self._close_state_store()
 
 
 def _utc_now() -> str:

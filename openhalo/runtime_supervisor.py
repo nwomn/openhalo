@@ -54,7 +54,7 @@ class RuntimeSupervisor:
             "--port",
             str(runtime["port"]),
             "--state-path",
-            str(self.home.state_path),
+            str(self._runtime_state_path()),
             "--pairing-store-path",
             str(self.home.pairing_store_path),
             "--runtime-config-path",
@@ -147,6 +147,14 @@ class RuntimeSupervisor:
         if not isinstance(port, int) or not 1 <= port <= 65535:
             raise ValueError("Runtime configuration has an invalid port")
         return {"host": host, "port": port}
+
+    def _runtime_state_path(self) -> Path:
+        if (
+            self.home.state_database_path.exists()
+            or not self.home.legacy_state_path.exists()
+        ):
+            return self.home.state_database_path
+        return self.home.legacy_state_path
 
     def _read_pid(self) -> int | None:
         try:

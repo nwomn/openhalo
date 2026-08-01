@@ -33,6 +33,7 @@ class ReleaseManifest:
     archive_url: str | None = None
     tag: str | None = None
     archive_name: str | None = None
+    state_schema: str = "json-v1"
 
     @classmethod
     def from_dict(cls, payload: object) -> "ReleaseManifest":
@@ -44,6 +45,7 @@ class ReleaseManifest:
         sha256 = payload.get("sha256")
         tag = payload.get("tag")
         archive_name = payload.get("archive_name")
+        state_schema = payload.get("state_schema", "json-v1")
         if not isinstance(version, str) or not version:
             raise ValueError("release manifest requires a version")
         if not isinstance(commit, str) or not _COMMIT_PATTERN.fullmatch(commit):
@@ -63,6 +65,8 @@ class ReleaseManifest:
             or Path(archive_name).name != archive_name
         ):
             raise ValueError("release manifest archive name must be a filename")
+        if state_schema not in {"json-v1", "sqlite-v1"}:
+            raise ValueError(f"unsupported release state schema: {state_schema}")
         if not isinstance(sha256, str) or not _SHA256_PATTERN.fullmatch(sha256):
             raise ValueError("release manifest requires a SHA-256 checksum")
         return cls(
@@ -72,6 +76,7 @@ class ReleaseManifest:
             archive_url=archive_url,
             tag=tag,
             archive_name=archive_name,
+            state_schema=state_schema,
         )
 
 
@@ -112,6 +117,7 @@ class GitHubReleaseFeed:
             archive_url=self._release_asset_url(manifest.tag, manifest.archive_name),
             tag=manifest.tag,
             archive_name=manifest.archive_name,
+            state_schema=manifest.state_schema,
         )
 
     def _latest_asset_url(self, name: str) -> str:

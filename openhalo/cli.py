@@ -9,7 +9,10 @@ import os
 import shutil
 import subprocess
 import tarfile
+import time
 from collections.abc import Callable
+from datetime import UTC
+from datetime import datetime
 from pathlib import Path
 
 from openhalo.home import PersonalHome
@@ -23,6 +26,10 @@ from openhalo.runtime_supervisor import RuntimeSupervisor
 from openhalo.updater import ReleaseUpdater
 from openhalo.version import format_cli_version
 from personal_runtime.pairing_store import PairingStore
+from personal_runtime.state_migration import export_sqlite_to_json
+from personal_runtime.state_migration import migrate_json_to_sqlite
+from personal_runtime.state_migration import sha256_file
+from personal_runtime.sqlite_state_store import SQLiteRuntimeStateStore
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -50,6 +57,14 @@ def build_parser() -> argparse.ArgumentParser:
     logs = subparsers.add_parser("logs", help="Show recent Runtime logs.")
     logs.add_argument("--lines", type=int, default=100, help="Number of log lines.")
     subparsers.add_parser("doctor", help="Check local OpenHalo setup.")
+    storage = subparsers.add_parser("storage", help="Inspect and maintain Runtime storage.")
+    storage_commands = storage.add_subparsers(dest="storage_command", required=True)
+    storage_commands.add_parser("status", help="Show Runtime storage posture.")
+    compact = storage_commands.add_parser("compact", help="Compact eligible Runtime history.")
+    compact.add_argument("--before", help="Delete eligible records before this UTC timestamp.")
+    export_parser = storage_commands.add_parser("export", help="Export replay/eval history.")
+    export_parser.add_argument("output", type=Path)
+    export_parser.add_argument("--since", help="Include records at or after this UTC timestamp.")
     proxy = subparsers.add_parser("proxy", help="Manage Runtime outbound HTTP proxy.")
     proxy_commands = proxy.add_subparsers(dest="proxy_command", required=True)
     proxy_commands.add_parser("show", help="Show the redacted outbound proxy state.")
@@ -164,6 +179,34 @@ def main(
             )
             return 1
 
+    if args.command == "storage":
+        try:
+            _require_runtime_configuration(personal_home)
+            if args.storage_command == "status":
+                _emit(_storage_status(personal_home))
+                return 0
+            if args.storage_command == "export":
+                _require_sqlite_storage(personal_home)
+                store = SQLiteRuntimeStateStore(personal_home.state_database_path)
+                try:
+                    result = store.export_json(args.output, since=args.since)
+                finally:
+                    store.close()
+                result["replay_storage"] = _prune_replay_exports(personal_home)
+                _emit(result)
+                return 0
+            _emit(
+                _compact_storage(
+                    personal_home,
+                    supervisor_factory=supervisor_factory,
+                    before=args.before,
+                )
+            )
+            return 0
+        except (OSError, RuntimeError, ValueError) as exc:
+            _emit({"state": "storage_failed", "reason": str(exc)})
+            return 1
+
     if args.command == "update":
         try:
             updater = (updater_factory or _build_updater)(personal_home)
@@ -226,6 +269,8 @@ def _doctor(home: PersonalHome) -> dict:
     missing = []
     if not home.runtime_config_path.exists():
         missing.append("runtime_config")
+    if home.legacy_state_path.exists() and not home.state_database_path.exists():
+        missing.append("runtime_state_migration")
     return {"state": "ready" if not missing else "needs_attention", "missing": missing}
 
 
@@ -240,7 +285,179 @@ def _build_updater(home: PersonalHome) -> ReleaseUpdater:
         feed=GitHubReleaseFeed(repository),
         stager=ReleaseStager(layout),
         supervisor_factory=lambda executable: RuntimeSupervisor(home, executable=executable),
+        state_migrator=lambda manifest: _migrate_runtime_state(home, manifest.state_schema),
+        state_rollback_migrator=lambda: _export_runtime_state_for_rollback(home),
     )
+
+
+def _migrate_runtime_state(home: PersonalHome, state_schema: str) -> None:
+    if state_schema != "sqlite-v1":
+        return
+    stale_path = None
+    if home.state_database_path.exists() and home.legacy_state_path.exists():
+        existing = SQLiteRuntimeStateStore(home.state_database_path)
+        try:
+            metadata = existing.metadata()
+        finally:
+            existing.close()
+        if metadata.get("legacy_source_sha256") == sha256_file(home.legacy_state_path):
+            return
+        stale_path = home.state_database_path.with_suffix(".sqlite3.stale")
+        stale_path.unlink(missing_ok=True)
+        os.replace(home.state_database_path, stale_path)
+    elif home.state_database_path.exists():
+        return
+    if not home.legacy_state_path.exists():
+        SQLiteRuntimeStateStore(home.state_database_path).close()
+        return
+    Path(f"{home.state_database_path}.migrating").unlink(missing_ok=True)
+    try:
+        migrate_json_to_sqlite(home.legacy_state_path, home.state_database_path)
+    except Exception:
+        if stale_path is not None and stale_path.exists() and not home.state_database_path.exists():
+            os.replace(stale_path, home.state_database_path)
+        raise
+    if stale_path is not None:
+        stale_path.unlink(missing_ok=True)
+
+
+def _export_runtime_state_for_rollback(home: PersonalHome) -> None:
+    if not home.state_database_path.exists():
+        return
+    legacy_path = home.legacy_state_path
+    staged_path = legacy_path.with_name(f".{legacy_path.name}.rollback-stage")
+    staged_path.unlink(missing_ok=True)
+    export_sqlite_to_json(home.state_database_path, staged_path)
+    backup = legacy_path.with_suffix(".json.pre-rollback")
+    had_legacy = legacy_path.exists()
+    if had_legacy:
+        os.replace(legacy_path, backup)
+    try:
+        os.replace(staged_path, legacy_path)
+    except Exception:
+        if had_legacy and backup.exists():
+            os.replace(backup, legacy_path)
+        raise
+    database_backup = home.state_database_path.with_suffix(".sqlite3.pre-rollback")
+    database_backup.unlink(missing_ok=True)
+    os.replace(home.state_database_path, database_backup)
+
+
+def _storage_status(home: PersonalHome) -> dict:
+    _require_sqlite_storage(home)
+    store = SQLiteRuntimeStateStore(home.state_database_path)
+    try:
+        status = store.storage_status()
+        limit_bytes = status.get("database_limit_bytes", 512 * 1024 * 1024)
+        footprint_bytes = status["bytes"].get(
+            "footprint",
+            status["bytes"].get("live_pages", 0),
+        )
+        status.update(
+            {
+                "retention_profile": "balanced",
+                "diagnostics": _diagnostic_storage_status(home),
+                "pressure": (
+                    "critical"
+                    if footprint_bytes >= limit_bytes
+                    else "warning"
+                    if footprint_bytes >= int(limit_bytes * 0.8)
+                    else "normal"
+                ),
+            }
+        )
+        return status
+    finally:
+        store.close()
+
+
+def _diagnostic_storage_status(home: PersonalHome) -> dict:
+    paths = [home.runtime_diagnostic_log_path]
+    paths.extend(sorted(home.log_directory.glob("runtime-diagnostics.jsonl.*")))
+    existing = [path for path in paths if path.exists()]
+    return {
+        "bytes": sum(path.stat().st_size for path in existing),
+        "files": len(existing),
+        "limit_bytes": 80 * 1024 * 1024,
+    }
+
+
+def _compact_storage(
+    home: PersonalHome,
+    *,
+    supervisor_factory: Callable[[PersonalHome], RuntimeSupervisor],
+    before: str | None,
+) -> dict:
+    _require_sqlite_storage(home)
+    timestamp = before
+    maintenance_time = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    supervisor = supervisor_factory(home)
+    was_running = supervisor.status().get("state") == "running"
+    if was_running:
+        supervisor.stop()
+        wait = getattr(supervisor, "wait_until_stopped", None)
+        if wait is not None:
+            wait()
+    try:
+        store = SQLiteRuntimeStateStore(home.state_database_path)
+        try:
+            if timestamp is None:
+                result = store.enforce_retention(now=maintenance_time)
+            else:
+                result = store.compact(before=timestamp, preserve_active=True)
+        finally:
+            store.close()
+        result.update({"state": "compacted", "before": timestamp or maintenance_time})
+        result["replay_storage"] = _prune_replay_exports(home)
+    finally:
+        if was_running:
+            supervisor.start()
+    return result
+
+
+def _require_sqlite_storage(home: PersonalHome) -> None:
+    if not home.state_database_path.exists() and home.legacy_state_path.exists():
+        raise ValueError(
+            "legacy Runtime state requires migration before SQLite storage operations"
+        )
+    if home.state_database_path.exists() and home.legacy_state_path.exists():
+        store = SQLiteRuntimeStateStore(home.state_database_path)
+        try:
+            metadata = store.metadata()
+        finally:
+            store.close()
+        if metadata.get("legacy_source_sha256") != sha256_file(home.legacy_state_path):
+            raise ValueError(
+                "SQLite Runtime state requires migration before storage operations"
+            )
+
+
+def _prune_replay_exports(home: PersonalHome) -> dict:
+    directory = home.replay_directory
+    if not directory.exists():
+        return {"bytes": 0, "files": 0, "limit_bytes": 256 * 1024 * 1024}
+    files = sorted(
+        (path for path in directory.iterdir() if path.is_file()),
+        key=lambda path: path.stat().st_mtime,
+    )
+    cutoff = time.time() - 30 * 24 * 60 * 60
+    for path in list(files):
+        if path.stat().st_mtime < cutoff:
+            path.unlink(missing_ok=True)
+    files = [path for path in files if path.exists()]
+    total = sum(path.stat().st_size for path in files)
+    limit = 256 * 1024 * 1024
+    for path in files:
+        if total <= limit:
+            break
+        total -= path.stat().st_size
+        path.unlink(missing_ok=True)
+    remaining = [path for path in files if path.exists()]
+    return {
+        "bytes": sum(path.stat().st_size for path in remaining),
+        "files": len(remaining),
+        "limit_bytes": limit,
+    }
 
 
 def _emit(payload: dict) -> None:

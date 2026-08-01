@@ -15,11 +15,20 @@ _COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
 _TAG_PATTERN = re.compile(r"v?[0-9][A-Za-z0-9._-]*")
 
 
-def build_release(*, tag: str, commit: str, output: Path, repository: Path) -> dict:
+def build_release(
+    *,
+    tag: str,
+    commit: str,
+    output: Path,
+    repository: Path,
+    state_schema: str = "sqlite-v1",
+) -> dict:
     if not _TAG_PATTERN.fullmatch(tag):
         raise ValueError("release tag must be a simple immutable version tag")
     if not _COMMIT_PATTERN.fullmatch(commit):
         raise ValueError("release commit must be a 40-character lowercase SHA")
+    if state_schema not in {"json-v1", "sqlite-v1"}:
+        raise ValueError(f"unsupported release state schema: {state_schema}")
     resolved = subprocess.check_output(
         ["git", "-C", str(repository), "rev-parse", f"{commit}^{{commit}}"],
         text=True,
@@ -48,6 +57,7 @@ def build_release(*, tag: str, commit: str, output: Path, repository: Path) -> d
         "sha256": digest,
         "tag": tag,
         "version": tag[1:] if tag.startswith("v") else tag,
+        "state_schema": state_schema,
     }
     (output / "release-manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
@@ -63,12 +73,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--commit", required=True)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--repository", default=Path.cwd(), type=Path)
+    parser.add_argument("--state-schema", default="sqlite-v1")
     args = parser.parse_args(argv)
     manifest = build_release(
         tag=args.tag,
         commit=args.commit,
         output=args.output,
         repository=args.repository,
+        state_schema=args.state_schema,
     )
     print(json.dumps(manifest, sort_keys=True))
     return 0

@@ -99,6 +99,32 @@ class DiagnosticsV1Tests(unittest.TestCase):
             self.assertEqual(payload["runtime_instance_id"], "runtime-main")
             self.assertEqual(payload["module"], "Gateway")
 
+    def test_jsonl_writer_rotates_by_size_and_bounds_backups(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "runtime.jsonl"
+            recorder = JsonlDiagnosticRecorder(
+                path,
+                max_bytes=1024,
+                backup_count=2,
+                timestamp_provider=lambda: "2026-06-30T12:00:00Z",
+            )
+            for index in range(12):
+                recorder.record_boundary(
+                    side="runtime",
+                    module="Gateway",
+                    operation="receive_frame",
+                    phase="input",
+                    correlation={"event_id": f"event-{index}"},
+                    input_payload={"type": "event_push", "index": index},
+                    output_payload={},
+                    summary="Received event_push frame.",
+                )
+
+            backups = sorted(path.parent.glob("runtime.jsonl.*"))
+            self.assertLessEqual(len(backups), 2)
+            self.assertLessEqual(path.stat().st_size, 1024)
+            self.assertTrue(backups)
+
     def test_trace_ids_are_stable_strings_for_frame_correlation(self) -> None:
         self.assertTrue(build_trace_id("terminal-edge-1", 3).startswith("trace-"))
         self.assertIn("terminal-edge-1", build_trace_id("terminal-edge-1", 3))

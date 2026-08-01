@@ -42,7 +42,16 @@ class PersonalHome:
 
     @property
     def state_path(self) -> Path:
+        """Legacy JSON state path retained for migration and rollback."""
         return self.runtime_directory / "state.json"
+
+    @property
+    def legacy_state_path(self) -> Path:
+        return self.state_path
+
+    @property
+    def state_database_path(self) -> Path:
+        return self.runtime_directory / "state.sqlite3"
 
     @property
     def pairing_store_path(self) -> Path:
@@ -59,6 +68,10 @@ class PersonalHome:
     @property
     def runtime_diagnostic_log_path(self) -> Path:
         return self.log_directory / "runtime-diagnostics.jsonl"
+
+    @property
+    def replay_directory(self) -> Path:
+        return self.runtime_directory / "replays"
 
     @property
     def runtime_pid_path(self) -> Path:

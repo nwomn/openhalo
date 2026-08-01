@@ -11,6 +11,11 @@ from unittest.mock import patch
 from personal_runtime.context_contracts import RuntimeObservation
 from personal_runtime.presence_router import choose_response_device
 from personal_runtime.runtime_state import RuntimeState
+from personal_runtime.runtime_state import ACTION_RESULT_HISTORY_LIMIT
+from personal_runtime.runtime_state import EVENT_HISTORY_LIMIT
+from personal_runtime.runtime_state import INTERACTION_HISTORY_LIMIT
+from personal_runtime.runtime_state import INTERVENTION_HISTORY_LIMIT
+from personal_runtime.runtime_state import OBSERVATION_HISTORY_LIMIT
 from personal_runtime.state_store import JsonStateStore
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -455,6 +460,62 @@ class JsonStateStoreTests(unittest.TestCase):
             {"text.input"},
         )
         self.assertEqual(loaded.events[-1]["payload"]["text"], "hello")
+
+
+class RuntimeStateHotHistoryTests(unittest.TestCase):
+    def test_live_histories_remain_bounded_while_preserving_active_links(self) -> None:
+        state = RuntimeState()
+        active_id = "active-interaction"
+        state.record_interaction({"interaction_id": active_id, "status": "planned"})
+        for index in range(INTERACTION_HISTORY_LIMIT + 1):
+            state.record_interaction(
+                {
+                    "interaction_id": f"completed-{index}",
+                    "status": "completed",
+                }
+            )
+
+        for index in range(EVENT_HISTORY_LIMIT + 1):
+            state.record_event({"event_id": f"event-{index}"})
+        for index in range(OBSERVATION_HISTORY_LIMIT + 1):
+            state.record_observation(
+                RuntimeObservation(
+                    name="runtime.health_state",
+                    value=index,
+                    source_device_id="host-edge-1",
+                    source_capability="runtime.health",
+                    source_event_id=f"observation-{index}",
+                    observed_at=f"2026-08-01T00:00:{index % 60:02d}Z",
+                    confidence=1.0,
+                )
+            )
+        for index in range(ACTION_RESULT_HISTORY_LIMIT + 1):
+            state.record_action_result(
+                {
+                    "interaction_id": active_id,
+                    "request_id": f"request-{index}",
+                }
+            )
+        for index in range(INTERVENTION_HISTORY_LIMIT + 1):
+            state.record_intervention(
+                {
+                    "interaction_id": active_id,
+                    "intervention_id": f"intervention-{index}",
+                }
+            )
+
+        self.assertEqual(len(state.events), EVENT_HISTORY_LIMIT)
+        self.assertEqual(len(state.observations), OBSERVATION_HISTORY_LIMIT)
+        self.assertEqual(len(state.action_results), ACTION_RESULT_HISTORY_LIMIT)
+        self.assertEqual(len(state.interventions), INTERVENTION_HISTORY_LIMIT)
+        self.assertEqual(len(state.interactions), INTERACTION_HISTORY_LIMIT)
+        self.assertIn(active_id, {item["interaction_id"] for item in state.interactions})
+        self.assertTrue(
+            all(item.get("interaction_id") == active_id for item in state.action_results)
+        )
+        self.assertTrue(
+            all(item.get("interaction_id") == active_id for item in state.interventions)
+        )
 
 
 if __name__ == "__main__":

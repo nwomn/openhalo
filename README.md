@@ -76,7 +76,7 @@ fully packaged three-end product.
 | Cross-edge interaction | Public Edge API registration, observations, events, actions, action results, and presence-governed routing are implemented | Broader real-device scenarios and richer capability coverage |
 | Ambient/home edge ecosystem | Long-term direction: smart-home devices, sensors, and small edge-AI nodes become additional `Device Edge` participants | Bridge integrations, device profiles, safety policy, and low-presence ambient interaction design |
 | Mobile observation depth | M17.5 accepted: Android can upload passive `mobile.screen_context` / `mobile.screen_capture_health` evidence and operators can verify it through the runtime context viewer | M17.7 owns liveness/wake recovery; M17.8 owns allowlist-first sensitive-screen capture governance |
-| Product packaging | M22 personal-installation foundation plus GitHub Release update/check/rollback: fixed-commit bootstrap installer, global commands, private configuration, Runtime lifecycle, Terminal pairing, verified release staging, and automatic Runtime rollback | Manifest signing, persistent-state migration, Windows package, and full three-end acceptance |
+| Product packaging | M22 personal-installation foundation plus GitHub Release update/check/rollback: fixed-commit bootstrap installer, global commands, private configuration, Runtime lifecycle, Terminal pairing, verified release staging, automatic Runtime rollback, and the M19 SQLite migration bridge | Manifest signing, owner acceptance of the migrated release, Windows package, and full three-end acceptance |
 
 The project roadmap and milestone status live in [Project.md](Project.md).
 

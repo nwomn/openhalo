@@ -2,16 +2,60 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import Mock
+from unittest.mock import patch
 
 from personal_runtime.context_contracts import RuntimeObservation
 from personal_runtime.context_viewer import build_context_view
 from personal_runtime.context_viewer import load_diagnostic_events
+from personal_runtime.context_viewer import load_state_payload
 from personal_runtime.context_viewer import render_context_view
 from personal_runtime.runtime_state import RuntimeState
+from personal_runtime.sqlite_state_store import SQLiteRuntimeStateStore
 from personal_runtime.state_store import JsonStateStore
 
 
 class ContextViewerTests(unittest.TestCase):
+    def test_loads_bounded_context_from_sqlite_state_path(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "state.sqlite3"
+            state = RuntimeState()
+            state.events.append({"event_id": "event-1", "timestamp": "2026-08-01T10:00:00Z"})
+            SQLiteRuntimeStateStore(path).save(state)
+
+            payload = load_state_payload(path)
+
+            self.assertEqual(payload["events"][0]["event_id"], "event-1")
+
+    def test_sqlite_viewer_closes_store_when_load_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "state.sqlite3"
+            path.touch()
+            store = Mock()
+            store.load.side_effect = RuntimeError("load failed")
+
+            with patch(
+                "personal_runtime.context_viewer.SQLiteRuntimeStateStore",
+                return_value=store,
+            ):
+                with self.assertRaisesRegex(RuntimeError, "load failed"):
+                    load_state_payload(path)
+
+            store.close.assert_called_once_with()
+
+    def test_sqlite_viewer_falls_back_to_legacy_json_when_database_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "state.sqlite3"
+            legacy = database.with_suffix(".json")
+            legacy.write_text(
+                json.dumps({"events": [{"event_id": "legacy-event"}]}),
+                encoding="utf-8",
+            )
+
+            payload = load_state_payload(database)
+
+            self.assertEqual(payload["events"][0]["event_id"], "legacy-event")
+
     def test_builds_view_with_latest_observations_and_snapshot_evidence(self) -> None:
         state = RuntimeState()
         state.register_device("terminal-edge-1", "terminal")

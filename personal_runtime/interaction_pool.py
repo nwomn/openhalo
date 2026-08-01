@@ -170,7 +170,10 @@ class InteractionPool:
             agent_session_id=f"openhalo-child:{interaction_id}",
             status="planned",
         )
-        self.state.interactions.append(record.to_dict())
+        if hasattr(self.state, "record_interaction"):
+            self.state.record_interaction(record.to_dict())
+        else:
+            self.state.interactions.append(record.to_dict())
         return InteractionRegistration(interaction=record, created=True)
 
     def get(self, interaction_id: str) -> InteractionRecord | None:
@@ -182,6 +185,7 @@ class InteractionPool:
         if payload is None:
             raise KeyError(f"unknown interaction: {interaction_id}")
         payload["status"] = "completed"
+        self._mark_changed(payload)
         return InteractionRecord.from_dict(payload)
 
     def record_turn(
@@ -209,6 +213,7 @@ class InteractionPool:
         turns = list(payload.get("turns", []))
         turns.append(turn.to_dict())
         payload["turns"] = self._prune_turns(turns)
+        self._mark_changed(payload)
         return turn
 
     def record_action_batch(
@@ -280,6 +285,7 @@ class InteractionPool:
         turns.extend(turn.to_dict() for turn in recorded_turns)
         payload["turns"] = self._prune_turns(turns)
         payload["status"] = "awaiting_action_results"
+        self._mark_changed(payload)
         return recorded_turns
 
     def get_for_action_result(
@@ -321,6 +327,7 @@ class InteractionPool:
                 payload["turns"] = self._prune_turns(turns)
                 if self._pending_action_count(payload) == 0:
                     payload["status"] = "planned"
+                self._mark_changed(payload)
                 return InteractionRecord.from_dict(payload)
         return None
 
@@ -435,6 +442,11 @@ class InteractionPool:
             if payload.get("interaction_id") == interaction_id:
                 return payload
         return None
+
+    def _mark_changed(self, payload: dict) -> None:
+        marker = getattr(self.state, "mark_interaction_changed", None)
+        if marker is not None:
+            marker(payload)
 
 
 def build_action_result_outcome_contract(
