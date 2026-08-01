@@ -307,7 +307,7 @@ Sub-goals:
 - 4.18.11. Define milestone M17.10: Ambient Home Presence Edge baseline, so one fixed home or desk `Device Edge` can contribute privacy-governed real-world context through normal Edge API observations; future multiple independent ambient nodes may extend household coverage without collapsing their provenance or device identities
 - 4.19. Define milestone M18: Agent Harness-controlled observation understanding, so Edge-defined attention events and bounded observation context can be interpreted in the agent's current situation rather than by a permanent centralized trigger taxonomy; broader M18 follows M20.2, M20.3, and the M17.8/M17.9/M17.10 privacy, desktop-edge, and ambient-context boundaries on M20's accepted Harness foundation
 - 4.19.1. Define milestone M18.1: observation-to-snapshot decision-space integration, so the first intent-sensing step brings presence-relevant observations from core edge surfaces such as phone, desktop/terminal, host, and runtime health into compact snapshot fields before broader idle intent recognition runs on top
-- 4.20. Define milestone M19: bounded-growth and storage-hygiene hardening after both the M20 Harness foundation and broader M18 observation understanding are accepted, covering unbounded state growth, high-frequency persistence pressure, duplicated long-term storage, and other operational accumulation risks before product packaging work builds on the resulting runtime histories; M19 is paused with M18
+- 4.20. Define milestone M19: bounded-growth and storage-hygiene hardening after both the M20 Harness foundation and broader M18 observation understanding are accepted, covering unbounded state growth, high-frequency persistence pressure, duplicated long-term storage, and other operational accumulation risks before product packaging work builds on the resulting runtime histories. M19 is not accepted; its full acceptance remains sequenced after broader M18, but the storage-pressure remediation is now an active operational-blocker workstream that may proceed in parallel with the remaining M18 acceptance work.
 - 4.21. Define milestone M20: Agent Harness and runtime action-loop architecture refactor with unified action/tool governance, so the already-running OpenHalo system replaces its real-use agent-execution implementation with a Hermes-backed harness core behind an OpenHalo adapter, while preserving the nested internal agent loop, external runtime action loop, Hermes-native persistent memory, LLMOps/eval gate, and one inspectable runtime contract for model-native tool calls, MCP/tool/skill calls, runtime-local tools, and external device actions. The multi-action regression reopened its prior configured-provider acceptance; the remediation now has governed `ActionBatch` dispatch, result-set continuation in the same scoped child session, and renewed configured-provider Terminal/Android human acceptance, so M20 is accepted.
 - 4.21.1. Define milestone M20.1: governed procedural-memory and skill lifecycle, after broader M18 and M19 have stabilized observation and retention pressure, so Hermes can distill proven workflows into OpenHalo-owned skill drafts without enabling Hermes' generic skill/plugin execution surface; drafts must have provenance, bounded declarative scope, inspection, static validation, and an explicit activation path before they can affect a live harness turn
 - 4.21.2. Define milestone M20.2: OpenHalo interaction-progress presentation, now accepted after M20, so an active user-visible interaction can expose a Runtime-owned, Edge-rendered progress lifecycle and polished native animation rather than leaking Hermes' terminal display. The approved architecture adds an internal non-blocking `Display Lifecycle`: Runtime modules emit strict, body-free lifecycle events; the module correlates, orders, authorizes, and reduces them into a versioned public progress frame; `Gateway` remains the only cross-boundary transport; each authorized Edge maps the safe phase to native localized text and animation. A second local sink, `Runtime Console Presenter`, consumes the same safe lifecycle reduction inside the independent Runtime process and renders a human-readable OpenHalo activity status even when no Edge is connected; it never delays, alters, or observes the main action chain. A future rich management dashboard is a separately authorized `Operator Edge` over `Gateway`, not a hidden backend UI or an assumption that Terminal Edge is present. It will translate safe lifecycle states such as deliberating, researching, planning, executing, awaiting an action result, completing, and failing into OpenHalo events while withholding chain-of-thought, provider details, raw tool content, and Hermes branding. The Gateway must stream each pre-dispatch phase as it occurs and preserve the public `event_ack -> action_request -> awaiting_action_result` order; a source Terminal renders the action output immediately, while post-action progress remains an independent truthful state display. The initial Terminal renderer retains one append-only line per received phase so fast real transitions remain inspectable; M20.3 owns the later presentation refinement that makes this distinction visually clear without changing execution order. The embedded Hermes Agent now uses its supported no-op thinking callback and spinner output sink, together with strict status suppression, so neither quiet-mode thinking/tool animation nor lifecycle/retry text reaches the Runtime console; OpenHalo progress remains the only user-facing progress contract. The M20.2 Runtime backend, public Edge API, diagnostics, Gateway delivery, initial Terminal rendering, and Runtime Console Presenter are complete and automatically verified. Android Edge announces `interaction.progress`, accepts only the exact versioned body-free public contract for its own device, bounds and orders in-memory progress state, redacts rejected/raw progress diagnostics, and maps safe phases to localized native pulsing UI; its focused suite has 17 passing unit tests and both debug APKs build. On 2026-07-19, the user completed real-device human acceptance against a local development Runtime. The development session had already exited and no independent state/diagnostic artifact was retained, so this final human-acceptance record is user-reported rather than reconstructed from logs. M20.2 is accepted.
@@ -1838,6 +1838,60 @@ Current phase:
 9. `M23` Home Assistant and smart-home bridge: add the ecosystem bridge after the core product surface is stable.
 
 This is execution priority, not milestone-number order. Existing accepted M17/M18.1 foundations remain available for preparation and maintenance work, but they do not displace the next acceptance target.
+
+### M19 Current Operational Status (2026-08-01)
+
+Status:
+
+- M19 is in active implementation and is not accepted.
+- The current trigger is a live long-running Runtime performance regression observed through both Android and Terminal Edge inputs. This workstream is allowed to proceed before broader M18 human acceptance is complete because the storage pressure is already degrading the accepted Edge and Gateway paths.
+
+Architecture decision:
+
+- Runtime state now uses a SQLite-backed repository with bounded in-process and persisted hot working sets; legacy JSON remains authoritative during migration and rollback, then becomes a bounded compatibility snapshot after the candidate Runtime is healthy.
+- The balanced retention profile is the default: seven days or hard count limits for raw events/observations, thirty days or a bounded count for completed interactions, a 512 MiB SQLite footprint quota, 16 MiB diagnostics files with four backups, and bounded replay exports.
+- High-frequency observations use a mutation journal with deferred batch flush and coalescing; critical interaction/action transitions remain immediately durable.
+- Release updates migrate JSON before candidate activation when the current updater supports the bridge, while the candidate Runtime also migrates an old updater's legacy `state.json` startup argument; failed migration/startup restores the previous release without losing the active JSON snapshot.
+
+Observed owner Runtime evidence:
+
+- The installed owner Runtime is `openhalo 0.1.7 (8700b61)` with the persisted outbound proxy configured as `http://127.0.0.1:7890`; the proxy transport is reachable, but proxy configuration is not established as the primary cause of the Edge response delay.
+- `~/.openhalo/runtime/state.json` measured approximately 182.7 MB during the investigation, with roughly 41,000 raw events and 225,000 normalized observations. Serialized top-level portions measured approximately 67.8 MB for `events`, 64.9 MB for `observations`, and 19.4 MB for `interactions`.
+- `~/.openhalo/logs/runtime-diagnostics.jsonl` measured approximately 295 MB. This diagnostic growth is operationally important but is separate from the synchronous response-path block and needs its own rotation or archival policy.
+- The Runtime process sample reached approximately 53% CPU and 960 MiB RSS. Offline serialization of the current state took approximately 11.6 seconds and reached approximately 1.46 GiB peak RSS before the atomic state write completed.
+
+Confirmed response-path behavior:
+
+- `personal_runtime/gateway_server.py` records an incoming `event_push`, updates observations and liveness, calls `_persist_state()`, and only then builds event replies. `personal_runtime/state_store.py` serializes the complete state as indented JSON for every save.
+- A real paired Terminal Edge session registered successfully and produced `terminal.context` and `text.input` frames. Recent Terminal context frames showed approximately 10–13 seconds between Gateway receipt and dispatch of the corresponding reply. The tested text interaction entered at `04:17:21Z`, received its first dispatch around `04:17:29Z`, and then showed additional multi-second Harness/action progress gaps with total completion exceeding one minute.
+- The same full-state Gateway path is used by Android and Host Edge observation traffic, so this is a Runtime-wide pressure issue rather than a Terminal-only rendering problem.
+- Direct access from the server to `api.openai.com:443` timed out after approximately 5 seconds, while the configured Mihomo path reached `/v1/models` in approximately 0.59 seconds with an upstream HTTP 401. This rules out a one-minute proxy transport delay, while real Provider inference/retry time remains a separate measured phase.
+
+Root-cause boundary:
+
+- The unbounded state histories and synchronous full-state persistence are confirmed M19 defects and the primary current bottleneck.
+- M20.3 remains a possible contributor to later interaction/progress behavior because it changed Gateway/session and receipt integration, but the demonstrated persistence mechanism predates M20.3 and also delays passive Terminal observations.
+- M22.1 changes Runtime Provider egress only; current transport measurements do not show it introducing the observed Gateway receipt delay.
+
+Implemented in this batch:
+
+- SQLite schema, bounded load projection, incremental record journal, retention/active-correlation protection, replay export, and owner `openhalo storage status|compact|export` commands.
+- Streaming JSON migration, staged SQLite-to-JSON rollback export, unmigrated/stale database guards, diagnostics size rotation, and context-viewer SQLite/legacy fallback support.
+- RuntimeState now trims live event, observation, interaction, intervention, action-result, harness-trace, and consolidation histories while preserving active interaction correlations; storage status reports recent write volume and old-data eligibility without payload bodies.
+- Full repository, migration, Gateway, diagnostics, CLI, updater, and runtime regression coverage passes on `master`: `813 passed, 4 skipped, 19 subtests passed`. A process-level smoke test confirms old-style `state.json` startup creates SQLite and leaves a small bounded rollback snapshot.
+
+M19 acceptance gaps:
+
+- Long-running owner Runtime acceptance still needs to measure RSS, SQLite/WAL footprint, recent-write volume, and quota pressure under realistic observation traffic.
+- Full configured-provider Terminal, Android, Host, and multi-edge acceptance after migration and compaction remains outstanding.
+- Packaged immutable-release update/rollback must be exercised against the live `v0.1.7 -> v0.1.8` owner installation, including confirmation that the legacy JSON shrinks to a bounded rollback snapshot.
+- No long-running human acceptance has yet demonstrated storage posture reporting, compaction, and continued Terminal, Android, Host, and multi-edge operation after cleanup.
+
+M19 next implementation entrypoint:
+
+1. Run the live owner update and storage posture acceptance ladder.
+2. Run configured-provider Terminal/Android/Host/multi-edge acceptance after migration and compaction.
+3. Record the final M19 acceptance evidence before marking the milestone complete.
 
 Current progress summary:
 
