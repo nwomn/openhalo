@@ -48,8 +48,9 @@ def migrate_json_to_sqlite(source: Path, target: Path) -> dict[str, Any]:
     temporary_target = Path(f"{target}.migrating")
     if not source.is_file():
         raise FileNotFoundError(source)
-    if target.exists() or temporary_target.exists():
+    if target.exists():
         raise FileExistsError(target)
+    _remove_sqlite_artifacts(temporary_target)
     temporary_target.parent.mkdir(parents=True, exist_ok=True)
     store = None
     target_created = False
@@ -75,15 +76,9 @@ def migrate_json_to_sqlite(source: Path, target: Path) -> dict[str, Any]:
                 store.close()
             except Exception:
                 pass
-        try:
-            temporary_target.unlink(missing_ok=True)
-        except OSError:
-            pass
+        _remove_sqlite_artifacts(temporary_target)
         if target_created:
-            try:
-                target.unlink(missing_ok=True)
-            except OSError:
-                pass
+            _remove_sqlite_artifacts(target)
         raise ValueError(f"state migration failed: {exc}") from exc
 
 
@@ -273,3 +268,11 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _remove_sqlite_artifacts(path: Path) -> None:
+    for suffix in ("", "-wal", "-shm"):
+        try:
+            Path(f"{path}{suffix}").unlink(missing_ok=True)
+        except OSError:
+            pass

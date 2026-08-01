@@ -78,6 +78,40 @@ class StateMigrationTests(unittest.TestCase):
             self.assertFalse(target.exists())
             self.assertFalse(Path(f"{target}.migrating").exists())
 
+    def test_failed_migration_removes_temporary_sqlite_sidecars(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "state.json"
+            target = root / "state.sqlite3"
+            source.write_text('{"events": [}', encoding="utf-8")
+            Path(f"{target}.migrating-wal").write_bytes(b"stale")
+            Path(f"{target}.migrating-shm").write_bytes(b"stale")
+
+            with self.assertRaises(ValueError):
+                migrate_json_to_sqlite(source, target)
+
+            self.assertFalse(Path(f"{target}.migrating-wal").exists())
+            self.assertFalse(Path(f"{target}.migrating-shm").exists())
+
+    def test_migration_replaces_stale_temporary_sqlite_database(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "state.json"
+            target = root / "state.sqlite3"
+            source.write_text(
+                json.dumps({"events": [{"event_id": "fresh"}]}),
+                encoding="utf-8",
+            )
+            Path(f"{target}.migrating").touch()
+
+            migrate_json_to_sqlite(source, target)
+
+            self.assertTrue(target.exists())
+            self.assertEqual(
+                SQLiteRuntimeStateStore(target).load().events[0]["event_id"],
+                "fresh",
+            )
+
     def test_migration_rejects_trailing_json_data(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
