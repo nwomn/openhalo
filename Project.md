@@ -1856,6 +1856,8 @@ Architecture decision:
 Observed owner Runtime evidence:
 
 - The installed owner Runtime is `openhalo 0.1.7 (8700b61)` with the persisted outbound proxy configured as `http://127.0.0.1:7890`; the proxy transport is reachable, but proxy configuration is not established as the primary cause of the Edge response delay.
+- The owner update to `v0.1.12` (`774977a`) completed through `openhalo update`, preserved the SQLite state and paired-device records, and leaves `openhalo update --check` at `up_to_date`. After balanced compaction, the live Runtime measured approximately `66 MiB` RSS, `193 MiB` SQLite footprint against the `512 MiB` quota, `70 KiB` active diagnostics, and `normal` storage pressure; the managed Host Edge is `connected` and continued sending runtime-health/host-metrics observations.
+- The pre-fix `292 MB` diagnostic file was retained as a `7 MB` compressed archive outside the active rotation set; the new active JSONL file remains bounded and continues writing after the update.
 - `~/.openhalo/runtime/state.json` measured approximately 182.7 MB during the investigation, with roughly 41,000 raw events and 225,000 normalized observations. Serialized top-level portions measured approximately 67.8 MB for `events`, 64.9 MB for `observations`, and 19.4 MB for `interactions`.
 - `~/.openhalo/logs/runtime-diagnostics.jsonl` measured approximately 295 MB. This diagnostic growth is operationally important but is separate from the synchronous response-path block and needs its own rotation or archival policy.
 - The Runtime process sample reached approximately 53% CPU and 960 MiB RSS. Offline serialization of the current state took approximately 11.6 seconds and reached approximately 1.46 GiB peak RSS before the atomic state write completed.
@@ -1883,15 +1885,14 @@ Implemented in this batch:
 
 M19 acceptance gaps:
 
-- Long-running owner Runtime acceptance still needs to measure RSS, SQLite/WAL footprint, recent-write volume, and quota pressure under realistic observation traffic.
+- Long-running owner Runtime storage acceptance now passes after the `v0.1.12` update and balanced compaction: RSS, SQLite/WAL footprint, recent-write volume, quota pressure, active diagnostic rotation, and restart readiness were measured on the installed process.
 - Full configured-provider Terminal, Android, Host, and multi-edge acceptance after migration and compaction remains outstanding.
-- The first owner run on `v0.1.11` exposed a Gateway-worker SQLite thread-affinity failure and a concurrent diagnostic-rotation race; both are covered by regression tests and are scheduled for the `v0.1.12` follow-up release before repeating live acceptance.
-- The first live `v0.1.7 -> v0.1.8` update safely rolled back on duplicate legacy record keys; the `v0.1.9` retry was then blocked by stale migration WAL/SHM sidecars, and the `v0.1.10` compatibility attempt exceeded the old updater's 5-second health gate on the 17.5-second large-state migration. The next `v0.1.11` release adds post-health migration snapshot commit; the owner must complete migration and bounded-snapshot verification through the current updater path.
-- No long-running human acceptance has yet demonstrated storage posture reporting, compaction, and continued Terminal, Android, Host, and multi-edge operation after cleanup.
+- The first owner run on `v0.1.11` exposed a Gateway-worker SQLite thread-affinity failure and a concurrent diagnostic-rotation race; both are covered by regression tests, fixed in `v0.1.12`, and show no new recurrence after the updated process restart. The Android liveness record remains historical `unavailable`, so phone reconnection and full multi-edge human acceptance are still open.
+- The first live `v0.1.7 -> v0.1.8` update safely rolled back on duplicate legacy record keys; the `v0.1.9` retry was then blocked by stale migration WAL/SHM sidecars, and the `v0.1.10` compatibility attempt exceeded the old updater's 5-second health gate on the 17.5-second large-state migration. `v0.1.11` added post-health migration snapshot commit, and the subsequent `v0.1.12` owner update completed with bounded-state verification through the current updater path.
 
 M19 next implementation entrypoint:
 
-1. Run the live owner update and storage posture acceptance ladder.
+1. Keep the completed `v0.1.12` owner update and balanced storage posture evidence as the baseline.
 2. Run configured-provider Terminal/Android/Host/multi-edge acceptance after migration and compaction.
 3. Record the final M19 acceptance evidence before marking the milestone complete.
 
