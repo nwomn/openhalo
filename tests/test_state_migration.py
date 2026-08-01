@@ -91,6 +91,32 @@ class StateMigrationTests(unittest.TestCase):
             self.assertFalse(target.exists())
             self.assertFalse(Path(f"{target}.migrating").exists())
 
+    def test_migration_preserves_records_with_duplicate_legacy_keys(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "state.json"
+            target = root / "state.sqlite3"
+            source.write_text(
+                json.dumps(
+                    {
+                        "events": [
+                            {"event_id": "duplicate", "payload": {"value": 1}},
+                            {"event_id": "duplicate", "payload": {"value": 2}},
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            migrate_json_to_sqlite(source, target)
+
+            restored = SQLiteRuntimeStateStore(target).load()
+            self.assertEqual(len(restored.events), 2)
+            self.assertEqual(
+                [event["payload"]["value"] for event in restored.events],
+                [1, 2],
+            )
+
     def test_migration_cleans_temporary_target_when_store_close_fails(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

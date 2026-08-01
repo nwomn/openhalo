@@ -302,6 +302,7 @@ class SQLiteRuntimeStateStore:
             connection.execute("PRAGMA synchronous=OFF")
             try:
                 record_batch = []
+                used_record_keys: set[tuple[str, str]] = set()
                 connection.execute("BEGIN IMMEDIATE")
                 try:
                     for kind, key, payload, ordinal in entries:
@@ -317,6 +318,12 @@ class SQLiteRuntimeStateStore:
                                 encoded,
                                 ordinal,
                             )
+                            record_key = _unique_record_key(
+                                key,
+                                record_key,
+                                used_record_keys,
+                            )
+                            used_record_keys.add((key, record_key))
                             record_batch.append((key, record_key, recorded_at, encoded))
                             if len(record_batch) >= 1000:
                                 connection.executemany(
@@ -877,17 +884,25 @@ class SQLiteRuntimeStateStore:
                 "INSERT INTO state_values(key, payload) VALUES(?, ?)",
                 (key, _json(payload)),
             )
+        used_record_keys: set[tuple[str, str]] = set()
         for collection in _HISTORY_COLLECTIONS:
             values = getattr(state, collection)
             for index, payload in enumerate(values):
                 encoded = _encode_payload(payload, collection=collection)
+                record_key, recorded_at = _record_metadata(collection, encoded, index)
+                record_key = _unique_record_key(
+                    collection,
+                    record_key,
+                    used_record_keys,
+                )
+                used_record_keys.add((collection, record_key))
                 connection.execute(
                     """
                     INSERT OR IGNORE INTO records(
                         collection, record_key, recorded_at, payload
                     ) VALUES(?, ?, ?, ?)
                     """,
-                    (collection, *_record_metadata(collection, encoded, index), encoded),
+                    (collection, record_key, recorded_at, encoded),
                 )
 
     def _apply_operation(
@@ -1008,6 +1023,19 @@ def _json(payload: Any) -> str:
 
 def _record_key(collection: str, encoded: str, ordinal: int) -> str:
     return _record_metadata(collection, encoded, ordinal)[0]
+
+
+def _unique_record_key(
+    collection: str,
+    record_key: str,
+    used_record_keys: set[tuple[str, str]],
+) -> str:
+    candidate = record_key
+    suffix = 1
+    while (collection, candidate) in used_record_keys:
+        candidate = f"{record_key}~{suffix}"
+        suffix += 1
+    return candidate
 
 
 def _record_metadata(collection: str, encoded: str, ordinal: int) -> tuple[str, str]:
