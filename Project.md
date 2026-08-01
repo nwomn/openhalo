@@ -1843,7 +1843,7 @@ This is execution priority, not milestone-number order. Existing accepted M17/M1
 
 Status:
 
-- M19 is accepted.
+- M19 is completed and accepted.
 - The current trigger is a live long-running Runtime performance regression observed through both Android and Terminal Edge inputs. This workstream is allowed to proceed before broader M18 human acceptance is complete because the storage pressure is already degrading the accepted Edge and Gateway paths.
 
 Architecture decision:
@@ -1885,7 +1885,7 @@ Implemented in this batch:
 - SQLite persistence now permits the Gateway's worker-thread saves through the store's existing lock, and JSONL diagnostic rotation serializes concurrent worker writes so neither boundary can fail under parallel Edge traffic.
 - Full repository, migration, Gateway, diagnostics, CLI, updater, and runtime regression coverage passes on `master`: `818 passed, 4 skipped, 19 subtests passed`. A process-level smoke test confirms old-style `state.json` startup creates SQLite and leaves a small bounded rollback snapshot.
 
-M19 acceptance result:
+M19 completion result:
 
 - Long-running owner Runtime storage acceptance now passes after the `v0.1.12` update and balanced compaction: RSS, SQLite/WAL footprint, recent-write volume, quota pressure, active diagnostic rotation, and restart readiness were measured on the installed process.
 - Configured-provider Terminal, Android, Host, and multi-edge acceptance after migration and compaction passes: every post-compaction interaction completed, every recorded external action returned `ok`, Android liveness recovered to `fresh`, and no diagnostic errors were recorded in the acceptance window.
