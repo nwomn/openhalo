@@ -1839,11 +1839,11 @@ Current phase:
 
 This is execution priority, not milestone-number order. Existing accepted M17/M18.1 foundations remain available for preparation and maintenance work, but they do not displace the next acceptance target.
 
-### M19 Current Operational Status (2026-08-01)
+### M19 Current Operational Status (2026-08-02)
 
 Status:
 
-- M19 is in active implementation and is not accepted.
+- M19 is accepted.
 - The current trigger is a live long-running Runtime performance regression observed through both Android and Terminal Edge inputs. This workstream is allowed to proceed before broader M18 human acceptance is complete because the storage pressure is already degrading the accepted Edge and Gateway paths.
 
 Architecture decision:
@@ -1858,6 +1858,8 @@ Observed owner Runtime evidence:
 - The installed owner Runtime is `openhalo 0.1.7 (8700b61)` with the persisted outbound proxy configured as `http://127.0.0.1:7890`; the proxy transport is reachable, but proxy configuration is not established as the primary cause of the Edge response delay.
 - The owner update to `v0.1.12` (`774977a`) completed through `openhalo update`, preserved the SQLite state and paired-device records, and leaves `openhalo update --check` at `up_to_date`. After balanced compaction, the live Runtime measured approximately `66 MiB` RSS, `193 MiB` SQLite footprint against the `512 MiB` quota, `70 KiB` active diagnostics, and `normal` storage pressure; the managed Host Edge is `connected` and continued sending runtime-health/host-metrics observations.
 - The pre-fix `292 MB` diagnostic file was retained as a `7 MB` compressed archive outside the active rotation set; the new active JSONL file remains bounded and continues writing after the update.
+- The post-compaction human acceptance window from `2026-08-01T16:56:00Z` through `17:05:00Z` completed 9 model-backed interactions (`interaction-13` through `interaction-21`) and 9 `notification.show` action results, all `ok`, across Android and Terminal while the three-device roster included Android, Terminal, and the managed Host Edge. Android liveness was `fresh` with current screen context, Host Edge remained `connected`, and the diagnostic window recorded 1,306 events with zero errors.
+- After the acceptance traffic, Runtime RSS stabilized at approximately `188 MiB` for a 40-second sample, while SQLite remained about `197 MiB` against the `512 MiB` quota and diagnostics about `1.5 MiB`; storage pressure stayed `normal`.
 - `~/.openhalo/runtime/state.json` measured approximately 182.7 MB during the investigation, with roughly 41,000 raw events and 225,000 normalized observations. Serialized top-level portions measured approximately 67.8 MB for `events`, 64.9 MB for `observations`, and 19.4 MB for `interactions`.
 - `~/.openhalo/logs/runtime-diagnostics.jsonl` measured approximately 295 MB during the pre-fix investigation. This diagnostic growth was separate from the synchronous response-path block; `v0.1.12` now bounds the active file and archives the historical payload separately.
 - The Runtime process sample reached approximately 53% CPU and 960 MiB RSS. Offline serialization of the current state took approximately 11.6 seconds and reached approximately 1.46 GiB peak RSS before the atomic state write completed.
@@ -1883,18 +1885,18 @@ Implemented in this batch:
 - SQLite persistence now permits the Gateway's worker-thread saves through the store's existing lock, and JSONL diagnostic rotation serializes concurrent worker writes so neither boundary can fail under parallel Edge traffic.
 - Full repository, migration, Gateway, diagnostics, CLI, updater, and runtime regression coverage passes on `master`: `818 passed, 4 skipped, 19 subtests passed`. A process-level smoke test confirms old-style `state.json` startup creates SQLite and leaves a small bounded rollback snapshot.
 
-M19 acceptance gaps:
+M19 acceptance result:
 
 - Long-running owner Runtime storage acceptance now passes after the `v0.1.12` update and balanced compaction: RSS, SQLite/WAL footprint, recent-write volume, quota pressure, active diagnostic rotation, and restart readiness were measured on the installed process.
-- Full configured-provider Terminal, Android, Host, and multi-edge acceptance after migration and compaction remains outstanding.
-- The first owner run on `v0.1.11` exposed a Gateway-worker SQLite thread-affinity failure and a concurrent diagnostic-rotation race; both are covered by regression tests, fixed in `v0.1.12`, and show no new recurrence after the updated process restart. The Android liveness record remains historical `unavailable`, so phone reconnection and full multi-edge human acceptance are still open.
+- Configured-provider Terminal, Android, Host, and multi-edge acceptance after migration and compaction passes: every post-compaction interaction completed, every recorded external action returned `ok`, Android liveness recovered to `fresh`, and no diagnostic errors were recorded in the acceptance window.
+- The first owner run on `v0.1.11` exposed a Gateway-worker SQLite thread-affinity failure and a concurrent diagnostic-rotation race; both are covered by regression tests, fixed in `v0.1.12`, and show no new recurrence after the updated process restart.
 - The first live `v0.1.7 -> v0.1.8` update safely rolled back on duplicate legacy record keys; the `v0.1.9` retry was then blocked by stale migration WAL/SHM sidecars, and the `v0.1.10` compatibility attempt exceeded the old updater's 5-second health gate on the 17.5-second large-state migration. `v0.1.11` added post-health migration snapshot commit, and the subsequent `v0.1.12` owner update completed with bounded-state verification through the current updater path.
 
-M19 next implementation entrypoint:
+M19 closeout / next implementation entrypoint:
 
 1. Keep the completed `v0.1.12` owner update and balanced storage posture evidence as the baseline.
-2. Run configured-provider Terminal/Android/Host/multi-edge acceptance after migration and compaction.
-3. Record the final M19 acceptance evidence before marking the milestone complete.
+2. Continue the next roadmap milestone; reopen M19 only if bounded-storage or response-path regressions recur.
+3. Preserve the acceptance evidence and compressed pre-fix diagnostics archive for later M18/M21 review.
 
 Current progress summary:
 
