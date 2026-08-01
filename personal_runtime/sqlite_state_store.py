@@ -300,6 +300,8 @@ class SQLiteRuntimeStateStore:
             if not self._is_empty(connection):
                 raise ValueError("SQLite import target is not empty")
             connection.execute("PRAGMA synchronous=OFF")
+            connection.execute("DROP INDEX IF EXISTS records_collection_id")
+            connection.execute("DROP INDEX IF EXISTS records_collection_time")
             try:
                 record_batch = []
                 used_record_keys: set[tuple[str, str]] = set()
@@ -313,9 +315,9 @@ class SQLiteRuntimeStateStore:
                             )
                         elif kind == "record":
                             encoded = _encode_payload(payload, collection=key)
-                            record_key, recorded_at = _record_metadata(
+                            record_key, recorded_at = _record_metadata_from_payload(
                                 key,
-                                encoded,
+                                payload,
                                 ordinal,
                             )
                             record_key = _unique_record_key(
@@ -325,7 +327,7 @@ class SQLiteRuntimeStateStore:
                             )
                             used_record_keys.add((key, record_key))
                             record_batch.append((key, record_key, recorded_at, encoded))
-                            if len(record_batch) >= 1000:
+                            if len(record_batch) >= 10_000:
                                 connection.executemany(
                                     """
                                     INSERT INTO records(
@@ -355,6 +357,14 @@ class SQLiteRuntimeStateStore:
                     connection.execute("ROLLBACK")
                     raise
             finally:
+                connection.execute(
+                    "CREATE INDEX IF NOT EXISTS records_collection_id "
+                    "ON records(collection, id)"
+                )
+                connection.execute(
+                    "CREATE INDEX IF NOT EXISTS records_collection_time "
+                    "ON records(collection, recorded_at)"
+                )
                 connection.execute("PRAGMA synchronous=NORMAL")
             self._set_private_mode()
 
@@ -1039,7 +1049,17 @@ def _unique_record_key(
 
 
 def _record_metadata(collection: str, encoded: str, ordinal: int) -> tuple[str, str]:
-    payload = json.loads(encoded)
+    return _record_metadata_from_payload(collection, json.loads(encoded), ordinal)
+
+
+def _record_metadata_from_payload(
+    collection: str,
+    payload: Any,
+    ordinal: int,
+) -> tuple[str, str]:
+    if not isinstance(payload, dict):
+        payload = {}
+    encoded = _json(payload)
     if collection == "interactions" and payload.get("interaction_id"):
         record_key = str(payload["interaction_id"])
     elif collection == "action_results" and payload.get("request_id"):

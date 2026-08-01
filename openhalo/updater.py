@@ -39,6 +39,7 @@ class ReleaseUpdater:
         stager: ReleaseStaging,
         supervisor_factory: Callable[[Path | None], RuntimeControl],
         state_migrator: Callable[[ReleaseManifest], None] | None = None,
+        state_commit_migrator: Callable[[ReleaseManifest], None] | None = None,
         state_rollback_migrator: Callable[[], None] | None = None,
     ) -> None:
         self.layout = layout
@@ -46,6 +47,7 @@ class ReleaseUpdater:
         self.stager = stager
         self._supervisor_factory = supervisor_factory
         self._state_migrator = state_migrator
+        self._state_commit_migrator = state_commit_migrator
         self._state_rollback_migrator = state_rollback_migrator
 
     def check(self) -> dict:
@@ -90,6 +92,8 @@ class ReleaseUpdater:
             if was_running:
                 candidate_supervisor = self._supervisor_factory(candidate / "venv/bin/python")
                 candidate_supervisor.start()
+            if self._state_commit_migrator is not None:
+                self._state_commit_migrator(manifest)
             return {
                 "current": current,
                 "state": "updated",

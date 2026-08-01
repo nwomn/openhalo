@@ -161,6 +161,9 @@ def test_state_migration_runs_before_candidate_activation_and_start() -> None:
         def migration(manifest: ReleaseManifest) -> None:
             calls.append(f"migrate:{manifest.commit}")
 
+        def commit_migration(manifest: ReleaseManifest) -> None:
+            calls.append(f"commit:{manifest.commit}")
+
         class OrderedSupervisor(_Supervisor):
             def stop(self) -> dict:
                 calls.append("stop")
@@ -189,10 +192,17 @@ def test_state_migration_runs_before_candidate_activation_and_start() -> None:
             stager=_Stager(layout.release_directory(candidate)),
             supervisor_factory=lambda executable: OrderedSupervisor(executable, calls),
             state_migrator=migration,
+            state_commit_migrator=commit_migration,
         ).update()
 
         assert result["state"] == "updated"
-        assert calls[:4] == ["stop", "wait", f"migrate:{candidate}", f"start:{candidate}"]
+        assert calls[:5] == [
+            "stop",
+            "wait",
+            f"migrate:{candidate}",
+            f"start:{candidate}",
+            f"commit:{candidate}",
+        ]
 
 
 def test_update_refuses_to_turn_a_development_command_into_an_installer() -> None:

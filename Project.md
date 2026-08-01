@@ -1884,7 +1884,7 @@ M19 acceptance gaps:
 
 - Long-running owner Runtime acceptance still needs to measure RSS, SQLite/WAL footprint, recent-write volume, and quota pressure under realistic observation traffic.
 - Full configured-provider Terminal, Android, Host, and multi-edge acceptance after migration and compaction remains outstanding.
-- The first live `v0.1.7 -> v0.1.8` update safely rolled back on duplicate legacy record keys; the `v0.1.9` retry was then blocked by stale migration WAL/SHM sidecars from that failed attempt. Deterministic key-collision and temporary-sidecar cleanup fixes are queued for `v0.1.10`, which must complete the owner migration and bounded-snapshot check.
+- The first live `v0.1.7 -> v0.1.8` update safely rolled back on duplicate legacy record keys; the `v0.1.9` retry was then blocked by stale migration WAL/SHM sidecars, and the `v0.1.10` compatibility attempt exceeded the old updater's 5-second health gate on the 17.5-second large-state migration. The next `v0.1.11` release adds post-health migration snapshot commit; the owner must complete migration and bounded-snapshot verification through the current updater path.
 - No long-running human acceptance has yet demonstrated storage posture reporting, compaction, and continued Terminal, Android, Host, and multi-edge operation after cleanup.
 
 M19 next implementation entrypoint:

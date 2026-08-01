@@ -29,6 +29,7 @@ from personal_runtime.pairing_store import PairingStore
 from personal_runtime.state_migration import export_sqlite_to_json
 from personal_runtime.state_migration import migrate_json_to_sqlite
 from personal_runtime.state_migration import sha256_file
+from personal_runtime.state_migration import write_bounded_legacy_snapshot
 from personal_runtime.sqlite_state_store import SQLiteRuntimeStateStore
 
 
@@ -286,6 +287,10 @@ def _build_updater(home: PersonalHome) -> ReleaseUpdater:
         stager=ReleaseStager(layout),
         supervisor_factory=lambda executable: RuntimeSupervisor(home, executable=executable),
         state_migrator=lambda manifest: _migrate_runtime_state(home, manifest.state_schema),
+        state_commit_migrator=lambda manifest: _commit_runtime_state_migration(
+            home,
+            manifest.state_schema,
+        ),
         state_rollback_migrator=lambda: _export_runtime_state_for_rollback(home),
     )
 
@@ -341,6 +346,14 @@ def _export_runtime_state_for_rollback(home: PersonalHome) -> None:
     database_backup = home.state_database_path.with_suffix(".sqlite3.pre-rollback")
     database_backup.unlink(missing_ok=True)
     os.replace(home.state_database_path, database_backup)
+
+
+def _commit_runtime_state_migration(home: PersonalHome, state_schema: str) -> None:
+    if state_schema == "sqlite-v1":
+        write_bounded_legacy_snapshot(
+            home.state_database_path,
+            home.legacy_state_path,
+        )
 
 
 def _storage_status(home: PersonalHome) -> dict:
