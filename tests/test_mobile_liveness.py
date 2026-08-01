@@ -79,6 +79,48 @@ class MobileObservationLivenessTests(unittest.TestCase):
         self.assertEqual(view["android-edge-1"]["silence_seconds"], 190)
         self.assertFalse(view["android-edge-1"]["wake_recovery_eligible"])
 
+    def test_classifies_screen_off_health_as_stale_over_old_screen_context(self) -> None:
+        state = RuntimeState()
+        _register_phone(state)
+        state.record_observation(
+            RuntimeObservation(
+                name="mobile.screen_context",
+                value={
+                    "screen_state": "unlocked",
+                    "interaction_state": "active",
+                },
+                source_device_id="android-edge-1",
+                source_capability="mobile.screen_context",
+                source_event_id="event-old-screen",
+                observed_at="2026-07-10T10:00:00Z",
+                confidence=0.9,
+            )
+        )
+        state.record_observation(
+            RuntimeObservation(
+                name="mobile.screen_capture_health",
+                value={
+                    "accessibility_service_state": "enabled",
+                    "capture_mode": "health_only",
+                    "capture_pause_reason": "screen_off",
+                },
+                source_device_id="android-edge-1",
+                source_capability="mobile.screen_context",
+                source_event_id="event-screen-off",
+                observed_at="2026-07-10T10:03:00Z",
+                confidence=1.0,
+            )
+        )
+
+        view = build_mobile_liveness_view(
+            state,
+            online_device_ids={"android-edge-1"},
+            current_time="2026-07-10T10:03:10Z",
+        )
+
+        self.assertFalse(view["android-edge-1"]["expected_active_observation"])
+        self.assertEqual(view["android-edge-1"]["state"], "stale")
+
     def test_requests_bounded_privacy_preserving_wake_for_offline_stale_phone(self) -> None:
         state = RuntimeState()
         _register_phone(state)

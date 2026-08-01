@@ -283,6 +283,17 @@ def _latest_observation(state: RuntimeState, device_id: str, name: str):
 
 
 def _expected_active_observation(health, screen) -> bool:
+    if health is not None and isinstance(health.value, dict):
+        if screen is not None and _parse_time(health.observed_at) < _parse_time(
+            screen.observed_at
+        ):
+            health = None
+        else:
+            pause_reason = str(
+                health.value.get("capture_pause_reason", "")
+            ).lower()
+            if pause_reason in {"screen_off", "screen_locked", "locked"}:
+                return False
     if screen is not None:
         return True
     if health is None or not isinstance(health.value, dict):

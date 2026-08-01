@@ -988,6 +988,7 @@ class RuntimeOrchestrator:
         snapshot = build_context_snapshot(
             self.gateway.state.observations,
             snapshot_time=decision_time or None,
+            observation_registry=self.gateway.state.observation_registry,
         )
         self.gateway._record_diagnostic(
             module="State / Context",
@@ -1018,6 +1019,7 @@ class RuntimeOrchestrator:
         snapshot_contract = build_context_snapshot_contract(
             self.gateway.state.observations,
             snapshot_time=decision_time or None,
+            observation_registry=self.gateway.state.observation_registry,
         )
         proposal = self._proposal_from_harness(
             HarnessInput(
@@ -1197,6 +1199,7 @@ class RuntimeOrchestrator:
             build_context_snapshot_contract(
                 self.gateway.state.observations,
                 snapshot_time=decision_time or None,
+                observation_registry=self.gateway.state.observation_registry,
             )
         )
         admission = self.gateway.proactive_trigger_gate.evaluate(
@@ -1257,6 +1260,7 @@ class RuntimeOrchestrator:
             build_context_snapshot(
                 self.gateway.state.observations,
                 snapshot_time=decision_time or None,
+                observation_registry=self.gateway.state.observation_registry,
             )
         )
         grounding_bundle = build_model_grounding_bundle(
@@ -1460,6 +1464,7 @@ class RuntimeOrchestrator:
         snapshot = build_context_snapshot(
             self.gateway.state.observations,
             snapshot_time=decision_time or None,
+            observation_registry=self.gateway.state.observation_registry,
         )
         edge_history = self.gateway._build_edge_history_for_grounding()
         grounding_bundle = build_model_grounding_bundle(
@@ -1472,6 +1477,7 @@ class RuntimeOrchestrator:
         snapshot_contract = build_context_snapshot_contract(
             self.gateway.state.observations,
             snapshot_time=decision_time or None,
+            observation_registry=self.gateway.state.observation_registry,
         )
         correlation = {
             **correlation_from_frame(frame),
@@ -1763,6 +1769,7 @@ class RuntimeOrchestrator:
         snapshot = build_context_snapshot(
             self.gateway.state.observations,
             snapshot_time=decision_time or None,
+            observation_registry=self.gateway.state.observation_registry,
         )
         edge_history = self.gateway._build_edge_history_for_grounding()
         grounding_bundle = build_model_grounding_bundle(
@@ -1775,6 +1782,7 @@ class RuntimeOrchestrator:
         snapshot_contract = build_context_snapshot_contract(
             self.gateway.state.observations,
             snapshot_time=decision_time or None,
+            observation_registry=self.gateway.state.observation_registry,
         )
         interaction_turn_id = self.gateway._next_interaction_turn_id()
         correlation = {

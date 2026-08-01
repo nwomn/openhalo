@@ -328,6 +328,38 @@ class ContextSnapshotTests(unittest.TestCase):
             "mobile.screen_context",
         )
 
+    def test_uses_registered_screen_context_freshness_seconds(self) -> None:
+        contract = build_context_snapshot_contract(
+            [
+                RuntimeObservation(
+                    name="mobile.screen_context",
+                    value={
+                        "screen_state": "unlocked",
+                        "interaction_state": "active",
+                    },
+                    source_device_id="android-edge-1",
+                    source_capability="mobile.screen_context",
+                    source_event_id="evt-screen-old",
+                    observed_at="2026-07-11T10:05:00Z",
+                    confidence=1.0,
+                )
+            ],
+            snapshot_time="2026-07-11T10:05:31Z",
+            observation_registry={
+                "android-edge-1": {
+                    "mobile.screen_context": {
+                        "mobile.screen_context": {
+                            "freshness_seconds": 30,
+                        }
+                    }
+                }
+            },
+        )
+
+        field = contract["fields"]["mobile.current_screen_context"]
+        self.assertEqual(field["value"], "unknown")
+        self.assertEqual(field["status"], "stale")
+
     def test_returns_ambiguous_when_recent_location_evidence_conflicts_tightly(self) -> None:
         snapshot = build_context_snapshot(
             [

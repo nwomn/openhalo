@@ -79,6 +79,7 @@ def build_context_view(
     current_snapshot_contract = build_context_snapshot_contract(
         state.observations,
         snapshot_time=generated_at,
+        observation_registry=state.observation_registry,
     )
     current_snapshot = {
         field_name: field["value"]

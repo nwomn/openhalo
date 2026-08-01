@@ -167,6 +167,52 @@ class ContextViewerTests(unittest.TestCase):
         )
         self.assertTrue(view["mobile_liveness"]["android-edge-1"]["online"])
 
+    def test_expires_registered_screen_context_in_live_view(self) -> None:
+        state = RuntimeState()
+        state.register_device("android-edge-1", "android-phone")
+        state.register_capability(
+            "android-edge-1",
+            {
+                "name": "mobile.screen_context",
+                "direction": "edge_to_runtime",
+                "kind": "observation_provider",
+                "observations": [
+                    {
+                        "name": "mobile.screen_context",
+                        "schema": {"type": "object"},
+                        "freshness_seconds": 30,
+                    }
+                ],
+            },
+        )
+        state.record_observation(
+            RuntimeObservation(
+                name="mobile.screen_context",
+                value={"screen_state": "unlocked"},
+                source_device_id="android-edge-1",
+                source_capability="mobile.screen_context",
+                source_event_id="event-old-screen",
+                observed_at="2026-07-05T14:41:00Z",
+                confidence=1.0,
+            )
+        )
+
+        view = build_context_view(
+            state.to_dict(),
+            current_time="2026-07-05T14:41:31Z",
+        )
+
+        self.assertEqual(
+            view["current_snapshot"]["mobile.current_screen_context"],
+            "unknown",
+        )
+        self.assertEqual(
+            view["current_snapshot_contract"]["fields"][
+                "mobile.current_screen_context"
+            ]["status"],
+            "stale",
+        )
+
     def test_includes_latest_agent_prompt_context_from_intervention(self) -> None:
         state = RuntimeState()
         state.record_intervention(

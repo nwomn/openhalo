@@ -1,5 +1,7 @@
 """Compact context snapshot reducers for hot-path presence work."""
 
+from datetime import datetime
+
 from personal_runtime.context_contracts import RuntimeObservation
 
 
@@ -20,6 +22,15 @@ HOST_MEMORY_AVAILABLE_FRESHNESS_MINUTES = 5
 HOST_MEMORY_USED_FRESHNESS_MINUTES = 5
 HOST_MEMORY_PRESSURE_FRESHNESS_MINUTES = 5
 EVIDENCE_LIMIT = 2
+REGISTERED_MOBILE_FRESHNESS_NAMES = frozenset(
+    {
+        "mobile.app_visibility",
+        "mobile.notification_permission",
+        "mobile.connection_state",
+        "mobile.screen_context",
+        "mobile.screen_capture_health",
+    }
+)
 OBSERVATION_DRIVEN_SCREEN_CONTEXT_FIELDS = frozenset(
     {
         "screen_state",
@@ -47,10 +58,12 @@ OBSERVATION_DRIVEN_SCREEN_CONTEXT_FIELDS = frozenset(
 def build_context_snapshot(
     observations: list[RuntimeObservation],
     snapshot_time: str | None = None,
+    observation_registry: dict | None = None,
 ) -> dict:
     contract = build_context_snapshot_contract(
         observations,
         snapshot_time=snapshot_time,
+        observation_registry=observation_registry,
     )
     return {
         field_name: field_contract["value"]
@@ -138,6 +151,7 @@ def _sanitize_observation_driven_screen_context_evidence(evidence: dict) -> dict
 def build_context_snapshot_contract(
     observations: list[RuntimeObservation],
     snapshot_time: str | None = None,
+    observation_registry: dict | None = None,
 ) -> dict:
     return {
         "snapshot_time": snapshot_time,
@@ -148,6 +162,7 @@ def build_context_snapshot_contract(
                 reducer=reducer,
                 freshness_minutes=freshness_minutes,
                 snapshot_time=snapshot_time,
+                observation_registry=observation_registry,
             )
             for field_name, observation_name, reducer, freshness_minutes in _snapshot_field_specs()
         },
@@ -201,10 +216,13 @@ def _reduce_current_location(
 def _within_freshness_window(
     observed_at: str,
     snapshot_time: str,
-    freshness_minutes: int,
+    freshness_minutes: float | None = None,
+    freshness_seconds: float | None = None,
 ) -> bool:
-    age_minutes = _to_epoch_minutes(snapshot_time) - _to_epoch_minutes(observed_at)
-    return 0 <= age_minutes <= freshness_minutes
+    if freshness_seconds is None:
+        freshness_seconds = (freshness_minutes or 0) * 60
+    age_seconds = _to_epoch_seconds(snapshot_time) - _to_epoch_seconds(observed_at)
+    return 0 <= age_seconds <= freshness_seconds
 
 
 def _build_field_contract(
@@ -213,6 +231,7 @@ def _build_field_contract(
     reducer,
     freshness_minutes: int,
     snapshot_time: str | None = None,
+    observation_registry: dict | None = None,
 ) -> dict:
     matching_observations = _ordered_observations(
         observations,
@@ -226,11 +245,18 @@ def _build_field_contract(
             if _within_freshness_window(
                 observed_at=observation.observed_at,
                 snapshot_time=snapshot_time,
-                freshness_minutes=freshness_minutes,
+                freshness_seconds=_registered_freshness_seconds(
+                    observation,
+                    fallback_freshness_minutes=freshness_minutes,
+                    observation_registry=observation_registry,
+                ),
             )
         ]
 
-    value = reducer(observations, snapshot_time=snapshot_time)
+    reducer_observations = (
+        fresh_observations if snapshot_time is not None else matching_observations
+    )
+    value = reducer(reducer_observations, snapshot_time=None)
     if value == "ambiguous":
         return {
             "observation_name": observation_name,
@@ -287,6 +313,30 @@ def _ordered_observations(
         ),
         reverse=True,
     )
+
+
+def _registered_freshness_seconds(
+    observation: RuntimeObservation,
+    *,
+    fallback_freshness_minutes: int,
+    observation_registry: dict | None,
+) -> float:
+    if observation.name not in REGISTERED_MOBILE_FRESHNESS_NAMES:
+        return float(fallback_freshness_minutes * 60)
+    capability_registry = (
+        (observation_registry or {})
+        .get(observation.source_device_id, {})
+        .get(observation.source_capability, {})
+    )
+    registration = capability_registry.get(observation.name, {})
+    if isinstance(registration, dict):
+        freshness_seconds = registration.get("freshness_seconds")
+        if isinstance(freshness_seconds, (int, float)) and not isinstance(
+            freshness_seconds,
+            bool,
+        ):
+            return max(0.0, float(freshness_seconds))
+    return float(fallback_freshness_minutes * 60)
 
 
 def _reduce_latest_observation_value(
@@ -720,6 +770,10 @@ def _to_epoch_minutes(timestamp: str) -> int:
     minute = int(minute_text)
     _second = int(second_text.split(".", maxsplit=1)[0])
     return (((year * 12 + month) * 31 + day) * 24 + hour) * 60 + minute
+
+
+def _to_epoch_seconds(timestamp: str) -> float:
+    return datetime.fromisoformat(timestamp.replace("Z", "+00:00")).timestamp()
 
 
 def _snapshot_field_specs():
