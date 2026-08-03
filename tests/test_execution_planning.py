@@ -17,6 +17,63 @@ def _register_surface(
 
 
 class ExecutionPlanningTests(unittest.TestCase):
+    def test_coding_turn_start_normalizes_prompt_and_registered_context(self) -> None:
+        state = RuntimeState()
+        _register_surface(
+            state,
+            "terminal-edge-1",
+            {
+                "name": "coding.turn.start",
+                "direction": "runtime_to_edge",
+                "kind": "action",
+                "affordances": ["start_coding_turn"],
+                "modality": "terminal_text",
+                "privacy": "personal",
+                "content_capacity": "bounded_text",
+                "interruptiveness": "medium",
+                "side_effect": "agent_execution",
+                "workspace_ref": "openhalo-7ff97f84e8",
+                "input_schema": {
+                    "type": "object",
+                    "required": ["task", "workspace_ref", "interaction_id"],
+                    "additionalProperties": False,
+                    "properties": {
+                        "task": {"type": "string", "minLength": 1},
+                        "workspace_ref": {"type": "string", "minLength": 1},
+                        "interaction_id": {"type": "string", "minLength": 1},
+                    },
+                },
+            },
+        )
+
+        outcome = ExecutionPlanner().plan_action(
+            source_device_id="terminal-edge-1",
+            proposal={
+                "proposal_type": "action",
+                "action_capability": "coding.turn.start",
+                "action_payload": {"prompt": "Create the smallest useful test."},
+                "visibility_intent": "visible",
+            },
+            decision={
+                "decision": "allow",
+                "target_device_id": "terminal-edge-1",
+                "reason": "context_clear",
+            },
+            interaction_id="interaction-coding-1",
+            runtime_state=state,
+            online_device_ids={"terminal-edge-1"},
+        )
+
+        self.assertEqual(outcome["kind"], "action")
+        self.assertEqual(
+            outcome["action"]["payload"],
+            {
+                "task": "Create the smallest useful test.",
+                "workspace_ref": "openhalo-7ff97f84e8",
+                "interaction_id": "interaction-coding-1",
+            },
+        )
+
     def test_notification_show_rejects_legacy_message_payload(self) -> None:
         state = RuntimeState()
         state.register_device("terminal-edge-1", "desktop-cli")

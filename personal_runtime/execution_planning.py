@@ -241,6 +241,7 @@ def build_execution_outcome(
             source_device_id=source_device_id,
             proposal=proposal,
             decision=decision,
+            interaction_id=interaction_id,
             runtime_state=runtime_state,
             online_device_ids=online_device_ids or set(),
         )
@@ -265,6 +266,13 @@ def build_execution_outcome(
         action_payload = _canonical_action_payload(
             action_capability,
             proposal.get("action_payload", {}),
+            interaction_id=interaction_id,
+            capability_metadata=(
+                planning_record.get("chosen_candidate", {}).get("metadata", {})
+                if planning_record is not None
+                and isinstance(planning_record.get("chosen_candidate"), dict)
+                else None
+            ),
         )
     except ValueError:
         return {
@@ -354,6 +362,7 @@ def resolve_capability_provider(
     source_device_id: str,
     proposal: dict,
     decision: dict,
+    interaction_id: str,
     runtime_state,
     online_device_ids: set[str],
 ) -> dict:
@@ -361,11 +370,17 @@ def resolve_capability_provider(
     filtered_candidates = []
     survivors = []
     for candidate in candidates:
+        candidate_payload = _candidate_action_payload(
+            proposal,
+            interaction_id=interaction_id,
+            capability_metadata=candidate["metadata"],
+        )
         reasons = _filter_reasons(
             candidate,
             proposal=proposal,
             decision=decision,
             online_device_ids=online_device_ids,
+            payload=candidate_payload,
         )
         if reasons:
             filtered_candidates.append({**candidate, "reasons": reasons})
@@ -439,6 +454,7 @@ def _filter_reasons(
     proposal: dict,
     decision: dict,
     online_device_ids: set[str],
+    payload: object | None = None,
 ) -> list[str]:
     metadata = candidate["metadata"]
     requirements = _planning_requirements(proposal, decision)
@@ -477,7 +493,8 @@ def _filter_reasons(
     if requirements.get("content_required") and metadata.get("content_capacity") == "none":
         reasons.append("content_capacity:none")
     schema = metadata.get("input_schema")
-    payload = proposal.get("action_payload", {})
+    if payload is None:
+        payload = proposal.get("action_payload", {})
     if schema and not _payload_matches_required_schema(payload, schema):
         reasons.append("schema_mismatch")
     return reasons
@@ -516,12 +533,49 @@ def _payload_matches_required_schema(payload: dict, schema: dict) -> bool:
     return True
 
 
-def _canonical_action_payload(action_capability: object, payload: object) -> dict:
+def _candidate_action_payload(
+    proposal: dict,
+    *,
+    interaction_id: str,
+    capability_metadata: dict,
+) -> object:
+    try:
+        return _canonical_action_payload(
+            proposal.get("action_capability"),
+            proposal.get("action_payload", {}),
+            interaction_id=interaction_id,
+            capability_metadata=capability_metadata,
+        )
+    except ValueError:
+        return proposal.get("action_payload", {})
+
+
+def _canonical_action_payload(
+    action_capability: object,
+    payload: object,
+    *,
+    interaction_id: str | None = None,
+    capability_metadata: dict | None = None,
+) -> dict:
     if not isinstance(payload, dict):
         raise ValueError("action payload must be an object")
     if action_capability == "notification.show":
         return build_notification_payload(payload.get("body"))
-    return dict(payload)
+    normalized = dict(payload)
+    if action_capability == "coding.turn.start":
+        prompt = normalized.pop("prompt", None)
+        if "task" not in normalized and isinstance(prompt, str):
+            normalized["task"] = prompt
+        if interaction_id and "interaction_id" not in normalized:
+            normalized["interaction_id"] = interaction_id
+        workspace_ref = (
+            capability_metadata.get("workspace_ref")
+            if isinstance(capability_metadata, dict)
+            else None
+        )
+        if isinstance(workspace_ref, str) and workspace_ref:
+            normalized.setdefault("workspace_ref", workspace_ref)
+    return normalized
 
 
 def _rejected_direct_action_outcome(
