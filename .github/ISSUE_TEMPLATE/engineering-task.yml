@@ -1,0 +1,89 @@
+name: Engineering task
+description: Track one OpenHalo task from scope to acceptance
+title: "[Task] "
+body:
+  - type: dropdown
+    id: goal
+    attributes:
+      label: Goal
+      description: Which project goal does this task advance?
+      options:
+        - Goal 1 - system architecture
+        - Goal 2 - primary abstractions
+        - Goal 3 - implemented runtime baseline
+        - Goal 4 - productization and deployment
+        - Cross-cutting or maintenance
+    validations:
+      required: true
+
+  - type: dropdown
+    id: architecture_location
+    attributes:
+      label: Architecture location
+      description: Where does the main change belong?
+      options:
+        - Frontend / Device Edge
+        - Gateway
+        - State / Context / Task
+        - Agent Runtime / Presence Router
+        - Action Layer
+        - Developer or release tooling
+        - Documentation only
+    validations:
+      required: true
+
+  - type: input
+    id: milestone
+    attributes:
+      label: Milestone
+      description: Enter the current milestone, for example M20.3, or write none.
+      placeholder: Mxx
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context and intended change
+      description: Explain the problem, expected behavior, and relevant links.
+      placeholder: |
+        Problem:
+        Intended change:
+        Related design or code:
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Write observable conditions that determine whether this task is complete.
+      placeholder: |
+        - [ ]
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: documentation
+    attributes:
+      label: Documentation impact
+      description: Decide this before implementation starts.
+      options:
+        - label: I checked whether README, docs, API notes, or a design record needs an update.
+          required: true
+        - label: I will update Project.md if this changes project-level architecture, phase, milestone, or acceptance status.
+          required: true
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification plan
+      description: List focused tests, manual acceptance, or other evidence.
+      placeholder: |
+        Automated:
+        Manual:
+        Evidence:
+    validations:
+      required: true

@@ -4,6 +4,8 @@ import stat
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -462,7 +464,12 @@ class SQLiteRuntimeStateStoreTests(unittest.TestCase):
             path = Path(directory) / "state.sqlite3"
             store = SQLiteRuntimeStateStore(path)
             state = RuntimeState()
-            state.events.append({"event_id": "event-1", "timestamp": "2026-08-01T10:00:00Z"})
+            state.events.append(
+                {
+                    "event_id": "event-1",
+                    "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                }
+            )
             store.save(state)
 
             status = store.storage_status()

@@ -199,6 +199,7 @@ owner-facing install, setup, pairing, and lifecycle commands.
 
 - [Project.md](Project.md): project baseline, milestones, architecture direction, current status
 - [docs/dev-env.md](docs/dev-env.md): local development and verification workflow
+- [docs/dev/github-workflow.md](docs/dev/github-workflow.md): GitHub task, documentation, review, and acceptance workflow
 - [docs/runtime-deploy.md](docs/runtime-deploy.md): personal Runtime install, pairing, and lifecycle commands
 - [docs/android-edge-install.md](docs/android-edge-install.md): Android phone Edge setup and install notes
 - [docs/m17-android-edge-acceptance.md](docs/m17-android-edge-acceptance.md): Android Edge verification ladder
