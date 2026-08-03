@@ -6,7 +6,7 @@ from openhalo_common.diagnostics import DiagnosticBoundaryRecorder
 class CapabilityRuntime:
     def __init__(
         self,
-        capabilities: list[str] | None = None,
+        capabilities: list[str | dict] | None = None,
         diagnostic_recorder=None,
         device: dict | None = None,
     ) -> None:

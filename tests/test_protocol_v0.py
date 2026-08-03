@@ -198,6 +198,20 @@ class ProtocolTests(unittest.TestCase):
                 [{"direction": "runtime_to_edge", "kind": "action"}],
             )
 
+    def test_rejects_rich_action_registration_with_non_object_input_schema(self) -> None:
+        with self.assertRaises(ValueError):
+            build_capability_announce_frame(
+                "terminal-edge-1",
+                [
+                    {
+                        "name": "coding.turn.start",
+                        "direction": "runtime_to_edge",
+                        "kind": "action",
+                        "input_schema": "not-a-schema",
+                    }
+                ],
+            )
+
     def test_builds_observation_push_frame(self) -> None:
         frame = build_observation_push_frame(
             device_id="host-edge-1",

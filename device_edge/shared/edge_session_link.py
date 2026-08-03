@@ -77,7 +77,7 @@ class EdgeSessionLink:
             "signature": encode_base64url(signature),
         }
 
-    def build_capability_announce_frame(self, capabilities: list[str]) -> dict:
+    def build_capability_announce_frame(self, capabilities: list[str | dict]) -> dict:
         return build_capability_announce_frame(
             self.device_id,
             capabilities,

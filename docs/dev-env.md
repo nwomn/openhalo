@@ -616,6 +616,28 @@ Use them only for edge-local ergonomics:
 
 Those commands must stay local to the terminal edge. They should not be forwarded as normal `text.input` runtime events.
 
+The Terminal Edge also hosts the first Codex coding bridge by default. When
+`codex` is installed, `openhalo-edge run` starts a local
+`codex app-server --listen stdio://` child and advertises the coding attention,
+turn-start, suggestion, and turn-steer capabilities on the same paired Edge
+session. The default workspace is the directory from which the edge is
+started; set it explicitly when needed:
+
+```bash
+.venv/bin/python -m openhalo.edge_cli --home "$EDGE_HOME" run \
+  --coding-workspace "$PWD"
+```
+
+When Runtime sends a coding task, the Edge starts a hosted Codex thread and
+keeps each task in a separate thread. Codex output reaches Runtime as bounded `coding.attention.v1`
+evidence; raw transcripts, reasoning, full diffs, and command output remain
+local. Suggestions and Codex command/file/permission approvals are answered in
+the same TUI or line-mode terminal with the displayed local prompt id, for
+example `/accept suggestion-1` or `/allow approval-2`. If Codex is unavailable
+or restarts, the ordinary Terminal Edge session remains available while the
+coding bridge retries in the background. Use `--disable-coding-bridge` only
+when deliberately running a non-coding terminal diagnostic.
+
 For a true live terminal session, start the runtime first and then run the resident terminal daemon in the foreground. In that mode the daemon keeps one websocket edge session open, reads user requests from `stdin`, emits fresh `terminal.activity_state` observations on the normal runtime path, and still handles runtime-pushed `notification.show` actions in the same session. In Textual TUI mode, draft input changes are also sent as `terminal.input_state` and `terminal.input_draft_length` observations so foreground typing can be observed before a line is submitted.
 
 Preferred command shape:

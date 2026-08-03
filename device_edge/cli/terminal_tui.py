@@ -421,9 +421,10 @@ class TerminalEdgeApp(App[None]):
     @staticmethod
     def build_help_text(max_width: int | None = None) -> str:
         options = (
-            "Enter to send · ↑↓ history · Tab commands/receipt · /help · /quit",
-            "Enter to send · ↑↓ history · Tab commands · /quit",
-            "Enter to send · Tab commands",
+            "Enter to send · ↑↓ history · Tab commands/receipt · "
+            "coding prompts use /accept or /allow",
+            "Enter to send · ↑↓ history · Tab commands · /help · /quit",
+            "Enter to send · /quit",
         )
         if max_width is None or max_width <= 0:
             return options[0]
@@ -567,6 +568,8 @@ def create_textual_terminal_app(
     stdin_observed_at: str | None,
     scripted_inputs: list[dict],
     diagnostic_recorder=None,
+    coding_enabled: bool = False,
+    coding_workspace=None,
 ) -> TerminalEdgeApp:
     from device_edge.cli.terminal_daemon import TerminalEdgeDaemon
     from device_edge.shared.identity import load_or_create_identity
@@ -585,6 +588,8 @@ def create_textual_terminal_app(
         input_stream=QueueLineInput(input_queue),
         input_state_stream=input_state_queue,
         stdin_observed_at=stdin_observed_at,
+        coding_enabled=coding_enabled,
+        coding_workspace=coding_workspace,
         diagnostic_recorder=diagnostic_recorder,
     )
 
@@ -627,6 +632,8 @@ def run_textual_terminal_daemon(
     stdin_observed_at: str | None,
     scripted_inputs: list[dict],
     diagnostic_recorder=None,
+    coding_enabled: bool = False,
+    coding_workspace=None,
 ) -> None:
     app = create_textual_terminal_app(
         url=url,
@@ -642,6 +649,8 @@ def run_textual_terminal_daemon(
         stdin_observed_at=stdin_observed_at,
         scripted_inputs=scripted_inputs,
         diagnostic_recorder=diagnostic_recorder,
+        coding_enabled=coding_enabled,
+        coding_workspace=coding_workspace,
     )
     try:
         app.run()

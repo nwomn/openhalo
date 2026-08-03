@@ -52,6 +52,10 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("status", help="Show saved Terminal Edge configuration.")
     run = subparsers.add_parser("run", help="Run the configured Terminal Edge.")
     run.add_argument("--line-mode", action="store_true", help="Use line mode instead of the terminal UI.")
+    run.add_argument(
+        "--coding-workspace",
+        help="Workspace used by the hosted Codex coding agent.",
+    )
     return parser
 
 
@@ -101,7 +105,12 @@ def main(
         )
         return 0
 
-    _launch_terminal_edge(personal_home, terminal_main, tui=not getattr(args, "line_mode", False))
+    _launch_terminal_edge(
+        personal_home,
+        terminal_main,
+        tui=not getattr(args, "line_mode", False),
+        coding_workspace=getattr(args, "coding_workspace", None),
+    )
     return 0
 
 
@@ -187,6 +196,7 @@ def _launch_terminal_edge(
     terminal_main: Callable[[list[str]], None],
     *,
     tui: bool,
+    coding_workspace: str | None = None,
 ) -> None:
     configuration = home.load_configuration().get("terminal_edge")
     if not isinstance(configuration, dict):
@@ -203,6 +213,8 @@ def _launch_terminal_edge(
     ]
     if tui:
         arguments.append("--tui")
+    if coding_workspace:
+        arguments.extend(["--coding-workspace", coding_workspace])
     terminal_main(arguments)
 
 

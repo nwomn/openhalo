@@ -821,6 +821,35 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
             ],
         )
 
+    def test_coding_bridge_registration_stays_on_existing_terminal_session(self) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            coding_enabled=True,
+        )
+
+        capabilities = daemon.build_bootstrap_frames()[1]["capabilities"]
+
+        self.assertEqual(capabilities[:4], [
+            "text.input",
+            "notification.show",
+            "terminal.context",
+            "interaction.progress",
+        ])
+        coding_names = {
+            registration["name"]
+            for registration in capabilities[4:]
+        }
+        self.assertEqual(
+            coding_names,
+            {
+                "coding.attention",
+                "coding.turn.start",
+                "coding.suggestion.offer",
+                "coding.turn.steer",
+            },
+        )
+        self.assertEqual(daemon.client.device_id, "terminal-edge-1")
+
     def test_builds_terminal_activity_observation_frame(self) -> None:
         daemon = TerminalEdgeDaemon(
             device_id="terminal-edge-1",
@@ -1930,6 +1959,101 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(results), 1)
         self.assertTrue(read_started.is_set())
         self.assertTrue(read_cancelled.is_set())
+
+    async def test_coding_turn_start_returns_existing_action_correlation(self) -> None:
+        bridge = mock.Mock()
+        bridge.start_turn = mock.AsyncMock(
+            return_value={
+                "status": "ok",
+                "capability": "coding.turn.start",
+                "agent": "codex",
+                "agent_session_id": "thread-1",
+                "agent_turn_id": "turn-1",
+                "workspace_ref": "project",
+            }
+        )
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            coding_enabled=True,
+            coding_bridge=bridge,
+        )
+
+        result = await daemon.handle_action_request_async(
+            {
+                "type": "action_request",
+                "device_id": "terminal-edge-1",
+                "request_id": "request-1",
+                "interaction_id": "interaction-1",
+                "action": {
+                    "capability": "coding.turn.start",
+                    "payload": {
+                        "interaction_id": "interaction-1",
+                        "task": "Run the failing test",
+                        "workspace_ref": "project",
+                    },
+                },
+            }
+        )
+
+        self.assertEqual(result["type"], "action_result")
+        self.assertEqual(result["request_id"], "request-1")
+        self.assertEqual(result["result"]["agent_turn_id"], "turn-1")
+        bridge.start_turn.assert_awaited_once_with(
+            interaction_id="interaction-1",
+            task="Run the failing test",
+            workspace_ref="project",
+        )
+
+    async def test_coding_suggestion_waits_for_local_choice_before_action_result(self) -> None:
+        bridge = mock.Mock()
+        bridge.offer_suggestion.return_value = {
+            "prompt_id": "suggestion-1",
+            "suggestion_id": "suggestion-1",
+            "summary": "Run the failing test first.",
+        }
+        bridge.resolve_suggestion.return_value = {
+            "status": "ok",
+            "capability": "coding.suggestion.offer",
+            "details": {
+                "choice": "accept",
+                "suggestion_id": "suggestion-1",
+                "confirmation_ref": "confirmation-1",
+            },
+        }
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            coding_enabled=True,
+            coding_bridge=bridge,
+        )
+        frame = {
+            "type": "action_request",
+            "device_id": "terminal-edge-1",
+            "request_id": "request-1",
+            "action": {
+                "capability": "coding.suggestion.offer",
+                "payload": {
+                    "suggestion_id": "suggestion-1",
+                    "agent_session_id": "thread-1",
+                    "agent_turn_id": "turn-1",
+                    "summary": "Run the failing test first.",
+                },
+            },
+        }
+
+        self.assertIsNone(await daemon.handle_action_request_async(frame))
+        daemon._receive_coding_prompt(
+            {
+                "kind": "suggestion",
+                "prompt_id": "suggestion-1",
+                "summary": "Run the failing test first.",
+            }
+        )
+        self.assertTrue(daemon.handle_local_input("/accept suggestion-1"))
+        result = daemon.local_action_results.popleft()
+
+        self.assertEqual(result["result"]["details"]["choice"], "accept")
+        self.assertEqual(result["request_id"], "request-1")
+        bridge.resolve_suggestion.assert_called_once_with("suggestion-1", "accept")
 
 
 if __name__ == "__main__":

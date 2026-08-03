@@ -26,7 +26,7 @@ class SessionClient:
         display_name: str | None = None,
         trace_recorder=None,
         diagnostic_recorder=None,
-        capabilities: list[str] | None = None,
+        capabilities: list[str | dict] | None = None,
     ) -> None:
         self.device_id = device_id
         self.device_type = device_type
@@ -70,7 +70,12 @@ class SessionClient:
         self._record_trace(
             "EDGE",
             "build capability_announce frame",
-            capabilities=",".join(self.capability_runtime.capabilities),
+            capabilities=",".join(
+                capability
+                if isinstance(capability, str)
+                else str(capability.get("name", "unknown"))
+                for capability in self.capability_runtime.capabilities
+            ),
         )
         return self.session_link.build_capability_announce_frame(
             self.capability_runtime.capabilities

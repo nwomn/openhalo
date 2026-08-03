@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 from collections import deque
+import hashlib
 import json
 import os
 import sys
@@ -22,6 +23,10 @@ from device_edge.shared.identity import DeviceIdentity
 from device_edge.shared.identity import create_ephemeral_identity
 from device_edge.shared.identity import load_or_create_identity
 from device_edge.shared.session_client import SessionClient
+from device_edge.cli.coding_agent_bridge import CODING_CAPABILITY_REGISTRATIONS
+from device_edge.cli.coding_agent_bridge import CodingAgentBridge
+from device_edge.cli.coding_agent_bridge import validate_coding_action_payload
+from device_edge.cli.codex_app_server import CodexAppServerClient
 from edge_api.endpoint import validate_runtime_endpoint
 from device_edge.cli.presentation import PresentationState
 from device_edge.cli.presentation import reduce_connection_state
@@ -67,6 +72,9 @@ class TerminalEdgeDaemon:
         timestamp_provider=None,
         stdin_observed_at: str | None = None,
         diagnostic_recorder=None,
+        coding_enabled: bool = False,
+        coding_workspace: str | Path | None = None,
+        coding_bridge: CodingAgentBridge | None = None,
     ) -> None:
         validate_runtime_endpoint(audience)
         self.output_stream = output_stream or sys.stdout
@@ -85,6 +93,17 @@ class TerminalEdgeDaemon:
         self.runtime_message_count = 0
         self.local_command_count = 0
         self.quit_requested = False
+        self.coding_enabled = coding_enabled
+        self.coding_workspace = str(
+            Path(coding_workspace or Path.cwd()).expanduser().resolve()
+        )
+        self.coding_observations: deque[dict] = deque(maxlen=256)
+        self.coding_observation_event: asyncio.Event | None = None
+        self.pending_coding_prompts: dict[str, dict] = {}
+        self.pending_coding_action_frames: dict[str, dict] = {}
+        self.local_action_results: deque[dict] = deque(maxlen=64)
+        self.coding_action_results: dict[str, dict] = {}
+        self.coding_request_prompts: dict[str, str] = {}
         self.transcript = deque(maxlen=self.transcript_limit)
         self.presentation = PresentationState(transcript_limit=self.transcript_limit)
         self.device = {
@@ -97,18 +116,35 @@ class TerminalEdgeDaemon:
             side="edge",
             device=self.device,
         )
+        capabilities: list[str | dict] = [
+            "text.input",
+            "notification.show",
+            "terminal.context",
+            "interaction.progress",
+        ]
+        self.coding_bridge = coding_bridge
+        if coding_enabled and self.coding_bridge is None:
+            workspace_ref = self._build_workspace_ref(self.coding_workspace)
+            self.coding_bridge = CodingAgentBridge(
+                client=CodexAppServerClient(),
+                workspace_path=self.coding_workspace,
+                workspace_ref=workspace_ref,
+                observation_sink=self._receive_coding_observation,
+                approval_sink=self._receive_coding_prompt,
+                timestamp_provider=self._default_timestamp_provider,
+            )
+        elif self.coding_bridge is not None:
+            self.coding_bridge.observation_sink = self._receive_coding_observation
+            self.coding_bridge.approval_sink = self._receive_coding_prompt
+        if coding_enabled:
+            capabilities.extend(self._coding_capability_registrations())
         self.client = SessionClient(
             device_id=device_id,
             device_type="desktop-cli",
             audience=audience,
             identity=identity or create_ephemeral_identity(),
             display_name=display_name,
-            capabilities=[
-                "text.input",
-                "notification.show",
-                "terminal.context",
-                "interaction.progress",
-            ],
+            capabilities=capabilities,
             diagnostic_recorder=diagnostic_recorder,
         )
 
@@ -121,6 +157,88 @@ class TerminalEdgeDaemon:
 
     def set_draft(self, draft: str) -> None:
         self.presentation = reduce_draft(self.presentation, draft)
+
+    @staticmethod
+    def _build_workspace_ref(workspace_path: str) -> str:
+        digest = hashlib.sha256(workspace_path.encode()).hexdigest()[:10]
+        name = Path(workspace_path).name or "workspace"
+        return f"{name}-{digest}"
+
+    def _coding_capability_registrations(self) -> list[dict]:
+        workspace_ref = self._build_workspace_ref(self.coding_workspace)
+        registrations = []
+        for registration in CODING_CAPABILITY_REGISTRATIONS:
+            copy = json.loads(json.dumps(registration))
+            if copy["name"] == "coding.turn.start":
+                copy["workspace_ref"] = workspace_ref
+            registrations.append(copy)
+        return registrations
+
+    def _receive_coding_observation(self, observation: dict) -> None:
+        self.coding_observations.append(observation)
+        if self.coding_observation_event is not None:
+            self.coding_observation_event.set()
+
+    def _receive_coding_prompt(self, prompt: dict) -> None:
+        prompt_id = prompt.get("prompt_id")
+        if not isinstance(prompt_id, str):
+            return
+        self.pending_coding_prompts[prompt_id] = prompt
+        kind = prompt.get("kind", "coding")
+        summary = prompt.get("summary", "Codex requested a local decision.")
+        detail = prompt.get("detail")
+        suffix = f" · {detail}" if isinstance(detail, str) and detail else ""
+        if kind == "suggestion":
+            choices = "accept | ignore | suppress_task"
+        else:
+            choices = "allow | allow-session | deny | cancel"
+        self.render_status_line(
+            f"Coding {kind} [{prompt_id}]: {summary}{suffix} ({choices})"
+        )
+
+    def _resolve_coding_prompt(self, text: str) -> bool:
+        parts = text.strip().split(maxsplit=1)
+        if len(parts) != 2:
+            return False
+        command, prompt_id = parts
+        prompt = self.pending_coding_prompts.get(prompt_id)
+        if prompt is None or self.coding_bridge is None:
+            return False
+        kind = prompt.get("kind")
+        if kind == "suggestion":
+            if command not in {"/accept", "/ignore", "/suppress_task"}:
+                return False
+            choice = command.removeprefix("/")
+            try:
+                result = self.coding_bridge.resolve_suggestion(prompt_id, choice)
+            except ValueError as exc:
+                self.render_status_line(str(exc))
+                return True
+            frame = self.pending_coding_action_frames.pop(prompt_id, None)
+            self.pending_coding_prompts.pop(prompt_id, None)
+            if frame is not None:
+                action_result = self._build_action_result(frame, result)
+                request_id = frame.get("request_id")
+                if request_id is not None:
+                    self.coding_action_results[request_id] = action_result
+                    self.coding_request_prompts.pop(request_id, None)
+                self.local_action_results.append(action_result)
+            return True
+        if command not in {"/allow", "/allow-session", "/deny", "/cancel"}:
+            return False
+        decision = {
+            "/allow": "accept",
+            "/allow-session": "acceptForSession",
+            "/deny": "decline",
+            "/cancel": "cancel",
+        }[command]
+        try:
+            self.coding_bridge.resolve_approval(prompt_id, decision)
+        except ValueError as exc:
+            self.render_status_line(str(exc))
+        else:
+            self.pending_coding_prompts.pop(prompt_id, None)
+        return True
 
     @staticmethod
     def _default_timestamp_provider() -> str:
@@ -195,6 +313,82 @@ class TerminalEdgeDaemon:
             if frames:
                 return frames
             await asyncio.sleep(0.01)
+
+    async def _wait_for_coding_observation(self) -> None:
+        if self.coding_observation_event is None:
+            return
+        while not self.coding_observations:
+            await self.coding_observation_event.wait()
+            self.coding_observation_event.clear()
+
+    def _drain_coding_observation_frames(self) -> list[dict]:
+        frames = []
+        while self.coding_observations:
+            observation = self.coding_observations.popleft()
+            frames.append(
+                self.client.build_observation_event(
+                    capability="coding.attention",
+                    observations=[observation],
+                )
+            )
+        return frames
+
+    async def _flush_coding_observations(
+        self,
+        websocket,
+        pending_frames: list[dict],
+    ) -> None:
+        for frame in self._drain_coding_observation_frames():
+            await self._send_frame(websocket, frame)
+            pending_frames.append(await self._recv_frame(websocket))
+
+    async def _flush_local_action_results(
+        self,
+        websocket,
+        results: list[dict],
+    ) -> None:
+        while self.local_action_results:
+            result = self.local_action_results.popleft()
+            results.append(result)
+            await self._send_frame(websocket, result)
+
+    async def _start_coding_bridge(self) -> None:
+        if not self.coding_enabled or self.coding_bridge is None:
+            return
+        try:
+            await self.coding_bridge.start()
+        except Exception as exc:
+            self.render_status_line(f"Coding Bridge unavailable: {exc}")
+        else:
+            self.render_status_line("Coding Bridge ready.")
+
+    async def _run_coding_bridge_supervisor(self) -> None:
+        if not self.coding_enabled or self.coding_bridge is None:
+            return
+        retry_delay = 0.5
+        while not self.quit_requested:
+            bridge = self.coding_bridge
+            if bridge.state != "ready" or bridge.client.state != "ready":
+                if bridge.state == "ready" or bridge.client.state != "disconnected":
+                    with suppress(Exception):
+                        await bridge.close()
+                try:
+                    await bridge.start()
+                except Exception as exc:
+                    bridge.state = "degraded"
+                    self.render_status_line(f"Coding Bridge retrying: {exc}")
+                    await asyncio.sleep(retry_delay)
+                    retry_delay = min(retry_delay * 2, 10.0)
+                    continue
+                retry_delay = 0.5
+                self.render_status_line("Coding Bridge ready.")
+            await asyncio.sleep(0.5)
+
+    async def _stop_coding_bridge(self) -> None:
+        if self.coding_bridge is None:
+            return
+        with suppress(Exception):
+            await self.coding_bridge.close()
 
     @staticmethod
     def _input_state_frames_include_nonempty_draft(frames: list[dict]) -> bool:
@@ -274,7 +468,8 @@ class TerminalEdgeDaemon:
 
     def render_help(self) -> None:
         self.render_status_line(
-            "Available local commands: /help /status /history /quit"
+            "Available local commands: /help /status /history /quit; "
+            "coding prompts: /accept /ignore /suppress_task /allow /allow-session /deny /cancel"
         )
 
     def render_status_summary(self) -> None:
@@ -303,6 +498,8 @@ class TerminalEdgeDaemon:
             return False
 
         self.local_command_count += 1
+        if self._resolve_coding_prompt(normalized_text):
+            return True
         if normalized_text == "/help":
             self.render_help()
             return True
@@ -449,30 +646,98 @@ class TerminalEdgeDaemon:
                     "runtime",
                     result["details"]["body"],
                 )
-            action_result = with_api_version(
-                {
-                    "type": "action_result",
-                    "device_id": self.client.device_id,
-                    "result": result,
-                }
-            )
-            if frame.get("request_id"):
-                action_result["request_id"] = frame["request_id"]
-            if frame.get("interaction_id"):
-                action_result["interaction_id"] = frame["interaction_id"]
-            if frame.get("interaction_turn_id"):
-                action_result["interaction_turn_id"] = frame["interaction_turn_id"]
-            for key in (
-                "trace_id",
-                "session_id",
-                "turn_id",
-                "event_id",
-                "parent_event_id",
-            ):
-                if frame.get(key) is not None:
-                    action_result[key] = frame[key]
+            action_result = self._build_action_result(frame, result)
             boundary.output({"result": result, "frame": action_result})
             return action_result
+
+    def _build_action_result(self, frame: dict, result: dict) -> dict:
+        action_result = with_api_version(
+            {
+                "type": "action_result",
+                "device_id": self.client.device_id,
+                "result": result,
+            }
+        )
+        for key in (
+            "request_id",
+            "interaction_id",
+            "interaction_turn_id",
+            "trace_id",
+            "session_id",
+            "turn_id",
+            "event_id",
+            "parent_event_id",
+        ):
+            if frame.get(key) is not None:
+                action_result[key] = frame[key]
+        return action_result
+
+    async def handle_action_request_async(self, frame: dict) -> dict | None:
+        action = frame.get("action", {})
+        capability = action.get("capability")
+        if capability not in {
+            "coding.turn.start",
+            "coding.suggestion.offer",
+            "coding.turn.steer",
+        }:
+            return self.handle_action_request(frame)
+        if self.coding_bridge is None:
+            return self._build_action_result(
+                frame,
+                {
+                    "status": "error",
+                    "capability": capability,
+                    "reason": "coding_bridge_unavailable",
+                },
+            )
+        request_id = frame.get("request_id")
+        if request_id is not None:
+            cached = getattr(self, "coding_action_results", {}).get(request_id)
+            if cached is not None:
+                return cached
+        self.runtime_message_count += 1
+        self.pending_runtime_reply = False
+        self.pending_interaction_id = None
+        self.clear_progress()
+        payload = action.get("payload")
+        if not isinstance(payload, dict):
+            result = {
+                "status": "error",
+                "capability": capability,
+                "reason": "invalid_payload",
+            }
+            return self._build_action_result(frame, result)
+        try:
+            validate_coding_action_payload(capability, payload)
+            if capability == "coding.turn.start":
+                details = await self.coding_bridge.start_turn(
+                    interaction_id=payload.get("interaction_id") or frame.get("interaction_id", ""),
+                    task=payload.get("task", ""),
+                    workspace_ref=payload.get("workspace_ref", ""),
+                )
+                self.render_status_line(
+                    f"Codex task started: {details['agent_session_id']}/{details['agent_turn_id']}"
+                )
+                result = details
+            elif capability == "coding.suggestion.offer":
+                prompt = self.coding_bridge.offer_suggestion(**payload)
+                prompt_id = prompt["prompt_id"]
+                self.pending_coding_action_frames[prompt_id] = frame
+                if request_id is not None:
+                    self.coding_request_prompts[request_id] = prompt_id
+                return None
+            else:
+                result = await self.coding_bridge.steer(**payload)
+        except (ConnectionError, TypeError, ValueError, RuntimeError) as exc:
+            result = {
+                "status": "error",
+                "capability": capability,
+                "reason": str(exc),
+            }
+        action_result = self._build_action_result(frame, result)
+        if request_id is not None:
+            self.coding_action_results[request_id] = action_result
+        return action_result
 
     def handle_interaction_frame(self, frame: dict) -> None:
         interaction = frame["interaction"]
@@ -545,6 +810,7 @@ class TerminalEdgeDaemon:
         terminal_activity_state = "unknown"
         live_input_open = enable_live_input
         live_input_task = None
+        self.coding_observation_event = asyncio.Event()
 
         try:
             connect_frame, capability_frame = self.build_bootstrap_frames()
@@ -611,10 +877,13 @@ class TerminalEdgeDaemon:
                             continue
                         if frame_type == "action_request":
                             idle_cycles = 0
-                            result = self.handle_action_request(pending_frame)
-                            results.append(result)
-                            await self._send_frame(websocket, result)
+                            result = await self.handle_action_request_async(pending_frame)
+                            if result is not None:
+                                results.append(result)
+                                await self._send_frame(websocket, result)
                             continue
+                    await self._flush_coding_observations(websocket, pending_frames)
+                    await self._flush_local_action_results(websocket, results)
                     recv_task = asyncio.create_task(self._recv_frame(websocket))
                     if live_input_open and live_input_task is None:
                         live_input_task = asyncio.create_task(
@@ -626,11 +895,18 @@ class TerminalEdgeDaemon:
                         input_state_task = asyncio.create_task(
                             self._wait_for_input_state_frames()
                         )
+                    coding_observation_task = None
+                    if self.coding_enabled:
+                        coding_observation_task = asyncio.create_task(
+                            self._wait_for_coding_observation()
+                        )
                     wait_set = {recv_task, idle_task}
                     if live_input_task is not None:
                         wait_set.add(live_input_task)
                     if input_state_task is not None:
                         wait_set.add(input_state_task)
+                    if coding_observation_task is not None:
+                        wait_set.add(coding_observation_task)
                     done, pending = await asyncio.wait(
                         wait_set,
                         return_when=asyncio.FIRST_COMPLETED,
@@ -648,6 +924,10 @@ class TerminalEdgeDaemon:
                         input_state_task.cancel()
                         with suppress(asyncio.CancelledError):
                             await input_state_task
+                    if coding_observation_task is not None and coding_observation_task in pending:
+                        coding_observation_task.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await coding_observation_task
 
                     activity_observed = False
                     recv_closed = False
@@ -696,6 +976,8 @@ class TerminalEdgeDaemon:
                             if self.quit_requested:
                                 break
 
+                    await self._flush_local_action_results(websocket, results)
+
                     if input_state_task is not None and input_state_task in done:
                         input_state_frames = input_state_task.result()
                         for frame in input_state_frames:
@@ -708,6 +990,10 @@ class TerminalEdgeDaemon:
                             self.terminal_activity_state = "active"
                             idle_cycles = 0
                             activity_observed = True
+                        continue
+
+                    if coding_observation_task is not None and coding_observation_task in done:
+                        await self._flush_coding_observations(websocket, pending_frames)
                         continue
 
                     if idle_task in done and not activity_observed:
@@ -782,12 +1068,14 @@ class TerminalEdgeDaemon:
                     if action_frame is None:
                         continue
                     idle_cycles = 0
-                    result = self.handle_action_request(action_frame)
-                    results.append(result)
-                    await self._send_frame(websocket, result)
+                    result = await self.handle_action_request_async(action_frame)
+                    if result is not None:
+                        results.append(result)
+                        await self._send_frame(websocket, result)
         finally:
             self.set_connection_state("disconnected")
             self.clear_progress()
+            self.coding_observation_event = None
             if live_input_task is not None and not live_input_task.done():
                 live_input_task.cancel()
                 with suppress(asyncio.CancelledError):
@@ -811,38 +1099,50 @@ class TerminalEdgeDaemon:
     ) -> None:
         session_count = 0
         reconnect_delay_s = self.reconnect_initial_delay_s
-        while max_sessions is None or session_count < max_sessions:
-            if self.quit_requested:
-                break
-            self.set_connection_state("connecting")
-            try:
-                async with websockets.connect(url) as websocket:
-                    await self.run_scripted_session(
-                        websocket=websocket,
-                        scripted_inputs=scripted_inputs or [],
-                        startup_observed_at=startup_observed_at,
-                        idle_after_inputs=True,
-                        idle_timeout_s=idle_timeout_s,
-                        idle_observed_at=idle_observed_at,
-                        max_idle_cycles=max_idle_cycles,
-                        max_action_requests=max_action_requests,
-                        enable_live_input=enable_live_input,
-                    )
-            except (OSError, websockets.WebSocketException):
+        coding_supervisor_task = None
+        if self.coding_enabled:
+            coding_supervisor_task = asyncio.create_task(
+                self._run_coding_bridge_supervisor()
+            )
+        try:
+            while max_sessions is None or session_count < max_sessions:
                 if self.quit_requested:
                     break
-                self.set_connection_state("retrying")
-                self.render_status_line("Runtime connection unavailable. Retrying.")
-                await asyncio.sleep(reconnect_delay_s)
-                reconnect_delay_s = min(
-                    reconnect_delay_s * 2,
-                    self.reconnect_max_delay_s,
-                )
-                continue
-            session_count += 1
-            reconnect_delay_s = self.reconnect_initial_delay_s
-            if self.quit_requested:
-                break
+                self.set_connection_state("connecting")
+                try:
+                    async with websockets.connect(url) as websocket:
+                        await self.run_scripted_session(
+                            websocket=websocket,
+                            scripted_inputs=scripted_inputs or [],
+                            startup_observed_at=startup_observed_at,
+                            idle_after_inputs=True,
+                            idle_timeout_s=idle_timeout_s,
+                            idle_observed_at=idle_observed_at,
+                            max_idle_cycles=max_idle_cycles,
+                            max_action_requests=max_action_requests,
+                            enable_live_input=enable_live_input,
+                        )
+                except (OSError, websockets.WebSocketException):
+                    if self.quit_requested:
+                        break
+                    self.set_connection_state("retrying")
+                    self.render_status_line("Runtime connection unavailable. Retrying.")
+                    await asyncio.sleep(reconnect_delay_s)
+                    reconnect_delay_s = min(
+                        reconnect_delay_s * 2,
+                        self.reconnect_max_delay_s,
+                    )
+                    continue
+                session_count += 1
+                reconnect_delay_s = self.reconnect_initial_delay_s
+                if self.quit_requested:
+                    break
+        finally:
+            if coding_supervisor_task is not None:
+                coding_supervisor_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await coding_supervisor_task
+            await self._stop_coding_bridge()
 
 
 def build_terminal_daemon_parser() -> argparse.ArgumentParser:
@@ -894,6 +1194,16 @@ def build_terminal_daemon_parser() -> argparse.ArgumentParser:
         help="Run the resident terminal edge in full-screen Textual UI mode.",
     )
     parser.add_argument(
+        "--coding-workspace",
+        type=Path,
+        help="Workspace used by the hosted Codex coding agent (defaults to cwd).",
+    )
+    parser.add_argument(
+        "--disable-coding-bridge",
+        action="store_true",
+        help="Keep the Terminal Edge available without starting hosted Codex.",
+    )
+    parser.add_argument(
         "--diagnostic-log-path",
         type=Path,
         help="Optional local JSONL path for terminal-edge diagnostic.v1 events.",
@@ -936,6 +1246,8 @@ def main(argv: list[str] | None = None) -> None:
             max_sessions=args.max_sessions,
             stdin_observed_at=args.stdin_observed_at,
             scripted_inputs=scripted_inputs,
+            coding_enabled=not args.disable_coding_bridge,
+            coding_workspace=args.coding_workspace,
             diagnostic_recorder=JsonlDiagnosticRecorder(args.diagnostic_log_path)
             if args.diagnostic_log_path is not None
             else None,
@@ -950,6 +1262,8 @@ def main(argv: list[str] | None = None) -> None:
         ),
         display_name=args.display_name,
         stdin_observed_at=args.stdin_observed_at,
+        coding_enabled=not args.disable_coding_bridge,
+        coding_workspace=args.coding_workspace,
         diagnostic_recorder=JsonlDiagnosticRecorder(args.diagnostic_log_path)
         if args.diagnostic_log_path is not None
         else None,

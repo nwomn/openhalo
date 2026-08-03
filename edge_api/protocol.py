@@ -106,6 +106,9 @@ def validate_capability_registration(capability: str | dict) -> str | dict:
         "bidirectional",
     }:
         raise ValueError(f"Unsupported capability direction: {direction!r}")
+    input_schema = capability.get("input_schema")
+    if input_schema is not None and not isinstance(input_schema, dict):
+        raise ValueError("Capability input_schema must be an object.")
     observations = capability.get("observations", [])
     if observations is None:
         return capability

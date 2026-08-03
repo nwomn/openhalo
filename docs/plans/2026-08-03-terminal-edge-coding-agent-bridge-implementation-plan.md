@@ -56,6 +56,13 @@ The Runtime may persist normalized observations, provenance, summaries, decision
 
 ## Task 2: Add the Codex-first Terminal Edge adapter
 
+Implementation decision for the first delivery: use hosted stdio only. The
+Terminal Edge launches and supervises `codex app-server --listen stdio://` and
+does not attach to an external App Server. Each `coding.turn.start` action owns
+one independent App Server thread/turn; `coding.suggestion.offer` and
+`coding.turn.steer` remain governed confirmation flows. Codex approvals stay
+local to the Terminal TUI/line mode.
+
 **Files:**
 
 - Create: `device_edge/cli/coding_agent_bridge.py`
@@ -75,7 +82,7 @@ The Runtime may persist normalized observations, provenance, summaries, decision
 3. Widen capability registration helpers from string-only annotations to `str | dict` while preserving all existing legacy capabilities and v2 authentication behavior.
 4. Keep the Bridge under the existing Terminal Edge device/session and expose its local lifecycle as `connected`, `degraded`, `reconnecting`, or `unsupported`; a Bridge failure must not terminate the ordinary Terminal Edge.
 5. Add a bounded task-local evidence cache and an explicit read path for later `observe_more` requests. Do not continuously upload raw prompt, diff, command output, or agent reasoning content.
-6. Add explicit local action handlers for `coding.suggestion.offer` and `coding.turn.steer`; route accepted steering through the App Server `turn/steer` operation and return exact action-result correlation.
+6. Add explicit local action handlers for `coding.turn.start`, `coding.suggestion.offer`, and `coding.turn.steer`; route each start to an independent App Server thread/turn, route accepted steering through `turn/steer`, and return exact action-result correlation.
 7. Add deterministic fake-App-Server tests for startup, event ordering, coalescing, reconnect, stale turn rejection, accepted steering, refusal, and App Server failure degradation.
 
 ## Task 3: Add M18 coding-attention consumption
@@ -141,4 +148,3 @@ The Runtime may persist normalized observations, provenance, summaries, decision
 4. Inspect persisted state and diagnostic output to confirm only bounded normalized evidence, body-free references, decisions, and outcomes are retained by Runtime.
 5. Move the GitHub Project items manually through Review and Acceptance, link the PRs, record human-acceptance evidence, and mark the parent Done only after both Terminal and M18 children are accepted.
 6. Do not mark M18 or M20.1 complete from this feature alone; update `Project.md` only with the new cross-cutting architecture/evidence and the actual child acceptance status.
-

@@ -153,6 +153,26 @@ def test_explicit_home_reuses_a_paired_terminal_from_a_new_shell() -> None:
     ]
 
 
+def test_coding_workspace_is_forwarded_to_the_terminal_daemon() -> None:
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "terminal-edge-home")
+        home.configure_terminal_edge(
+            url="wss://runtime.example.test/openhalo/edge",
+            device_id="terminal-edge-9",
+            display_name="Maya's Terminal",
+            public_key_fingerprint="sha256:terminal-public-key",
+        )
+        launched: list[list[str]] = []
+
+        exit_code = main(
+            ["--home", str(home.root), "run", "--coding-workspace", "/workspace/project"],
+            terminal_main=lambda argv: launched.append(argv),
+        )
+
+    assert exit_code == 0
+    assert launched[0][-2:] == ["--coding-workspace", "/workspace/project"]
+
+
 def test_pair_terminal_edge_exchanges_the_one_time_code_with_the_real_gateway() -> None:
     async def scenario() -> None:
         with TemporaryDirectory() as directory:

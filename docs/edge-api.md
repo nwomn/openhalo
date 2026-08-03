@@ -312,6 +312,58 @@ using `observation_push` or `event_push` with `payload.observations`.
 Unregistered observations and schema-mismatched observation values are rejected
 with public `error` frames and are not stored as runtime observations.
 
+## Hosted Coding Agent Bridge
+
+The Terminal Edge may advertise a Codex-first coding capability bundle while
+keeping the same device identity and Edge Session Link. The first delivery
+starts `codex app-server --listen stdio://` as a child of `openhalo-edge`; it
+does not attach to an externally managed Codex process.
+
+The registration contains one observation provider and three Runtime-to-Edge
+actions:
+
+```json
+[
+  {
+    "name": "coding.attention",
+    "direction": "edge_to_runtime",
+    "kind": "observation_provider",
+    "observations": [{"name": "coding.attention.v1", "schema": {"type": "object"}}]
+  },
+  {"name": "coding.turn.start", "direction": "runtime_to_edge", "kind": "action"},
+  {"name": "coding.suggestion.offer", "direction": "runtime_to_edge", "kind": "action"},
+  {"name": "coding.turn.steer", "direction": "runtime_to_edge", "kind": "action"}
+]
+```
+
+`coding.turn.start` creates one independent Codex thread and turn for the
+OpenHalo interaction. Its payload includes the task, the registered
+`workspace_ref`, and the OpenHalo `interaction_id`; the Edge returns the exact
+Codex `agent_session_id` (thread id) and `agent_turn_id` (turn id). Multiple
+interactions may run in parallel, but a turn is never addressed by a keyword or
+most-recent-session fallback.
+
+`coding.attention.v1` is a bounded normalized envelope. It carries the Codex
+agent name, exact thread/turn ids, event kind, phase, timestamp, confidence,
+causal parent, workspace reference, bounded summary, and a body-free local
+`evidence_ref`. High-frequency deltas are coalesced on the Edge. Runtime never
+receives raw reasoning, an unbounded transcript, complete diffs, or command
+output; the Edge keeps only a bounded task-local evidence cache for a future
+explicit evidence-read request.
+
+`coding.suggestion.offer` is a local interactive action. The Edge does not
+mutate Codex while rendering it and returns the exact correlated
+`action_result` only after the user chooses `accept`, `ignore`, or
+`suppress_task`. Only an accepted suggestion produces a short-lived local
+confirmation reference. `coding.turn.steer` must include that reference plus
+the exact thread id and `expectedTurnId`; stale, mismatched, duplicate, or
+unconfirmed requests fail closed.
+
+Codex command, file-change, and extra-permission approvals stay local to the
+Terminal Edge. The user answers them in the existing TUI or line mode, and the
+Bridge sends the corresponding App Server response without forwarding command,
+diff, path, or permission details to Runtime.
+
 ## Action Requests
 
 Runtime-to-edge actions use `action_request`.
