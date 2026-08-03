@@ -1,14 +1,34 @@
-# GitHub Development Workflow
+# GitHub Project Workflow
 
-This is a small repository-level example of how OpenHalo work moves from a
-project goal to an accepted change. GitHub tracks execution; `Project.md`
-remains the project baseline for architecture, milestones, and overall status.
+The actual OpenHalo execution board is the private GitHub Project:
 
-## The chain
+https://github.com/users/nwomn/projects/1
+
+The board is linked to `nwomn/openhalo`. It tracks executable work while
+`Project.md` remains the baseline for architecture, goals, milestone definitions,
+and overall project status.
+
+## Project views
+
+- `All Work`: table view for scanning and filtering every item
+- `Execution Board`: board view for status-based execution
+- `Milestone Roadmap`: roadmap view for time and milestone-oriented planning
+
+## Project fields
+
+- `Status`: Backlog, Ready, In Progress, Review, Acceptance, Done
+- `Goal`: Goal 1 through Goal 6, or Cross-cutting
+- `Architecture`: Device Edge, Gateway, State / Context / Task, Agent Runtime /
+  Presence Router, Action Layer, Product / Release Tooling, Documentation
+- `Milestone`: the repository milestone linked to an Issue
+- `Priority`: P0, P1, P2
+- `Type`: Feature, Bug, Design, Research, Maintenance
+
+## Work lifecycle
 
 ```text
-Project.md / GitHub Project
-        -> Issue
+Project roadmap
+        -> Issue with scope and acceptance criteria
         -> branch
         -> code + tests + docs
         -> Pull Request
@@ -16,61 +36,23 @@ Project.md / GitHub Project
         -> merge / release
 ```
 
-## What each surface owns
+The assistant creates the Issue and Pull Request when implementation starts.
+The Project item then carries the Goal, architecture location, priority, type,
+milestone, and current status.
 
-| Surface | Owns |
-| --- | --- |
-| `Project.md` | Project background, architecture direction, goals, and milestone baseline |
-| GitHub Project | Task status, priority, goal, architecture location, and milestone view |
-| Issue | One piece of work, its scope, and acceptance criteria |
-| `docs/` | Design, API, operations, and developer knowledge |
-| Pull Request | The concrete code/documentation change and its evidence |
-| Release | A versioned set of accepted changes and release notes |
-
-## Example task
-
-Suppose the Runtime needs a new health snapshot field.
-
-1. Create an Engineering task from the Issue template.
-2. Select the relevant Goal and `State / Context / Task` architecture location.
-3. Add the current milestone and write observable acceptance criteria.
-4. Link the relevant design or API document.
-5. Create a branch and implement the reducer, tests, and documentation together.
-6. Open a PR. The PR template records architecture impact, documentation impact,
-   automated verification, and manual acceptance evidence.
-7. Move the Project item through `In Progress`, `Review`, `Acceptance`, and
-   `Done`.
-8. Update `Project.md` only if the completed work changes project-level
-   architecture, phase, milestone status, or the recorded acceptance baseline.
-
-## When design comes first
-
-For a local bug or a narrow implementation task, use:
+For an uncertain architectural change, the order is:
 
 ```text
-Issue -> implementation PR
+design document / decision -> implementation Issue -> implementation PR
 ```
 
-For an uncertain architectural change, use:
+Use the repository `docs/` directory for durable design, API, operations, and
+developer knowledge. Use GitHub Discussions only for alternatives that have not
+yet become project decisions.
 
-```text
-design Issue / RFC -> design document -> implementation Issue -> implementation PR
-```
+## Current roadmap seed
 
-Use GitHub Discussions for early alternatives when the decision is not ready to
-become a committed design. Once accepted, record the decision in `docs/` and
-link it from the implementation Issue and PR.
-
-## Lightweight Project fields
-
-The first GitHub Project can use these fields without changing repository code:
-
-- `Status`: Backlog, Ready, In Progress, Review, Acceptance, Done
-- `Goal`: Goal 1, Goal 2, Goal 3, Goal 4, Cross-cutting
-- `Architecture`: Device Edge, Gateway, State/Context, Agent Runtime, Action Layer
-- `Milestone`: the active M-series milestone
-- `Priority`: P0, P1, P2
-- `Type`: Feature, Bug, Design, Research, Maintenance
-
-The templates in `.github/` make the information available at task and PR
-creation time; the Project view then makes it easy to scan and filter.
+The Project contains the active execution route from `Project.md` as planning
+items for `M17.8`, `M17.9`, `M17.10`, `M18`, `M19`, `M20.1`, `M21`, `M22`, and
+`M23`. The corresponding repository Milestones are also created so real Issues
+can be attached when each slice is opened for implementation.
