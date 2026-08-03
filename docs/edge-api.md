@@ -375,6 +375,75 @@ another connected edge is rejected. Action results must report a capability that
 exactly matches the originating `action_request.action.capability`; a device
 registered for a different compatible capability cannot resolve that request.
 
+## Device Roster Projection
+
+An Edge that announces the display capability `device.roster` may receive a
+`device_roster` snapshot after device membership or capability state changes.
+This is a bounded presence projection for product UI, not a replacement for the
+Runtime's internal grounding bundle:
+
+```json
+{
+  "api_version": "edge.runtime.v1",
+  "type": "device_roster",
+  "device_id": "terminal-edge-1",
+  "roster": {
+    "version": 1,
+    "requesting_device_id": "terminal-edge-1",
+    "devices": [
+      {
+        "device_id": "phone-edge-1",
+        "device_type": "android-phone",
+        "role": "phone_edge",
+        "online": true,
+        "action_capabilities": ["notification.show"]
+      }
+    ]
+  }
+}
+```
+
+Version 1 is limited to 16 devices and 12 public action-capability names per
+device. It must not contain credentials, device profiles, observations, action
+payloads, prompts, provider state, or private reasoning. `online` means that the
+Gateway currently owns a live authenticated WebSocket for that device; it is
+not a general hardware-health guarantee.
+
+## Interaction Route Projection
+
+An explicit requesting Edge that announces `interaction.route` may receive one
+safe `interaction_route` after Presence and execution planning have selected
+actual target actions:
+
+```json
+{
+  "api_version": "edge.runtime.v1",
+  "type": "interaction_route",
+  "device_id": "terminal-edge-1",
+  "route": {
+    "version": 1,
+    "interaction_id": "interaction-1",
+    "interaction_turn_id": "interaction-turn-1",
+    "source_device_id": "terminal-edge-1",
+    "state": "active",
+    "routes": [
+      {
+        "target_device_id": "phone-edge-1",
+        "capability": "notification.show",
+        "presence_decision": "allow"
+      }
+    ]
+  }
+}
+```
+
+The projection is sent only after Runtime-owned governance and planning. It may
+contain several route entries for a bounded action batch. It does not include
+action payloads, Presence evidence/reasons, planning records, tool data, or
+private context. Edges clear the route when the matching interaction settles.
+`interaction_progress` version 1 remains unchanged and retains its exact safe
+field contract.
+
 ## Interaction Progress
 
 `interaction_progress` is a Runtime-to-Edge display update, not an action and

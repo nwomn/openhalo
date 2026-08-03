@@ -233,6 +233,90 @@ class TerminalEdgeDaemonTests(unittest.TestCase):
         self.assertIn("[user] hello runtime", rendered)
         self.assertIn("[runtime] Runtime heard: hello runtime", rendered)
 
+    def test_system_status_does_not_clear_active_progress(self) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=io.StringIO(),
+        )
+        daemon.active_progress_interaction_id = "interaction-1"
+        daemon.active_progress_phase = "executing"
+
+        daemon.render_status_line("Terminal idle.")
+
+        self.assertEqual(daemon.active_progress_interaction_id, "interaction-1")
+        self.assertEqual(daemon.active_progress_phase, "executing")
+
+    def test_old_interaction_completion_does_not_clear_new_progress(self) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=io.StringIO(),
+        )
+        daemon.active_progress_interaction_id = "interaction-2"
+        daemon.active_progress_phase = "planning"
+
+        daemon.handle_interaction_frame(
+            {
+                "type": "interaction_update",
+                "device_id": "terminal-edge-1",
+                "interaction": {
+                    "interaction_id": "interaction-1",
+                    "status": "completed",
+                    "summary": "Older interaction complete.",
+                },
+            }
+        )
+
+        self.assertEqual(daemon.active_progress_interaction_id, "interaction-2")
+        self.assertEqual(daemon.active_progress_phase, "planning")
+
+    def test_visible_completion_records_safe_runtime_summary(self) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=io.StringIO(),
+        )
+
+        daemon.handle_interaction_frame(
+            {
+                "type": "interaction_update",
+                "device_id": "terminal-edge-1",
+                "interaction": {
+                    "interaction_id": "interaction-1",
+                    "status": "completed",
+                    "summary": "Provider unavailable.",
+                    "completion": {
+                        "result_status": "failed",
+                        "terminal_reason": "provider_failure",
+                        "private_detail": "must not be copied",
+                    },
+                },
+            }
+        )
+
+        self.assertEqual(
+            daemon.latest_runtime_summary,
+            {
+                "summary": "Provider unavailable.",
+                "result_status": "failed",
+                "terminal_reason": "provider_failure",
+            },
+        )
+
+    def test_local_reconnect_command_requests_resident_reconnect(self) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=io.StringIO(),
+        )
+
+        handled = daemon.handle_local_input("/reconnect")
+
+        self.assertTrue(handled)
+        self.assertTrue(daemon.reconnect_requested)
+        self.assertIn("Reconnect requested", daemon.output_stream.getvalue())
+
     def test_local_quit_command_marks_daemon_for_clean_exit(self) -> None:
         stdout = io.StringIO()
         daemon = TerminalEdgeDaemon(
@@ -749,8 +833,100 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
             app.session_thread = lingering_thread
             app.exit = mock.Mock()
             await pilot.pause()
-            app._refresh_status_bar()
+            app._refresh_ui()
             app.exit.assert_called_once()
+
+    def test_accepts_safe_device_roster_and_interaction_route(self) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+        )
+
+        daemon.handle_device_roster_frame(
+            {
+                "type": "device_roster",
+                "device_id": "terminal-edge-1",
+                "roster": {
+                    "version": 1,
+                    "devices": [
+                        {
+                            "device_id": "terminal-edge-1",
+                            "device_type": "desktop-cli",
+                            "role": "computer_edge",
+                            "online": True,
+                            "action_capabilities": ["notification.show"],
+                        },
+                        {
+                            "device_id": "phone-edge-1",
+                            "device_type": "android-phone",
+                            "role": "phone_edge",
+                            "online": True,
+                            "action_capabilities": ["notification.show"],
+                        },
+                    ],
+                },
+            }
+        )
+        daemon.handle_interaction_route_frame(
+            {
+                "type": "interaction_route",
+                "device_id": "terminal-edge-1",
+                "route": {
+                    "version": 1,
+                    "interaction_id": "interaction-1",
+                    "interaction_turn_id": "turn-1",
+                    "source_device_id": "terminal-edge-1",
+                    "state": "active",
+                    "routes": [
+                        {
+                            "target_device_id": "phone-edge-1",
+                            "capability": "notification.show",
+                            "presence_decision": "allow",
+                        }
+                    ],
+                },
+            }
+        )
+
+        self.assertEqual(len(daemon.device_roster), 2)
+        self.assertEqual(
+            daemon.device_roster[1]["action_capabilities"],
+            ("notification.show",),
+        )
+        self.assertEqual(
+            daemon.active_interaction_route["routes"][0]["target_device_id"],
+            "phone-edge-1",
+        )
+
+    def test_ignores_roster_and_route_for_another_device(self) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+        )
+
+        daemon.handle_device_roster_frame(
+            {
+                "type": "device_roster",
+                "device_id": "other-edge",
+                "roster": {"version": 1, "devices": []},
+            }
+        )
+        daemon.handle_interaction_route_frame(
+            {
+                "type": "interaction_route",
+                "device_id": "other-edge",
+                "route": {
+                    "version": 1,
+                    "interaction_id": "interaction-1",
+                    "source_device_id": "other-edge",
+                    "state": "active",
+                    "routes": [],
+                },
+            }
+        )
+
+        self.assertEqual(daemon.device_roster, ())
+        self.assertIsNone(daemon.active_interaction_route)
 
     def test_builds_bootstrap_frames_for_terminal_edge(self) -> None:
         daemon = TerminalEdgeDaemon(
@@ -769,6 +945,8 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
                 "notification.show",
                 "terminal.context",
                 "interaction.progress",
+                "interaction.route",
+                "device.roster",
             ],
         )
 
@@ -931,6 +1109,41 @@ class TerminalEdgeAsyncSessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["request_id"], "action-1")
         self.assertIn("[progress] 正在理解你的请求...", stdout.getvalue())
+
+    async def test_run_forever_retries_after_connection_failure(self) -> None:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            token="dev-token",
+            output_stream=io.StringIO(),
+        )
+        connect_calls = 0
+
+        class FailingConnection:
+            async def __aenter__(self):
+                raise OSError("runtime unavailable")
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        def fake_connect(url):
+            nonlocal connect_calls
+            connect_calls += 1
+            return FailingConnection()
+
+        original_connect = websockets.connect
+        websockets.connect = fake_connect
+        try:
+            with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
+                await daemon.run_forever(
+                    url="ws://127.0.0.1:8765",
+                    max_sessions=3,
+                )
+        finally:
+            websockets.connect = original_connect
+
+        self.assertEqual(connect_calls, 3)
+        self.assertEqual(daemon.connection_state, "reconnecting")
+        self.assertIn("Connection lost", daemon.output_stream.getvalue())
 
     async def test_run_forever_stops_reconnecting_after_quit_command(self) -> None:
         daemon = TerminalEdgeDaemon(

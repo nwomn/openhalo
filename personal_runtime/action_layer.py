@@ -25,6 +25,40 @@ def build_notification_payload(body: str) -> dict:
     }
 
 
+def build_device_roster(
+    target_device_id: str,
+    roster: dict,
+) -> dict:
+    """Build a bounded public device-presence projection for one Edge."""
+
+    return with_api_version(
+        {
+            "type": "device_roster",
+            "device_id": target_device_id,
+            "roster": roster,
+        }
+    )
+
+
+def build_interaction_route(
+    target_device_id: str,
+    route: dict,
+    correlation: dict | None = None,
+) -> dict:
+    """Build a public interaction path after Presence and action planning."""
+
+    return add_correlation_to_frame(
+        with_api_version(
+            {
+                "type": "interaction_route",
+                "device_id": target_device_id,
+                "route": route,
+            }
+        ),
+        correlation or {},
+    )
+
+
 def build_interaction_update(
     target_device_id: str,
     interaction: dict,

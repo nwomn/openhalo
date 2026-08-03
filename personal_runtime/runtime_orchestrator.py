@@ -865,6 +865,20 @@ class RuntimeOrchestrator:
             },
         )
         self.gateway._persist_state()
+        route_replies = self.gateway._build_interaction_route_replies(
+            interaction_id=interaction_id,
+            interaction_turn_id=interaction_turn_id,
+            source_device_id=frame["device_id"],
+            routes=[
+                {
+                    "target_device_id": execution_outcome["target_device_id"],
+                    "capability": execution_outcome["action"]["capability"],
+                    "presence_decision": decision.decision,
+                }
+                for _, decision, execution_outcome in planned
+            ],
+            correlation=correlation,
+        )
         executing_replies = self.gateway.emit_interaction_progress(
             interaction_id=interaction_id,
             interaction_turn_id=interaction_turn_id,
@@ -883,7 +897,12 @@ class RuntimeOrchestrator:
             correlation=correlation,
             occurred_at=decision_time,
         )
-        return [*executing_replies, *action_requests, *awaiting_replies]
+        return [
+            *route_replies,
+            *executing_replies,
+            *action_requests,
+            *awaiting_replies,
+        ]
 
     def handle_event_frame(self, frame: dict) -> list[dict]:
         replies = []
@@ -1148,6 +1167,19 @@ class RuntimeOrchestrator:
             output_payload=planned_action,
             summary="Built action_request frame.",
         )
+        route_replies = self.gateway._build_interaction_route_replies(
+            interaction_id=interaction_id,
+            interaction_turn_id=interaction_turn_id,
+            source_device_id=frame["device_id"],
+            routes=[
+                {
+                    "target_device_id": execution_outcome["target_device_id"],
+                    "capability": execution_outcome["action"]["capability"],
+                    "presence_decision": decision.decision,
+                }
+            ],
+            correlation=correlation,
+        )
         executing_replies = self.gateway.emit_interaction_progress(
             interaction_id=interaction_id,
             interaction_turn_id=interaction_turn_id,
@@ -1164,7 +1196,13 @@ class RuntimeOrchestrator:
             presentation_hint="waiting",
             correlation=correlation,
         )
-        return [*replies, *executing_replies, planned_action, *awaiting_replies]
+        return [
+            *replies,
+            *route_replies,
+            *executing_replies,
+            planned_action,
+            *awaiting_replies,
+        ]
 
     @staticmethod
     def _has_explicit_observation_parent(frame: dict) -> bool:

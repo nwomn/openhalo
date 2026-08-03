@@ -19,7 +19,9 @@ from websockets.exceptions import ConnectionClosedError
 from websockets.exceptions import ConnectionClosedOK
 
 from edge_api.protocol import validate_frame, with_api_version
+from personal_runtime.action_layer import build_device_roster
 from personal_runtime.action_layer import build_interaction_progress
+from personal_runtime.action_layer import build_interaction_route
 from personal_runtime.action_layer import build_interaction_update
 from personal_runtime.agent_executor import ProposalFormation
 from personal_runtime.agent_harness import LegacyProposalHarness
@@ -496,6 +498,116 @@ class RuntimeGateway:
             )
         ]
         return replies
+
+    def _build_public_device_roster(self, requesting_device_id: str) -> dict:
+        """Project only safe identity, availability, and action names."""
+
+        device_ids = sorted(set(self.state.devices) | set(self.state.device_registry))
+        devices = []
+        for device_id in device_ids[:16]:
+            registered = self.state.device_registry.get(device_id, {})
+            state_device = self.state.devices.get(device_id, {})
+            action_capabilities = []
+            for capability_name, capability in sorted(
+                self.state.capability_registry.get(device_id, {}).items()
+            ):
+                if capability.get("direction") not in {
+                    "runtime_to_edge",
+                    "bidirectional",
+                }:
+                    continue
+                if capability.get("kind") not in {None, "action"}:
+                    continue
+                action_capabilities.append(capability_name)
+            devices.append(
+                {
+                    "device_id": device_id,
+                    "device_type": registered.get(
+                        "device_type", state_device.get("device_type", "unknown")
+                    ),
+                    "role": registered.get("role"),
+                    "online": device_id in self.online_device_ids,
+                    "action_capabilities": action_capabilities[:12],
+                }
+            )
+        return {
+            "version": 1,
+            "requesting_device_id": requesting_device_id,
+            "devices": devices,
+        }
+
+    def _build_device_roster_reply(self, target_device_id: str) -> dict:
+        return build_device_roster(
+            target_device_id,
+            self._build_public_device_roster(target_device_id),
+        )
+
+    async def _broadcast_device_roster(self) -> None:
+        """Refresh every connected Edge that opted into device-presence display."""
+
+        for device_id, websocket in list(self.live_connections.items()):
+            capabilities = self.state.devices.get(device_id, {}).get(
+                "capabilities", set()
+            )
+            if "device.roster" not in capabilities:
+                continue
+            try:
+                await self._send_frame(
+                    websocket,
+                    self._build_device_roster_reply(device_id),
+                )
+            except (ConnectionClosedOK, ConnectionClosedError):
+                continue
+
+    def _build_interaction_route_replies(
+        self,
+        *,
+        interaction_id: str,
+        interaction_turn_id: str,
+        source_device_id: str,
+        routes: list[dict],
+        correlation: dict | None = None,
+    ) -> list[dict]:
+        interaction = self._interaction_payload(interaction_id)
+        if interaction is None or not interaction.get("outcome_delivery_required"):
+            return []
+        requesting_device_id = interaction.get("requesting_device_id")
+        if not isinstance(requesting_device_id, str):
+            return []
+        capabilities = self.state.devices.get(requesting_device_id, {}).get(
+            "capabilities", set()
+        )
+        if "interaction.route" not in capabilities:
+            return []
+        public_routes = []
+        for route in routes[:8]:
+            target_device_id = route.get("target_device_id")
+            capability = route.get("capability")
+            if not isinstance(target_device_id, str) or not isinstance(capability, str):
+                continue
+            public_routes.append(
+                {
+                    "target_device_id": target_device_id,
+                    "capability": capability,
+                    "presence_decision": route.get("presence_decision", "allow"),
+                }
+            )
+        if not public_routes:
+            return []
+        return [
+            build_interaction_route(
+                requesting_device_id,
+                {
+                    "version": 1,
+                    "interaction_id": interaction_id,
+                    "interaction_turn_id": interaction_turn_id,
+                    "source_device_id": source_device_id,
+                    "state": "active",
+                    "routes": public_routes,
+                },
+                correlation=correlation,
+            )
+        ]
 
     def _progress_recipients_for_interaction(self, interaction: dict) -> list[str]:
         """Return authorized, progress-capable Edge participants only."""
@@ -1316,7 +1428,13 @@ class RuntimeGateway:
             target_device_id = reply.get("device_id")
             if (
                 reply["type"]
-                in {"action_request", "interaction_progress", "interaction_update"}
+                in {
+                    "action_request",
+                    "device_roster",
+                    "interaction_progress",
+                    "interaction_route",
+                    "interaction_update",
+                }
                 and target_device_id != source_device_id
             ):
                 target_websocket = self.live_connections.get(target_device_id)
@@ -1367,7 +1485,13 @@ class RuntimeGateway:
                 await self._send_frame(source_websocket, reply)
                 if not (
                     reply["type"]
-                    in {"action_request", "interaction_progress", "interaction_update"}
+                    in {
+                        "action_request",
+                        "device_roster",
+                        "interaction_progress",
+                        "interaction_route",
+                        "interaction_update",
+                    }
                     and target_device_id != source_device_id
                 ):
                     self._record_dispatch_diagnostic(
@@ -1662,6 +1786,8 @@ class RuntimeGateway:
                     websocket,
                     replies,
                 )
+                if frame.get("type") in {"connect", "capability_announce"}:
+                    await self._broadcast_device_roster()
         except (ConnectionClosedOK, ConnectionClosedError) as exc:
             self._record_diagnostic(
                 module="Gateway",
@@ -1686,6 +1812,7 @@ class RuntimeGateway:
                         observed_at=_utc_now(),
                     )
                     self._persist_state()
+                    await self._broadcast_device_roster()
 
     @asynccontextmanager
     async def run_test_server(self):

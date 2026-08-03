@@ -17,6 +17,8 @@ from contextlib import suppress
 
 import websockets
 
+from device_edge.cli.terminal_ui_state import PROGRESS_PRESENTATION
+from device_edge.cli.terminal_ui_state import SlashCommandCatalog
 from device_edge.shared.local_actions import execute_action
 from device_edge.shared.session_client import SessionClient
 from edge_api.protocol import with_api_version
@@ -34,14 +36,8 @@ class TerminalEdgeDaemon:
     transcript_limit = 12
     max_deferred_frames = 64
     progress_messages = {
-        "deliberating": "正在理解你的请求...",
-        "researching": "正在查询相关信息...",
-        "planning": "正在准备下一步...",
-        "executing": "正在执行操作...",
-        "awaiting_action_result": "正在等待设备确认...",
-        "completing": "正在确认处理结果...",
-        "failed": "暂时无法继续处理",
-        "cancelled": "处理已停止",
+        phase: presentation[0]
+        for phase, presentation in PROGRESS_PRESENTATION.items()
     }
 
     def __init__(
@@ -55,12 +51,14 @@ class TerminalEdgeDaemon:
         timestamp_provider=None,
         stdin_observed_at: str | None = None,
         diagnostic_recorder=None,
+        full_screen: bool = False,
     ) -> None:
         self.output_stream = output_stream or sys.stdout
         self.input_stream = input_stream or sys.stdin
         self.input_state_stream = input_state_stream
         self.timestamp_provider = timestamp_provider or self._default_timestamp_provider
         self.stdin_observed_at = stdin_observed_at
+        self.full_screen = full_screen
         self.connection_state = "disconnected"
         self.terminal_activity_state = "unknown"
         self.pending_runtime_reply = False
@@ -68,10 +66,18 @@ class TerminalEdgeDaemon:
         self.active_progress_phase: str | None = None
         self.active_progress_interaction_id: str | None = None
         self.progress_sequence_by_interaction: dict[str, int] = {}
+        self.device_roster: tuple[dict, ...] = ()
+        self.active_interaction_route: dict | None = None
+        self.reconnect_attempt = 0
+        self.reconnect_delay_s = 0.0
+        self.outage_started_at: str | None = None
+        self.connection_recovered = False
         self.user_request_count = 0
         self.runtime_message_count = 0
         self.local_command_count = 0
+        self.latest_runtime_summary: dict | None = None
         self.quit_requested = False
+        self.reconnect_requested = False
         self.transcript = deque(maxlen=self.transcript_limit)
         self.device = {
             "device_id": device_id,
@@ -93,6 +99,8 @@ class TerminalEdgeDaemon:
                 "notification.show",
                 "terminal.context",
                 "interaction.progress",
+                "interaction.route",
+                "device.roster",
             ],
             diagnostic_recorder=diagnostic_recorder,
         )
@@ -210,16 +218,17 @@ class TerminalEdgeDaemon:
         print(line, file=self.output_stream)
         self.transcript.append(line)
 
-    def render_status_line(self, message: str) -> None:
-        self.clear_progress()
+    def render_status_line(self, message: str, *, transient: bool = False) -> None:
+        if transient and self.full_screen:
+            return
         self._write_line("system", message)
 
     def render_user_line(self, text: str) -> None:
         self.clear_progress()
+        self.latest_runtime_summary = None
         self._write_line("user", text)
 
     def render_runtime_line(self, message: str) -> None:
-        self.clear_progress()
         self._write_line("runtime", message)
 
     def render_progress_phase(self, interaction_id: str, phase: str) -> None:
@@ -230,9 +239,23 @@ class TerminalEdgeDaemon:
         self.active_progress_phase = phase
         self._write_line("progress", message)
 
-    def clear_progress(self) -> None:
+    def clear_progress(self, interaction_id: str | None = None) -> None:
+        if (
+            interaction_id is not None
+            and self.active_progress_interaction_id != interaction_id
+        ):
+            return
         self.active_progress_interaction_id = None
         self.active_progress_phase = None
+
+    def request_reconnect(self) -> None:
+        self.reconnect_requested = True
+        self.render_status_line("Reconnect requested.")
+
+    def _reset_inflight_state(self) -> None:
+        self.pending_runtime_reply = False
+        self.pending_interaction_id = None
+        self.clear_progress()
 
     def _output_is_tty(self) -> bool:
         try:
@@ -242,7 +265,7 @@ class TerminalEdgeDaemon:
 
     def render_help(self) -> None:
         self.render_status_line(
-            "Available local commands: /help /status /history /quit"
+            f"Available local commands: {SlashCommandCatalog.help_text()}"
         )
 
     def render_status_summary(self) -> None:
@@ -280,6 +303,12 @@ class TerminalEdgeDaemon:
         if normalized_text == "/history":
             self.render_history()
             return True
+        if normalized_text == "/reconnect":
+            self.request_reconnect()
+            return True
+        if normalized_text == "/clear":
+            self.render_status_line("Use /clear in full-screen TUI mode.")
+            return True
         if normalized_text == "/quit":
             self.quit_requested = True
             self.render_status_line("Shutting down terminal session.")
@@ -290,6 +319,9 @@ class TerminalEdgeDaemon:
         return True
 
     async def _read_live_input_line(self) -> str | None:
+        async_reader = getattr(self.input_stream, "readline_async", None)
+        if callable(async_reader):
+            return await async_reader()
         loop = asyncio.get_running_loop()
         fileno = None
         try:
@@ -383,8 +415,7 @@ class TerminalEdgeDaemon:
             frame = await self._recv_frame(websocket)
             if frame.get("type") == expected_type:
                 return frame
-            if frame.get("type") == "interaction_progress":
-                self.handle_interaction_progress_frame(frame)
+            if self._handle_display_frame(frame):
                 continue
             if len(pending_frames) >= self.max_deferred_frames:
                 raise RuntimeError(
@@ -405,7 +436,7 @@ class TerminalEdgeDaemon:
             self.runtime_message_count += 1
             self.pending_runtime_reply = False
             self.pending_interaction_id = None
-            self.clear_progress()
+            self.clear_progress(frame.get("interaction_id"))
             result = execute_action(
                 frame["action"],
                 output_stream=self.output_stream,
@@ -442,16 +473,107 @@ class TerminalEdgeDaemon:
             boundary.output({"result": result, "frame": action_result})
             return action_result
 
+    def handle_device_roster_frame(self, frame: dict) -> None:
+        if frame.get("device_id") != self.client.device_id:
+            return
+        roster = frame.get("roster", {})
+        if roster.get("version") != 1 or not isinstance(roster.get("devices"), list):
+            return
+        devices = []
+        for device in roster["devices"][:16]:
+            if not isinstance(device, dict):
+                continue
+            device_id = device.get("device_id")
+            device_type = device.get("device_type")
+            online = device.get("online")
+            capabilities = device.get("action_capabilities", [])
+            if (
+                not isinstance(device_id, str)
+                or not device_id
+                or not isinstance(device_type, str)
+                or not isinstance(online, bool)
+                or not isinstance(capabilities, list)
+                or not all(isinstance(item, str) for item in capabilities)
+            ):
+                continue
+            devices.append(
+                {
+                    "device_id": device_id,
+                    "device_type": device_type,
+                    "role": device.get("role")
+                    if isinstance(device.get("role"), str)
+                    else None,
+                    "online": online,
+                    "action_capabilities": tuple(capabilities[:12]),
+                }
+            )
+        self.device_roster = tuple(devices)
+
+    def handle_interaction_route_frame(self, frame: dict) -> None:
+        if frame.get("device_id") != self.client.device_id:
+            return
+        route = frame.get("route", {})
+        if route.get("version") != 1 or route.get("state") != "active":
+            return
+        interaction_id = route.get("interaction_id")
+        source_device_id = route.get("source_device_id")
+        raw_routes = route.get("routes")
+        if (
+            not isinstance(interaction_id, str)
+            or not isinstance(source_device_id, str)
+            or not isinstance(raw_routes, list)
+        ):
+            return
+        routes = []
+        for item in raw_routes[:8]:
+            if not isinstance(item, dict):
+                continue
+            target_device_id = item.get("target_device_id")
+            capability = item.get("capability")
+            decision = item.get("presence_decision")
+            if (
+                isinstance(target_device_id, str)
+                and isinstance(capability, str)
+                and decision in {"allow", "suppress"}
+            ):
+                routes.append(
+                    {
+                        "target_device_id": target_device_id,
+                        "capability": capability,
+                        "presence_decision": decision,
+                    }
+                )
+        if not routes:
+            return
+        self.active_interaction_route = {
+            "interaction_id": interaction_id,
+            "interaction_turn_id": route.get("interaction_turn_id"),
+            "source_device_id": source_device_id,
+            "routes": tuple(routes),
+        }
+
     def handle_interaction_frame(self, frame: dict) -> None:
         interaction = frame["interaction"]
-        self.pending_interaction_id = interaction.get("interaction_id")
+        interaction_id = interaction.get("interaction_id")
+        self.pending_interaction_id = interaction_id
         if interaction.get("status") == "completed":
             self.pending_runtime_reply = False
             self.pending_interaction_id = None
-            self.clear_progress()
+            self.clear_progress(interaction_id)
+            if (
+                self.active_interaction_route is not None
+                and self.active_interaction_route.get("interaction_id") == interaction_id
+            ):
+                self.active_interaction_route = None
         visibility = interaction.get("visibility", "visible")
         summary = interaction.get("summary", "").strip()
         if summary and visibility != "silent":
+            completion = interaction.get("completion", {})
+            self.latest_runtime_summary = {
+                "summary": summary,
+                "result_status": completion.get("result_status"),
+                "terminal_reason": completion.get("terminal_reason"),
+            }
             self.render_runtime_line(summary)
 
     def handle_interaction_progress_frame(self, frame: dict) -> None:
@@ -468,11 +590,26 @@ class TerminalEdgeDaemon:
         phase = progress.get("phase")
         state = progress.get("state")
         if state == "settled" or phase in {"completed", "failed", "cancelled"}:
-            if self.active_progress_interaction_id == interaction_id:
-                self.clear_progress()
+            self.clear_progress(interaction_id)
             return
         if isinstance(phase, str):
             self.render_progress_phase(interaction_id, phase)
+
+    def _handle_display_frame(self, frame: dict) -> bool:
+        frame_type = frame.get("type")
+        if frame_type == "device_roster":
+            self.handle_device_roster_frame(frame)
+            return True
+        if frame_type == "interaction_route":
+            self.handle_interaction_route_frame(frame)
+            return True
+        if frame_type == "interaction_progress":
+            self.handle_interaction_progress_frame(frame)
+            return True
+        if frame_type == "interaction_update":
+            self.handle_interaction_frame(frame)
+            return True
+        return False
 
     async def _send_frame(self, websocket, frame: dict) -> None:
         await websocket.send(json.dumps(frame))
@@ -502,11 +639,23 @@ class TerminalEdgeDaemon:
         try:
             for frame in self.build_bootstrap_frames():
                 await self._send_frame(websocket, frame)
-            await self._recv_frame(websocket)
-            self.connection_state = "connected"
-            self.render_status_line(
-                f"Connected to runtime as {self.client.device_id}."
+            await self._recv_expected_frame(
+                websocket,
+                pending_frames,
+                expected_type="connect_ok",
             )
+            was_reconnecting = self.outage_started_at is not None
+            self.connection_state = "connected"
+            self.reconnect_attempt = 0
+            self.reconnect_delay_s = 0.0
+            self.connection_recovered = was_reconnecting
+            if was_reconnecting:
+                self.render_status_line("Runtime connection restored.")
+                self.outage_started_at = None
+            else:
+                self.render_status_line(
+                    f"Connected to runtime as {self.client.device_id}."
+                )
 
             startup_timestamp = self._next_observed_at(startup_observed_at)
             await self._send_frame(
@@ -516,7 +665,11 @@ class TerminalEdgeDaemon:
                     observed_at=startup_timestamp,
                 ),
             )
-            await self._recv_frame(websocket)
+            await self._recv_expected_frame(
+                websocket,
+                pending_frames,
+                expected_type="event_ack",
+            )
             terminal_activity_state = "active"
             self.terminal_activity_state = "active"
             self.render_status_line("Session ready. Terminal marked active.")
@@ -537,18 +690,15 @@ class TerminalEdgeDaemon:
                     for frame in self._drain_input_state_frames():
                         await self._send_frame(websocket, frame)
                         pending_frames.append(await self._recv_frame(websocket))
-                    if self.quit_requested:
+                    if self.quit_requested or self.reconnect_requested:
                         break
                     if pending_frames:
                         pending_frame = pending_frames.pop(0)
                         frame_type = pending_frame.get("type")
-                        if frame_type == "interaction_progress":
-                            self.handle_interaction_progress_frame(pending_frame)
-                            continue
-                        if frame_type == "interaction_update":
-                            self.handle_interaction_frame(pending_frame)
+                        if self._handle_display_frame(pending_frame):
                             if (
-                                self.pending_runtime_reply is False
+                                frame_type == "interaction_update"
+                                and self.pending_runtime_reply is False
                                 and max_action_requests is not None
                                 and len(results) >= max_action_requests
                             ):
@@ -614,7 +764,7 @@ class TerminalEdgeDaemon:
                                 live_input_open = False
                             elif self.handle_local_input(line):
                                 live_input_open = True
-                                if self.quit_requested:
+                                if self.quit_requested or self.reconnect_requested:
                                     break
                                 continue
                         break
@@ -638,7 +788,7 @@ class TerminalEdgeDaemon:
                                 self.terminal_activity_state = "active"
                                 idle_cycles = 0
                                 activity_observed = True
-                            if self.quit_requested:
+                            if self.quit_requested or self.reconnect_requested:
                                 break
 
                     if input_state_task is not None and input_state_task in done:
@@ -688,29 +838,26 @@ class TerminalEdgeDaemon:
                             return results
                         continue
 
-                    progress_frame = next(
+                    display_frame = next(
                         (
                             pending_frames.pop(index)
                             for index, candidate in enumerate(pending_frames)
-                            if candidate.get("type") == "interaction_progress"
+                            if candidate.get("type")
+                            in {
+                                "device_roster",
+                                "interaction_progress",
+                                "interaction_route",
+                                "interaction_update",
+                            }
                         ),
                         None,
                     )
-                    if progress_frame is not None:
-                        self.handle_interaction_progress_frame(progress_frame)
-                        continue
-                    interaction_frame = next(
-                        (
-                            pending_frames.pop(index)
-                            for index, candidate in enumerate(pending_frames)
-                            if candidate.get("type") == "interaction_update"
-                        ),
-                        None,
-                    )
-                    if interaction_frame is not None:
-                        self.handle_interaction_frame(interaction_frame)
+                    if display_frame is not None:
+                        frame_type = display_frame.get("type")
+                        self._handle_display_frame(display_frame)
                         if (
-                            self.pending_runtime_reply is False
+                            frame_type == "interaction_update"
+                            and self.pending_runtime_reply is False
                             and max_action_requests is not None
                             and len(results) >= max_action_requests
                         ):
@@ -731,8 +878,13 @@ class TerminalEdgeDaemon:
                     results.append(result)
                     await self._send_frame(websocket, result)
         finally:
-            self.connection_state = "disconnected"
-            self.clear_progress()
+            if self.quit_requested:
+                self.connection_state = "disconnected"
+            elif self.reconnect_requested:
+                self.connection_state = "reconnecting"
+            else:
+                self.connection_state = "disconnected"
+            self._reset_inflight_state()
             if live_input_task is not None and not live_input_task.done():
                 live_input_task.cancel()
                 with suppress(asyncio.CancelledError):
@@ -741,6 +893,28 @@ class TerminalEdgeDaemon:
                 self.render_status_line("Terminal session closed.")
 
         return results
+
+    def _begin_reconnect(self, delay_s: float) -> None:
+        first_failure = self.outage_started_at is None
+        if first_failure:
+            self.outage_started_at = self._next_observed_at()
+            self.render_status_line("Runtime connection interrupted.")
+        self.connection_recovered = False
+        self.connection_state = "reconnecting"
+        self.reconnect_attempt += 1
+        self.reconnect_delay_s = delay_s
+        self.render_status_line(
+            f"Connection lost. Retrying in {delay_s:g} seconds.",
+            transient=True,
+        )
+
+    async def _wait_before_reconnect(self, delay_s: float) -> None:
+        deadline = asyncio.get_running_loop().time() + delay_s
+        while not self.quit_requested and not self.reconnect_requested:
+            remaining = deadline - asyncio.get_running_loop().time()
+            if remaining <= 0:
+                return
+            await asyncio.sleep(min(remaining, 0.1))
 
     async def run_forever(
         self,
@@ -755,24 +929,56 @@ class TerminalEdgeDaemon:
         enable_live_input: bool = False,
     ) -> None:
         session_count = 0
+        retry_delay_s = 1.0
         while max_sessions is None or session_count < max_sessions:
             if self.quit_requested:
                 break
-            async with websockets.connect(url) as websocket:
-                await self.run_scripted_session(
-                    websocket=websocket,
-                    scripted_inputs=scripted_inputs or [],
-                    startup_observed_at=startup_observed_at,
-                    idle_after_inputs=True,
-                    idle_timeout_s=idle_timeout_s,
-                    idle_observed_at=idle_observed_at,
-                    max_idle_cycles=max_idle_cycles,
-                    max_action_requests=max_action_requests,
-                    enable_live_input=enable_live_input,
-                )
+            self.connection_state = (
+                "connecting" if session_count == 0 else "reconnecting"
+            )
+            try:
+                async with websockets.connect(url) as websocket:
+                    await self.run_scripted_session(
+                        websocket=websocket,
+                        scripted_inputs=scripted_inputs or [],
+                        startup_observed_at=startup_observed_at,
+                        idle_after_inputs=True,
+                        idle_timeout_s=idle_timeout_s,
+                        idle_observed_at=idle_observed_at,
+                        max_idle_cycles=max_idle_cycles,
+                        max_action_requests=max_action_requests,
+                        enable_live_input=enable_live_input,
+                    )
+            except (OSError, TimeoutError, websockets.exceptions.ConnectionClosed):
+                session_count += 1
+                if self.quit_requested:
+                    break
+                self._begin_reconnect(retry_delay_s)
+                self._reset_inflight_state()
+                if max_sessions is not None and session_count >= max_sessions:
+                    break
+                await self._wait_before_reconnect(retry_delay_s)
+                retry_delay_s = min(retry_delay_s * 2, 15.0)
+                self.reconnect_requested = False
+                continue
+
+            retry_delay_s = 1.0
             session_count += 1
             if self.quit_requested:
                 break
+            requested_reconnect = self.reconnect_requested
+            self.reconnect_requested = False
+            self._reset_inflight_state()
+            if max_sessions is not None and session_count >= max_sessions:
+                self.connection_state = "disconnected"
+                break
+            if requested_reconnect:
+                self.connection_state = "reconnecting"
+                continue
+            self._begin_reconnect(retry_delay_s)
+            await self._wait_before_reconnect(retry_delay_s)
+            retry_delay_s = min(retry_delay_s * 2, 15.0)
+            self.reconnect_requested = False
 
 
 def build_terminal_daemon_parser() -> argparse.ArgumentParser:

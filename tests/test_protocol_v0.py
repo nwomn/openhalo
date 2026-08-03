@@ -60,6 +60,36 @@ class ProtocolTests(unittest.TestCase):
 
         self.assertEqual(validate_frame(frame), frame)
 
+    def test_accepts_versioned_interaction_route_and_device_roster_frames(self) -> None:
+        route = {
+            "api_version": API_VERSION,
+            "type": "interaction_route",
+            "device_id": "terminal-edge-1",
+            "route": {
+                "version": 1,
+                "interaction_id": "interaction-1",
+                "interaction_turn_id": "turn-1",
+                "source_device_id": "terminal-edge-1",
+                "state": "active",
+                "routes": [
+                    {
+                        "target_device_id": "phone-edge-1",
+                        "capability": "notification.show",
+                        "presence_decision": "allow",
+                    }
+                ],
+            },
+        }
+        roster = {
+            "api_version": API_VERSION,
+            "type": "device_roster",
+            "device_id": "terminal-edge-1",
+            "roster": {"version": 1, "devices": []},
+        }
+
+        self.assertEqual(validate_frame(route), route)
+        self.assertEqual(validate_frame(roster), roster)
+
     def test_builds_connect_frame(self) -> None:
         frame = build_connect_frame(
             device_id="desktop-dev-1",

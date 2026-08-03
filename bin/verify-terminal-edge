@@ -61,7 +61,8 @@ TERMINAL_DAEMON_CMD=(
 )
 TERMINAL_STDIN_CMD=(
   "$PYTHON_BIN" -c
-  "import sys; sys.stdout.write(${SCRIPTED_TEXT@Q} + '\n')"
+  "import sys; sys.stdout.write(sys.argv[1] + '\n')"
+  "$SCRIPTED_TEXT"
 )
 read -r -d '' RUNTIME_PUSH_ACTIVE_PY <<PY || true
 import asyncio

@@ -16,7 +16,9 @@ REQUIRED_TYPES = {
     "action_request",
     "action_result",
     "interaction_progress",
+    "interaction_route",
     "interaction_update",
+    "device_roster",
     "error",
 }
 

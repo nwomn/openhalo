@@ -44,6 +44,85 @@ def _last_error(replies: list[dict]) -> dict | None:
 
 
 class GatewayTests(unittest.IsolatedAsyncioTestCase):
+    async def test_public_device_roster_is_bounded_and_safe(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        gateway.state.register_device(
+            "terminal-edge-1",
+            "desktop-cli",
+            role="computer_edge",
+            profile={"secret": "must-not-leak"},
+        )
+        gateway.state.register_capability("terminal-edge-1", "device.roster")
+        gateway.state.register_capability("terminal-edge-1", "notification.show")
+        gateway.state.register_device("phone-edge-1", "android-phone")
+        gateway.state.register_capability("phone-edge-1", "notification.show")
+        gateway.online_device_ids.add("terminal-edge-1")
+
+        roster = gateway._build_public_device_roster("terminal-edge-1")
+
+        self.assertEqual(roster["version"], 1)
+        self.assertEqual(roster["requesting_device_id"], "terminal-edge-1")
+        terminal = next(
+            device
+            for device in roster["devices"]
+            if device["device_id"] == "terminal-edge-1"
+        )
+        phone = next(
+            device
+            for device in roster["devices"]
+            if device["device_id"] == "phone-edge-1"
+        )
+        self.assertTrue(terminal["online"])
+        self.assertFalse(phone["online"])
+        self.assertEqual(terminal["action_capabilities"], ["notification.show"])
+        self.assertNotIn("profile", terminal)
+        self.assertNotIn("secret", json.dumps(roster))
+
+    async def test_interaction_route_is_projected_only_to_capable_requester(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        gateway.state.register_device("terminal-edge-1", "desktop-cli")
+        gateway.state.register_capability("terminal-edge-1", "interaction.route")
+        gateway.state.record_interaction(
+            {
+                "interaction_id": "interaction-1",
+                "requesting_device_id": "terminal-edge-1",
+                "outcome_delivery_required": True,
+            }
+        )
+
+        replies = gateway._build_interaction_route_replies(
+            interaction_id="interaction-1",
+            interaction_turn_id="turn-1",
+            source_device_id="terminal-edge-1",
+            routes=[
+                {
+                    "target_device_id": "phone-edge-1",
+                    "capability": "notification.show",
+                    "presence_decision": "allow",
+                }
+            ],
+        )
+
+        self.assertEqual(len(replies), 1)
+        self.assertEqual(replies[0]["type"], "interaction_route")
+        self.assertEqual(replies[0]["device_id"], "terminal-edge-1")
+        self.assertEqual(
+            replies[0]["route"]["routes"][0],
+            {
+                "target_device_id": "phone-edge-1",
+                "capability": "notification.show",
+                "presence_decision": "allow",
+            },
+        )
+
     async def test_dispatch_to_source_uses_current_connection_after_reconnect(
         self,
     ) -> None:

@@ -1,0 +1,1451 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenHalo Terminal Edge — Low-noise status mockup</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #f2f0eb;
+      --page-strong: #e8e5df;
+      --ink: #24272d;
+      --muted: #6f737b;
+      --line: #d5d1c9;
+      --paper: #fbfaf7;
+
+      --terminal: #0d1117;
+      --terminal-raised: #111720;
+      --terminal-soft: #151c26;
+      --terminal-line: #252d38;
+      --terminal-line-soft: #1c232d;
+      --text: #dce4ee;
+      --text-soft: #9aa7b6;
+      --text-faint: #626f7e;
+      --blue: #79b8ff;
+      --green: #7dca9b;
+      --amber: #e4b86a;
+      --red: #ec8b89;
+      --violet: #b8a1e3;
+      --focus: #8fc8ff;
+
+      --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      min-height: 100vh;
+      color: var(--ink);
+      background: var(--page);
+      font-family: var(--sans);
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .page {
+      width: min(1480px, 100%);
+      margin: 0 auto;
+      padding: 34px clamp(18px, 4vw, 58px) 56px;
+    }
+
+    .spec-header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 28px;
+      margin-bottom: 22px;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: #697078;
+      font-size: 12px;
+      font-weight: 750;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 760px;
+      margin: 0;
+      font-size: clamp(27px, 4vw, 46px);
+      font-weight: 680;
+      letter-spacing: -.035em;
+      line-height: 1.04;
+    }
+
+    .intro {
+      max-width: 580px;
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.65;
+    }
+
+    .state-controls {
+      flex: none;
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: rgba(251, 250, 247, .7);
+    }
+
+    .state-button {
+      min-height: 34px;
+      padding: 6px 12px;
+      border: 0;
+      border-radius: 6px;
+      color: #6b7077;
+      background: transparent;
+      font-size: 13px;
+      font-weight: 650;
+      transition: color 150ms ease, background 150ms ease, box-shadow 150ms ease;
+    }
+
+    .state-button:hover {
+      color: var(--ink);
+      background: #eeebe5;
+    }
+
+    .state-button[aria-selected="true"] {
+      color: #20242a;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(41, 36, 28, .12);
+    }
+
+    .workbench {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 292px;
+      gap: 20px;
+      align-items: stretch;
+    }
+
+    .terminal-window {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid #202731;
+      border-radius: 14px;
+      background: var(--terminal);
+      box-shadow:
+        0 26px 70px rgba(34, 31, 27, .18),
+        0 3px 10px rgba(34, 31, 27, .12);
+    }
+
+    .window-bar {
+      height: 42px;
+      display: grid;
+      grid-template-columns: 100px 1fr 100px;
+      align-items: center;
+      padding: 0 14px;
+      border-bottom: 1px solid #252b33;
+      color: #929aa5;
+      background: #171a1f;
+      font-family: var(--sans);
+      font-size: 12px;
+    }
+
+    .traffic-lights {
+      display: flex;
+      gap: 8px;
+    }
+
+    .traffic-light {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .1);
+    }
+
+    .traffic-light.red { background: #ff5f57; }
+    .traffic-light.yellow { background: #febc2e; }
+    .traffic-light.green { background: #28c840; }
+
+    .window-title {
+      overflow: hidden;
+      text-align: center;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .preview-label {
+      justify-self: end;
+      color: #656d78;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .terminal-screen {
+      position: relative;
+      min-height: 690px;
+      display: grid;
+      grid-template-rows: auto auto minmax(330px, 1fr) auto auto auto auto;
+      color: var(--text);
+      background: var(--terminal);
+      font-family: var(--mono);
+    }
+
+    .halo-header {
+      min-width: 0;
+      min-height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 0 clamp(18px, 2.6vw, 34px);
+      border-bottom: 1px solid var(--terminal-line);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 11px;
+      color: #f2f6fb;
+      font-weight: 800;
+      letter-spacing: -.02em;
+    }
+
+    .brand-mark {
+      width: 16px;
+      height: 16px;
+      display: inline-grid;
+      place-items: center;
+      border: 2px solid #d9e2ed;
+      border-radius: 50%;
+    }
+
+    .brand-mark::after {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--blue);
+      content: "";
+    }
+
+    .device-name {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--text-soft);
+      font-size: 13px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .device-name::before {
+      margin-right: 18px;
+      color: #495564;
+      content: "·";
+    }
+
+    .global-thread {
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 8px;
+      border: 0;
+      border-radius: 5px;
+      color: #8f9dad;
+      background: transparent;
+      font-family: var(--mono);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .global-thread:hover,
+    .global-thread[aria-expanded="true"] {
+      color: #c4d1de;
+      background: #161d27;
+    }
+
+    .edge-stack {
+      display: inline-flex;
+      align-items: center;
+      padding-left: 5px;
+    }
+
+    .edge-stack-dot {
+      width: 8px;
+      height: 8px;
+      margin-left: -3px;
+      border: 1px solid var(--terminal);
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    .edge-stack-dot:nth-child(2) { background: var(--blue); }
+    .edge-stack-dot:nth-child(3) { background: var(--violet); }
+    .edge-stack-dot.offline { background: #566270; }
+
+    .edge-overview {
+      position: absolute;
+      z-index: 8;
+      top: 48px;
+      right: 22px;
+      width: min(440px, calc(100% - 44px));
+      padding: 12px;
+      border: 1px solid #2b3440;
+      border-radius: 8px;
+      color: var(--text);
+      background: #111720;
+      box-shadow: 0 18px 46px rgba(0, 0, 0, .42);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-5px);
+      transition: opacity 140ms ease, transform 140ms ease;
+    }
+
+    .edge-overview.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    .edge-overview-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 2px 3px 10px;
+      border-bottom: 1px solid var(--terminal-line);
+    }
+
+    .edge-overview-title {
+      color: #e3eaf2;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .edge-overview-note {
+      color: #596777;
+      font-size: 9px;
+    }
+
+    .edge-list {
+      display: grid;
+      gap: 2px;
+      margin: 8px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .edge-row {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: 10px minmax(104px, auto) minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 9px;
+      min-height: 36px;
+      padding: 5px 6px;
+      border-radius: 5px;
+    }
+
+    .edge-row.current {
+      background: #151e29;
+    }
+
+    .edge-health {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    .edge-row.offline .edge-health {
+      background: #505b68;
+    }
+
+    .edge-label {
+      overflow: hidden;
+      color: #c8d3df;
+      font-size: 10px;
+      font-weight: 750;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .edge-role {
+      min-width: 0;
+      overflow: hidden;
+      color: #718092;
+      font-size: 9px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .edge-state {
+      color: #697789;
+      font-size: 9px;
+      white-space: nowrap;
+    }
+
+    .edge-row.current .edge-state {
+      color: var(--blue);
+    }
+
+    .connection-chip {
+      flex: none;
+      margin-left: auto;
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .connection-chip.reconnecting {
+      color: var(--amber);
+    }
+
+    .diagnostic-line {
+      min-width: 0;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 clamp(18px, 2.6vw, 34px);
+      overflow: hidden;
+      border-bottom: 1px solid var(--terminal-line-soft);
+      color: var(--text-faint);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .diagnostic-line span + span::before {
+      margin-right: 14px;
+      color: #343d49;
+      content: "·";
+    }
+
+    .transcript {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 26px;
+      padding: 30px clamp(22px, 3.5vw, 48px) 34px;
+      overflow: auto;
+      scrollbar-color: #2a3340 transparent;
+      scrollbar-width: thin;
+    }
+
+    .entry {
+      position: relative;
+      display: grid;
+      grid-template-columns: 116px minmax(0, 1fr);
+      gap: 20px;
+      padding-left: 15px;
+    }
+
+    .entry::before {
+      position: absolute;
+      inset: 1px auto 1px 0;
+      width: 2px;
+      border-radius: 2px;
+      background: var(--entry-accent, var(--text-faint));
+      content: "";
+    }
+
+    .entry.user { --entry-accent: var(--green); }
+    .entry.runtime { --entry-accent: var(--blue); }
+    .entry.action { --entry-accent: var(--violet); }
+    .entry.system { --entry-accent: #596575; }
+
+    .entry-meta {
+      padding-top: 2px;
+    }
+
+    .entry-role {
+      display: block;
+      color: var(--entry-accent);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .06em;
+    }
+
+    .entry-source {
+      display: block;
+      margin-top: 6px;
+      color: #566372;
+      font-size: 10px;
+      line-height: 1.45;
+    }
+
+    .entry-body {
+      max-width: 760px;
+      color: #d8e0ea;
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.62;
+    }
+
+    .entry.user .entry-body {
+      color: #eef4f8;
+    }
+
+    .action-summary {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      color: #d7dfea;
+    }
+
+    .action-glyph {
+      flex: none;
+      margin-top: 2px;
+      color: var(--violet);
+      font-family: var(--mono);
+      font-weight: 800;
+    }
+
+    .system-event {
+      display: none;
+      margin-top: -4px;
+    }
+
+    .system-event.visible {
+      display: grid;
+    }
+
+    .system-event .entry-body {
+      color: #8995a4;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .status-strip {
+      min-width: 0;
+      height: 0;
+      display: grid;
+      grid-template-columns: auto minmax(0, auto) minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      padding: 0 clamp(22px, 3.5vw, 48px);
+      overflow: hidden;
+      border-left: 3px solid transparent;
+      color: var(--text-soft);
+      opacity: 0;
+      transform: translateY(3px);
+      transition: height 180ms ease, opacity 140ms ease, transform 180ms ease;
+    }
+
+    .status-strip.visible {
+      height: 38px;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .status-strip.working {
+      border-left-color: var(--blue);
+      background: #0f151d;
+    }
+
+    .status-strip.reconnecting {
+      border-left-color: var(--amber);
+      background: #15140f;
+    }
+
+    .status-strip.recovered {
+      border-left-color: var(--green);
+      background: #0f1714;
+    }
+
+    .interaction-route {
+      min-width: 0;
+      height: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 clamp(22px, 3.5vw, 48px);
+      overflow: hidden;
+      border-left: 3px solid transparent;
+      background: #0f151d;
+      opacity: 0;
+      transition: height 180ms ease, opacity 140ms ease;
+    }
+
+    .interaction-route.visible {
+      height: 32px;
+      border-left-color: var(--blue);
+      opacity: 1;
+    }
+
+    .route-node {
+      min-width: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #a9b6c5;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .route-node strong {
+      overflow: hidden;
+      color: #d7e0ea;
+      font-weight: 750;
+      text-overflow: ellipsis;
+    }
+
+    .route-node.runtime strong {
+      color: #a9cfff;
+    }
+
+    .route-node.target strong {
+      color: #c6b5e8;
+    }
+
+    .route-role {
+      color: #586676;
+      font-size: 9px;
+    }
+
+    .route-arrow {
+      flex: none;
+      color: #46515f;
+      font-size: 11px;
+    }
+
+    .route-policy {
+      flex: none;
+      padding: 2px 5px;
+      border: 1px solid #34465b;
+      border-radius: 4px;
+      color: #86a8c7;
+      font-size: 8px;
+      font-weight: 750;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+    }
+
+    .route-state {
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+      color: #8f9eae;
+      font-size: 9px;
+      white-space: nowrap;
+    }
+
+    .route-state::before {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--blue);
+      box-shadow: 0 0 0 3px rgba(121, 184, 255, .1);
+      content: "";
+      animation: route-pulse 1.4s ease-in-out infinite;
+    }
+
+    @keyframes route-pulse {
+      50% { opacity: .4; transform: scale(.82); }
+    }
+
+    .status-icon {
+      width: 14px;
+      height: 14px;
+      display: inline-grid;
+      place-items: center;
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .status-strip.reconnecting .status-icon {
+      color: var(--amber);
+    }
+
+    .status-strip.recovered .status-icon {
+      color: var(--green);
+    }
+
+    .status-icon.spinning::before {
+      width: 10px;
+      height: 10px;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 50%;
+      content: "";
+      animation: spin 900ms linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .status-title {
+      overflow: hidden;
+      color: #e2e8f0;
+      font-size: 12px;
+      font-weight: 800;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .status-detail {
+      min-width: 0;
+      overflow: hidden;
+      color: #7f8d9e;
+      font-size: 11px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .status-detail::before {
+      margin-right: 10px;
+      color: #46515f;
+      content: "·";
+    }
+
+    .status-action {
+      border: 0;
+      color: #8fb9df;
+      background: transparent;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 750;
+    }
+
+    .status-action:hover {
+      color: #b8dcff;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .command-suggestions {
+      display: none;
+      margin: 0 clamp(22px, 3.5vw, 48px);
+      padding: 9px 14px;
+      border-left: 2px solid #3c5872;
+      color: #8da9c1;
+      background: #101720;
+      font-size: 11px;
+      line-height: 1.8;
+    }
+
+    .command-suggestions.visible {
+      display: block;
+    }
+
+    .command-suggestions b {
+      display: inline-block;
+      min-width: 92px;
+      color: #c6d9e9;
+    }
+
+    .composer-wrap {
+      padding: 12px clamp(22px, 3.5vw, 48px) 0;
+    }
+
+    .composer {
+      min-width: 0;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 14px;
+      border-bottom: 1px solid #3d5973;
+      background: var(--terminal-raised);
+      transition: border-color 140ms ease, background 140ms ease;
+    }
+
+    .composer:focus-within {
+      border-bottom-color: var(--focus);
+      background: #131b25;
+    }
+
+    .composer-prompt {
+      flex: none;
+      color: var(--blue);
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    #composerInput {
+      min-width: 0;
+      flex: 1;
+      height: 42px;
+      padding: 0;
+      border: 0;
+      outline: 0;
+      color: #e7edf5;
+      background: transparent;
+      caret-color: var(--blue);
+      font-family: var(--mono);
+      font-size: 14px;
+    }
+
+    #composerInput::placeholder {
+      color: #647283;
+      opacity: 1;
+    }
+
+    .send-hint {
+      flex: none;
+      color: #596675;
+      font-size: 10px;
+    }
+
+    .composer-note {
+      min-height: 20px;
+      padding: 5px 14px 0;
+      color: var(--amber);
+      font-size: 10px;
+      opacity: 0;
+      transition: opacity 140ms ease;
+    }
+
+    .composer-note.visible {
+      opacity: 1;
+    }
+
+    .help-bar {
+      min-width: 0;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 clamp(22px, 3.5vw, 48px);
+      overflow: hidden;
+      color: #505d6c;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .help-bar kbd {
+      padding: 0;
+      color: #697789;
+      background: transparent;
+      font: inherit;
+    }
+
+    .notes-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .note-card {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(251, 250, 247, .76);
+    }
+
+    .note-number {
+      display: inline-grid;
+      width: 22px;
+      height: 22px;
+      place-items: center;
+      margin-bottom: 18px;
+      border: 1px solid #c9c4bb;
+      border-radius: 50%;
+      color: #6e6b65;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .note-card h2,
+    .note-card h3 {
+      margin: 0;
+      font-size: 14px;
+      letter-spacing: -.01em;
+    }
+
+    .note-card p {
+      margin: 7px 0 0;
+      color: #77746e;
+      font-size: 12px;
+      line-height: 1.58;
+    }
+
+    .state-explanation {
+      border-color: #bdb7ae;
+      background: var(--paper);
+    }
+
+    .behavior-list {
+      display: grid;
+      gap: 10px;
+      margin: 14px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .behavior-list li {
+      display: grid;
+      grid-template-columns: 8px 1fr;
+      gap: 9px;
+      color: #706d67;
+      font-size: 11px;
+      line-height: 1.48;
+    }
+
+    .behavior-list li::before {
+      width: 5px;
+      height: 5px;
+      margin-top: 5px;
+      border-radius: 50%;
+      background: #8e969f;
+      content: "";
+    }
+
+    .principle {
+      margin-top: auto;
+      border-color: #b9c2bb;
+      background: #f4f7f3;
+    }
+
+    .principle strong {
+      display: block;
+      color: #3e5147;
+      font-size: 12px;
+    }
+
+    .principle code {
+      color: #51635a;
+      font-family: var(--mono);
+      font-size: 10px;
+    }
+
+    .state-summary {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #dedad2;
+      color: #5f625f;
+      font-family: var(--mono);
+      font-size: 10px;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 1050px) {
+      .spec-header {
+        align-items: start;
+        flex-direction: column;
+      }
+
+      .workbench {
+        grid-template-columns: 1fr;
+      }
+
+      .notes-panel {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .state-explanation,
+      .principle {
+        grid-column: auto;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .page {
+        padding-inline: 12px;
+      }
+
+      .state-controls {
+        width: 100%;
+        overflow-x: auto;
+      }
+
+      .state-button {
+        flex: 1 0 auto;
+      }
+
+      .window-bar {
+        grid-template-columns: 70px 1fr 70px;
+      }
+
+      .preview-label {
+        display: none;
+      }
+
+      .terminal-screen {
+        min-height: 650px;
+      }
+
+      .device-name,
+      .diagnostic-line {
+        display: none;
+      }
+
+      .global-thread {
+        padding-inline: 3px;
+      }
+
+      .global-thread-label {
+        display: none;
+      }
+
+      .edge-overview {
+        top: 52px;
+        right: 10px;
+        width: calc(100% - 20px);
+      }
+
+      .edge-row {
+        grid-template-columns: 10px minmax(88px, auto) minmax(0, 1fr);
+      }
+
+      .edge-state {
+        display: none;
+      }
+
+      .route-role,
+      .route-policy {
+        display: none;
+      }
+
+      .interaction-route {
+        gap: 5px;
+      }
+
+      .entry {
+        grid-template-columns: 1fr;
+        gap: 7px;
+      }
+
+      .entry-source {
+        display: inline;
+        margin: 0 0 0 8px;
+      }
+
+      .status-detail {
+        display: none;
+      }
+
+      .status-strip {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+      }
+
+      .send-hint {
+        display: none;
+      }
+
+      .notes-panel {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: .001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .001ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="spec-header">
+      <div>
+        <p class="eyebrow">OpenHalo · Terminal Edge exploration</p>
+        <h1>对话留下，状态流过。</h1>
+        <p class="intro">
+          一个符合 OpenHalo「conversation-first，但不 chat-centered」理念的低噪声终端方案：
+          Transcript 只承载用户相关记录，连接、执行和跨设备等待在单行状态条中原位更新。
+        </p>
+      </div>
+
+      <div class="state-controls" role="tablist" aria-label="Mockup state selector">
+        <button class="state-button" type="button" role="tab" data-state="connected" aria-selected="false">Connected</button>
+        <button class="state-button" type="button" role="tab" data-state="working" aria-selected="true">Cross-device</button>
+        <button class="state-button" type="button" role="tab" data-state="reconnecting" aria-selected="false">Reconnecting</button>
+        <button class="state-button" type="button" role="tab" data-state="recovered" aria-selected="false">Recovered</button>
+      </div>
+    </header>
+
+    <section class="workbench">
+      <article class="terminal-window" aria-label="OpenHalo Terminal Edge mockup">
+        <div class="window-bar" aria-hidden="true">
+          <div class="traffic-lights">
+            <span class="traffic-light red"></span>
+            <span class="traffic-light yellow"></span>
+            <span class="traffic-light green"></span>
+          </div>
+          <div class="window-title">OpenHalo Terminal Edge</div>
+          <div class="preview-label">Mockup</div>
+        </div>
+
+        <div class="terminal-screen">
+          <header class="halo-header">
+            <div class="brand"><span class="brand-mark"></span>OpenHalo</div>
+            <div class="device-name">MacBook Pro · terminal-edge-1</div>
+            <button class="global-thread" id="edgeOverviewToggle" type="button" aria-expanded="false" aria-controls="edgeOverview">
+              <span class="edge-stack" aria-hidden="true">
+                <span class="edge-stack-dot"></span>
+                <span class="edge-stack-dot"></span>
+                <span class="edge-stack-dot"></span>
+                <span class="edge-stack-dot offline"></span>
+              </span>
+              <span class="global-thread-label">Global thread · 3/4 edges</span>
+              <span aria-hidden="true">⌄</span>
+            </button>
+            <div class="connection-chip" id="connectionChip">● Connected</div>
+          </header>
+
+          <aside class="edge-overview" id="edgeOverview" aria-label="Device Edge overview" aria-hidden="true">
+            <div class="edge-overview-head">
+              <span class="edge-overview-title">参与当前全局会话的设备</span>
+              <span class="edge-overview-note">按需查看 · 非常驻监控</span>
+            </div>
+            <ul class="edge-list">
+              <li class="edge-row current">
+                <span class="edge-health"></span>
+                <span class="edge-label">MacBook Pro</span>
+                <span class="edge-role">当前交互表面 · text.input</span>
+                <span class="edge-state">you are here</span>
+              </li>
+              <li class="edge-row">
+                <span class="edge-health"></span>
+                <span class="edge-label">iPhone</span>
+                <span class="edge-role">通知与确认 · notification.show</span>
+                <span class="edge-state">online</span>
+              </li>
+              <li class="edge-row">
+                <span class="edge-health"></span>
+                <span class="edge-label">Living room</span>
+                <span class="edge-role">环境与家居动作 · air_purifier.*</span>
+                <span class="edge-state">online</span>
+              </li>
+              <li class="edge-row offline">
+                <span class="edge-health"></span>
+                <span class="edge-label">Earbuds</span>
+                <span class="edge-role">低打扰音频表面</span>
+                <span class="edge-state">offline · 12m</span>
+              </li>
+            </ul>
+          </aside>
+
+          <div class="diagnostic-line" aria-label="Edge diagnostics">
+            <span>Personal Runtime</span>
+            <span id="diagnosticConnection">socket=reconnecting</span>
+            <span>activity=active</span>
+            <span>draft=preserved</span>
+          </div>
+
+          <section class="transcript" id="transcript" aria-label="Durable session transcript" aria-live="polite">
+            <article class="entry user">
+              <div class="entry-meta">
+                <span class="entry-role">YOU</span>
+                <span class="entry-source">Terminal · 14:22</span>
+              </div>
+              <div class="entry-body">帮我确认客厅空气净化器是否还开着，如果开着就调到睡眠模式。</div>
+            </article>
+
+            <article class="entry runtime">
+              <div class="entry-meta">
+                <span class="entry-role">OPENHALO</span>
+                <span class="entry-source">Personal Runtime · 14:22</span>
+              </div>
+              <div class="entry-body">净化器当前正在运行。我已通过客厅 Home Edge 将它切换为睡眠模式。</div>
+            </article>
+
+            <article class="entry action">
+              <div class="entry-meta">
+                <span class="entry-role">ACTION</span>
+                <span class="entry-source">living-room-edge · 14:22</span>
+              </div>
+              <div class="entry-body action-summary">
+                <span class="action-glyph">✓</span>
+                <span><strong>air_purifier.set_mode</strong> 已完成 · 模式：sleep · 目标：客厅</span>
+              </div>
+            </article>
+
+            <article class="entry system system-event visible" id="systemEvent">
+              <div class="entry-meta">
+                <span class="entry-role">SYSTEM</span>
+                <span class="entry-source" id="systemEventTime">14:28</span>
+              </div>
+              <div class="entry-body" id="systemEventBody">与 Personal Runtime 的连接已中断。这里只记录一次；后续重试在状态条中原位更新。</div>
+            </article>
+          </section>
+
+          <div class="interaction-route visible" id="interactionRoute" aria-label="Current interaction route">
+            <span class="route-node source"><strong>MacBook</strong><span class="route-role">request</span></span>
+            <span class="route-arrow">→</span>
+            <span class="route-node runtime"><strong>Personal Runtime</strong></span>
+            <span class="route-policy">Presence allowed</span>
+            <span class="route-arrow">→</span>
+            <span class="route-node target"><strong>iPhone</strong><span class="route-role">notification.show</span></span>
+            <span class="route-state">等待确认</span>
+          </div>
+
+          <div class="status-strip" id="statusStrip" role="status" aria-live="polite">
+            <span class="status-icon spinning" id="statusIcon"></span>
+            <span class="status-title" id="statusTitle">正在等待 iPhone</span>
+            <span class="status-detail" id="statusDetail">通知已送达 · 等待用户确认</span>
+            <button class="status-action" id="statusAction" type="button" hidden></button>
+          </div>
+
+          <div class="command-suggestions" id="commandSuggestions" aria-hidden="true">
+            <div><b>/reconnect</b>立即建立新的 Runtime 连接</div>
+            <div><b>/status</b>查看当前 Edge 与 Runtime 状态</div>
+            <div><b>/history</b>显示最近的持久会话记录</div>
+          </div>
+
+          <div class="composer-wrap">
+            <div class="composer">
+              <span class="composer-prompt">›</span>
+              <input id="composerInput" value="hi" autocomplete="off" spellcheck="false" aria-label="Message OpenHalo">
+              <span class="send-hint">Enter ↵</span>
+            </div>
+            <div class="composer-note visible" id="composerNote">Runtime 离线 · Enter 不会发送或清空草稿 · 输入 /reconnect 可立即重试</div>
+          </div>
+
+          <footer class="help-bar">
+            <kbd>↑↓ history</kbd><span>·</span>
+            <kbd>Tab commands</kbd><span>·</span>
+            <kbd>Ctrl+L clear</kbd><span>·</span>
+            <kbd>/help</kbd>
+          </footer>
+        </div>
+      </article>
+
+      <aside class="notes-panel" aria-label="Design rationale">
+        <section class="note-card state-explanation">
+          <span class="note-number">01</span>
+          <h2 id="explanationTitle">重连是瞬时状态，不是对话内容</h2>
+          <p id="explanationBody">只有首次中断进入 Transcript。每次 backoff、倒计时和失败次数都只更新同一条状态，不制造日志瀑布。</p>
+          <div class="state-summary" id="stateSummary">Transcript +1 max<br>Status in-place<br>Draft retained</div>
+        </section>
+
+        <section class="note-card">
+          <span class="note-number">02</span>
+          <h3>三层信息语义</h3>
+          <ul class="behavior-list">
+            <li>Transcript：每条内容保留来源 Edge，不把所有输出伪装成同一聊天端。</li>
+            <li>Route：只在协作发生时展示发起端、治理节点与目标端。</li>
+            <li>Edges：Header 仅显示健康摘要，完整设备角色按需展开。</li>
+          </ul>
+        </section>
+
+        <section class="note-card principle">
+          <span class="note-number">03</span>
+          <strong>OpenHalo product principle</strong>
+          <p>视觉借鉴 CLI 的低噪声，但状态语义保留多设备 Runtime 的独特性。</p>
+          <div class="state-summary"><code>device → context → presence → action</code></div>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const stateConfig = {
+      connected: {
+        chip: "● Connected",
+        chipClass: "",
+        diagnostic: "socket=connected · 42ms",
+        stripClass: "",
+        stripVisible: false,
+        icon: "",
+        spinning: false,
+        title: "",
+        detail: "",
+        action: "",
+        systemVisible: false,
+        systemText: "",
+        composerNote: "",
+        explanationTitle: "稳定状态保持安静",
+        explanationBody: "连接健康时不需要一个常驻的“Ready”面板。Header 已足够表达可用性，空出的空间归还给跨设备会话。",
+        summary: "No idle panel<br>Global thread: 3/4 edges<br>Device overview on demand",
+        routeVisible: false
+      },
+      working: {
+        chip: "● Connected",
+        chipClass: "",
+        diagnostic: "socket=connected · 46ms",
+        stripClass: "",
+        stripVisible: false,
+        icon: "",
+        spinning: false,
+        title: "",
+        detail: "",
+        action: "",
+        systemVisible: false,
+        systemText: "",
+        composerNote: "",
+        explanationTitle: "当前路径比静态设备列表更能体现协作",
+        explanationBody: "只有发生跨设备动作时，才展示 MacBook → Runtime / Presence → iPhone。用户能看到发起、治理和执行关系，结束后路径自动消失。",
+        summary: "MacBook → Runtime → iPhone<br>Presence allowed<br>Device roles stay explicit",
+        routeVisible: true
+      },
+      reconnecting: {
+        chip: "↻ Reconnecting",
+        chipClass: "reconnecting",
+        diagnostic: "socket=reconnecting",
+        stripClass: "reconnecting",
+        stripVisible: true,
+        icon: "",
+        spinning: true,
+        title: "Runtime 连接中断",
+        detail: "第 3 次重试 · 12 秒后继续 · 草稿已保留",
+        action: "/reconnect",
+        systemVisible: true,
+        systemTime: "14:28",
+        systemText: "与 Personal Runtime 的连接已中断。这里只记录一次；后续重试在状态条中原位更新。",
+        composerNote: "Runtime 离线 · Enter 不会发送或清空草稿 · 输入 /reconnect 可立即重试",
+        explanationTitle: "重连是瞬时状态，不是对话内容",
+        explanationBody: "只有首次中断进入 Transcript。每次 backoff、倒计时和失败次数都只更新同一条状态，不制造日志瀑布。",
+        summary: "Transcript +1 max<br>Status in-place<br>Draft retained",
+        routeVisible: false
+      },
+      recovered: {
+        chip: "● Connected",
+        chipClass: "",
+        diagnostic: "socket=connected · 51ms",
+        stripClass: "recovered",
+        stripVisible: true,
+        icon: "✓",
+        spinning: false,
+        title: "Runtime 连接已恢复",
+        detail: "中断 18 秒 · 在途请求未自动重放",
+        action: "",
+        systemVisible: true,
+        systemTime: "14:29",
+        systemText: "与 Personal Runtime 的连接已恢复 · 中断 18 秒 · 未自动重放可能已执行的请求。",
+        composerNote: "",
+        explanationTitle: "恢复被记录为一次有意义的状态转折",
+        explanationBody: "恢复后可短暂显示确认，再自动收起。Transcript 只留下一个可追溯的生命周期事件，而不是完整 socket 日志。",
+        summary: "One recovery event<br>No request replay<br>Status auto-dismisses",
+        routeVisible: false
+      }
+    };
+
+    const buttons = [...document.querySelectorAll(".state-button")];
+    const chip = document.querySelector("#connectionChip");
+    const diagnostic = document.querySelector("#diagnosticConnection");
+    const interactionRoute = document.querySelector("#interactionRoute");
+    const edgeOverviewToggle = document.querySelector("#edgeOverviewToggle");
+    const edgeOverview = document.querySelector("#edgeOverview");
+    const statusStrip = document.querySelector("#statusStrip");
+    const statusIcon = document.querySelector("#statusIcon");
+    const statusTitle = document.querySelector("#statusTitle");
+    const statusDetail = document.querySelector("#statusDetail");
+    const statusAction = document.querySelector("#statusAction");
+    const systemEvent = document.querySelector("#systemEvent");
+    const systemEventTime = document.querySelector("#systemEventTime");
+    const systemEventBody = document.querySelector("#systemEventBody");
+    const composer = document.querySelector("#composerInput");
+    const composerNote = document.querySelector("#composerNote");
+    const commandSuggestions = document.querySelector("#commandSuggestions");
+    const explanationTitle = document.querySelector("#explanationTitle");
+    const explanationBody = document.querySelector("#explanationBody");
+    const stateSummary = document.querySelector("#stateSummary");
+
+    let activeState = "reconnecting";
+
+    function applyState(name) {
+      const state = stateConfig[name];
+      activeState = name;
+
+      buttons.forEach((button) => {
+        button.setAttribute("aria-selected", String(button.dataset.state === name));
+      });
+
+      chip.textContent = state.chip;
+      chip.className = `connection-chip ${state.chipClass}`.trim();
+      diagnostic.textContent = state.diagnostic;
+      interactionRoute.classList.toggle("visible", Boolean(state.routeVisible));
+      interactionRoute.setAttribute("aria-hidden", String(!state.routeVisible));
+
+      statusStrip.className = `status-strip ${state.stripClass} ${state.stripVisible ? "visible" : ""}`.trim();
+      statusStrip.setAttribute("aria-hidden", String(!state.stripVisible));
+      statusIcon.textContent = state.icon;
+      statusIcon.className = `status-icon ${state.spinning ? "spinning" : ""}`.trim();
+      statusTitle.textContent = state.title;
+      statusDetail.textContent = state.detail;
+      statusAction.textContent = state.action;
+      statusAction.hidden = !state.action;
+
+      systemEvent.classList.toggle("visible", state.systemVisible);
+      systemEventBody.textContent = state.systemText;
+      systemEventTime.textContent = state.systemTime || "";
+
+      composerNote.textContent = state.composerNote;
+      composerNote.classList.toggle("visible", Boolean(state.composerNote));
+
+      explanationTitle.textContent = state.explanationTitle;
+      explanationBody.textContent = state.explanationBody;
+      stateSummary.innerHTML = state.summary;
+
+      updateSuggestions();
+    }
+
+    function updateSuggestions() {
+      const show = composer.value.trim().startsWith("/");
+      commandSuggestions.classList.toggle("visible", show);
+      commandSuggestions.setAttribute("aria-hidden", String(!show));
+    }
+
+    buttons.forEach((button) => {
+      button.addEventListener("click", () => applyState(button.dataset.state));
+    });
+
+    function setEdgeOverview(open) {
+      edgeOverview.classList.toggle("visible", open);
+      edgeOverview.setAttribute("aria-hidden", String(!open));
+      edgeOverviewToggle.setAttribute("aria-expanded", String(open));
+    }
+
+    edgeOverviewToggle.addEventListener("click", () => {
+      setEdgeOverview(edgeOverviewToggle.getAttribute("aria-expanded") !== "true");
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!edgeOverview.contains(event.target) && !edgeOverviewToggle.contains(event.target)) {
+        setEdgeOverview(false);
+      }
+    });
+
+    composer.addEventListener("input", updateSuggestions);
+    composer.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+
+      const value = composer.value.trim();
+      if (!value) return;
+
+      if (value === "/reconnect") {
+        applyState("reconnecting");
+        return;
+      }
+
+      if (activeState === "reconnecting") {
+        composerNote.classList.add("visible");
+        return;
+      }
+
+      applyState("working");
+    });
+
+    statusAction.addEventListener("click", () => {
+      composer.value = "/reconnect";
+      composer.focus();
+      updateSuggestions();
+    });
+
+    applyState("working");
+  </script>
+</body>
+</html>
