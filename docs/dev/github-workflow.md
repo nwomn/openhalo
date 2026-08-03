@@ -50,9 +50,21 @@ Use the repository `docs/` directory for durable design, API, operations, and
 developer knowledge. Use GitHub Discussions only for alternatives that have not
 yet become project decisions.
 
+## Automation boundary
+
+The Project currently enables `Auto-add sub-issues to project`, which keeps
+the M17 hierarchy visible when child tasks are created. Other built-in rules,
+such as pull-request-linked, pull-request-merged, and issue-closed status
+changes, remain manual until they are explicitly enabled in the Project
+`Workflows` UI. The GitHub CLI/API does not expose their configuration as a
+repository file, so the repository must not claim those transitions are
+automatic unless the Project UI confirms them.
+
 ## Current roadmap seed
 
-The Project contains the active execution route from `Project.md` as planning
-items for `M17.8`, `M17.9`, `M17.10`, `M18`, `M19`, `M20.1`, `M21`, `M22`, and
-`M23`. The corresponding repository Milestones are also created so real Issues
-can be attached when each slice is opened for implementation.
+The Project contains an `M17` parent Issue with child Issues for `M17.8`,
+`M17.9`, and `M17.10`. `M19` is a closed historical Milestone. Later route
+entries `M18`, `M20.1`, `M21`, `M22`, and `M23` remain planning items
+until their implementation is ready. Repository Milestones mirror these
+delivery boundaries; implementation tasks are sub-issues under the active child
+milestone rather than new milestone numbers.
