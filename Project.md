@@ -12,6 +12,7 @@ detail documents only when the task needs their evidence or design depth.
 | Parent milestone | `M17` Multi-edge interaction expansion ([parent Issue](https://github.com/nwomn/openhalo/issues/2)) |
 | Next route | `M17.8` -> `M17.9` -> `M17.10` -> broader `M18` -> `M20.1` -> `M21` -> `M22` -> `M23` |
 | Accepted baseline | `M17.0` through `M17.7.2`, `M18.1`, `M4.1`, `M19`, `M20`, `M20.2`, and `M20.3` |
+| Accepted cross-cutting slice | Hosted Coding Bridge adapter ([#14](https://github.com/nwomn/openhalo/issues/14)); parent/design tracked by [#10](https://github.com/nwomn/openhalo/issues/10) and [#11](https://github.com/nwomn/openhalo/issues/11) |
 | Goal status | Goals 1-3 completed; Goal 4 runtime execution in progress; Goal 5 productization in progress; Goal 6 future research |
 | Execution source | [OpenHalo Development GitHub Project](https://github.com/users/nwomn/projects/1) |
 
@@ -311,6 +312,7 @@ Current milestone groups:
 - `M17.8`-`M17.10`: current Device Edge expansion under parent Issue `M17`.
 - `M18`-`M19`: observation understanding and bounded storage; `M18.1` and `M19` accepted, broader `M18` remains on the active route.
 - `M20`-`M20.3`: Harness, action governance, progress presentation, and stable Terminal Edge; accepted baseline.
+- Hosted Coding Bridge adapter ([#14](https://github.com/nwomn/openhalo/issues/14)): accepted cross-cutting Terminal Edge capability; it does not create a new milestone or alter the active `M17.8` route.
 - `M20.1`, `M21`, `M22`, `M23`: later procedural-memory, policy-learning, productization, and ecosystem-bridge route.
 
 Goal-level acceptance rules:
@@ -393,6 +395,7 @@ Accepted implementation baseline:
 - `M20`: Hermes Agent Harness and governed action loop.
 - `M20.2`: Runtime-owned interaction progress lifecycle and Android progress presentation.
 - `M20.3`: stable independent Terminal Edge and user-facing receipt/progress surface.
+- Hosted Coding Bridge adapter ([#14](https://github.com/nwomn/openhalo/issues/14)): managed Codex App Server lifecycle, bounded coding attention/steering, local approvals, and existing P-256/session preservation; accepted 2026-08-04.
 
 The detailed archive is historical evidence, not a second current-status source. Update the current summary and route here when a milestone changes status.
 
@@ -428,6 +431,7 @@ The project is in the post-M16 multi-edge and productization expansion phase.
 - `M18.1` is accepted; mobile observation evidence now enters the compact snapshot decision space with freshness-aware handling.
 - `M19` is accepted; SQLite-backed bounded persistence, retention, diagnostics rotation, migration, and owner-runtime acceptance are documented in the [M19 operational archive](/root/openhalo/docs/history/m19-operational-status.md).
 - `M20`, `M20.2`, and `M20.3` are accepted; their detailed Harness, progress, Terminal, Android, and human-acceptance evidence remains in the [completed progress archive](/root/openhalo/docs/history/project-completed-progress.md).
+- Hosted Coding Bridge adapter ([#14](https://github.com/nwomn/openhalo/issues/14)) is accepted; the separate Runtime receipt-timing follow-up remains outside this closeout.
 - `M22` productization remains an active Goal 5 direction; packaging, update, pairing, and three-end deployment details must be checked against the latest implementation documents and Issues.
 
 ### Next execution route
