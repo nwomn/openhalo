@@ -418,6 +418,7 @@ The project is in the post-M16 multi-edge and productization expansion phase.
 - The runtime path remains `event -> compact snapshot -> grounding bundle -> prompt/context package -> model-backed proposal formation -> Presence Router -> execution planning/action`.
 - Cross-boundary traffic must continue through `Edge Session Link <-> Gateway`.
 - Presence remains an explicit, inspectable governance layer inside `Agent Runtime`.
+- 2026-08-03 Coding Agent Bridge direction: the Codex-first bridge is a cross-cutting capability inside the existing Terminal Edge, not a new Device Edge identity or coding-specific Runtime lifecycle. Terminal Edge owns local App Server observation, bounded evidence, and confirmed turn steering; broader M18 owns attention admission, sealed `experience_discovery`, Interaction Pool registration, Presence, and proposal governance; M20.1 remains the later owner of governed Skill drafts. The delivery is tracked under [#10](https://github.com/nwomn/openhalo/issues/10) with design child [#11](https://github.com/nwomn/openhalo/issues/11), and does not alter the active `M17.8 -> M17.9 -> M17.10` route.
 - Detailed architecture and milestone evidence are loaded from linked documents rather than repeated in this baseline.
 
 ### Current acceptance anchors
