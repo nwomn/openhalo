@@ -842,7 +842,7 @@ class TerminalEdgeTuiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             coding_names,
             {
-                "coding.attention",
+                "coding.activity",
                 "coding.turn.start",
                 "coding.suggestion.offer",
                 "coding.turn.steer",

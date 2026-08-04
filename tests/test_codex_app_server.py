@@ -132,6 +132,27 @@ class CodexAppServerClientTests(unittest.IsolatedAsyncioTestCase):
             await request_task
         self.assertEqual(client.state, "disconnected")
 
+    async def test_interrupt_targets_exact_thread_and_turn(self) -> None:
+        transport = FakeJsonlTransport()
+        client = CodexAppServerClient(transport=transport)
+        start_task = asyncio.create_task(client.start())
+        await asyncio.sleep(0)
+        await transport.push({"id": transport.sent[0]["id"], "result": {}})
+        await start_task
+
+        interrupt_task = asyncio.create_task(
+            client.interrupt(thread_id="thread-7", turn_id="turn-9")
+        )
+        await asyncio.sleep(0)
+        request = transport.sent[2]
+        self.assertEqual(request["method"], "turn/interrupt")
+        self.assertEqual(
+            request["params"], {"threadId": "thread-7", "turnId": "turn-9"}
+        )
+        await transport.push({"id": request["id"], "result": {}})
+        await interrupt_task
+        await client.close()
+
 
 if __name__ == "__main__":
     unittest.main()

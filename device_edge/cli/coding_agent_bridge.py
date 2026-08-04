@@ -16,10 +16,11 @@ from typing import Any
 from device_edge.cli.codex_app_server import CodexAppServerClient
 
 
-CODING_ATTENTION_SCHEMA = {
+CODING_ACTIVITY_SCHEMA = {
     "type": "object",
     "required": [
         "agent",
+        "interaction_id",
         "agent_session_id",
         "agent_turn_id",
         "event_kind",
@@ -34,6 +35,7 @@ CODING_ATTENTION_SCHEMA = {
     "additionalProperties": False,
     "properties": {
         "agent": {"type": "string", "enum": ["codex"]},
+        "interaction_id": {"type": "string", "minLength": 1},
         "agent_session_id": {"type": "string", "minLength": 1},
         "agent_turn_id": {"type": "string", "minLength": 1},
         "event_kind": {
@@ -41,6 +43,10 @@ CODING_ATTENTION_SCHEMA = {
             "enum": [
                 "session_started",
                 "prompt_submitted",
+                "reasoning_summary",
+                "plan_update",
+                "agent_message",
+                "command_execution",
                 "tool_activity",
                 "file_change",
                 "test_result",
@@ -48,6 +54,8 @@ CODING_ATTENTION_SCHEMA = {
                 "turn_completed",
                 "turn_failed",
                 "approval_waiting",
+                "approval_resolved",
+                "turn_interrupted",
             ],
         },
         "phase": {"type": "string", "minLength": 1},
@@ -55,10 +63,12 @@ CODING_ATTENTION_SCHEMA = {
         "confidence": {"type": "number", "minimum": 0, "maximum": 1},
         "causal_parent": {"type": "string", "minLength": 1},
         "workspace_ref": {"type": "string", "minLength": 1},
-        "summary": {"type": "string", "maxLength": 512},
+        "summary": {"type": "string", "maxLength": 4096},
         "evidence_ref": {"type": "string", "maxLength": 256},
     },
 }
+
+CODING_ATTENTION_SCHEMA = CODING_ACTIVITY_SCHEMA
 
 
 def _action_registration(
@@ -84,14 +94,14 @@ def _action_registration(
 
 CODING_CAPABILITY_REGISTRATIONS = (
     {
-        "name": "coding.attention",
+        "name": "coding.activity",
         "direction": "edge_to_runtime",
         "kind": "observation_provider",
         "observations": [
             {
-                "name": "coding.attention.v1",
-                "schema": CODING_ATTENTION_SCHEMA,
-                "semantics": ["coding_agent_activity", "bounded_attention_candidate"],
+                "name": "coding.activity.v1",
+                "schema": CODING_ACTIVITY_SCHEMA,
+                "semantics": ["coding_agent_activity", "ordinary_observation"],
                 "privacy": "local_coding_metadata",
                 "freshness_seconds": 30,
                 "confidence": {"type": "bridge_normalized"},
@@ -195,11 +205,20 @@ def validate_coding_action_payload(capability: str, payload: object) -> dict:
     return payload
 
 
+def _truncate_utf8(value: str, max_bytes: int) -> str:
+    encoded = value.encode("utf-8", errors="replace")
+    if len(encoded) <= max_bytes:
+        return value
+    return encoded[:max_bytes].decode("utf-8", errors="ignore")
+
+
 @dataclass
 class _TaskState:
     interaction_id: str
     thread_id: str
     turn_id: str
+    status: str = "active"
+    terminal_event_kind: str | None = None
     evidence_sequence: int = 0
 
 
@@ -229,15 +248,19 @@ class _CoalescedDelta:
     count: int = 0
     byte_count: int = 0
     item_type: str = "unknown"
+    preview: str = ""
     flush_task: asyncio.Task | None = None
 
 
 class CodingAgentBridge:
     coalesce_window_s = 0.5
     evidence_task_limit = 32
-    evidence_entry_limit = 64
+    # Evidence metadata is independently byte-bounded; it is not an activity
+    # history window and must not silently impose a 64-event task limit.
+    evidence_entry_limit: int | None = None
     evidence_entry_bytes = 4096
     evidence_task_bytes = 256 * 1024
+    active_task_limit = 32
 
     def __init__(
         self,
@@ -306,6 +329,11 @@ class CodingAgentBridge:
             raise ValueError("Coding turn requires interaction_id and task.")
         if workspace_ref != self.workspace_ref:
             raise ValueError("Coding turn workspace does not match this Terminal Edge.")
+        existing = self.tasks.get(interaction_id)
+        if existing is not None and existing.status == "active":
+            raise ValueError("Coding interaction already has an active turn.")
+        if sum(task.status == "active" for task in self.tasks.values()) >= self.active_task_limit:
+            raise RuntimeError("The active Coding task limit has been reached.")
         thread = await self.client.start_thread(cwd=self.workspace_path)
         thread_id = thread["id"]
         turn = await self.client.start_turn(
@@ -451,6 +479,69 @@ class CodingAgentBridge:
             "agent_turn_id": agent_turn_id,
         }
 
+    async def foreground_steer(
+        self,
+        *,
+        interaction_id: str,
+        instruction: str,
+    ) -> dict:
+        """Send explicit foreground composer input to one selected active task."""
+
+        task_state = self.tasks.get(interaction_id)
+        if task_state is None or task_state.status != "active":
+            raise ValueError("Coding input requires an explicitly selected active task.")
+        instruction = instruction.strip()
+        if not instruction:
+            raise ValueError("Coding correction must not be empty.")
+        if len(instruction) > 12000:
+            raise ValueError("Coding correction is limited to 12000 characters.")
+        self._emit_observation(
+            self._build_observation(
+                task_state,
+                event_kind="user_correction",
+                phase="in_progress",
+                summary=instruction,
+                evidence_metadata={"correction_length": len(instruction)},
+            )
+        )
+        await self.client.steer(
+            thread_id=task_state.thread_id,
+            expected_turn_id=task_state.turn_id,
+            text=instruction,
+        )
+        return {
+            "status": "ok",
+            "agent": "codex",
+            "agent_session_id": task_state.thread_id,
+            "agent_turn_id": task_state.turn_id,
+        }
+
+    async def interrupt(self, *, interaction_id: str) -> dict:
+        task_state = self.tasks.get(interaction_id)
+        if task_state is None or task_state.status != "active":
+            raise ValueError("Coding interrupt requires an explicitly selected active task.")
+        await self.client.interrupt(
+            thread_id=task_state.thread_id,
+            turn_id=task_state.turn_id,
+        )
+        task_state.status = "completed"
+        task_state.terminal_event_kind = "turn_interrupted"
+        self._emit_observation(
+            self._build_observation(
+                task_state,
+                event_kind="turn_interrupted",
+                phase="interrupted",
+                summary="User interrupted the Codex turn.",
+                evidence_metadata={},
+            )
+        )
+        return {
+            "status": "ok",
+            "agent": "codex",
+            "agent_session_id": task_state.thread_id,
+            "agent_turn_id": task_state.turn_id,
+        }
+
     def handle_notification(self, message: dict) -> None:
         method = message.get("method")
         params = message.get("params")
@@ -497,8 +588,16 @@ class CodingAgentBridge:
         if method == "turn/completed":
             turn = params.get("turn")
             status = turn.get("status") if isinstance(turn, dict) else params.get("status")
-            event_kind = "turn_completed" if status == "completed" else "turn_failed"
-            phase = "completed" if event_kind == "turn_completed" else "failed"
+            if status == "completed":
+                event_kind, phase = "turn_completed", "completed"
+            elif status == "interrupted":
+                event_kind, phase = "turn_interrupted", "interrupted"
+            else:
+                event_kind, phase = "turn_failed", "failed"
+            if task_state.terminal_event_kind == event_kind:
+                return
+            task_state.status = "completed"
+            task_state.terminal_event_kind = event_kind
             self._emit_observation(
                 self._build_observation(
                     task_state,
@@ -507,9 +606,33 @@ class CodingAgentBridge:
                     summary=(
                         "Codex turn completed."
                         if event_kind == "turn_completed"
+                        else "User interrupted the Codex turn."
+                        if event_kind == "turn_interrupted"
                         else "Codex turn failed."
                     ),
                     evidence_metadata={"status": status or "unknown"},
+                )
+            )
+            return
+        if method == "turn/plan/updated":
+            plan = params.get("plan")
+            steps = plan if isinstance(plan, list) else []
+            lines = []
+            for step in steps[:32]:
+                if not isinstance(step, dict):
+                    continue
+                text = step.get("step") or step.get("text")
+                if isinstance(text, str) and text.strip():
+                    lines.append(f"[{step.get('status', 'pending')}] {text.strip()}")
+            if len(steps) > 32:
+                lines.append("[… plan truncated after 32 items]")
+            self._emit_observation(
+                self._build_observation(
+                    task_state,
+                    event_kind="plan_update",
+                    phase="in_progress",
+                    summary="\n".join(lines)[:4096] or "Codex plan updated.",
+                    evidence_metadata={"step_count": len(steps), "truncated": len(steps) > 32},
                 )
             )
             return
@@ -563,6 +686,17 @@ class CodingAgentBridge:
             "item/fileChange/requestApproval": "file_change",
             "item/permissions/requestApproval": "permissions",
         }[method]
+        task_state = self._task_by_thread.get(str(params.get("threadId")))
+        if task_state is not None:
+            self._emit_observation(
+                self._build_observation(
+                    task_state,
+                    event_kind="approval_waiting",
+                    phase="awaiting_approval",
+                    summary=f"Codex requests {kind} approval.",
+                    evidence_metadata={"kind": kind},
+                )
+            )
         self._emit_prompt(
             {
                 "kind": kind,
@@ -576,6 +710,17 @@ class CodingAgentBridge:
         )
         decision = await future
         self._approvals.pop(prompt_id, None)
+        task_state = self._task_by_thread.get(str(params.get("threadId")))
+        if task_state is not None:
+            self._emit_observation(
+                self._build_observation(
+                    task_state,
+                    event_kind="approval_resolved",
+                    phase="in_progress",
+                    summary=f"Codex {kind} approval {decision}.",
+                    evidence_metadata={"decision": decision, "kind": kind},
+                )
+            )
         return self._approval_result(state, decision)
 
     def resolve_approval(self, prompt_id: str, decision: str) -> None:
@@ -610,6 +755,7 @@ class CodingAgentBridge:
         self._record_evidence(task_state, evidence_ref, event_kind, evidence_metadata)
         value = {
             "agent": "codex",
+            "interaction_id": task_state.interaction_id,
             "agent_session_id": task_state.thread_id,
             "agent_turn_id": task_state.turn_id,
             "event_kind": event_kind,
@@ -618,11 +764,11 @@ class CodingAgentBridge:
             "confidence": 1.0,
             "causal_parent": f"{task_state.thread_id}:{task_state.turn_id}",
             "workspace_ref": self.workspace_ref,
-            "summary": summary[:512],
+            "summary": _truncate_utf8(summary, 4096),
             "evidence_ref": evidence_ref,
         }
         return {
-            "name": "coding.attention.v1",
+            "name": "coding.activity.v1",
             "value": value,
             "observed_at": value["observed_at"],
             "confidence": 1.0,
@@ -650,9 +796,11 @@ class CodingAgentBridge:
             self._evidence_bytes.get(task_state.interaction_id, 0) + len(serialized)
         )
         while (
-            len(entries) > self.evidence_entry_limit
-            or self._evidence_bytes[task_state.interaction_id]
-            > self.evidence_task_bytes
+            (
+                self.evidence_entry_limit is not None
+                and len(entries) > self.evidence_entry_limit
+            )
+            or self._evidence_bytes[task_state.interaction_id] > self.evidence_task_bytes
         ):
             removed = entries.popleft()
             self._evidence_bytes[task_state.interaction_id] = max(
@@ -700,6 +848,8 @@ class CodingAgentBridge:
         raw = params.get("delta")
         if isinstance(raw, str):
             delta.byte_count += len(raw.encode(errors="replace"))
+            if event_kind in {"reasoning_summary", "agent_message"} and not delta.preview:
+                delta.preview = raw[:4096]
         item = params.get("item")
         if isinstance(item, dict) and isinstance(item.get("type"), str):
             delta.item_type = item["type"]
@@ -718,7 +868,9 @@ class CodingAgentBridge:
                 event_kind=delta.event_kind,
                 phase="in_progress",
                 summary=(
-                    f"Codex {delta.item_type} activity coalesced "
+                    delta.preview
+                    if delta.preview
+                    else f"Codex {delta.item_type} activity coalesced "
                     f"({delta.count} updates, {delta.byte_count} bytes)."
                 ),
                 evidence_metadata={
@@ -731,6 +883,24 @@ class CodingAgentBridge:
 
     @staticmethod
     def _event_kind_for_notification(method: str, params: dict) -> str | None:
+        if method.startswith("item/reasoning/summary"):
+            return "reasoning_summary"
+        if method.startswith("item/agentMessage/"):
+            return "agent_message"
+        item = params.get("item")
+        item_type = item.get("type") if isinstance(item, dict) else None
+        if method.startswith("item/") and item_type in {
+            "commandExecution",
+            "command_execution",
+        }:
+            command = params.get("command")
+            if not isinstance(command, str) and isinstance(item, dict):
+                command = item.get("command")
+            return "test_result" if "test" in str(command or "").lower() else "command_execution"
+        if method.startswith("item/") and item_type in {"fileChange", "file_change"}:
+            return "file_change"
+        if method.startswith("item/") and item_type in {"agentMessage", "agent_message"}:
+            return "agent_message"
         if method in {
             "item/commandExecution/requestApproval",
             "item/fileChange/requestApproval",
@@ -743,7 +913,7 @@ class CodingAgentBridge:
             return (
                 "test_result"
                 if "test" in str(params.get("command", "")).lower()
-                else "tool_activity"
+                else "command_execution"
             )
         if method.startswith("item/") and "test" in str(params.get("item", "")).lower():
             return "test_result"
@@ -755,9 +925,38 @@ class CodingAgentBridge:
     def _bounded_summary(method: str, params: dict, event_kind: str) -> str:
         item = params.get("item")
         item_type = item.get("type") if isinstance(item, dict) else None
+        if event_kind in {"reasoning_summary", "agent_message"}:
+            text = params.get("delta") or params.get("summary") or params.get("summaryText")
+            if not isinstance(text, str) and isinstance(item, dict):
+                text = item.get("text") or item.get("summary")
+            if isinstance(text, str) and text.strip():
+                return text.strip()[:4096]
+        if event_kind in {"command_execution", "test_result"}:
+            command = params.get("command")
+            if not isinstance(command, str) and isinstance(item, dict):
+                command = item.get("command")
+            status = item.get("status") if isinstance(item, dict) else params.get("status")
+            if isinstance(command, str) and command:
+                return f"{command[:3584]} · {status or 'updated'}"[:4096]
+        if event_kind == "file_change" and isinstance(item, dict):
+            paths = item.get("paths") or item.get("files") or item.get("changes")
+            if isinstance(paths, list):
+                rendered = [
+                    str(path.get("path", path))[:256]
+                    if isinstance(path, dict)
+                    else str(path)[:256]
+                    for path in paths[:32]
+                ]
+                if len(paths) > 32:
+                    rendered.append("[… file list truncated after 32 items]")
+                if rendered:
+                    return "Files: " + ", ".join(rendered)
+            path = item.get("path")
+            if isinstance(path, str) and path:
+                return f"File changed: {path[:4090]}"
         if item_type:
-            return f"Codex {event_kind.replace('_', ' ')}: {item_type}."[:512]
-        return f"Codex {event_kind.replace('_', ' ')} ({method})."[:512]
+            return f"Codex {event_kind.replace('_', ' ')}: {item_type}."[:4096]
+        return f"Codex {event_kind.replace('_', ' ')} ({method})."[:4096]
 
     @staticmethod
     def _local_approval_detail(method: str, params: dict) -> str:

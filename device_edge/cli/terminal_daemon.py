@@ -10,7 +10,8 @@ import json
 import os
 import sys
 import io
-from queue import Empty
+import sqlite3
+from queue import Empty, Queue
 from datetime import datetime
 from datetime import timezone
 from pathlib import Path
@@ -26,6 +27,7 @@ from device_edge.shared.session_client import SessionClient
 from device_edge.cli.coding_agent_bridge import CODING_CAPABILITY_REGISTRATIONS
 from device_edge.cli.coding_agent_bridge import CodingAgentBridge
 from device_edge.cli.coding_agent_bridge import validate_coding_action_payload
+from device_edge.cli.coding_activity import CodingActivityJournal
 from device_edge.cli.codex_app_server import CodexAppServerClient
 from edge_api.endpoint import validate_runtime_endpoint
 from device_edge.cli.presentation import PresentationState
@@ -42,6 +44,11 @@ from openhalo_common.diagnostics import correlation_from_frame
 def terminal_supports_textual_fullscreen() -> bool:
     term = os.environ.get("TERM", "").strip().lower()
     return term not in {"", "dumb"}
+
+
+def build_coding_activity_path(home: str | Path | None, device_id: str) -> Path:
+    root = Path(home or os.environ.get("OPENHALO_HOME", Path.home() / ".openhalo"))
+    return root.expanduser().resolve() / "terminal" / device_id / "coding-activity.sqlite3"
 
 
 class TerminalEdgeDaemon:
@@ -74,6 +81,7 @@ class TerminalEdgeDaemon:
         diagnostic_recorder=None,
         coding_enabled: bool = False,
         coding_workspace: str | Path | None = None,
+        coding_activity_path: str | Path | None = None,
         coding_bridge: CodingAgentBridge | None = None,
     ) -> None:
         validate_runtime_endpoint(audience)
@@ -97,8 +105,15 @@ class TerminalEdgeDaemon:
         self.coding_workspace = str(
             Path(coding_workspace or Path.cwd()).expanduser().resolve()
         )
+        self.coding_activity_journal = (
+            CodingActivityJournal(coding_activity_path)
+            if coding_activity_path is not None
+            else None
+        )
+        self.coding_activity_storage_error: str | None = None
         self.coding_observations: deque[dict] = deque(maxlen=256)
         self.coding_observation_event: asyncio.Event | None = None
+        self.coding_control_queue: Queue[dict] = Queue()
         self.pending_coding_prompts: dict[str, dict] = {}
         self.pending_coding_action_frames: dict[str, dict] = {}
         self.local_action_results: deque[dict] = deque(maxlen=64)
@@ -175,9 +190,35 @@ class TerminalEdgeDaemon:
         return registrations
 
     def _receive_coding_observation(self, observation: dict) -> None:
+        if self.coding_activity_journal is not None:
+            try:
+                self.coding_activity_journal.append(observation)
+                if observation.get("value", {}).get("event_kind") in {
+                    "turn_completed",
+                    "turn_failed",
+                    "turn_interrupted",
+                }:
+                    self.coding_activity_journal.prune_completed()
+            except (OSError, RuntimeError, ValueError, sqlite3.Error) as exc:
+                self.coding_activity_storage_error = str(exc)
         self.coding_observations.append(observation)
         if self.coding_observation_event is not None:
             self.coding_observation_event.set()
+
+    def queue_coding_control(
+        self,
+        kind: str,
+        *,
+        interaction_id: str,
+        text: str = "",
+    ) -> None:
+        if kind not in {"steer", "interrupt"}:
+            raise ValueError("Unsupported foreground Coding control.")
+        if not interaction_id:
+            raise ValueError("Foreground Coding control requires a selected task.")
+        self.coding_control_queue.put(
+            {"kind": kind, "interaction_id": interaction_id, "text": text}
+        )
 
     def _receive_coding_prompt(self, prompt: dict) -> None:
         prompt_id = prompt.get("prompt_id")
@@ -321,13 +362,48 @@ class TerminalEdgeDaemon:
             await self.coding_observation_event.wait()
             self.coding_observation_event.clear()
 
+    async def _wait_for_coding_control(self) -> None:
+        while self.coding_control_queue.empty():
+            await asyncio.sleep(0.05)
+
+    async def _flush_coding_controls(self) -> None:
+        if self.coding_bridge is None:
+            while True:
+                try:
+                    self.coding_control_queue.get_nowait()
+                except Empty:
+                    return
+        while True:
+            try:
+                control = self.coding_control_queue.get_nowait()
+            except Empty:
+                return
+            try:
+                if control["kind"] == "steer":
+                    await self.coding_bridge.foreground_steer(
+                        interaction_id=control["interaction_id"],
+                        instruction=control["text"],
+                    )
+                    self.render_status_line(
+                        f"Coding correction sent to {control['interaction_id']}."
+                    )
+                else:
+                    await self.coding_bridge.interrupt(
+                        interaction_id=control["interaction_id"]
+                    )
+                    self.render_status_line(
+                        f"Coding turn interrupted: {control['interaction_id']}."
+                    )
+            except (ConnectionError, RuntimeError, ValueError) as exc:
+                self.render_status_line(f"Coding control failed: {exc}")
+
     def _drain_coding_observation_frames(self) -> list[dict]:
         frames = []
         while self.coding_observations:
             observation = self.coding_observations.popleft()
             frames.append(
                 self.client.build_observation_event(
-                    capability="coding.attention",
+                    capability="coding.activity",
                     observations=[observation],
                 )
             )
@@ -469,8 +545,64 @@ class TerminalEdgeDaemon:
     def render_help(self) -> None:
         self.render_status_line(
             "Available local commands: /help /status /history /quit; "
-            "coding prompts: /accept /ignore /suppress_task /allow /allow-session /deny /cancel"
+            "coding: /coding tasks | /coding send <task> <text> | "
+            "/coding interrupt <task>; prompts: /accept /ignore /suppress_task "
+            "/allow /allow-session /deny /cancel"
         )
+
+    def _handle_coding_local_command(self, text: str) -> bool:
+        parts = text.split(maxsplit=2)
+        if not parts or parts[0] != "/coding":
+            return False
+        if len(parts) == 2 and parts[1] == "tasks":
+            rows = (
+                self.coding_activity_journal.tasks(limit=200)
+                if self.coding_activity_journal is not None
+                else []
+            )
+            if not rows and self.coding_bridge is not None:
+                rows = [
+                    {
+                        "interaction_id": task.interaction_id,
+                        "turn_id": task.turn_id,
+                        "status": task.status,
+                    }
+                    for task in self.coding_bridge.tasks.values()
+                ]
+            self.render_status_line(
+                "Coding tasks: "
+                + ("; ".join(
+                    f"{row.get('interaction_id')} ({row.get('status')})"
+                    for row in rows
+                ) or "(none)")
+            )
+            return True
+        if len(parts) < 3 or parts[1] not in {"send", "interrupt"}:
+            self.render_status_line(
+                "Usage: /coding tasks | /coding send <task> <text> | "
+                "/coding interrupt <task>"
+            )
+            return True
+        task_id, text_payload = parts[2].split(maxsplit=1) if " " in parts[2] else (parts[2], "")
+        if parts[1] == "interrupt":
+            task_id = parts[2].strip()
+            text_payload = ""
+        if self.coding_bridge is None or task_id not in self.coding_bridge.tasks:
+            self.render_status_line("Coding input requires a selected active task.")
+            return True
+        task = self.coding_bridge.tasks[task_id]
+        if task.status != "active":
+            self.render_status_line("Coding input requires a selected active task.")
+            return True
+        if parts[1] == "send" and not text_payload.strip():
+            self.render_status_line("Coding correction must not be empty.")
+            return True
+        self.queue_coding_control(
+            "steer" if parts[1] == "send" else "interrupt",
+            interaction_id=task_id,
+            text=text_payload,
+        )
+        return True
 
     def render_status_summary(self) -> None:
         pending_flag = "yes" if self.pending_runtime_reply else "no"
@@ -499,6 +631,8 @@ class TerminalEdgeDaemon:
 
         self.local_command_count += 1
         if self._resolve_coding_prompt(normalized_text):
+            return True
+        if self._handle_coding_local_command(normalized_text):
             return True
         if normalized_text == "/help":
             self.render_help()
@@ -883,6 +1017,7 @@ class TerminalEdgeDaemon:
                                 await self._send_frame(websocket, result)
                             continue
                     await self._flush_coding_observations(websocket, pending_frames)
+                    await self._flush_coding_controls()
                     await self._flush_local_action_results(websocket, results)
                     recv_task = asyncio.create_task(self._recv_frame(websocket))
                     if live_input_open and live_input_task is None:
@@ -896,9 +1031,13 @@ class TerminalEdgeDaemon:
                             self._wait_for_input_state_frames()
                         )
                     coding_observation_task = None
+                    coding_control_task = None
                     if self.coding_enabled:
                         coding_observation_task = asyncio.create_task(
                             self._wait_for_coding_observation()
+                        )
+                        coding_control_task = asyncio.create_task(
+                            self._wait_for_coding_control()
                         )
                     wait_set = {recv_task, idle_task}
                     if live_input_task is not None:
@@ -907,6 +1046,8 @@ class TerminalEdgeDaemon:
                         wait_set.add(input_state_task)
                     if coding_observation_task is not None:
                         wait_set.add(coding_observation_task)
+                    if coding_control_task is not None:
+                        wait_set.add(coding_control_task)
                     done, pending = await asyncio.wait(
                         wait_set,
                         return_when=asyncio.FIRST_COMPLETED,
@@ -928,6 +1069,10 @@ class TerminalEdgeDaemon:
                         coding_observation_task.cancel()
                         with suppress(asyncio.CancelledError):
                             await coding_observation_task
+                    if coding_control_task is not None and coding_control_task in pending:
+                        coding_control_task.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await coding_control_task
 
                     activity_observed = False
                     recv_closed = False
@@ -994,6 +1139,10 @@ class TerminalEdgeDaemon:
 
                     if coding_observation_task is not None and coding_observation_task in done:
                         await self._flush_coding_observations(websocket, pending_frames)
+                        continue
+
+                    if coding_control_task is not None and coding_control_task in done:
+                        await self._flush_coding_controls()
                         continue
 
                     if idle_task in done and not activity_observed:
@@ -1248,6 +1397,11 @@ def main(argv: list[str] | None = None) -> None:
             scripted_inputs=scripted_inputs,
             coding_enabled=not args.disable_coding_bridge,
             coding_workspace=args.coding_workspace,
+            coding_activity_path=(
+                build_coding_activity_path(args.home, args.device_id)
+                if not args.disable_coding_bridge
+                else None
+            ),
             diagnostic_recorder=JsonlDiagnosticRecorder(args.diagnostic_log_path)
             if args.diagnostic_log_path is not None
             else None,
@@ -1264,6 +1418,11 @@ def main(argv: list[str] | None = None) -> None:
         stdin_observed_at=args.stdin_observed_at,
         coding_enabled=not args.disable_coding_bridge,
         coding_workspace=args.coding_workspace,
+        coding_activity_path=(
+            build_coding_activity_path(args.home, args.device_id)
+            if not args.disable_coding_bridge
+            else None
+        ),
         diagnostic_recorder=JsonlDiagnosticRecorder(args.diagnostic_log_path)
         if args.diagnostic_log_path is not None
         else None,
@@ -1283,7 +1442,12 @@ def main(argv: list[str] | None = None) -> None:
     )
 
 
-__all__ = ["TerminalEdgeDaemon", "build_terminal_daemon_parser", "main"]
+__all__ = [
+    "TerminalEdgeDaemon",
+    "build_coding_activity_path",
+    "build_terminal_daemon_parser",
+    "main",
+]
 
 
 if __name__ == "__main__":

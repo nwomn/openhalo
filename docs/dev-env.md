@@ -629,14 +629,21 @@ started; set it explicitly when needed:
 ```
 
 When Runtime sends a coding task, the Edge starts a hosted Codex thread and
-keeps each task in a separate thread. Codex output reaches Runtime as bounded `coding.attention.v1`
-evidence; raw transcripts, reasoning, full diffs, and command output remain
-local. Suggestions and Codex command/file/permission approvals are answered in
+keeps each task in a separate thread. Codex output reaches Runtime as bounded
+ordinary `coding.activity.v1` observations; raw transcripts, reasoning, full
+diffs, and command output remain local. The Edge keeps complete active-task
+activity in a durable paged local journal, while the default 32-task limit is
+only a simultaneous-active resource guard. Suggestions and Codex command/file/permission approvals are answered in
 the same TUI or line-mode terminal with the displayed local prompt id, for
 example `/accept suggestion-1` or `/allow approval-2`. If Codex is unavailable
 or restarts, the ordinary Terminal Edge session remains available while the
 coding bridge retries in the background. Use `--disable-coding-bridge` only
 when deliberately running a non-coding terminal diagnostic.
+
+In line mode, inspect and control the local activity journal with `/coding tasks`,
+`/coding send <interaction_id> <correction>`, and `/coding interrupt
+<interaction_id>`. The interaction id is mandatory; line mode never guesses the
+latest Coding task.
 
 For a true live terminal session, start the runtime first and then run the resident terminal daemon in the foreground. In that mode the daemon keeps one websocket edge session open, reads user requests from `stdin`, emits fresh `terminal.activity_state` observations on the normal runtime path, and still handles runtime-pushed `notification.show` actions in the same session. In Textual TUI mode, draft input changes are also sent as `terminal.input_state` and `terminal.input_draft_length` observations so foreground typing can be observed before a line is submitted.
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import unittest
 
 from device_edge.cli.coding_agent_bridge import CODING_CAPABILITY_REGISTRATIONS
@@ -16,6 +17,7 @@ class FakeCodexClient:
         self.thread_count = 0
         self.turn_count = 0
         self.steer_calls: list[dict] = []
+        self.interrupt_calls: list[dict] = []
 
     async def start(self) -> None:
         self.state = "ready"
@@ -41,6 +43,9 @@ class FakeCodexClient:
         )
         return expected_turn_id
 
+    async def interrupt(self, *, thread_id: str, turn_id: str) -> None:
+        self.interrupt_calls.append({"thread_id": thread_id, "turn_id": turn_id})
+
 
 class CodingAgentBridgeTests(unittest.IsolatedAsyncioTestCase):
     def make_bridge(self) -> tuple[CodingAgentBridge, FakeCodexClient, list[dict], list[dict]]:
@@ -56,13 +61,13 @@ class CodingAgentBridgeTests(unittest.IsolatedAsyncioTestCase):
         )
         return bridge, client, observations, prompts
 
-    async def test_registers_start_steer_and_attention_capabilities(self) -> None:
+    async def test_registers_start_steer_and_activity_capabilities(self) -> None:
         names = {registration["name"] for registration in CODING_CAPABILITY_REGISTRATIONS}
 
         self.assertEqual(
             names,
             {
-                "coding.attention",
+                "coding.activity",
                 "coding.turn.start",
                 "coding.suggestion.offer",
                 "coding.turn.steer",
@@ -119,6 +124,38 @@ class CodingAgentBridgeTests(unittest.IsolatedAsyncioTestCase):
 
         await bridge.close()
 
+    async def test_limits_only_simultaneously_active_tasks_not_activity_history(self) -> None:
+        bridge, _, _, _ = self.make_bridge()
+        await bridge.start()
+        for index in range(bridge.active_task_limit):
+            await bridge.start_turn(
+                interaction_id=f"interaction-{index}",
+                task="Keep this task active",
+                workspace_ref="project",
+            )
+        with self.assertRaises(RuntimeError):
+            await bridge.start_turn(
+                interaction_id="interaction-over-limit",
+                task="Must fail closed",
+                workspace_ref="project",
+            )
+        bridge.handle_notification(
+            {
+                "method": "turn/completed",
+                "params": {
+                    "threadId": "thread-1",
+                    "turnId": "turn-1",
+                    "turn": {"status": "completed"},
+                },
+            }
+        )
+        await bridge.start_turn(
+            interaction_id="interaction-after-completion",
+            task="Now one slot is free",
+            workspace_ref="project",
+        )
+        await bridge.close()
+
     async def test_coalesces_output_without_emitting_raw_content(self) -> None:
         bridge, _, observations, _ = self.make_bridge()
         await bridge.start()
@@ -157,9 +194,153 @@ class CodingAgentBridgeTests(unittest.IsolatedAsyncioTestCase):
         serialized = str(observations[0])
         self.assertNotIn("SECRET_OUTPUT", serialized)
         self.assertNotIn("more output", serialized)
-        self.assertEqual(observations[0]["value"]["event_kind"], "tool_activity")
+        self.assertEqual(observations[0]["value"]["event_kind"], "command_execution")
         self.assertTrue(observations[0]["value"]["evidence_ref"])
 
+        await bridge.close()
+
+    async def test_foreground_correction_and_interrupt_use_selected_task_lineage(self) -> None:
+        bridge, client, observations, _ = self.make_bridge()
+        await bridge.start()
+        await bridge.start_turn(
+            interaction_id="interaction-1",
+            task="Fix tests",
+            workspace_ref="project",
+        )
+        await bridge.start_turn(
+            interaction_id="interaction-2",
+            task="Inspect docs",
+            workspace_ref="project",
+        )
+
+        await bridge.foreground_steer(
+            interaction_id="interaction-2",
+            instruction="Focus on the API docs",
+        )
+        await bridge.interrupt(interaction_id="interaction-2")
+
+        self.assertEqual(
+            client.steer_calls[-1],
+            {
+                "thread_id": "thread-2",
+                "expected_turn_id": "turn-2",
+                "text": "Focus on the API docs",
+            },
+        )
+        self.assertEqual(
+            client.interrupt_calls[-1],
+            {"thread_id": "thread-2", "turn_id": "turn-2"},
+        )
+        self.assertEqual(
+            [entry["value"]["event_kind"] for entry in observations[-2:]],
+            ["user_correction", "turn_interrupted"],
+        )
+        with self.assertRaises(ValueError):
+            await bridge.foreground_steer(
+                interaction_id="missing",
+                instruction="Do not guess a task",
+            )
+        await bridge.close()
+
+    async def test_normalizes_reasoning_plan_agent_and_file_activity_without_raw_output(self) -> None:
+        bridge, _, observations, _ = self.make_bridge()
+        await bridge.start()
+        await bridge.start_turn(
+            interaction_id="interaction-1",
+            task="Implement the feature",
+            workspace_ref="project",
+        )
+        observations.clear()
+
+        bridge.handle_notification(
+            {
+                "method": "item/reasoning/summaryTextDelta",
+                "params": {
+                    "threadId": "thread-1",
+                    "turnId": "turn-1",
+                    "delta": "Use the existing Runtime ingress.",
+                },
+            }
+        )
+        bridge.handle_notification(
+            {
+                "method": "turn/plan/updated",
+                "params": {
+                    "threadId": "thread-1",
+                    "turnId": "turn-1",
+                    "plan": [{"step": "Add tests", "status": "in_progress"}],
+                },
+            }
+        )
+        bridge.handle_notification(
+            {
+                "method": "item/agentMessage/delta",
+                "params": {
+                    "threadId": "thread-1",
+                    "turnId": "turn-1",
+                    "delta": "I will now run the focused suite.",
+                },
+            }
+        )
+        bridge.handle_notification(
+            {
+                "method": "item/fileChange/completed",
+                "params": {
+                    "threadId": "thread-1",
+                    "turnId": "turn-1",
+                    "item": {"type": "fileChange", "path": "/tmp/example.py"},
+                    "raw": "SECRET_DIFF",
+                },
+            }
+        )
+        bridge.handle_notification(
+            {
+                "method": "item/completed",
+                "params": {
+                    "threadId": "thread-1",
+                    "turnId": "turn-1",
+                    "item": {
+                        "type": "commandExecution",
+                        "command": "pytest -q tests/test_feature.py",
+                        "status": "completed",
+                    },
+                },
+            }
+        )
+        await asyncio.sleep(0.55)
+
+        kinds = {entry["value"]["event_kind"] for entry in observations}
+        self.assertTrue(
+            {
+                "reasoning_summary",
+                "plan_update",
+                "agent_message",
+                "file_change",
+                "test_result",
+            }
+            <= kinds
+        )
+        self.assertNotIn("SECRET_DIFF", str(observations))
+        self.assertTrue(all(entry["name"] == "coding.activity.v1" for entry in observations))
+        await bridge.close()
+
+    async def test_runtime_activity_payload_is_byte_bounded_for_multibyte_summaries(self) -> None:
+        bridge, _, observations, _ = self.make_bridge()
+        await bridge.start()
+        await bridge.start_turn(
+            interaction_id="interaction-1",
+            task="Summarize the result",
+            workspace_ref="project",
+        )
+        observations.clear()
+        await bridge.foreground_steer(
+            interaction_id="interaction-1",
+            instruction="修复" * 6000,
+        )
+
+        payload = observations[0]
+        assert len(json.dumps(payload, ensure_ascii=False).encode()) < 16 * 1024
+        assert len(payload["value"]["summary"].encode()) <= 4096
         await bridge.close()
 
     async def test_acceptance_confirmation_is_required_for_exact_turn_steering(self) -> None:
@@ -237,6 +418,40 @@ class CodingAgentBridgeTests(unittest.IsolatedAsyncioTestCase):
         bridge.resolve_approval(prompts[0]["prompt_id"], "decline")
         self.assertEqual(await request, {"decision": "decline"})
 
+        await bridge.close()
+
+    async def test_records_approval_waiting_and_resolution_as_activity(self) -> None:
+        bridge, _, observations, prompts = self.make_bridge()
+        await bridge.start()
+        await bridge.start_turn(
+            interaction_id="interaction-1",
+            task="Apply the patch",
+            workspace_ref="project",
+        )
+        observations.clear()
+        request = asyncio.create_task(
+            bridge.handle_server_request(
+                {
+                    "id": 99,
+                    "method": "item/commandExecution/requestApproval",
+                    "params": {
+                        "threadId": "thread-1",
+                        "turnId": "turn-1",
+                        "command": "pytest -q",
+                    },
+                }
+            )
+        )
+        for _ in range(10):
+            if prompts:
+                break
+            await asyncio.sleep(0)
+        bridge.resolve_approval(prompts[0]["prompt_id"], "accept")
+        assert await request == {"decision": "accept"}
+        assert [entry["value"]["event_kind"] for entry in observations] == [
+            "approval_waiting",
+            "approval_resolved",
+        ]
         await bridge.close()
 
 

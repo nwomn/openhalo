@@ -18,7 +18,9 @@ from textual.containers import Horizontal
 from textual.containers import Vertical
 from textual.containers import VerticalScroll
 from textual.css.query import NoMatches
+from textual.widgets import Button
 from textual.widgets import Input
+from textual.widgets import Select
 from textual.widgets import Static
 
 from device_edge.cli.presentation import OutcomeReceipt
@@ -121,7 +123,7 @@ def _receipt_kind_label(kind: str) -> str:
 class TerminalEdgeApp(App[None]):
     """Minimal full-screen terminal UI layered over the existing daemon."""
 
-    _local_commands = ("/help", "/status", "/history", "/quit")
+    _local_commands = ("/help", "/status", "/history", "/coding", "/quit")
     _history_limit = 100
 
     CSS = """
@@ -182,6 +184,39 @@ class TerminalEdgeApp(App[None]):
         padding: 0 2;
         background: #151b15;
         color: #abc8b1;
+    }
+
+    #coding-panel {
+        height: 3;
+        padding: 0 2;
+        background: #151b15;
+        border-top: solid #2d372c;
+    }
+
+    #coding-panel.expanded {
+        height: 12;
+    }
+
+    #coding-toolbar {
+        height: 2;
+    }
+
+    #coding-toggle {
+        width: 18;
+        min-width: 18;
+    }
+
+    #coding-task-select {
+        width: 1fr;
+        height: 2;
+        margin-left: 1;
+    }
+
+    #coding-activity-log {
+        height: 10;
+        padding: 0 1;
+        overflow-y: scroll;
+        color: #c8d6c7;
     }
 
     OutcomeReceiptWidget {
@@ -259,8 +294,16 @@ class TerminalEdgeApp(App[None]):
         self._receipt_widgets: dict[str, OutcomeReceiptWidget] = {}
         self._transcript_widgets: deque[Static] = deque()
         self._command_history: deque[str] = deque(maxlen=self._history_limit)
+        self._coding_history: deque[str] = deque(maxlen=self._history_limit)
         self._history_index: int | None = None
         self._history_draft = ""
+        self._coding_history_index: int | None = None
+        self._coding_history_draft = ""
+        self.coding_expanded = False
+        self.selected_coding_task: str | None = None
+        self._coding_activity_entries: list[dict] = []
+        self._coding_activity_before: int | None = None
+        self._coding_task_options: tuple[tuple[str, str], ...] = ()
 
     def compose(self) -> ComposeResult:
         yield Vertical(
@@ -275,6 +318,20 @@ class TerminalEdgeApp(App[None]):
             ),
             VerticalScroll(id="transcript-log"),
             Static("", id="active-progress"),
+            Vertical(
+                Horizontal(
+                    Button("Coding +", id="coding-toggle"),
+                    Select(
+                        [],
+                        prompt="Select an active Coding task",
+                        allow_blank=True,
+                        id="coding-task-select",
+                    ),
+                    id="coding-toolbar",
+                ),
+                Static("", id="coding-activity-log"),
+                id="coding-panel",
+            ),
             Vertical(
                 Static("Message OpenHalo", id="composer-label"),
                 Input(
@@ -298,11 +355,13 @@ class TerminalEdgeApp(App[None]):
         self._refresh_status_bar()
         self._refresh_help_bar()
         self._refresh_active_progress()
+        self._refresh_coding_panel()
         self._drain_transcript_queue()
         self.set_interval(0.1, self._drain_transcript_queue)
         self.set_interval(0.1, self._refresh_status_bar)
         self.set_interval(0.1, self._refresh_help_bar)
         self.set_interval(0.1, self._refresh_active_progress)
+        self.set_interval(0.2, self._refresh_coding_panel)
         if self.start_session is not None:
             self.session_thread = threading.Thread(
                 target=self.start_session,
@@ -316,16 +375,36 @@ class TerminalEdgeApp(App[None]):
         if not text:
             event.input.value = ""
             return
-        if not self._command_history or self._command_history[-1] != text:
-            self._command_history.append(text)
-        self._history_index = None
-        self._history_draft = ""
-        self.input_queue.put(text)
+        if self.coding_expanded:
+            if not self.selected_coding_task:
+                self.daemon.render_status_line(
+                    "Select an active Coding task before sending correction."
+                )
+                return
+            if not self._coding_history or self._coding_history[-1] != text:
+                self._coding_history.append(text)
+            self._coding_history_index = None
+            self._coding_history_draft = ""
+            self.daemon.queue_coding_control(
+                "steer",
+                interaction_id=self.selected_coding_task,
+                text=text,
+            )
+        else:
+            if not self._command_history or self._command_history[-1] != text:
+                self._command_history.append(text)
+            self._history_index = None
+            self._history_draft = ""
+            self.input_queue.put(text)
         event.input.value = ""
 
     async def on_input_changed(self, event: Input.Changed) -> None:
         draft = event.value
-        self.daemon.set_draft(draft)
+        if self.coding_expanded:
+            self._coding_draft = draft
+            return
+        else:
+            self.daemon.set_draft(draft)
         self.input_state_queue.put(
             {
                 "state": "draft_nonempty" if draft else "draft_empty",
@@ -334,6 +413,11 @@ class TerminalEdgeApp(App[None]):
         )
 
     def on_key(self, event) -> None:
+        if self.coding_expanded and event.key == "pageup":
+            self._load_older_coding_activity_page()
+            event.prevent_default()
+            event.stop()
+            return
         try:
             composer = self.query_one("#command-input", Input)
         except NoMatches:
@@ -357,11 +441,48 @@ class TerminalEdgeApp(App[None]):
             event.stop()
             return
         if event.key == "escape":
-            composer.value = ""
-            self._history_index = None
-            self._history_draft = ""
+            if self.coding_expanded:
+                if self.selected_coding_task:
+                    self.daemon.queue_coding_control(
+                        "interrupt", interaction_id=self.selected_coding_task
+                    )
+                else:
+                    self.daemon.render_status_line(
+                        "Select an active Coding task before interrupting."
+                    )
+            else:
+                composer.value = ""
+                self._history_index = None
+                self._history_draft = ""
             event.prevent_default()
             event.stop()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id != "coding-toggle":
+            return
+        self.coding_expanded = not self.coding_expanded
+        panel = self.query_one("#coding-panel", Vertical)
+        panel.set_class(self.coding_expanded, "expanded")
+        panel.styles.height = 12 if self.coding_expanded else 3
+        event.button.label = "Coding −" if self.coding_expanded else "Coding +"
+        composer = self.query_one("#command-input", Input)
+        if self.coding_expanded:
+            composer.value = getattr(self, "_coding_draft", "")
+            composer.placeholder = "Correction for selected Codex task · Enter sends · Esc interrupts"
+        else:
+            self._coding_draft = composer.value
+            composer.value = self.daemon.presentation.draft
+            composer.placeholder = "Write a message or use /help"
+        composer.focus()
+
+    def on_select_changed(self, event: Select.Changed) -> None:
+        if event.select.id != "coding-task-select":
+            return
+        value = event.value
+        self.selected_coding_task = value if isinstance(value, str) else None
+        self._coding_activity_entries = []
+        self._coding_activity_before = None
+        self._refresh_coding_activity_log()
 
     def _complete_local_command(self, composer: Input) -> bool:
         value = composer.value
@@ -380,26 +501,41 @@ class TerminalEdgeApp(App[None]):
         return True
 
     def _navigate_history(self, composer: Input, *, direction: int) -> bool:
-        if not self._command_history:
+        history = self._coding_history if self.coding_expanded else self._command_history
+        index = self._coding_history_index if self.coding_expanded else self._history_index
+        draft = self._coding_history_draft if self.coding_expanded else self._history_draft
+        if not history:
             return False
-        history = list(self._command_history)
+        history = list(history)
         if direction < 0:
-            if self._history_index is None:
-                self._history_draft = composer.value
-                self._history_index = len(history) - 1
+            if index is None:
+                draft = composer.value
+                index = len(history) - 1
             else:
-                self._history_index = max(self._history_index - 1, 0)
-            composer.value = history[self._history_index]
+                index = max(index - 1, 0)
+            composer.value = history[index]
+            if self.coding_expanded:
+                self._coding_history_draft, self._coding_history_index = draft, index
+            else:
+                self._history_draft, self._history_index = draft, index
             return True
-        if self._history_index is None:
+        if index is None:
             return False
-        if self._history_index >= len(history) - 1:
-            composer.value = self._history_draft
-            self._history_index = None
-            self._history_draft = ""
+        if index >= len(history) - 1:
+            composer.value = draft
+            index = None
+            draft = ""
+            if self.coding_expanded:
+                self._coding_history_draft, self._coding_history_index = draft, index
+            else:
+                self._history_draft, self._history_index = draft, index
             return True
-        self._history_index += 1
-        composer.value = history[self._history_index]
+        index += 1
+        composer.value = history[index]
+        if self.coding_expanded:
+            self._coding_history_draft, self._coding_history_index = draft, index
+        else:
+            self._history_draft, self._history_index = draft, index
         return True
 
     def action_quit(self) -> None:
@@ -421,8 +557,8 @@ class TerminalEdgeApp(App[None]):
     @staticmethod
     def build_help_text(max_width: int | None = None) -> str:
         options = (
-            "Enter to send · ↑↓ history · Tab commands/receipt · "
-            "coding prompts use /accept or /allow",
+            "Enter to send · ↑↓ history · Coding panel: Enter correction / Esc interrupt · "
+            "Tab commands/receipt",
             "Enter to send · ↑↓ history · Tab commands · /help · /quit",
             "Enter to send · /quit",
         )
@@ -482,6 +618,129 @@ class TerminalEdgeApp(App[None]):
         phase = next(reversed(self.daemon.presentation.active_progress.values()), None)
         message = self.daemon.progress_messages.get(phase, "")
         active_progress.update(f"◇ {message}" if message else "")
+
+    def _coding_task_rows(self) -> list[dict]:
+        journal = getattr(self.daemon, "coding_activity_journal", None)
+        if journal is not None:
+            return journal.tasks(limit=200)
+        bridge = getattr(self.daemon, "coding_bridge", None)
+        if bridge is None:
+            return []
+        return [
+            {
+                "interaction_id": task.interaction_id,
+                "thread_id": task.thread_id,
+                "turn_id": task.turn_id,
+                "status": task.status,
+                "updated_at": "",
+            }
+            for task in bridge.tasks.values()
+        ]
+
+    def _refresh_coding_panel(self) -> None:
+        try:
+            select = self.query_one("#coding-task-select", Select)
+        except NoMatches:
+            return
+        rows = self._coding_task_rows()
+        options = [
+            (
+                f"{row['interaction_id']} · {row['status']} · {row['turn_id']}",
+                row["interaction_id"],
+            )
+            for row in rows
+            if isinstance(row.get("interaction_id"), str)
+        ]
+        active_values = {
+            row.get("interaction_id")
+            for row in rows
+            if row.get("status") == "active"
+            and isinstance(row.get("interaction_id"), str)
+        }
+        current = self.selected_coding_task
+        option_tuple = tuple(options)
+        if option_tuple != self._coding_task_options:
+            try:
+                select.set_options(options)
+            except NoMatches:
+                return
+            self._coding_task_options = option_tuple
+        identifiers = {value for _, value in options}
+        if current not in identifiers:
+            if len(active_values) == 1:
+                current = next(iter(active_values))
+            else:
+                current = None
+            self.selected_coding_task = current
+        if current is None:
+            select.value = Select.NULL
+        else:
+            select.value = current
+        self._refresh_coding_activity_log()
+
+    def _refresh_coding_activity_log(self) -> None:
+        try:
+            log = self.query_one("#coding-activity-log", Static)
+        except NoMatches:
+            return
+        if not self.selected_coding_task:
+            log.update("Select a Coding task to inspect its activity.\nPageUp loads older local history.")
+            return
+        journal = getattr(self.daemon, "coding_activity_journal", None)
+        if journal is None:
+            log.update("Local Coding journal is unavailable in this session.")
+            return
+        latest_page = journal.page(self.selected_coding_task, limit=200)
+        if not self._coding_activity_entries:
+            self._coding_activity_entries = latest_page
+        elif latest_page:
+            latest_sequence = self._coding_activity_entries[-1].get("local_sequence", 0)
+            new_entries = [
+                entry
+                for entry in latest_page
+                if entry.get("local_sequence", 0) > latest_sequence
+            ]
+            if new_entries:
+                self._coding_activity_entries = (
+                    self._coding_activity_entries + new_entries
+                )[-600:]
+        lines = []
+        if self.daemon.coding_activity_storage_error:
+            lines.append(f"⚠ local journal degraded: {self.daemon.coding_activity_storage_error}")
+        for entry in self._coding_activity_entries:
+            value = entry.get("value", {})
+            observed_at = str(value.get("observed_at", ""))
+            timestamp = observed_at[11:19] if len(observed_at) >= 19 else observed_at
+            event_kind = str(value.get("event_kind", "activity"))
+            summary = str(value.get("summary", "")).replace("\n", " · ")
+            lines.append(f"{timestamp}  {event_kind}  {summary}")
+        if self._coding_activity_before is not None:
+            lines.insert(0, "↑ older local history loaded · PageUp for more")
+        else:
+            lines.append("PageUp loads older local history.")
+        log.update("\n".join(lines))
+
+    def _load_older_coding_activity_page(self) -> None:
+        if not self.selected_coding_task or not self._coding_activity_entries:
+            return
+        journal = getattr(self.daemon, "coding_activity_journal", None)
+        if journal is None:
+            return
+        first_sequence = self._coding_activity_entries[0].get("local_sequence")
+        if not isinstance(first_sequence, int):
+            return
+        older = journal.page(
+            self.selected_coding_task,
+            before_sequence=first_sequence,
+            limit=200,
+        )
+        if not older:
+            self._coding_activity_before = first_sequence
+            self._refresh_coding_activity_log()
+            return
+        self._coding_activity_entries = (older + self._coding_activity_entries)[-600:]
+        self._coding_activity_before = older[0].get("local_sequence")
+        self._refresh_coding_activity_log()
 
     def _mount_transcript_line(self, transcript: VerticalScroll, line: str) -> None:
         widget = Static(
@@ -570,6 +829,7 @@ def create_textual_terminal_app(
     diagnostic_recorder=None,
     coding_enabled: bool = False,
     coding_workspace=None,
+    coding_activity_path=None,
 ) -> TerminalEdgeApp:
     from device_edge.cli.terminal_daemon import TerminalEdgeDaemon
     from device_edge.shared.identity import load_or_create_identity
@@ -590,6 +850,7 @@ def create_textual_terminal_app(
         stdin_observed_at=stdin_observed_at,
         coding_enabled=coding_enabled,
         coding_workspace=coding_workspace,
+        coding_activity_path=coding_activity_path,
         diagnostic_recorder=diagnostic_recorder,
     )
 
@@ -634,6 +895,7 @@ def run_textual_terminal_daemon(
     diagnostic_recorder=None,
     coding_enabled: bool = False,
     coding_workspace=None,
+    coding_activity_path=None,
 ) -> None:
     app = create_textual_terminal_app(
         url=url,
@@ -651,6 +913,7 @@ def run_textual_terminal_daemon(
         diagnostic_recorder=diagnostic_recorder,
         coding_enabled=coding_enabled,
         coding_workspace=coding_workspace,
+        coding_activity_path=coding_activity_path,
     )
     try:
         app.run()

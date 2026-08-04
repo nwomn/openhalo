@@ -17,6 +17,7 @@ from edge_api.auth import public_key_spki_der
 from edge_api.auth import sign_challenge
 from edge_api.protocol import API_VERSION
 from edge_api.protocol import build_connect_frame
+from device_edge.cli.coding_agent_bridge import CODING_ACTIVITY_SCHEMA
 from personal_runtime.agent_executor import InterventionProposal
 from personal_runtime.gateway_server import RuntimeGateway as ProductionRuntimeGateway
 from personal_runtime.pairing_store import PairingStore
@@ -907,6 +908,79 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(gateway.state.observations[-1].name, "mobile.screen_state")
+
+    async def test_coding_activity_uses_the_same_registered_observation_ingress(self) -> None:
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        activity = {
+            "agent": "codex",
+            "interaction_id": "interaction-1",
+            "agent_session_id": "thread-1",
+            "agent_turn_id": "turn-1",
+            "event_kind": "agent_message",
+            "phase": "in_progress",
+            "observed_at": "2026-06-30T10:00:00Z",
+            "confidence": 1.0,
+            "causal_parent": "thread-1:turn-1",
+            "workspace_ref": "project",
+            "summary": "ordinary activity",
+            "evidence_ref": "coding-evidence://interaction-1/1",
+        }
+        replies = await gateway.handle_test_frames(
+            [
+                {
+                    "api_version": API_VERSION,
+                    "type": "connect",
+                    "device": {
+                        "device_id": "terminal-edge-1",
+                        "device_type": "desktop-cli",
+                    },
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "capability_announce",
+                    "device_id": "terminal-edge-1",
+                    "capabilities": [
+                        {
+                            "name": "coding.activity",
+                            "direction": "edge_to_runtime",
+                            "kind": "observation_provider",
+                            "observations": [
+                                {
+                                    "name": "coding.activity.v1",
+                                    "schema": CODING_ACTIVITY_SCHEMA,
+                                }
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "api_version": API_VERSION,
+                    "type": "observation_push",
+                    "device_id": "terminal-edge-1",
+                    "capability": "coding.activity",
+                    "observations": [
+                        {
+                            "name": "coding.activity.v1",
+                            "value": activity,
+                            "observed_at": activity["observed_at"],
+                            "confidence": 1.0,
+                        }
+                    ],
+                },
+            ]
+        )
+
+        self.assertEqual(replies[-1]["type"], "event_ack")
+        self.assertEqual(gateway.state.observations[-1].name, "coding.activity.v1")
+        self.assertEqual(
+            gateway.state.observations[-1].source_capability,
+            "coding.activity",
+        )
 
     async def test_mobile_screen_context_observation_is_passive_evidence(self) -> None:
         gateway = RuntimeGateway(

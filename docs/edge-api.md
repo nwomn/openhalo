@@ -325,10 +325,10 @@ actions:
 ```json
 [
   {
-    "name": "coding.attention",
+    "name": "coding.activity",
     "direction": "edge_to_runtime",
     "kind": "observation_provider",
-    "observations": [{"name": "coding.attention.v1", "schema": {"type": "object"}}]
+    "observations": [{"name": "coding.activity.v1", "schema": {"type": "object"}}]
   },
   {"name": "coding.turn.start", "direction": "runtime_to_edge", "kind": "action"},
   {"name": "coding.suggestion.offer", "direction": "runtime_to_edge", "kind": "action"},
@@ -343,13 +343,23 @@ Codex `agent_session_id` (thread id) and `agent_turn_id` (turn id). Multiple
 interactions may run in parallel, but a turn is never addressed by a keyword or
 most-recent-session fallback.
 
-`coding.attention.v1` is a bounded normalized envelope. It carries the Codex
-agent name, exact thread/turn ids, event kind, phase, timestamp, confidence,
-causal parent, workspace reference, bounded summary, and a body-free local
-`evidence_ref`. High-frequency deltas are coalesced on the Edge. Runtime never
-receives raw reasoning, an unbounded transcript, complete diffs, or command
-output; the Edge keeps only a bounded task-local evidence cache for a future
-explicit evidence-read request.
+`coding.activity.v1` is a bounded normalized ordinary observation. It carries
+the Codex agent name, OpenHalo interaction id, exact thread/turn ids, event
+kind, phase, timestamp, confidence, causal parent, workspace reference,
+bounded summary, and a body-free local `evidence_ref`. It covers reasoning
+summaries, plan updates, agent messages, command/file/test activity, approvals,
+corrections, and turn lifecycle. High-frequency deltas are coalesced on the
+Edge. Runtime receives it through the same registered observation path as any
+other Edge observation; the name does not grant special priority or bypass
+generic relevance and governance. Runtime never receives raw reasoning, an
+unbounded transcript, complete diffs, or complete command output. Historical
+`coding.attention.v1` records remain readable during migration, but new events
+are not dual-written.
+
+The Edge keeps a durable paged journal per Coding task. Active task history is
+not truncated by event count; the default limit of 32 applies only to
+simultaneously active tasks. A configurable local capacity policy reclaims
+only completed-task history.
 
 `coding.suggestion.offer` is a local interactive action. The Edge does not
 mutate Codex while rendering it and returns the exact correlated
@@ -359,10 +369,12 @@ confirmation reference. `coding.turn.steer` must include that reference plus
 the exact thread id and `expectedTurnId`; stale, mismatched, duplicate, or
 unconfirmed requests fail closed.
 
-Codex command, file-change, and extra-permission approvals stay local to the
-Terminal Edge. The user answers them in the existing TUI or line mode, and the
-Bridge sends the corresponding App Server response without forwarding command,
-diff, path, or permission details to Runtime.
+Codex command, file-change, and extra-permission approval decisions stay local
+to the Terminal Edge. The user answers them in the existing TUI or line mode,
+and the Bridge sends the corresponding App Server response. Separate normalized
+activity observations may contain bounded command labels, file paths, statuses,
+and test results for ordinary Runtime context; approval prompts still do not
+forward their sensitive command, diff, or permission detail.
 
 ## Action Requests
 

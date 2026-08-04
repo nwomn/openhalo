@@ -218,6 +218,12 @@ class CodexAppServerClient:
             raise ValueError("Codex App Server returned an invalid steer result.")
         return turn_id
 
+    async def interrupt(self, *, thread_id: str, turn_id: str) -> None:
+        await self.request(
+            "turn/interrupt",
+            {"threadId": thread_id, "turnId": turn_id},
+        )
+
     async def _send(self, message: dict) -> None:
         async with self._write_lock:
             await self.transport.send(message)

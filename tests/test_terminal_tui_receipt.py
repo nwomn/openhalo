@@ -3,6 +3,8 @@ from __future__ import annotations
 import io
 import queue
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from device_edge.cli.presentation import OutcomeReceipt
 from device_edge.cli.presentation import ReceiptEntry
@@ -12,6 +14,8 @@ from device_edge.cli.terminal_tui import OutcomeReceiptWidget
 from textual.containers import VerticalScroll
 from textual.widgets import Input
 from textual.widgets import Static
+from textual.widgets import Button
+from textual.widgets import Select
 
 
 def test_receipt_widget_shows_compact_line_then_expanded_safe_timeline() -> None:
@@ -51,6 +55,150 @@ def test_terminal_surface_restoration_clears_a_tty_after_textual_exits() -> None
     restore_terminal_surface(output)
 
     assert output.getvalue() == "\x1b[0m\x1b[?25h\x1b[2J\x1b[H"
+
+
+def test_terminal_app_exposes_one_expandable_coding_panel_and_explicit_task_select() -> None:
+    daemon = TerminalEdgeDaemon(device_id="terminal-edge-1")
+    app = TerminalEdgeApp(
+        daemon=daemon,
+        input_queue=queue.Queue(),
+        input_state_queue=queue.Queue(),
+        transcript_queue=queue.Queue(),
+    )
+
+    async def run() -> None:
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            assert isinstance(app.query_one("#coding-toggle"), Button)
+            assert isinstance(app.query_one("#coding-task-select"), Select)
+            assert app.coding_expanded is False
+            await pilot.click("#coding-toggle")
+            await pilot.pause()
+            assert app.coding_expanded is True
+
+    asyncio_run(run())
+
+
+def test_expanded_coding_composer_queues_correction_instead_of_runtime_chat() -> None:
+    with TemporaryDirectory() as directory:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            coding_activity_path=Path(directory) / "coding.sqlite3",
+        )
+        daemon.coding_activity_journal.append(
+            {
+                "name": "coding.activity.v1",
+                "observed_at": "2030-01-01T00:00:00Z",
+                "confidence": 1.0,
+                "value": {
+                    "agent": "codex",
+                    "interaction_id": "interaction-1",
+                    "agent_session_id": "thread-1",
+                    "agent_turn_id": "turn-1",
+                    "event_kind": "prompt_submitted",
+                    "phase": "in_progress",
+                    "observed_at": "2030-01-01T00:00:00Z",
+                    "confidence": 1.0,
+                    "causal_parent": "thread-1:turn-1",
+                    "workspace_ref": "project",
+                    "summary": "started",
+                    "evidence_ref": "coding-evidence://interaction-1/1",
+                },
+            }
+        )
+        input_queue: queue.Queue[str | None] = queue.Queue()
+        input_state_queue: queue.Queue[dict] = queue.Queue()
+        app = TerminalEdgeApp(
+            daemon=daemon,
+            input_queue=input_queue,
+            input_state_queue=input_state_queue,
+            transcript_queue=queue.Queue(),
+        )
+
+        async def run() -> None:
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                await pilot.click("#coding-toggle")
+                await pilot.pause()
+                select = app.query_one("#coding-task-select", Select)
+                select.value = "interaction-1"
+                composer = app.query_one("#command-input", Input)
+                composer.focus()
+                composer.value = "Run the focused test"
+                await pilot.pause()
+                assert input_state_queue.empty()
+                await pilot.press("enter")
+                await pilot.pause()
+
+        asyncio_run(run())
+        assert input_queue.empty()
+        assert daemon.coding_control_queue.get_nowait() == {
+            "kind": "steer",
+            "interaction_id": "interaction-1",
+            "text": "Run the focused test",
+        }
+
+
+def test_expanded_coding_escape_queues_interrupt_for_selected_task() -> None:
+    with TemporaryDirectory() as directory:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            coding_activity_path=Path(directory) / "coding.sqlite3",
+        )
+        for interaction_id in ("interaction-1", "interaction-2"):
+            daemon.coding_activity_journal.append(
+                {
+                    "name": "coding.activity.v1",
+                    "observed_at": "2030-01-01T00:00:00Z",
+                    "confidence": 1.0,
+                    "value": {
+                        "agent": "codex",
+                        "interaction_id": interaction_id,
+                        "agent_session_id": f"thread-{interaction_id}",
+                        "agent_turn_id": "turn-1",
+                        "event_kind": "prompt_submitted",
+                        "phase": "in_progress",
+                        "observed_at": "2030-01-01T00:00:00Z",
+                        "confidence": 1.0,
+                        "causal_parent": f"thread-{interaction_id}:turn-1",
+                        "workspace_ref": "project",
+                        "summary": "started",
+                        "evidence_ref": f"coding-evidence://{interaction_id}/1",
+                    },
+                }
+            )
+        app = TerminalEdgeApp(
+            daemon=daemon,
+            input_queue=queue.Queue(),
+            input_state_queue=queue.Queue(),
+            transcript_queue=queue.Queue(),
+        )
+
+        async def run() -> None:
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                await pilot.click("#coding-toggle")
+                await pilot.pause()
+                assert app.selected_coding_task is None
+                select = app.query_one("#coding-task-select", Select)
+                select.value = "interaction-2"
+                composer = app.query_one("#command-input", Input)
+                composer.focus()
+                await pilot.press("escape")
+                await pilot.pause()
+
+        asyncio_run(run())
+        assert daemon.coding_control_queue.get_nowait() == {
+            "kind": "interrupt",
+            "interaction_id": "interaction-2",
+            "text": "",
+        }
+
+
+def asyncio_run(coroutine) -> None:
+    import asyncio
+
+    asyncio.run(coroutine)
 
 
 class TerminalTuiReceiptTests(unittest.IsolatedAsyncioTestCase):

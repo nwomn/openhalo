@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Extend the existing Terminal Edge with a Codex-first coding-agent bridge that emits bounded Edge-defined attention evidence to Personal Runtime and supports explicitly confirmed turn steering, while leaving M18 experience discovery and M20.1 skill governance as their existing owners.
+**Goal:** Extend the existing Terminal Edge with a Codex-first coding-agent bridge that emits bounded ordinary Coding observations to Personal Runtime and supports exact foreground correction/interrupt plus explicitly confirmed Runtime steering, while leaving M18 experience discovery and M20.1 skill governance as their existing owners.
 
-**Architecture:** The bridge is a connector/capability inside the existing Terminal Edge and does not create a second Device Edge identity. A local Codex App Server adapter converts thread/turn/item events into low-payload coding attention candidates, sends them over the existing `Edge Session Link -> Gateway` boundary, and keeps detailed evidence local. M18 consumes those candidates through its existing ingress guard, Harness-controlled experience discovery, Interaction Pool, Presence Router, and governed Action Layer; M20.1 later distills proven workflows into OpenHalo-owned Skill drafts.
+**Architecture:** The bridge is a connector/capability inside the existing Terminal Edge and does not create a second Device Edge identity. A local Codex App Server adapter converts thread/turn/item events into bounded `coding.activity.v1` ordinary observations, sends them over the existing `Edge Session Link -> Gateway`, and keeps detailed evidence in a durable paged Edge-local journal. M18 consumes them through its existing generic observation ingress, Harness-controlled experience discovery, Interaction Pool, Presence Router, and governed Action Layer; M20.1 later distills proven workflows into OpenHalo-owned Skill drafts.
 
 **Tech Stack:** Python 3.11+, existing `edge_api` v2 protocol, `device_edge.cli` Terminal Edge, Codex App Server JSON-RPC/JSONL, Personal Runtime M18 Interaction Pool and Harness, `unittest`, existing `bin/test` containment, GitHub Projects v2.
 
@@ -18,18 +18,19 @@
 
 ## Public contracts
 
-### `coding.attention.v1`
+### `coding.activity.v1`
 
-Add a rich observation-provider registration to the existing Terminal Edge capability announcement. The contract must describe a bounded attention candidate, not a full transcript:
+Add a rich observation-provider registration to the existing Terminal Edge capability announcement. The contract is a bounded ordinary observation, not a full transcript:
 
 - `agent`: first value `codex`; future adapters use the same semantic envelope.
 - `agent_session_id` and `agent_turn_id`: exact local App Server identifiers.
-- `event_kind`: a small adapter vocabulary such as `session_started`, `prompt_submitted`, `tool_activity`, `file_change`, `test_result`, `user_correction`, `turn_completed`, `turn_failed`, and `approval_waiting`.
+- `interaction_id`, plus exact `agent_session_id` and `agent_turn_id`, binds activity to the OpenHalo task and Codex lineage.
+- `event_kind`: reasoning summary, plan update, agent message, command execution, file change, test result, approval waiting/resolution, user correction, and turn lifecycle.
 - `phase`, `observed_at`, `confidence`, and `causal_parent` for Runtime freshness, deduplication, and interaction lineage.
 - `workspace_ref`: stable local workspace/repository reference; do not use it as a device identity.
-- `summary` and `evidence_ref`: bounded, body-free or locally retrievable evidence pointers. Detailed prompt/output/diff content stays in the Bridge's task-local cache.
+- `summary` and `evidence_ref`: bounded, body-free or locally retrievable evidence pointers. Detailed prompt/output/diff content stays in the Edge-local paged journal.
 
-The Runtime may persist normalized observations, provenance, summaries, decisions, outcomes, TTL, and body-free references in its existing bounded SQLite ledger. It must not receive an unbounded transcript dump as the steady-state path.
+The Runtime may persist normalized observations, provenance, summaries, decisions, outcomes, TTL, and body-free references in its existing bounded SQLite ledger. It must not receive an unbounded transcript dump as the steady-state path. Coding observations use the same generic ingress and governance as other observations; there is no Coding-specific `record_only`, ignore, or priority path. The default 32-task bound is only simultaneous-active resource protection; active local history has no event-count ceiling and completed history is reclaimed only by capacity policy.
 
 ### Confirmation and steering actions
 
@@ -49,7 +50,7 @@ The Runtime may persist normalized observations, provenance, summaries, decision
 
 **Steps:**
 
-1. Review the current `M18` direction: Edge-defined attention candidates, bounded source-Edge evidence, `observe_more`, sealed `experience_discovery`, Interaction Pool registration, and body-free Runtime ledger records.
+1. Review the current `M18` direction: ordinary Edge observations, bounded source-Edge evidence, `observe_more`, sealed `experience_discovery`, Interaction Pool registration, and body-free Runtime ledger records.
 2. Review the current M20.3 Terminal Edge contract and preserve one P-256-authenticated device/session boundary.
 3. Land this design plan and the corresponding design Issue before changing Runtime or Terminal behavior.
 4. Run `git diff --check` and the project guard before opening the design PR.
@@ -78,14 +79,14 @@ local to the Terminal TUI/line mode.
 **Steps:**
 
 1. Add a JSON-RPC/JSONL App Server client that launches or attaches to a local Codex App Server, performs `initialize`, subscribes to a thread, and consumes `thread/*`, `turn/*`, and `item/*` notifications without exposing provider internals to the Terminal transcript.
-2. Normalize Codex events into the `coding.attention.v1` envelope and coalesce high-frequency tool/output deltas before sending them through the existing Terminal Edge WebSocket.
+2. Normalize Codex events into the `coding.activity.v1` envelope and coalesce high-frequency tool/output deltas before sending them through the existing Terminal Edge WebSocket.
 3. Widen capability registration helpers from string-only annotations to `str | dict` while preserving all existing legacy capabilities and v2 authentication behavior.
 4. Keep the Bridge under the existing Terminal Edge device/session and expose its local lifecycle as `connected`, `degraded`, `reconnecting`, or `unsupported`; a Bridge failure must not terminate the ordinary Terminal Edge.
 5. Add a bounded task-local evidence cache and an explicit read path for later `observe_more` requests. Do not continuously upload raw prompt, diff, command output, or agent reasoning content.
 6. Add explicit local action handlers for `coding.turn.start`, `coding.suggestion.offer`, and `coding.turn.steer`; route each start to an independent App Server thread/turn, route accepted steering through `turn/steer`, and return exact action-result correlation.
 7. Add deterministic fake-App-Server tests for startup, event ordering, coalescing, reconnect, stale turn rejection, accepted steering, refusal, and App Server failure degradation.
 
-## Task 3: Add M18 coding-attention consumption
+## Task 3: Keep Coding activity on the ordinary M18 observation path
 
 **Files:**
 
@@ -102,12 +103,12 @@ local to the Terminal TUI/line mode.
 
 **Steps:**
 
-1. Register and validate the Coding attention observation schema through the existing capability/observation registry; unknown or malformed candidates are rejected at Gateway without state mutation.
-2. Keep ordinary coding activity passive by default. The ingress guard should admit only bounded high-value candidates, apply provenance/causal/deduplication/rate/budget checks, and return `skip`, `defer`, `observe_more`, or `trigger` semantics through the existing M18 path.
+1. Register and validate the `coding.activity.v1` schema through the existing capability/observation registry; unknown or malformed observations are rejected at Gateway without state mutation.
+2. Do not add a Coding-specific admission branch. The existing generic observation path applies provenance/causal/deduplication/rate/budget checks and returns `skip`, `defer`, `observe_more`, or `trigger` according to the same policy used for other observations.
 3. Feed admitted evidence into the existing sealed `experience_discovery` skill through a bounded Snapshot, source-Edge evidence window, Hermes native memory, and Runtime projection. The skill may propose an experience candidate but may not dispatch a Codex action.
 4. Register admitted work as an ordinary Interaction Pool record and reuse the existing proposal -> Presence -> execution -> action-result lifecycle. Do not introduce a coding-specific interaction lifecycle.
 5. Add fixture tests for repeated correction, omitted verification, repeated failure, low-value tool chatter, natural pause, stale evidence, duplicate evidence, and `observe_more` evidence retrieval.
-6. Extend offline M18 replay to report Coding attention decisions without calling a provider or dispatching an action.
+6. Extend offline M18 replay to report Coding activity decisions without calling a provider or dispatching an action.
 
 ## Task 4: Integrate confirmation and steering
 
