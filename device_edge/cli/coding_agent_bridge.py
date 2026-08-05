@@ -238,6 +238,7 @@ class _ApprovalState:
     method: str
     params: dict
     future: asyncio.Future
+    thread_id: str = ""
 
 
 @dataclass
@@ -312,6 +313,18 @@ class CodingAgentBridge:
         for approval in tuple(self._approvals.values()):
             if not approval.future.done():
                 approval.future.set_result(self._approval_result(approval, "decline"))
+            # Emit turn_interrupted for the task so the journal marks it completed.
+            task_state = self._task_by_thread.get(approval.thread_id)
+            if task_state is not None:
+                self._emit_observation(
+                    self._build_observation(
+                        task_state,
+                        event_kind="turn_interrupted",
+                        phase="interrupted",
+                        summary="Bridge closed with pending approval.",
+                        evidence_metadata={"reason": "shutdown"},
+                    )
+                )
         self._approvals.clear()
         await self.client.close()
         self.state = "disconnected"
@@ -671,6 +684,7 @@ class CodingAgentBridge:
             raise ValueError("Unsupported Codex App Server request.")
         self._prompt_sequence += 1
         prompt_id = f"approval-{self._prompt_sequence}"
+        thread_id = str(params.get("threadId", ""))
         loop = asyncio.get_running_loop()
         future = loop.create_future()
         state = _ApprovalState(
@@ -679,6 +693,7 @@ class CodingAgentBridge:
             method=method,
             params=params,
             future=future,
+            thread_id=thread_id,
         )
         self._approvals[prompt_id] = state
         kind = {

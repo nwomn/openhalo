@@ -545,7 +545,7 @@ class TerminalEdgeDaemon:
     def render_help(self) -> None:
         self.render_status_line(
             "Available local commands: /help /status /history /quit; "
-            "coding: /coding tasks | /coding clean | /coding send <task> <text> | "
+            "coding: /coding tasks | /coding clean | /coding delete <task> | /coding send <task> <text> | "
             "/coding interrupt <task>; prompts: /accept /ignore /suppress_task "
             "/allow /allow-session /deny /cancel"
         )
@@ -584,9 +584,17 @@ class TerminalEdgeDaemon:
                 count = self.coding_activity_journal.clean_completed()
                 self.render_status_line(f"Cleaned {count} completed Coding task(s).")
             return True
+        if len(parts) == 3 and parts[1] == "delete":
+            if self.coding_activity_journal is None:
+                self.render_status_line("No local Coding journal to delete from.")
+            elif self.coding_activity_journal.delete_task(parts[2]):
+                self.render_status_line(f"Deleted coding task {parts[2]}.")
+            else:
+                self.render_status_line(f"Coding task {parts[2]} not found.")
+            return True
         if len(parts) < 3 or parts[1] not in {"send", "interrupt"}:
             self.render_status_line(
-                "Usage: /coding tasks | /coding clean | /coding send <task> <text> | "
+                "Usage: /coding tasks | /coding clean | /coding delete <task> | /coding send <task> <text> | "
                 "/coding interrupt <task>"
             )
             return True

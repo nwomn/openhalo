@@ -20,3 +20,4 @@ config/runtime-config.toml
 config/runtime-config.*-local.toml
 .codex/openhalo-*.xml
 .qoder/
+build/ 
