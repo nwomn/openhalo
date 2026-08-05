@@ -194,7 +194,7 @@ class TerminalEdgeApp(App[None]):
     }
 
     #coding-panel.expanded {
-        height: 12;
+        height: 14;
     }
 
     #coding-toolbar {
@@ -213,7 +213,7 @@ class TerminalEdgeApp(App[None]):
     }
 
     #coding-activity-scroll {
-        height: 10;
+        height: 8;
         overflow-y: scroll;
         scrollbar-color: #3a4638;
         scrollbar-color-hover: #5d7258;
@@ -223,6 +223,31 @@ class TerminalEdgeApp(App[None]):
         width: 100%;
         padding: 0 1;
         color: #c8d6c7;
+    }
+
+    #coding-approval-bar {
+        height: 3;
+        padding: 0 0 0 1;
+        display: none;
+        background: #1a261a;
+        border-top: solid #2d372c;
+    }
+
+    #coding-approval-bar.visible {
+        display: block;
+    }
+
+    #coding-approval-text {
+        width: 1fr;
+        height: 3;
+        color: #d4e1d0;
+        content-align: left middle;
+    }
+
+    #coding-approval-bar Button {
+        width: 12;
+        height: 3;
+        margin: 0 0 0 1;
     }
 
     OutcomeReceiptWidget {
@@ -341,6 +366,14 @@ class TerminalEdgeApp(App[None]):
                     Static("", id="coding-activity-log"),
                     id="coding-activity-scroll",
                 ),
+                Horizontal(
+                    Static("", id="coding-approval-text"),
+                    Button("Allow", id="approval-accept", variant="primary"),
+                    Button("Session", id="approval-acceptForSession"),
+                    Button("Deny", id="approval-decline", variant="error"),
+                    Button("Cancel", id="approval-cancel"),
+                    id="coding-approval-bar",
+                ),
                 id="coding-panel",
             ),
             Vertical(
@@ -387,6 +420,12 @@ class TerminalEdgeApp(App[None]):
             event.input.value = ""
             return
         if self.coding_expanded:
+            # Also handle local commands (/allow, /deny, /help, etc.)
+            # while the coding panel is expanded, so the user can approve
+            # or reject Codex requests without collapsing the panel.
+            if text.startswith("/") and self.daemon.handle_local_input(text):
+                event.input.value = ""
+                return
             if not self.selected_coding_task:
                 self.daemon.render_status_line(
                     "Select an active Coding task before sending correction."
@@ -469,22 +508,25 @@ class TerminalEdgeApp(App[None]):
             event.stop()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id != "coding-toggle":
+        if event.button.id == "coding-toggle":
+            self.coding_expanded = not self.coding_expanded
+            panel = self.query_one("#coding-panel", Vertical)
+            panel.set_class(self.coding_expanded, "expanded")
+            panel.styles.height = 14 if self.coding_expanded else 3
+            event.button.label = "Coding −" if self.coding_expanded else "Coding +"
+            composer = self.query_one("#command-input", Input)
+            if self.coding_expanded:
+                composer.value = getattr(self, "_coding_draft", "")
+                composer.placeholder = "Correction for selected Codex task · Enter sends · Esc interrupts"
+            else:
+                self._coding_draft = composer.value
+                composer.value = self.daemon.presentation.draft
+                composer.placeholder = "Write a message or use /help"
+            composer.focus()
             return
-        self.coding_expanded = not self.coding_expanded
-        panel = self.query_one("#coding-panel", Vertical)
-        panel.set_class(self.coding_expanded, "expanded")
-        panel.styles.height = 12 if self.coding_expanded else 3
-        event.button.label = "Coding −" if self.coding_expanded else "Coding +"
-        composer = self.query_one("#command-input", Input)
-        if self.coding_expanded:
-            composer.value = getattr(self, "_coding_draft", "")
-            composer.placeholder = "Correction for selected Codex task · Enter sends · Esc interrupts"
-        else:
-            self._coding_draft = composer.value
-            composer.value = self.daemon.presentation.draft
-            composer.placeholder = "Write a message or use /help"
-        composer.focus()
+        if event.button.id and event.button.id.startswith("approval-"):
+            self._resolve_approval_button(event.button.id)
+            return
 
     def on_select_changed(self, event: Select.Changed) -> None:
         if event.select.id != "coding-task-select":
@@ -693,6 +735,60 @@ class TerminalEdgeApp(App[None]):
         else:
             select.value = current
         self._refresh_coding_activity_log()
+        self._refresh_coding_approval_bar()
+
+    def _refresh_coding_approval_bar(self) -> None:
+        """Update the approval bar in the coding panel."""
+        try:
+            bar = self.query_one("#coding-approval-bar", Horizontal)
+            text = self.query_one("#coding-approval-text", Static)
+        except NoMatches:
+            return
+        pending = getattr(self.daemon, "pending_coding_prompts", {})
+        # Find the first pending approval prompt
+        prompt_id = None
+        prompt = None
+        for pid, p in list(pending.items()):
+            if p.get("kind") != "suggestion":
+                prompt_id = pid
+                prompt = p
+                break
+        if prompt_id is None:
+            bar.remove_class("visible")
+            text.update("")
+            return
+        summary = prompt.get("summary", "Codex request")
+        text.update(f"[bold]{summary}[/]")
+        bar.add_class("visible")
+
+    def _resolve_approval_button(self, button_id: str) -> None:
+        decision_map = {
+            "approval-accept": "accept",
+            "approval-acceptForSession": "acceptForSession",
+            "approval-decline": "decline",
+            "approval-cancel": "cancel",
+        }
+        decision = decision_map.get(button_id)
+        if decision is None:
+            return
+        bridge = getattr(self.daemon, "coding_bridge", None)
+        if bridge is None:
+            self.daemon.render_status_line("No active Codex session.")
+            return
+        pending = getattr(self.daemon, "pending_coding_prompts", {})
+        for prompt_id, prompt in list(pending.items()):
+            if prompt.get("kind") != "suggestion":
+                try:
+                    bridge.resolve_approval(prompt_id, decision)
+                except ValueError as exc:
+                    self.daemon.render_status_line(str(exc))
+                else:
+                    pending.pop(prompt_id, None)
+                    self.daemon.render_status_line(
+                        f"{decision} for {prompt_id}."
+                    )
+                return
+        self.daemon.render_status_line("No pending approval request.")
 
     def _refresh_coding_activity_log(self) -> None:
         try:

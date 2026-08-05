@@ -136,6 +136,39 @@ class CodingActivityJournal:
             rows = connection.execute(query, parameters).fetchall()
         return [dict(row) for row in rows]
 
+    def delete_task(self, interaction_id: str) -> bool:
+        """Remove a task and all its activities. Returns True if deleted."""
+        with self._lock, self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM coding_activities WHERE interaction_id = ?",
+                (interaction_id,),
+            )
+            cursor = connection.execute(
+                "DELETE FROM coding_tasks WHERE interaction_id = ?",
+                (interaction_id,),
+            )
+            return cursor.rowcount > 0
+
+    def clean_completed(self) -> int:
+        """Remove all completed tasks. Returns count of removed tasks."""
+        removed = 0
+        with self._lock, self._connect() as connection:
+            rows = connection.execute(
+                "SELECT interaction_id FROM coding_tasks WHERE status = 'completed'"
+            ).fetchall()
+            for row in rows:
+                interaction_id = row["interaction_id"]
+                connection.execute(
+                    "DELETE FROM coding_activities WHERE interaction_id = ?",
+                    (interaction_id,),
+                )
+                connection.execute(
+                    "DELETE FROM coding_tasks WHERE interaction_id = ?",
+                    (interaction_id,),
+                )
+                removed += 1
+        return removed
+
     def prune_completed(self) -> int:
         """Remove oldest completed tasks until the quota is met; never remove active tasks."""
 
