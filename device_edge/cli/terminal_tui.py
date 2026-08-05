@@ -212,10 +212,16 @@ class TerminalEdgeApp(App[None]):
         margin-left: 1;
     }
 
-    #coding-activity-log {
+    #coding-activity-scroll {
         height: 10;
-        padding: 0 1;
         overflow-y: scroll;
+        scrollbar-color: #3a4638;
+        scrollbar-color-hover: #5d7258;
+    }
+
+    #coding-activity-log {
+        width: 100%;
+        padding: 0 1;
         color: #c8d6c7;
     }
 
@@ -304,6 +310,8 @@ class TerminalEdgeApp(App[None]):
         self._coding_activity_entries: list[dict] = []
         self._coding_activity_before: int | None = None
         self._coding_task_options: tuple[tuple[str, str], ...] = ()
+        self._coding_activity_follow = True
+        self._coding_activity_last_offset = 0
 
     def compose(self) -> ComposeResult:
         yield Vertical(
@@ -329,7 +337,10 @@ class TerminalEdgeApp(App[None]):
                     ),
                     id="coding-toolbar",
                 ),
-                Static("", id="coding-activity-log"),
+                VerticalScroll(
+                    Static("", id="coding-activity-log"),
+                    id="coding-activity-scroll",
+                ),
                 id="coding-panel",
             ),
             Vertical(
@@ -671,7 +682,12 @@ class TerminalEdgeApp(App[None]):
                 current = next(iter(active_values))
             else:
                 current = None
+        if current != self.selected_coding_task:
             self.selected_coding_task = current
+            self._coding_activity_entries = []
+            self._coding_activity_before = None
+            self._coding_activity_follow = True
+            self._coding_activity_last_offset = 0
         if current is None:
             select.value = Select.NULL
         else:
@@ -680,15 +696,21 @@ class TerminalEdgeApp(App[None]):
 
     def _refresh_coding_activity_log(self) -> None:
         try:
-            log = self.query_one("#coding-activity-log", Static)
+            log = self.query_one("#coding-activity-scroll", VerticalScroll)
+        except NoMatches:
+            return
+        try:
+            content = self.query_one("#coding-activity-log", Static)
         except NoMatches:
             return
         if not self.selected_coding_task:
-            log.update("Select a Coding task to inspect its activity.\nPageUp loads older local history.")
+            content.update(
+                "Select a Coding task to inspect its activity.\nPageUp loads older local history."
+            )
             return
         journal = getattr(self.daemon, "coding_activity_journal", None)
         if journal is None:
-            log.update("Local Coding journal is unavailable in this session.")
+            content.update("Local Coding journal is unavailable in this session.")
             return
         latest_page = journal.page(self.selected_coding_task, limit=200)
         if not self._coding_activity_entries:
@@ -718,7 +740,17 @@ class TerminalEdgeApp(App[None]):
             lines.insert(0, "↑ older local history loaded · PageUp for more")
         else:
             lines.append("PageUp loads older local history.")
-        log.update("\n".join(lines))
+        content.update("\n".join(lines))
+        # Follow the latest activity stream; pause while the user is scrolling up
+        # through local history, then resume once they return to the bottom.
+        current_offset = log.scroll_offset.y
+        if current_offset < self._coding_activity_last_offset:
+            self._coding_activity_follow = False
+        if current_offset >= log.max_scroll_y:
+            self._coding_activity_follow = True
+        self._coding_activity_last_offset = current_offset
+        if self._coding_activity_follow:
+            log.scroll_end(animate=False)
 
     def _load_older_coding_activity_page(self) -> None:
         if not self.selected_coding_task or not self._coding_activity_entries:
@@ -726,6 +758,7 @@ class TerminalEdgeApp(App[None]):
         journal = getattr(self.daemon, "coding_activity_journal", None)
         if journal is None:
             return
+        self._coding_activity_follow = False
         first_sequence = self._coding_activity_entries[0].get("local_sequence")
         if not isinstance(first_sequence, int):
             return

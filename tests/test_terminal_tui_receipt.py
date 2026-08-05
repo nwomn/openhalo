@@ -201,6 +201,114 @@ def asyncio_run(coroutine) -> None:
     asyncio.run(coroutine)
 
 
+def _coding_observation(interaction_id: str, sequence: int) -> dict:
+    return {
+        "name": "coding.activity.v1",
+        "observed_at": f"2030-01-01T00:{sequence // 60:02d}:{sequence % 60:02d}Z",
+        "confidence": 1.0,
+        "value": {
+            "agent": "codex",
+            "interaction_id": interaction_id,
+            "agent_session_id": "thread-1",
+            "agent_turn_id": "turn-1",
+            "event_kind": "tool_activity",
+            "phase": "in_progress",
+            "observed_at": f"2030-01-01T00:{sequence // 60:02d}:{sequence % 60:02d}Z",
+            "confidence": 1.0,
+            "causal_parent": "thread-1:turn-1",
+            "workspace_ref": "project",
+            "summary": f"activity line {sequence}",
+            "evidence_ref": f"coding-evidence://{interaction_id}/{sequence}",
+        },
+    }
+
+
+def test_coding_activity_log_follows_the_latest_activity_after_refresh() -> None:
+    with TemporaryDirectory() as directory:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            coding_activity_path=Path(directory) / "coding.sqlite3",
+        )
+        for sequence in range(1, 31):
+            daemon.coding_activity_journal.append(
+                _coding_observation("interaction-1", sequence)
+            )
+        app = TerminalEdgeApp(
+            daemon=daemon,
+            input_queue=queue.Queue(),
+            input_state_queue=queue.Queue(),
+            transcript_queue=queue.Queue(),
+        )
+
+        async def run() -> None:
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                await pilot.click("#coding-toggle")
+                await pilot.pause()
+                select = app.query_one("#coding-task-select", Select)
+                select.value = "interaction-1"
+                await pilot.pause()
+                log = app.query_one("#coding-activity-scroll", VerticalScroll)
+                app._refresh_coding_activity_log()
+                await pilot.pause()
+                await pilot.pause()
+                assert log.scroll_offset.y == log.max_scroll_y
+                assert log.max_scroll_y > 0
+
+        asyncio_run(run())
+
+
+def test_coding_activity_log_pauses_follow_while_user_scrolls_history() -> None:
+    with TemporaryDirectory() as directory:
+        daemon = TerminalEdgeDaemon(
+            device_id="terminal-edge-1",
+            coding_activity_path=Path(directory) / "coding.sqlite3",
+        )
+        for sequence in range(1, 31):
+            daemon.coding_activity_journal.append(
+                _coding_observation("interaction-1", sequence)
+            )
+        app = TerminalEdgeApp(
+            daemon=daemon,
+            input_queue=queue.Queue(),
+            input_state_queue=queue.Queue(),
+            transcript_queue=queue.Queue(),
+        )
+
+        async def run() -> None:
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                await pilot.click("#coding-toggle")
+                await pilot.pause()
+                select = app.query_one("#coding-task-select", Select)
+                select.value = "interaction-1"
+                await pilot.pause()
+                log = app.query_one("#coding-activity-scroll", VerticalScroll)
+                app._refresh_coding_activity_log()
+                await pilot.pause()
+                await pilot.pause()
+                assert log.max_scroll_y > 0
+                assert log.scroll_offset.y == log.max_scroll_y
+
+                log.scroll_to(y=5, animate=False, immediate=True)
+                await pilot.pause()
+                assert log.scroll_offset.y == 5
+                app._refresh_coding_activity_log()
+                await pilot.pause()
+                await pilot.pause()
+                assert log.scroll_offset.y == 5
+                assert app._coding_activity_follow is False
+
+                log.scroll_to(y=log.max_scroll_y, animate=False, immediate=True)
+                await pilot.pause()
+                app._refresh_coding_activity_log()
+                await pilot.pause()
+                await pilot.pause()
+                assert log.scroll_offset.y == log.max_scroll_y
+
+        asyncio_run(run())
+
+
 class TerminalTuiReceiptTests(unittest.IsolatedAsyncioTestCase):
     async def test_terminal_app_renders_a_quiet_edge_identity_and_connection_header(
         self,
