@@ -37,6 +37,7 @@ from personal_runtime.context_contracts import RuntimeObservation
 from personal_runtime.display_lifecycle import DisplayLifecycle
 from personal_runtime.execution_planning import ExecutionPlanner
 from personal_runtime.interaction_pool import InteractionPool
+from personal_runtime.interaction_continuation import ContinuationRouter
 from personal_runtime.mobile_liveness import record_mobile_session_state
 from personal_runtime.mobile_liveness import update_mobile_liveness_after_observations
 from personal_runtime.outcome_receipt import append_receipt_entry
@@ -120,6 +121,7 @@ class RuntimeGateway:
         else:
             self.state = self.state_store.load()
         self.interaction_pool = InteractionPool(self.state)
+        self.continuation_router = ContinuationRouter(self.interaction_pool)
         self.display_lifecycle = DisplayLifecycle()
         self.runtime_event_emitter = runtime_event_emitter
         self.runtime_console_presenter = RuntimeConsolePresenter(
@@ -216,6 +218,34 @@ class RuntimeGateway:
         maintain(now=_utc_now())
         self._last_storage_maintenance_at = now
 
+    def reconcile_interaction_health(self, *, current_time: str | None = None) -> list[dict]:
+        """Reconcile persistent interaction health without provider polling."""
+
+        observed_at = current_time or _utc_now()
+        changed = self.continuation_router.reconcile_health(
+            current_time=observed_at,
+            online_device_ids=set(self.online_device_ids),
+        )
+        if not changed:
+            return []
+        updates = []
+        for interaction in changed:
+            health = dict(interaction.health)
+            update = {
+                "interaction_id": interaction.interaction_id,
+                "process_health": health,
+                "observed_at": observed_at,
+            }
+            self.state.record_event(
+                {
+                    "type": "process_health_changed",
+                    **update,
+                }
+            )
+            updates.append(update)
+        self._persist_state()
+        return updates
+
     def _next_interaction_id(self) -> str:
         return self.state.allocate_interaction_id()
 
@@ -224,6 +254,42 @@ class RuntimeGateway:
 
     def _next_interaction_turn_id(self) -> str:
         return self.state.allocate_interaction_turn_id()
+
+    def _configure_interaction_continuation_for_action(
+        self,
+        *,
+        interaction_id: str,
+        target_device_id: str,
+        action_capability: str,
+    ) -> None:
+        metadata = self.state.capability_registry.get(target_device_id, {}).get(
+            action_capability,
+            {},
+        )
+        contract = metadata.get("process_contract")
+        if isinstance(contract, dict):
+            self.interaction_pool.configure_continuation(
+                interaction_id,
+                contract,
+                target_device_id=target_device_id,
+            )
+
+    def _configure_interaction_continuation_from_proposal(
+        self,
+        *,
+        interaction_id: str,
+        proposal: dict,
+        target_device_id: str | None,
+    ) -> None:
+        metadata = proposal.get("metadata", {}) if isinstance(proposal, dict) else {}
+        intent = metadata.get("continuation_intent")
+        if not isinstance(intent, dict) or not intent:
+            return
+        self.interaction_pool.configure_continuation(
+            interaction_id,
+            intent,
+            target_device_id=target_device_id,
+        )
 
     def _register_interaction_for_frame(self, frame: dict):
         payload = frame.get("payload", {})
@@ -305,6 +371,16 @@ class RuntimeGateway:
                     request_id is None
                     or intervention.get("request_id") == request_id
                 )
+            ),
+            None,
+        )
+
+    def _latest_intervention_for_interaction(self, interaction_id: str) -> dict | None:
+        return next(
+            (
+                intervention
+                for intervention in reversed(self.state.interventions)
+                if intervention.get("interaction_id") == interaction_id
             ),
             None,
         )
@@ -1116,6 +1192,11 @@ class RuntimeGateway:
                 parent_event_id=parent_event_id,
                 reentry_parent=dict(reentry_parent)
                 if isinstance(reentry_parent, dict)
+                else None,
+                process_id=observation_payload.get("process_id"),
+                evidence_ref=observation_payload.get("evidence_ref"),
+                coverage=dict(observation_payload["coverage"])
+                if isinstance(observation_payload.get("coverage"), dict)
                 else None,
             )
             for observation_payload in observations
@@ -2024,6 +2105,7 @@ class RuntimeGateway:
     @asynccontextmanager
     async def run_server(self, host: str = "127.0.0.1", port: int = 8765):
         server = await websockets.serve(self._websocket_handler, host, port)
+        maintenance_task = asyncio.create_task(self._maintenance_loop())
         try:
             bound_host, bound_port = server.sockets[0].getsockname()[:2]
             url = f"ws://{bound_host}:{bound_port}"
@@ -2031,9 +2113,30 @@ class RuntimeGateway:
                 self.audience = url
             yield {"url": url}
         finally:
+            maintenance_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await maintenance_task
             server.close()
             await server.wait_closed()
             self._close_state_store()
+
+    async def _maintenance_loop(self) -> None:
+        while True:
+            updates = self.reconcile_interaction_health()
+            for update in updates:
+                replies = self.orchestrator.handle_process_health_update(update)
+                if not replies:
+                    continue
+                interaction = self.interaction_pool.get(update["interaction_id"])
+                source_device_id = interaction.source_device_id if interaction else None
+                source_websocket = self.live_connections.get(source_device_id)
+                if source_device_id and source_websocket is not None:
+                    await self._dispatch_websocket_replies(
+                        source_device_id,
+                        source_websocket,
+                        replies,
+                    )
+            await asyncio.sleep(30)
 
 
 def _utc_now() -> str:

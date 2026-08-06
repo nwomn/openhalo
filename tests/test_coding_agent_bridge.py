@@ -74,6 +74,21 @@ class CodingAgentBridgeTests(unittest.IsolatedAsyncioTestCase):
             },
         )
 
+    async def test_coding_start_declares_a_generic_process_completion_contract(self) -> None:
+        registration = next(
+            item
+            for item in CODING_CAPABILITY_REGISTRATIONS
+            if item["name"] == "coding.turn.start"
+        )
+
+        contract = registration["process_contract"]
+        self.assertEqual("until_settled", contract["continuation_policy"])
+        self.assertEqual(
+            ["coding.activity.v1"],
+            contract["watches"][0]["observation_names"],
+        )
+        self.assertIn("turn_completed", contract["watches"][0]["resolve_when"]["event_kind"])
+
     async def test_rejects_coding_action_payload_that_breaks_registered_schema(self) -> None:
         with self.assertRaises(ValueError):
             validate_coding_action_payload(

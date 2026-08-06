@@ -109,6 +109,9 @@ def validate_capability_registration(capability: str | dict) -> str | dict:
     input_schema = capability.get("input_schema")
     if input_schema is not None and not isinstance(input_schema, dict):
         raise ValueError("Capability input_schema must be an object.")
+    process_contract = capability.get("process_contract")
+    if process_contract is not None:
+        _validate_process_contract(process_contract)
     observations = capability.get("observations", [])
     if observations is None:
         return capability
@@ -124,6 +127,24 @@ def validate_capability_registration(capability: str | dict) -> str | dict:
         if schema is not None and not isinstance(schema, dict):
             raise ValueError("Observation schema must be an object.")
     return capability
+
+
+def _validate_process_contract(contract: object) -> None:
+    if not isinstance(contract, dict):
+        raise ValueError("Capability process_contract must be an object.")
+    if contract.get("continuation_policy") not in {"until_settled", "until_verified"}:
+        raise ValueError("Capability process_contract requires a persistent continuation_policy.")
+    watches = contract.get("watches")
+    if not isinstance(watches, list) or not watches:
+        raise ValueError("Capability process_contract requires at least one watch.")
+    for watch in watches:
+        if not isinstance(watch, dict):
+            raise ValueError("Capability process_contract watch must be an object.")
+        if not isinstance(watch.get("watch_id"), str) or not watch["watch_id"]:
+            raise ValueError("Capability process_contract watch requires watch_id.")
+        names = watch.get("observation_names")
+        if not isinstance(names, list) or not all(isinstance(name, str) and name for name in names):
+            raise ValueError("Capability process_contract watch requires observation_names.")
 
 
 def build_event_push_frame(

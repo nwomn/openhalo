@@ -6,6 +6,10 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 
+_CONTINUATION_POLICIES = {"one_shot", "until_settled", "until_verified"}
+_TERMINAL_PHASES = {"completed", "failed", "cancelled", "expired"}
+
+
 @dataclass(frozen=True, slots=True)
 class InteractionRegistration:
     interaction: "InteractionRecord"
@@ -67,6 +71,14 @@ class InteractionRecord:
     outcome_delivery_required: bool = False
     agent_session_id: str | None = None
     turns: list[InteractionTurn] = field(default_factory=list)
+    lifecycle_phase: str = "planned"
+    continuation_policy: str = "one_shot"
+    objective: dict = field(default_factory=dict)
+    watches: list[dict] = field(default_factory=list)
+    obligations: list[dict] = field(default_factory=list)
+    process_state: dict = field(default_factory=dict)
+    health: dict = field(default_factory=lambda: {"state": "healthy"})
+    lineage: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -82,11 +94,31 @@ class InteractionRecord:
             "agent_session_id": self.agent_session_id,
             "status": self.status,
             "turns": [turn.to_dict() for turn in self.turns],
+            "lifecycle_phase": self.lifecycle_phase,
+            "continuation_policy": self.continuation_policy,
+            "objective": dict(self.objective),
+            "watches": [dict(watch) for watch in self.watches],
+            "obligations": [dict(obligation) for obligation in self.obligations],
+            "process_state": dict(self.process_state),
+            "health": dict(self.health),
+            "lineage": dict(self.lineage),
         }
 
     @classmethod
     def from_dict(cls, payload: dict) -> "InteractionRecord":
         interaction_id = payload["interaction_id"]
+        status = payload.get("status", "planned")
+        continuation_policy = payload.get("continuation_policy", "one_shot")
+        if continuation_policy not in _CONTINUATION_POLICIES:
+            continuation_policy = "one_shot"
+        lifecycle_phase = payload.get("lifecycle_phase")
+        if not isinstance(lifecycle_phase, str) or not lifecycle_phase:
+            lifecycle_phase = _phase_for_status(status)
+        obligations = [
+            _normalize_obligation(obligation)
+            for obligation in payload.get("obligations", [])
+            if isinstance(obligation, dict)
+        ]
         return cls(
             interaction_id=interaction_id,
             origin=payload.get("origin", "legacy"),
@@ -105,12 +137,24 @@ class InteractionRecord:
                 "agent_session_id",
                 f"openhalo-child:{interaction_id}",
             ),
-            status=payload.get("status", "planned"),
+            status=status,
             turns=[
                 InteractionTurn.from_dict(turn)
                 for turn in payload.get("turns", [])
                 if "interaction_turn_id" in turn
             ],
+            lifecycle_phase=lifecycle_phase,
+            continuation_policy=continuation_policy,
+            objective=dict(payload.get("objective", {})),
+            watches=[
+                dict(watch)
+                for watch in payload.get("watches", [])
+                if isinstance(watch, dict)
+            ],
+            obligations=obligations,
+            process_state=dict(payload.get("process_state", {})),
+            health=dict(payload.get("health", {"state": "healthy"})),
+            lineage=dict(payload.get("lineage", {})),
         )
 
 
@@ -147,10 +191,19 @@ class InteractionPool:
         initiator_kind: str = "legacy",
         requesting_device_id: str | None = None,
         outcome_delivery_required: bool = False,
+        continuation_policy: str = "one_shot",
+        objective: dict | None = None,
+        watches: list[dict] | None = None,
+        obligations: list[dict] | None = None,
+        process_state: dict | None = None,
+        health: dict | None = None,
+        lineage: dict | None = None,
     ) -> InteractionRegistration:
         scope_key = causal_scope.get("key")
         if not isinstance(scope_key, str) or not scope_key:
             raise ValueError("causal_scope requires a non-empty key")
+        if continuation_policy not in _CONTINUATION_POLICIES:
+            raise ValueError("unsupported continuation policy")
         existing = self._active_record_for_scope(causal_scope)
         if existing is not None:
             return InteractionRegistration(interaction=existing, created=False)
@@ -169,6 +222,14 @@ class InteractionPool:
             outcome_delivery_required=outcome_delivery_required,
             agent_session_id=f"openhalo-child:{interaction_id}",
             status="planned",
+            lifecycle_phase="planned",
+            continuation_policy=continuation_policy,
+            objective=dict(objective or {}),
+            watches=[_normalize_watch(watch) for watch in watches or []],
+            obligations=[_normalize_obligation(obligation) for obligation in obligations or []],
+            process_state=dict(process_state or {}),
+            health={"state": "healthy", **dict(health or {})},
+            lineage=dict(lineage or {}),
         )
         if hasattr(self.state, "record_interaction"):
             self.state.record_interaction(record.to_dict())
@@ -180,13 +241,198 @@ class InteractionPool:
         payload = self._payload_for(interaction_id)
         return InteractionRecord.from_dict(payload) if payload is not None else None
 
+    def active_records(self) -> list[InteractionRecord]:
+        return [
+            InteractionRecord.from_dict(payload)
+            for payload in self.state.interactions
+            if payload.get("status") not in _TERMINAL_PHASES
+        ]
+
     def complete(self, interaction_id: str) -> InteractionRecord:
         payload = self._payload_for(interaction_id)
         if payload is None:
             raise KeyError(f"unknown interaction: {interaction_id}")
         payload["status"] = "completed"
+        payload["lifecycle_phase"] = "completed"
         self._mark_changed(payload)
         return InteractionRecord.from_dict(payload)
+
+    def transition(
+        self,
+        interaction_id: str,
+        *,
+        phase: str,
+        status: str | None = None,
+        reason: str | None = None,
+    ) -> InteractionRecord:
+        payload = self._payload_for(interaction_id)
+        if payload is None:
+            raise KeyError(f"unknown interaction: {interaction_id}")
+        if phase == "completed" and not self.can_complete(interaction_id):
+            raise ValueError("interaction has unresolved continuation state")
+        payload["lifecycle_phase"] = phase
+        payload["status"] = status or phase
+        if reason:
+            process_state = dict(payload.get("process_state", {}))
+            process_state["last_transition_reason"] = reason
+            payload["process_state"] = process_state
+        self._mark_changed(payload)
+        return InteractionRecord.from_dict(payload)
+
+    def update_process_state(
+        self,
+        interaction_id: str,
+        *,
+        updates: dict,
+        health: dict | None = None,
+    ) -> InteractionRecord:
+        payload = self._payload_for(interaction_id)
+        if payload is None:
+            raise KeyError(f"unknown interaction: {interaction_id}")
+        state = dict(payload.get("process_state", {}))
+        state.update(updates)
+        state["version"] = int(state.get("version", 0)) + 1
+        payload["process_state"] = state
+        if health is not None:
+            current_health = dict(payload.get("health", {}))
+            current_health.update(health)
+            payload["health"] = current_health
+        self._mark_changed(payload)
+        return InteractionRecord.from_dict(payload)
+
+    def configure_continuation(
+        self,
+        interaction_id: str,
+        contract: dict,
+        *,
+        target_device_id: str | None = None,
+    ) -> InteractionRecord:
+        payload = self._payload_for(interaction_id)
+        if payload is None:
+            raise KeyError(f"unknown interaction: {interaction_id}")
+        if not isinstance(contract, dict):
+            raise ValueError("continuation contract must be an object")
+        policy = contract.get("continuation_policy", "until_settled")
+        if policy not in _CONTINUATION_POLICIES or policy == "one_shot":
+            raise ValueError("continuation contract requires a persistent policy")
+        watches = list(payload.get("watches", []))
+        known_watch_ids = {watch.get("watch_id") for watch in watches}
+        for watch in contract.get("watches", []):
+            normalized = _normalize_watch(watch)
+            if normalized["watch_id"] not in known_watch_ids:
+                watches.append(normalized)
+                known_watch_ids.add(normalized["watch_id"])
+        obligations = list(payload.get("obligations", []))
+        known_obligation_ids = {
+            obligation.get("obligation_id") for obligation in obligations
+        }
+        for obligation in contract.get("obligations", []):
+            normalized = _normalize_obligation(obligation)
+            if normalized["obligation_id"] not in known_obligation_ids:
+                obligations.append(normalized)
+                known_obligation_ids.add(normalized["obligation_id"])
+        payload["continuation_policy"] = policy
+        payload["watches"] = watches
+        payload["obligations"] = obligations
+        if isinstance(contract.get("objective"), dict):
+            payload["objective"] = {**payload.get("objective", {}), **contract["objective"]}
+        health = dict(payload.get("health", {}))
+        if target_device_id:
+            health["target_device_id"] = target_device_id
+        health.update(dict(contract.get("health", {})))
+        payload["health"] = health
+        self._mark_changed(payload)
+        return InteractionRecord.from_dict(payload)
+
+    def add_watch(self, interaction_id: str, watch: dict) -> InteractionRecord:
+        payload = self._payload_for(interaction_id)
+        if payload is None:
+            raise KeyError(f"unknown interaction: {interaction_id}")
+        if not isinstance(watch, dict) or not watch.get("watch_id"):
+            raise ValueError("watch requires a watch_id")
+        watches = list(payload.get("watches", []))
+        if any(item.get("watch_id") == watch["watch_id"] for item in watches):
+            raise ValueError("watch_id already exists")
+        watches.append(_normalize_watch(watch))
+        payload["watches"] = watches
+        self._mark_changed(payload)
+        return InteractionRecord.from_dict(payload)
+
+    def resolve_watch(self, interaction_id: str, watch_id: str) -> InteractionRecord:
+        payload = self._payload_for(interaction_id)
+        if payload is None:
+            raise KeyError(f"unknown interaction: {interaction_id}")
+        watches = list(payload.get("watches", []))
+        for index, watch in enumerate(watches):
+            if watch.get("watch_id") == watch_id:
+                watches[index] = {**watch, "status": "resolved"}
+                payload["watches"] = watches
+                self._mark_changed(payload)
+                return InteractionRecord.from_dict(payload)
+        raise KeyError(f"unknown watch: {watch_id}")
+
+    def add_obligation(self, interaction_id: str, obligation: dict) -> InteractionRecord:
+        payload = self._payload_for(interaction_id)
+        if payload is None:
+            raise KeyError(f"unknown interaction: {interaction_id}")
+        normalized = _normalize_obligation(obligation)
+        obligations = list(payload.get("obligations", []))
+        if any(item.get("obligation_id") == normalized["obligation_id"] for item in obligations):
+            raise ValueError("obligation_id already exists")
+        obligations.append(normalized)
+        payload["obligations"] = obligations
+        self._mark_changed(payload)
+        return InteractionRecord.from_dict(payload)
+
+    def resolve_obligation(
+        self,
+        interaction_id: str,
+        obligation_id: str,
+        *,
+        result: dict | None = None,
+    ) -> InteractionRecord:
+        payload = self._payload_for(interaction_id)
+        if payload is None:
+            raise KeyError(f"unknown interaction: {interaction_id}")
+        obligations = list(payload.get("obligations", []))
+        for index, obligation in enumerate(obligations):
+            if obligation.get("obligation_id") == obligation_id:
+                obligations[index] = {
+                    **obligation,
+                    "status": "resolved",
+                    "result": dict(result or {}),
+                }
+                payload["obligations"] = obligations
+                self._mark_changed(payload)
+                return InteractionRecord.from_dict(payload)
+        raise KeyError(f"unknown obligation: {obligation_id}")
+
+    def can_complete(self, interaction_id: str) -> bool:
+        payload = self._payload_for(interaction_id)
+        if payload is None:
+            return False
+        if self._pending_action_count(payload):
+            return False
+        if any(
+            obligation.get("status", "pending") == "pending"
+            for obligation in payload.get("obligations", [])
+        ):
+            return False
+        if payload.get("continuation_policy") != "one_shot" and any(
+            watch.get("status", "active") == "active"
+            for watch in payload.get("watches", [])
+        ):
+            return False
+        return True
+
+    def mark_failed(self, interaction_id: str, *, reason: str) -> InteractionRecord:
+        return self.transition(interaction_id, phase="failed", status="failed", reason=reason)
+
+    def mark_cancelled(self, interaction_id: str, *, reason: str) -> InteractionRecord:
+        return self.transition(interaction_id, phase="cancelled", status="cancelled", reason=reason)
+
+    def mark_expired(self, interaction_id: str, *, reason: str) -> InteractionRecord:
+        return self.transition(interaction_id, phase="expired", status="expired", reason=reason)
 
     def record_turn(
         self,
@@ -285,6 +531,7 @@ class InteractionPool:
         turns.extend(turn.to_dict() for turn in recorded_turns)
         payload["turns"] = self._prune_turns(turns)
         payload["status"] = "awaiting_action_results"
+        payload["lifecycle_phase"] = "awaiting_action_results"
         self._mark_changed(payload)
         return recorded_turns
 
@@ -326,7 +573,9 @@ class InteractionPool:
                 turns[index] = {**turn, "action_status": "resolved"}
                 payload["turns"] = self._prune_turns(turns)
                 if self._pending_action_count(payload) == 0:
-                    payload["status"] = "planned"
+                    status, phase = self._status_after_action_batch(payload)
+                    payload["status"] = status
+                    payload["lifecycle_phase"] = phase
                 self._mark_changed(payload)
                 return InteractionRecord.from_dict(payload)
         return None
@@ -447,6 +696,56 @@ class InteractionPool:
         marker = getattr(self.state, "mark_interaction_changed", None)
         if marker is not None:
             marker(payload)
+
+    def _status_after_action_batch(self, payload: dict) -> tuple[str, str]:
+        if payload.get("continuation_policy") == "one_shot":
+            return "planned", "planned"
+        if any(
+            obligation.get("status", "pending") == "pending"
+            for obligation in payload.get("obligations", [])
+        ):
+            return "awaiting_verification", "awaiting_verification"
+        if any(
+            watch.get("status", "active") == "active"
+            for watch in payload.get("watches", [])
+        ):
+            return "monitoring", "monitoring"
+        return "planned", "planned"
+
+
+def _phase_for_status(status: str) -> str:
+    if status in {
+        "planned",
+        "awaiting_action_results",
+        "monitoring",
+        "awaiting_verification",
+        "completed",
+        "failed",
+        "cancelled",
+        "expired",
+        "paused",
+    }:
+        return status
+    return "planned"
+
+
+def _normalize_obligation(obligation: dict) -> dict:
+    normalized = dict(obligation)
+    if not normalized.get("obligation_id"):
+        raise ValueError("obligation requires an obligation_id")
+    normalized.setdefault("status", "pending")
+    return normalized
+
+
+def _normalize_watch(watch: dict) -> dict:
+    normalized = dict(watch)
+    if not normalized.get("watch_id"):
+        raise ValueError("watch requires a watch_id")
+    names = normalized.get("observation_names")
+    if not isinstance(names, list) or not all(isinstance(name, str) and name for name in names):
+        raise ValueError("watch requires observation_names")
+    normalized.setdefault("status", "active")
+    return normalized
 
 
 def build_action_result_outcome_contract(

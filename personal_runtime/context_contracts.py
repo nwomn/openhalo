@@ -23,7 +23,7 @@ class CapabilityContract:
 @dataclass(slots=True)
 class RuntimeObservation:
     name: str
-    value: str
+    value: object
     source_device_id: str
     source_capability: str
     source_event_id: str
@@ -31,6 +31,9 @@ class RuntimeObservation:
     confidence: float
     parent_event_id: str | None = None
     reentry_parent: dict | None = None
+    process_id: str | None = None
+    evidence_ref: str | None = None
+    coverage: dict | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)

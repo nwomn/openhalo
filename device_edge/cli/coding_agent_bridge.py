@@ -77,8 +77,9 @@ def _action_registration(
     input_schema: dict,
     side_effect: str,
     affordances: list[str],
+    process_contract: dict | None = None,
 ) -> dict:
-    return {
+    registration = {
         "name": name,
         "direction": "runtime_to_edge",
         "kind": "action",
@@ -90,6 +91,9 @@ def _action_registration(
         "side_effect": side_effect,
         "input_schema": input_schema,
     }
+    if process_contract is not None:
+        registration["process_contract"] = process_contract
+    return registration
 
 
 CODING_CAPABILITY_REGISTRATIONS = (
@@ -122,6 +126,27 @@ CODING_CAPABILITY_REGISTRATIONS = (
         },
         side_effect="agent_execution",
         affordances=["start_coding_turn"],
+        process_contract={
+            "continuation_policy": "until_settled",
+            "watches": [
+                {
+                    "watch_id": "terminal_process_completion",
+                    "observation_names": ["coding.activity.v1"],
+                    "source_capability": "coding.activity",
+                    "resolve_when": {
+                        "event_kind": [
+                            "turn_completed",
+                            "turn_failed",
+                            "turn_interrupted",
+                        ]
+                    },
+                }
+            ],
+            "health": {
+                "stale_after_seconds": 120,
+                "probe_after_seconds": 300,
+            },
+        },
     ),
     _action_registration(
         "coding.suggestion.offer",

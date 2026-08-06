@@ -613,6 +613,11 @@ class RuntimeOrchestrator:
         correlation: dict,
     ) -> dict:
         request_id = self.gateway._next_action_request_id()
+        self.gateway._configure_interaction_continuation_for_action(
+            interaction_id=interaction_id,
+            target_device_id=execution_outcome["target_device_id"],
+            action_capability=execution_outcome["action"]["capability"],
+        )
         self.gateway.interaction_pool.record_turn(
             interaction_id,
             interaction_turn_id=interaction_turn_id,
@@ -668,6 +673,9 @@ class RuntimeOrchestrator:
         correlation: dict | None = None,
     ) -> list[dict]:
         if self.gateway.interaction_pool.has_pending_action(interaction_id):
+            self.gateway._persist_state()
+            return []
+        if not self.gateway.interaction_pool.can_complete(interaction_id):
             self.gateway._persist_state()
             return []
         completed = self.gateway._complete_interaction(
@@ -822,6 +830,12 @@ class RuntimeOrchestrator:
             )
 
         request_ids = [self.gateway._next_action_request_id() for _ in planned]
+        for _, _, execution_outcome in planned:
+            self.gateway._configure_interaction_continuation_for_action(
+                interaction_id=interaction_id,
+                target_device_id=execution_outcome["target_device_id"],
+                action_capability=execution_outcome["action"]["capability"],
+            )
         self.gateway.interaction_pool.record_action_batch(
             interaction_id,
             interaction_turn_id=interaction_turn_id,
@@ -917,9 +931,21 @@ class RuntimeOrchestrator:
             if self._has_explicit_observation_parent(frame):
                 replies.extend(self.handle_observation_reentry_frame(frame))
             else:
-                replies.extend(
-                    self.handle_observation_driven_frame(frame, correlation)
+                observations = self.gateway._extract_runtime_observations(frame)
+                matched = self.gateway.continuation_router.apply_observations(
+                    observations
                 )
+                if matched:
+                    replies.extend(
+                        self.handle_observation_reentry_frame(
+                            frame,
+                            continuation_interactions=matched,
+                        )
+                    )
+                else:
+                    replies.extend(
+                        self.handle_observation_driven_frame(frame, correlation)
+                    )
             return replies
 
         replies.extend(self.handle_normal_turn(frame, correlation))
@@ -1087,6 +1113,11 @@ class RuntimeOrchestrator:
                 for key, value in interaction_record.items()
                 if key != "interaction_id"
             },
+        )
+        self.gateway._configure_interaction_continuation_from_proposal(
+            interaction_id=interaction_id,
+            proposal=proposal.to_dict(),
+            target_device_id=decision.target_device_id,
         )
         self.gateway.state.record_intervention(
             {
@@ -1334,6 +1365,11 @@ class RuntimeOrchestrator:
                 if key != "interaction_id"
             },
         )
+        self.gateway._configure_interaction_continuation_from_proposal(
+            interaction_id=interaction_id,
+            proposal=proposal.to_dict(),
+            target_device_id=decision.target_device_id,
+        )
         self.gateway.state.record_intervention(
             {
                 "interaction_id": interaction_id,
@@ -1437,17 +1473,32 @@ class RuntimeOrchestrator:
             )
         return admitted
 
-    def handle_observation_reentry_frame(self, frame: dict) -> list[dict]:
+    def handle_observation_reentry_frame(
+        self,
+        frame: dict,
+        *,
+        continuation_interactions: list | None = None,
+    ) -> list[dict]:
         observations = frame.get("payload", {}).get("observations", [])
         if not observations:
             return []
-        resolution = self.gateway._resolve_observation_reentry(frame)
-        if resolution is None:
-            return []
-        interaction, intervention = resolution
+        watch_matched = bool(continuation_interactions)
+        if watch_matched:
+            interaction = continuation_interactions[0].to_dict()
+            intervention = self.gateway._latest_intervention_for_interaction(
+                interaction["interaction_id"]
+            )
+            if intervention is None:
+                self.gateway._persist_state()
+                return []
+        else:
+            resolution = self.gateway._resolve_observation_reentry(frame)
+            if resolution is None:
+                return []
+            interaction, intervention = resolution
         if self.gateway._observation_reentry_is_processed(interaction, frame):
             return []
-        if not self.gateway._observations_relevant_to_open_interaction(
+        if not watch_matched and not self.gateway._observations_relevant_to_open_interaction(
             interaction,
             observations,
         ):
@@ -1589,6 +1640,42 @@ class RuntimeOrchestrator:
                 execution_outcome,
             ),
             correlation=correlation,
+        )
+
+    def handle_process_health_update(self, update: dict) -> list[dict]:
+        interaction_id = update.get("interaction_id")
+        interaction = self.gateway.interaction_pool.get(interaction_id)
+        if interaction is None:
+            return []
+        health = dict(update.get("process_health", {}))
+        source_device_id = interaction.source_device_id or interaction.health.get(
+            "target_device_id"
+        )
+        if not source_device_id:
+            return []
+        frame = {
+            "type": "event_push",
+            "device_id": source_device_id,
+            "capability": "process.activity",
+            "event_id": f"process-health:{interaction_id}:{health.get('last_health_check_at', update.get('observed_at'))}",
+            "payload": {
+                "observations": [
+                    {
+                        "name": "process.activity.v1",
+                        "value": {
+                            "state": health.get("state"),
+                            "health": health.get("state"),
+                            "reason": health.get("reason"),
+                        },
+                        "observed_at": update.get("observed_at"),
+                        "confidence": 1.0,
+                    }
+                ]
+            },
+        }
+        return self.handle_observation_reentry_frame(
+            frame,
+            continuation_interactions=[interaction],
         )
 
     def handle_action_result_frame(self, frame: dict) -> list[dict]:

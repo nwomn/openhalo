@@ -15,6 +15,7 @@ from personal_runtime.context_snapshot import sanitize_observation_driven_snapsh
 from personal_runtime.interaction_pool import build_action_result_outcome_contract
 from personal_runtime.prompt_context import build_prompt_context_package
 from personal_runtime.runtime_memory import sanitize_observation_driven_grounding_bundle
+from personal_runtime.interaction_continuation import validate_continuation_intent
 
 
 DEFAULT_CONFIG_PATH = Path("config/runtime-config.toml")
@@ -75,6 +76,22 @@ PROPOSAL_OUTPUT_SCHEMA = {
                     "items": {"type": "string"},
                 },
             },
+        },
+        "continuation": {
+            "anyOf": [
+                {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["mode", "objective", "watches", "obligations"],
+                    "properties": {
+                        "mode": {"type": "string", "enum": ["until_settled", "until_verified"]},
+                        "objective": {"type": "object", "additionalProperties": True},
+                        "watches": {"type": "array", "maxItems": 8, "items": {"type": "object"}},
+                        "obligations": {"type": "array", "maxItems": 8, "items": {"type": "object"}},
+                    },
+                },
+                {"type": "null"},
+            ]
         },
     },
 }
@@ -554,6 +571,9 @@ def parse_openai_compatible_proposal_response(
                     "provider_proposal_type": provider_proposal_type,
                     "proposal_rationale": _normalize_provider_rationale(
                         payload.get("rationale", {})
+                    ),
+                    "continuation_intent": validate_continuation_intent(
+                        payload.get("continuation")
                     ),
                 },
                 target_device_hint=target_device_hint,

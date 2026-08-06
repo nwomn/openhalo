@@ -212,6 +212,40 @@ class ProtocolTests(unittest.TestCase):
                 ],
             )
 
+    def test_validates_generic_process_contracts_on_action_capabilities(self) -> None:
+        frame = build_capability_announce_frame(
+            "terminal-edge-1",
+            [
+                {
+                    "name": "agent.run",
+                    "direction": "runtime_to_edge",
+                    "kind": "action",
+                    "process_contract": {
+                        "continuation_policy": "until_settled",
+                        "watches": [
+                            {
+                                "watch_id": "completion",
+                                "observation_names": ["process.activity.v1"],
+                            }
+                        ],
+                    },
+                }
+            ],
+        )
+
+        self.assertEqual("until_settled", frame["capabilities"][0]["process_contract"]["continuation_policy"])
+        with self.assertRaisesRegex(ValueError, "process_contract"):
+            build_capability_announce_frame(
+                "terminal-edge-1",
+                [
+                    {
+                        "name": "agent.run",
+                        "direction": "runtime_to_edge",
+                        "process_contract": {"continuation_policy": "until_settled"},
+                    }
+                ],
+            )
+
     def test_builds_observation_push_frame(self) -> None:
         frame = build_observation_push_frame(
             device_id="host-edge-1",

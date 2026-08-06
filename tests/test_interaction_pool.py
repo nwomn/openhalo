@@ -420,6 +420,110 @@ class InteractionPoolTests(unittest.TestCase):
         self.assertEqual("request-43", restored.turns[0].request_id)
         self.assertEqual("interaction-2", second.interaction_id)
 
+    def test_legacy_registration_defaults_to_one_shot_lifecycle(self) -> None:
+        interaction = InteractionPool(RuntimeState()).register(
+            origin="user_event",
+            causal_scope={"key": "legacy-one-shot"},
+            trigger={"event_id": "legacy-one-shot"},
+            participant_device_ids=["terminal-1"],
+        ).interaction
+
+        self.assertEqual("one_shot", interaction.continuation_policy)
+        self.assertEqual("planned", interaction.lifecycle_phase)
+        self.assertEqual({}, interaction.objective)
+        self.assertEqual([], interaction.watches)
+        self.assertEqual([], interaction.obligations)
+        self.assertEqual("healthy", interaction.health["state"])
+
+    def test_persistent_interaction_keeps_watch_and_obligation_state(self) -> None:
+        pool = InteractionPool(RuntimeState())
+        interaction = pool.register(
+            origin="user_event",
+            causal_scope={"key": "persistent-process-1"},
+            trigger={"event_id": "persistent-process-1"},
+            participant_device_ids=["terminal-1"],
+            continuation_policy="until_verified",
+            objective={"summary": "Verify the requested process."},
+            watches=[{"watch_id": "watch-1", "observation_names": ["process.activity.v1"]}],
+            obligations=[{"obligation_id": "obligation-1", "kind": "outcome_verification"}],
+        ).interaction
+
+        restored = pool.get(interaction.interaction_id)
+        self.assertEqual("until_verified", restored.continuation_policy)
+        self.assertEqual("Verify the requested process.", restored.objective["summary"])
+        self.assertEqual("watch-1", restored.watches[0]["watch_id"])
+        self.assertEqual("pending", restored.obligations[0]["status"])
+
+    def test_action_batch_resolution_moves_persistent_interaction_to_monitoring(self) -> None:
+        pool = InteractionPool(RuntimeState())
+        interaction = pool.register(
+            origin="user_event",
+            causal_scope={"key": "persistent-action-1"},
+            trigger={"event_id": "persistent-action-1"},
+            participant_device_ids=["terminal-1"],
+            continuation_policy="until_settled",
+            watches=[{"watch_id": "watch-1", "observation_names": ["process.activity.v1"]}],
+        ).interaction
+
+        pool.record_action_batch(
+            interaction.interaction_id,
+            interaction_turn_id="turn-1",
+            action_batch_id="batch-1",
+            action_requests=[("request-1", "intent-1")],
+        )
+        pool.resolve_action_result(interaction.interaction_id, "turn-1", "request-1")
+
+        restored = pool.get(interaction.interaction_id)
+        self.assertEqual("monitoring", restored.status)
+        self.assertEqual("monitoring", restored.lifecycle_phase)
+        self.assertFalse(pool.can_complete(interaction.interaction_id))
+
+    def test_resolving_the_required_obligation_allows_persistent_completion(self) -> None:
+        pool = InteractionPool(RuntimeState())
+        interaction = pool.register(
+            origin="user_event",
+            causal_scope={"key": "persistent-verified-1"},
+            trigger={"event_id": "persistent-verified-1"},
+            participant_device_ids=["terminal-1"],
+            continuation_policy="until_verified",
+            obligations=[{"obligation_id": "obligation-1", "kind": "outcome_verification"}],
+        ).interaction
+
+        self.assertFalse(pool.can_complete(interaction.interaction_id))
+        pool.resolve_obligation(interaction.interaction_id, "obligation-1", result={"status": "ok"})
+        self.assertTrue(pool.can_complete(interaction.interaction_id))
+        completed = pool.complete(interaction.interaction_id)
+
+        self.assertEqual("completed", completed.status)
+        self.assertEqual("completed", completed.lifecycle_phase)
+
+    def test_configures_a_one_shot_interaction_from_a_generic_process_contract(self) -> None:
+        pool = InteractionPool(RuntimeState())
+        interaction = pool.register(
+            origin="user_event",
+            causal_scope={"key": "process-contract-1"},
+            trigger={"event_id": "process-contract-1"},
+            participant_device_ids=["terminal-1"],
+        ).interaction
+
+        configured = pool.configure_continuation(
+            interaction.interaction_id,
+            {
+                "continuation_policy": "until_settled",
+                "watches": [
+                    {
+                        "watch_id": "completion",
+                        "observation_names": ["process.activity.v1"],
+                    }
+                ],
+            },
+            target_device_id="terminal-1",
+        )
+
+        self.assertEqual("until_settled", configured.continuation_policy)
+        self.assertEqual("terminal-1", configured.health["target_device_id"])
+        self.assertEqual("completion", configured.watches[0]["watch_id"])
+
 
 if __name__ == "__main__":
     unittest.main()

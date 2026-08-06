@@ -378,6 +378,44 @@ forward their sensitive command, diff, or permission detail.
 
 ## Action Requests
 
+## Continuous Interaction Process Contracts
+
+An action capability may advertise a bounded `process_contract` when its result
+starts a process that continues after the action result. The contract is
+source-neutral and is validated by Runtime; it is not a provider- or Coding-
+specific lifecycle shortcut.
+
+```json
+{
+  "name": "agent.run",
+  "direction": "runtime_to_edge",
+  "kind": "action",
+  "process_contract": {
+    "continuation_policy": "until_settled",
+    "watches": [
+      {
+        "watch_id": "completion",
+        "observation_names": ["process.activity.v1"],
+        "resolve_when": {"state": ["completed", "failed"]}
+      }
+    ]
+  }
+}
+```
+
+An Edge may send ordinary observations containing `process_id`, `coverage`,
+and an `evidence_ref`. A missing candidate event is not evidence that the
+underlying event did not happen; Runtime may request bounded evidence after an
+uncertain hypothesis or a coverage violation. Raw video, audio, full command
+output, and full transcripts are not uploaded by default.
+
+Long-lived process observations should report health and progress facts such as
+`healthy`, `stale`, `degraded`, `unreachable`, or `inactive`. Runtime checks
+both Edge connection liveness and process progress. When a process becomes
+inactive, Runtime records the health change against the same Interaction and
+may resume its Hermes child session for retry, escalation, user reporting, or
+terminal failure.
+
 Runtime-to-edge actions use `action_request`.
 
 ```json
