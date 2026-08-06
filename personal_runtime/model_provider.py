@@ -13,9 +13,9 @@ from pathlib import Path
 from personal_runtime.action_layer import build_notification_payload
 from personal_runtime.context_snapshot import sanitize_observation_driven_snapshot
 from personal_runtime.interaction_pool import build_action_result_outcome_contract
+from personal_runtime.interaction_pool import validate_continuation_intent
 from personal_runtime.prompt_context import build_prompt_context_package
 from personal_runtime.runtime_memory import sanitize_observation_driven_grounding_bundle
-from personal_runtime.interaction_continuation import validate_continuation_intent
 
 
 DEFAULT_CONFIG_PATH = Path("config/runtime-config.toml")

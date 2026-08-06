@@ -840,7 +840,7 @@ input()
         contents = script_path.read_text(encoding="utf-8")
         self.assertIn("RuntimeGateway", contents)
         self.assertIn("post_action", contents)
-        self.assertIn("post_observation", contents)
+        self.assertIn("fresh-observation-pending-action", contents)
 
         result = subprocess.run(
             [str(script_path), "--dry-run"],
@@ -855,6 +855,20 @@ input()
         self.assertIn("follow-up-action", result.stdout)
         self.assertIn("silent-completion", result.stdout)
         self.assertIn("lineage-check", result.stdout)
+
+    def test_action_loop_verification_uses_current_edge_authentication(self) -> None:
+        script_path = ROOT / "bin" / "verify-action-loop"
+
+        result = subprocess.run(
+            [str(script_path)],
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+        )
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("runtime-status-reentry ok", result.stdout)
+        self.assertIn("fresh-observation-pending-action guard ok", result.stdout)
 
         model_result = subprocess.run(
             [

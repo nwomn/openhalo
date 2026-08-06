@@ -66,9 +66,11 @@ import asyncio
 import json
 import os
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from device_edge.shared.session_client import SessionClient
 from personal_runtime.gateway_server import RuntimeGateway
+from personal_runtime.pairing_store import PairingStore
 
 
 def last_action(replies):
@@ -105,32 +107,45 @@ def fail_with_metadata(message, metadata):
 async def main() -> None:
     runtime_config_path = Path(os.environ["OPENHALO_ACTION_LOOP_RUNTIME_CONFIG"])
     require_model_backed = os.environ.get("OPENHALO_ACTION_LOOP_REQUIRE_MODEL_BACKED") == "1"
+    pairing_directory = TemporaryDirectory()
     gateway = RuntimeGateway(
-        shared_token="dev-token",
         persist_state=False,
         llm_config_path=runtime_config_path,
+        pairing_store=PairingStore(Path(pairing_directory.name) / "pairing.json"),
     )
     source = SessionClient(
         device_id="desktop-dev-verify",
         device_type="desktop-cli",
-        token="dev-token",
+        audience=gateway.audience,
         capabilities=["text.input", "notification.show"],
     )
     host = SessionClient(
         device_id="host-edge-verify",
         device_type="server",
-        token="dev-token",
+        audience=gateway.audience,
         capabilities=["host.metrics", "runtime.health", "runtime.control"],
     )
 
-    await gateway.handle_test_frames(
-        [
-            source.build_connect_frame(),
-            source.build_capability_announce_frame(),
-            host.build_connect_frame(),
-            host.build_capability_announce_frame(),
-        ]
-    )
+    async def authenticate(client: SessionClient) -> None:
+        gateway.pairing_store.provision_local_device(
+            device_id=client.device_id,
+            device_type=client.device_type,
+            display_name=client.session_link.display_name,
+            audience=client.audience,
+            public_key=client.identity.public_key,
+        )
+        challenge = (await gateway.handle_test_frames([client.build_connect_frame()]))[-1]
+        if challenge.get("type") != "auth_challenge":
+            raise SystemExit("expected Edge API authentication challenge")
+        connect_ok = (
+            await gateway.handle_test_frames([client.build_auth_proof_frame(challenge)])
+        )[-1]
+        if connect_ok.get("type") != "connect_ok":
+            raise SystemExit("expected P-256 Edge authentication success")
+        await gateway.handle_test_frames([client.build_capability_announce_frame()])
+
+    await authenticate(source)
+    await authenticate(host)
     if require_model_backed:
         replies = gateway.trigger_agent_initiative(
             source_device_id="desktop-dev-verify",
@@ -166,6 +181,8 @@ async def main() -> None:
                 "type": "action_result",
                 "device_id": "host-edge-verify",
                 "interaction_id": first_action["interaction_id"],
+                "interaction_turn_id": first_action["interaction_turn_id"],
+                "request_id": first_action["request_id"],
                 "result": {
                     "status": "ok",
                     "capability": "runtime.status",
@@ -210,7 +227,9 @@ async def main() -> None:
             {
                 "type": "action_result",
                 "device_id": "desktop-dev-verify",
-                "interaction_id": first_action["interaction_id"],
+                "interaction_id": follow_up_reply["interaction_id"],
+                "interaction_turn_id": follow_up_reply["interaction_turn_id"],
+                "request_id": follow_up_reply["request_id"],
                 "result": {
                     "status": "ok",
                     "capability": "notification.show",
@@ -249,6 +268,11 @@ async def main() -> None:
                 "device_id": "host-edge-verify",
                 "capability": "runtime.health",
                 "event_id": "host-edge-verify-health-1",
+                "reentry_parent": {
+                    "interaction_id": observation_first_action["interaction_id"],
+                    "interaction_turn_id": observation_first_action["interaction_turn_id"],
+                    "request_id": observation_first_action["request_id"],
+                },
                 "payload": {
                     "observations": [
                         {
@@ -262,16 +286,17 @@ async def main() -> None:
             }
         ]
     )
-    observation_follow_up = last_action(replies)
-    if (
-        observation_follow_up is None
-        or observation_follow_up["interaction_id"] != observation_first_action["interaction_id"]
-        or observation_follow_up["action"]["capability"] != "runtime.status"
+    if any(reply["type"] == "action_request" for reply in replies):
+        raise SystemExit("pending action must block fresh-observation re-entry")
+    observation_interaction = next(
+        item
+        for item in gateway.state.interactions
+        if item["interaction_id"] == observation_first_action["interaction_id"]
+    )
+    if "host-edge-verify-health-1" not in observation_interaction.get(
+        "observation_reentry_event_ids", []
     ):
-        raise SystemExit("expected fresh-observation follow-up runtime.status action")
-    observation_proposal = gateway.state.interventions[-1]["proposal"]
-    if observation_proposal.get("source") != "post_observation":
-        raise SystemExit("expected post_observation intervention")
+        raise SystemExit("expected fresh observation to be recorded against pending action")
 
     replies = await gateway.handle_test_frames(
         [
@@ -293,6 +318,8 @@ async def main() -> None:
                 "type": "action_result",
                 "device_id": "host-edge-verify",
                 "interaction_id": second_first_action["interaction_id"],
+                "interaction_turn_id": second_first_action["interaction_turn_id"],
+                "request_id": second_first_action["request_id"],
                 "result": {
                     "status": "ok",
                     "capability": "runtime.status",
@@ -317,20 +344,11 @@ async def main() -> None:
     ]
     if len(post_action_interventions) < 3:
         raise SystemExit("expected post_action interventions in lineage")
-    post_observation_interventions = [
-        item
-        for item in gateway.state.interventions
-        if item.get("proposal", {}).get("source") == "post_observation"
-    ]
-    if not post_observation_interventions:
-        raise SystemExit("expected post_observation interventions in lineage")
-
     print("runtime-status-reentry ok")
-    print("fresh-observation-reentry ok")
+    print("fresh-observation-pending-action guard ok")
     print("follow-up-action ok")
     print("silent-completion ok")
     print("post-action-interventions", len(post_action_interventions))
-    print("post-observation-interventions", len(post_observation_interventions))
     if require_model_backed:
         print("model-backed-post-action ok")
         print("model", first_post_action_metadata.get("llm_model"))

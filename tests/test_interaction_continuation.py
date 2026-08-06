@@ -3,12 +3,11 @@ from __future__ import annotations
 import unittest
 
 from personal_runtime.context_contracts import RuntimeObservation
-from personal_runtime.interaction_continuation import ContinuationRouter
 from personal_runtime.interaction_pool import InteractionPool
 from personal_runtime.runtime_state import RuntimeState
 
 
-class ContinuationRouterTests(unittest.TestCase):
+class InteractionPoolContinuationTests(unittest.TestCase):
     def observation(self, *, name: str, value, evidence_ref: str | None = None):
         return RuntimeObservation(
             name=name,
@@ -37,7 +36,7 @@ class ContinuationRouterTests(unittest.TestCase):
             ],
         ).interaction
 
-        result = ContinuationRouter(pool).apply_observations(
+        result = pool.apply_observations(
             [self.observation(name="ambient.scene_features", value={"steam": 0.8})]
         )
 
@@ -63,7 +62,7 @@ class ContinuationRouterTests(unittest.TestCase):
             ],
         ).interaction
 
-        ContinuationRouter(pool).apply_observations(
+        pool.apply_observations(
             [self.observation(name="ambient.scene_features", value={"steam": 0.2})]
         )
 
@@ -90,9 +89,8 @@ class ContinuationRouterTests(unittest.TestCase):
         ).interaction
         observation = self.observation(name="process.activity.v1", value={"state": "done"})
 
-        router = ContinuationRouter(pool)
-        self.assertEqual([], router.apply_observations([observation]))
-        self.assertEqual([], router.apply_observations([observation]))
+        self.assertEqual([], pool.apply_observations([observation]))
+        self.assertEqual([], pool.apply_observations([observation]))
         self.assertEqual({}, pool.get(interaction.interaction_id).process_state)
 
     def test_marks_a_persistent_process_unreachable_when_target_edge_is_offline(self) -> None:
@@ -117,7 +115,7 @@ class ContinuationRouterTests(unittest.TestCase):
             },
         ).interaction
 
-        updated = ContinuationRouter(pool).reconcile_health(
+        updated = pool.reconcile_health(
             current_time="2026-08-06T10:00:00Z",
             online_device_ids=set(),
         )
@@ -144,7 +142,7 @@ class ContinuationRouterTests(unittest.TestCase):
             ],
         ).interaction
 
-        ContinuationRouter(pool).apply_observations(
+        pool.apply_observations(
             [
                 self.observation(
                     name="coding.activity.v1",

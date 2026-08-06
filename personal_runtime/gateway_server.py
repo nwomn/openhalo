@@ -37,7 +37,6 @@ from personal_runtime.context_contracts import RuntimeObservation
 from personal_runtime.display_lifecycle import DisplayLifecycle
 from personal_runtime.execution_planning import ExecutionPlanner
 from personal_runtime.interaction_pool import InteractionPool
-from personal_runtime.interaction_continuation import ContinuationRouter
 from personal_runtime.mobile_liveness import record_mobile_session_state
 from personal_runtime.mobile_liveness import update_mobile_liveness_after_observations
 from personal_runtime.outcome_receipt import append_receipt_entry
@@ -121,7 +120,6 @@ class RuntimeGateway:
         else:
             self.state = self.state_store.load()
         self.interaction_pool = InteractionPool(self.state)
-        self.continuation_router = ContinuationRouter(self.interaction_pool)
         self.display_lifecycle = DisplayLifecycle()
         self.runtime_event_emitter = runtime_event_emitter
         self.runtime_console_presenter = RuntimeConsolePresenter(
@@ -222,7 +220,7 @@ class RuntimeGateway:
         """Reconcile persistent interaction health without provider polling."""
 
         observed_at = current_time or _utc_now()
-        changed = self.continuation_router.reconcile_health(
+        changed = self.interaction_pool.reconcile_health(
             current_time=observed_at,
             online_device_ids=set(self.online_device_ids),
         )

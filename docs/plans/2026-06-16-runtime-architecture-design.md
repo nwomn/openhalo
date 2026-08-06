@@ -1,6 +1,6 @@
 # Personal Runtime Architecture Baseline
 
-Date: 2026-06-16
+Date: 2026-06-16 (updated 2026-08-07)
 Status: Working design baseline
 
 ## Purpose
@@ -41,10 +41,12 @@ flowchart LR
         BE1["Gateway<br/>device access<br/>auth<br/>pairing<br/>transport termination<br/>protocol adaptation<br/>ingress / egress routing"]
         BE2["State / Context / Task<br/>device state<br/>event log<br/>task state<br/>context memory<br/>handoff state"]
         subgraph BE3["Agent Runtime"]
+            AR0["InteractionPool<br/>lifecycle / turn and result correlation<br/>watches / obligations / re-entry state"]
             AR1["Proposal Formation<br/>context interpretation<br/>initiative evaluation<br/>intervention proposal building"]
             AR2["Presence Router<br/>whether to intervene<br/>where to surface<br/>intensity / timing"]
             AR3["Execution Planning<br/>reply generation<br/>tool selection<br/>action coordination"]
 
+            AR0 --> AR1
             AR1 --> AR2
             AR2 --> AR3
         end
@@ -52,6 +54,7 @@ flowchart LR
         BE6["Model / Tool / Skill Runtime"]
 
         BE1 <--> BE2
+        BE2 <--> AR0
         BE2 <--> AR1
         BE2 <--> AR2
         BE2 <--> AR3
@@ -78,9 +81,10 @@ This diagram makes the `M17.0` API boundary explicit. Device edges use the publi
 ```mermaid
 sequenceDiagram
     participant Edge as Device Edge<br/>terminal / host / external device
-    participant API as Edge API v1<br/>WebSocket session
+    participant API as Edge API v2<br/>WebSocket session
     participant GW as Gateway
     participant State as State / Context
+    participant Pool as InteractionPool<br/>Agent Runtime lifecycle
     participant Agent as Agent Runtime<br/>Proposal + Presence + Planning
     participant Action as Action Layer
 
@@ -101,7 +105,8 @@ sequenceDiagram
 
     API->>GW: normalize public frame
     GW->>State: record event or observations
-    State->>Agent: compact snapshot + grounding inputs
+    State->>Pool: register or correlate interaction lifecycle
+    Pool->>Agent: compact snapshot + grounding inputs
     Agent->>Agent: proposal formation
     Agent->>Agent: presence decision
     Agent->>Action: execution plan if allowed
@@ -112,7 +117,8 @@ sequenceDiagram
     Edge->>API: action_result(request_id, interaction_id, status, details)
     API->>GW: validate result envelope
     GW->>State: record result and interaction lineage
-    State->>Agent: post-action re-entry when relevant
+    State->>Pool: correlate result / observation / timeout
+    Pool->>Agent: re-enter same interaction when relevant
     GW-->>API: interaction_update(status, visibility, summary)
     API-->>Edge: update local surface
 ```
@@ -127,13 +133,15 @@ flowchart TD
     SF2 --> SC["State / Context refreshes compact snapshot"]
     AI1["Agent-Initiative Trigger<br/>memory / goals / schedule / anomalies / unfinished work"] --> AI2["Context refresh or observation check"]
     AI2 --> SC
-    SC --> AP["Agent Runtime<br/>Proposal Formation"]
+    SC --> IP["Agent Runtime<br/>InteractionPool<br/>register / correlate / resume"]
+    IP --> AP["Agent Runtime<br/>Proposal Formation"]
     AP --> PR["Agent Runtime<br/>Presence Router"]
     PR -->|allow| EP["Agent Runtime<br/>Execution Planning"]
     PR -->|suppress / defer| NOOP["No user-facing intervention"]
     EP --> AL["Action Layer"]
     AL --> OUT["Edge / external effect"]
     AL --> ST["State / Context update and action result recording"]
+    ST --> IP
     DF1["Direct Action Fast Path<br/>edge-requested urgent action"] --> GW["Gateway"]
     GW --> AL
 ```
@@ -255,11 +263,27 @@ This is the primary intelligent backend module.
 
 Responsibilities:
 
+- own the bounded lifecycle of each source-neutral interaction, including
+  action-result correlation, watches, obligations, health, and re-entry state
 - interpret compact context and supporting evidence
 - form intervention proposals from edge/context activity or agent initiative
 - hold an explicit `Presence Router` governance submodule before user-facing intervention
 - continue into execution planning only after presence allows intervention
 - select tools, generate responses, and coordinate action requests
+
+#### InteractionPool And Runtime Orchestration
+
+`InteractionPool` is a sibling internal module of Proposal Formation, Presence
+Router, and Execution Planning. It is not a new top-level `Process` domain and
+does not live inside Hermes. `RuntimeState` persists its records, while
+`RuntimeOrchestrator` receives ordinary observations, action results, timeouts,
+and health changes; it asks the pool to correlate and transition the relevant
+interaction, then reawakens the same Hermes child session when another semantic
+turn is required.
+
+There is deliberately no separate `ContinuationRouter` architecture module.
+Continuation is the combination of `RuntimeOrchestrator` dispatch and
+`InteractionPool` lifecycle operations.
 
 #### Presence Router
 

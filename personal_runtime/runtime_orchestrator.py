@@ -932,7 +932,7 @@ class RuntimeOrchestrator:
                 replies.extend(self.handle_observation_reentry_frame(frame))
             else:
                 observations = self.gateway._extract_runtime_observations(frame)
-                matched = self.gateway.continuation_router.apply_observations(
+                matched = self.gateway.interaction_pool.apply_observations(
                     observations
                 )
                 if matched:

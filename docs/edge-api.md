@@ -416,6 +416,12 @@ inactive, Runtime records the health change against the same Interaction and
 may resume its Hermes child session for retry, escalation, user reporting, or
 terminal failure.
 
+Inside Personal Runtime, `RuntimeOrchestrator` dispatches these ordinary
+observations, action results, and maintenance timeouts to the `InteractionPool`.
+The pool correlates the source-neutral lifecycle and transitions persistent
+watches, obligations, process state, and health; no Edge-specific continuation
+router or process lifecycle exists.
+
 Runtime-to-edge actions use `action_request`.
 
 ```json
