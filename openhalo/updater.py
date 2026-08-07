@@ -38,6 +38,7 @@ class ReleaseUpdater:
         feed: ReleaseFeed,
         stager: ReleaseStaging,
         supervisor_factory: Callable[[Path | None], RuntimeControl],
+        state_health_check: Callable[[], None] | None = None,
         state_migrator: Callable[[ReleaseManifest], None] | None = None,
         state_commit_migrator: Callable[[ReleaseManifest], None] | None = None,
         state_rollback_migrator: Callable[[], None] | None = None,
@@ -46,6 +47,7 @@ class ReleaseUpdater:
         self.feed = feed
         self.stager = stager
         self._supervisor_factory = supervisor_factory
+        self._state_health_check = state_health_check
         self._state_migrator = state_migrator
         self._state_commit_migrator = state_commit_migrator
         self._state_rollback_migrator = state_rollback_migrator
@@ -74,6 +76,18 @@ class ReleaseUpdater:
                 "target": manifest.commit,
                 "version": manifest.version,
             }
+
+        if self._state_health_check is not None:
+            try:
+                self._state_health_check()
+            except Exception as exc:
+                return {
+                    "current": current,
+                    "state": "state_unhealthy",
+                    "target": manifest.commit,
+                    "version": manifest.version,
+                    "error": str(exc),
+                }
 
         candidate = self.stager.stage(manifest)
         supervisor = self._supervisor_factory(None)

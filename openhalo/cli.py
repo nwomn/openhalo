@@ -7,6 +7,7 @@ import getpass
 import json
 import os
 import shutil
+import sqlite3
 import subprocess
 import tarfile
 import time
@@ -286,6 +287,7 @@ def _build_updater(home: PersonalHome) -> ReleaseUpdater:
         feed=GitHubReleaseFeed(repository),
         stager=ReleaseStager(layout),
         supervisor_factory=lambda executable: RuntimeSupervisor(home, executable=executable),
+        state_health_check=lambda: _validate_runtime_state(home),
         state_migrator=lambda manifest: _migrate_runtime_state(home, manifest.state_schema),
         state_commit_migrator=lambda manifest: _commit_runtime_state_migration(
             home,
@@ -308,8 +310,7 @@ def _migrate_runtime_state(home: PersonalHome, state_schema: str) -> None:
         if metadata.get("legacy_source_sha256") == sha256_file(home.legacy_state_path):
             return
         stale_path = home.state_database_path.with_suffix(".sqlite3.stale")
-        stale_path.unlink(missing_ok=True)
-        os.replace(home.state_database_path, stale_path)
+        _move_sqlite_artifacts(home.state_database_path, stale_path)
     elif home.state_database_path.exists():
         return
     if not home.legacy_state_path.exists():
@@ -320,10 +321,10 @@ def _migrate_runtime_state(home: PersonalHome, state_schema: str) -> None:
         migrate_json_to_sqlite(home.legacy_state_path, home.state_database_path)
     except Exception:
         if stale_path is not None and stale_path.exists() and not home.state_database_path.exists():
-            os.replace(stale_path, home.state_database_path)
+            _move_sqlite_artifacts(stale_path, home.state_database_path)
         raise
     if stale_path is not None:
-        stale_path.unlink(missing_ok=True)
+        _remove_sqlite_artifacts(stale_path)
 
 
 def _export_runtime_state_for_rollback(home: PersonalHome) -> None:
@@ -344,8 +345,37 @@ def _export_runtime_state_for_rollback(home: PersonalHome) -> None:
             os.replace(backup, legacy_path)
         raise
     database_backup = home.state_database_path.with_suffix(".sqlite3.pre-rollback")
-    database_backup.unlink(missing_ok=True)
-    os.replace(home.state_database_path, database_backup)
+    _move_sqlite_artifacts(home.state_database_path, database_backup)
+
+
+def _validate_runtime_state(home: PersonalHome) -> None:
+    """Refuse a release switch when the durable SQLite state is corrupt."""
+
+    database = home.state_database_path
+    if not database.exists():
+        return
+    connection = sqlite3.connect(f"file:{database}?mode=ro", uri=True, timeout=2)
+    try:
+        result = connection.execute("PRAGMA integrity_check(1)").fetchone()[0]
+    finally:
+        connection.close()
+    if result != "ok":
+        raise RuntimeError(f"SQLite integrity check failed: {result}")
+
+
+def _move_sqlite_artifacts(source: Path, destination: Path) -> None:
+    """Move a SQLite database together with its WAL and shared-memory files."""
+
+    _remove_sqlite_artifacts(destination)
+    for suffix in ("", "-wal", "-shm"):
+        source_path = Path(f"{source}{suffix}")
+        if source_path.exists():
+            os.replace(source_path, Path(f"{destination}{suffix}"))
+
+
+def _remove_sqlite_artifacts(path: Path) -> None:
+    for suffix in ("", "-wal", "-shm"):
+        Path(f"{path}{suffix}").unlink(missing_ok=True)
 
 
 def _commit_runtime_state_migration(home: PersonalHome, state_schema: str) -> None:

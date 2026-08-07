@@ -199,6 +199,12 @@ Release. `update` accepts a Release only when it contains all three assets:
 - `release-manifest.json`
 - `SHA256SUMS`
 
+Before staging or stopping the active Runtime, the updater performs a read-only
+SQLite integrity check. A corrupt state database returns `state_unhealthy` and
+does not switch the program release. State migration and rollback move
+`state.sqlite3` together with its `-wal` and `-shm` sidecars so a stale journal
+cannot be attached to a different database file.
+
 The manifest and checksum file must name the same archive, digest, tag, and
 40-character commit. OpenHalo stages the verified archive into the private
 release root, leaving `current`, `previous`, and `OPENHALO_HOME` untouched

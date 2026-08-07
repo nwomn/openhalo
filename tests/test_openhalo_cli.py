@@ -533,6 +533,35 @@ def test_rollback_export_keeps_legacy_state_when_sqlite_export_fails(
         assert not home.legacy_state_path.with_suffix(".json.pre-rollback").exists()
 
 
+def test_rollback_export_moves_sqlite_sidecars_with_the_database(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with TemporaryDirectory() as directory:
+        home = PersonalHome(Path(directory) / "home")
+        home.initialize_runtime(host="127.0.0.1", port=8765)
+        home.legacy_state_path.write_text("{}", encoding="utf-8")
+        store = SQLiteRuntimeStateStore(home.state_database_path)
+        store.save(RuntimeState())
+        store.close()
+        for suffix in ("-wal", "-shm"):
+            Path(f"{home.state_database_path}{suffix}").write_bytes(b"sidecar")
+
+        def fake_export(_source: Path, target: Path) -> dict:
+            target.write_text("{}", encoding="utf-8")
+            return {"schema_version": "json-v1"}
+
+        monkeypatch.setattr("openhalo.cli.export_sqlite_to_json", fake_export)
+        _export_runtime_state_for_rollback(home)
+
+        backup = home.state_database_path.with_suffix(".sqlite3.pre-rollback")
+        assert backup.exists()
+        assert Path(f"{backup}-wal").read_bytes() == b"sidecar"
+        assert Path(f"{backup}-shm").read_bytes() == b"sidecar"
+        assert not home.state_database_path.exists()
+        assert not Path(f"{home.state_database_path}-wal").exists()
+        assert not Path(f"{home.state_database_path}-shm").exists()
+
+
 def test_version_flag_reports_the_installed_release_identity(monkeypatch: pytest.MonkeyPatch) -> None:
     release_commit = "a" * 40
     executable = Path(
@@ -570,7 +599,7 @@ def test_version_fallback_matches_the_release_package_version(
     monkeypatch.setattr(version_module, "distribution_version", package_not_installed)
 
     assert version_module.format_cli_version("openhalo", executable="/tmp/python") == (
-        "openhalo 0.1.19 (dev)"
+        "openhalo 0.1.21 (dev)"
     )
 
 

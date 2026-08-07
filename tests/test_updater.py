@@ -229,6 +229,41 @@ def test_update_refuses_to_turn_a_development_command_into_an_installer() -> Non
         assert stager.calls == 0
 
 
+def test_update_refuses_to_switch_releases_when_state_health_check_fails() -> None:
+    with TemporaryDirectory() as directory:
+        layout = ReleaseLayout(Path(directory) / "release-home")
+        current = "a" * 40
+        candidate = "b" * 40
+        layout.release_directory(current).mkdir(parents=True)
+        layout.activate(current)
+        calls: list[str] = []
+
+        def state_health_check() -> None:
+            raise RuntimeError("SQLite integrity check failed")
+
+        result = ReleaseUpdater(
+            layout=layout,
+            feed=_Feed(
+                ReleaseManifest(
+                    version="0.1.21",
+                    tag="v0.1.21",
+                    commit=candidate,
+                    archive_name="openhalo-v0.1.21.tar.gz",
+                    archive_url="https://example.test/openhalo-v0.1.21.tar.gz",
+                    sha256="c" * 64,
+                )
+            ),
+            stager=_Stager(layout.release_directory(candidate)),
+            supervisor_factory=lambda executable: _Supervisor(executable, calls),
+            state_health_check=state_health_check,
+        ).update()
+
+        assert result["state"] == "state_unhealthy"
+        assert result["target"] == candidate
+        assert layout.active_release() == current
+        assert calls == []
+
+
 def test_failed_manual_rollback_restores_the_previously_running_release() -> None:
     with TemporaryDirectory() as directory:
         layout = ReleaseLayout(Path(directory) / "release-home")
