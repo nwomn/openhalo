@@ -42,7 +42,7 @@ class InteractionPoolContinuationTests(unittest.TestCase):
 
         self.assertEqual([interaction.interaction_id], [item.interaction_id for item in result])
         updated = pool.get(interaction.interaction_id)
-        self.assertEqual(1, updated.process_state["version"])
+        self.assertEqual(2, updated.process_state["version"])
         self.assertEqual("confirmed", updated.process_state["last_hypothesis"]["status"])
 
     def test_inconclusive_watch_enters_awaiting_evidence_without_negative_conclusion(self) -> None:

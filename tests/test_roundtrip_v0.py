@@ -769,6 +769,7 @@ class CliEntryTests(unittest.TestCase):
                 "device_roster",
                 "edge_evidence",
                 "recent_memory",
+                "related_processes",
             ],
         )
         self.assertEqual(

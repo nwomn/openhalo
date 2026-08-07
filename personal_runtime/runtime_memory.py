@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from personal_runtime.context_snapshot import sanitize_observation_driven_snapshot
 
 
@@ -10,6 +12,8 @@ ACTIVE_GOAL_LIMIT = 3
 RECENT_MEMORY_LIMIT = 3
 DEVICE_ROSTER_LIMIT = 16
 DEVICE_ROSTER_ACTION_CAPABILITY_LIMIT = 12
+RELATED_PROCESS_LIMIT = 4
+RELATED_PROCESS_GROUNDING_BYTES = 16384
 
 
 def build_model_grounding_bundle(
@@ -18,6 +22,7 @@ def build_model_grounding_bundle(
     edge_history: dict | None = None,
     online_device_ids: set[str] | None = None,
     request_source_device_id: str | None = None,
+    related_process_summaries: list[dict] | None = None,
 ) -> dict:
     compact_snapshot = dict(snapshot or {})
     recent_memory = {
@@ -42,6 +47,7 @@ def build_model_grounding_bundle(
             request_source_device_id=request_source_device_id,
         ),
         "edge_history": _normalize_edge_history(edge_history),
+        "related_processes": _bound_related_processes(related_process_summaries),
     }
 
 
@@ -226,8 +232,63 @@ def _normalize_edge_history(edge_history: dict | None) -> dict:
     return normalized
 
 
+def _bound_related_processes(summaries: list[dict] | None) -> list[dict]:
+    """Defend the Hermes boundary even if a caller bypasses Pool projection."""
+
+    bounded: list[dict] = []
+    used_bytes = 0
+    for summary in summaries or []:
+        if not isinstance(summary, dict) or len(bounded) >= RELATED_PROCESS_LIMIT:
+            continue
+        projected = _bound_related_process_summary(summary)
+        encoded = json.dumps(projected, ensure_ascii=False, separators=(",", ":"))
+        if used_bytes + len(encoded.encode("utf-8")) > RELATED_PROCESS_GROUNDING_BYTES:
+            break
+        bounded.append(projected)
+        used_bytes += len(encoded.encode("utf-8"))
+    return bounded
+
+
+def _bound_related_process_summary(summary: dict) -> dict:
+    """Keep only the authoritative process fields expected by Hermes."""
+
+    projected = {
+        key: value
+        for key, value in summary.items()
+        if key in {
+            "interaction_id",
+            "causal_scope_key",
+            "objective",
+            "status",
+            "lifecycle_phase",
+            "last_observation",
+            "last_progress_at",
+            "health_state",
+            "process_state_version",
+            "process_id",
+            "source_capability",
+        }
+    }
+    for key in ("objective", "last_observation"):
+        value = projected.get(key)
+        if isinstance(value, dict):
+            projected[key] = {
+                str(item_key)[:256]: str(item_value)[:256]
+                for item_key, item_value in list(value.items())[:8]
+            }
+        elif value is not None:
+            projected[key] = str(value)[:256]
+    encoded = json.dumps(projected, ensure_ascii=False, separators=(",", ":"))
+    if len(encoded.encode("utf-8")) > 4096:
+        projected["objective"] = {}
+        projected["last_observation"] = {}
+    return projected
+
+
 __all__ = [
     "GROUNDING_BUNDLE_VERSION",
+    "RELATED_PROCESS_GROUNDING_BYTES",
+    "RELATED_PROCESS_LIMIT",
     "build_model_grounding_bundle",
     "grounding_metadata_from_bundle",
     "sanitize_observation_driven_grounding_bundle",

@@ -21,6 +21,11 @@ def build_prompt_context_package(
         "recent_memory": dict(grounding.get("recent_memory", {})),
         "edge_evidence": dict(grounding.get("edge_history", {})),
         "device_roster": dict(grounding.get("device_roster", {})),
+        "related_processes": [
+            dict(process)
+            for process in grounding.get("related_processes", [])
+            if isinstance(process, dict)
+        ],
     }
     if harness_memory is not None:
         sections["harness_memory"] = {

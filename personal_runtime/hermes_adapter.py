@@ -1473,6 +1473,11 @@ class HermesHarnessRunner:
             "active_goals": list(grounding.get("active_goals", [])),
             "recent_memory": dict(grounding.get("recent_memory", {})),
             "device_roster": dict(grounding.get("device_roster", {})),
+            "related_processes": [
+                dict(process)
+                for process in grounding.get("related_processes", [])
+                if isinstance(process, dict)
+            ],
             "action_result_set": action_result_set,
         }
 
@@ -1641,6 +1646,12 @@ class HermesHarnessRunner:
             "online state, and action capabilities; do not default to the "
             "request source merely because it sent the request. Runtime will "
             "validate and govern your target choice without semantic rewrite. "
+            "The related_processes section is an authoritative, bounded "
+            "InteractionPool projection for this request. Use its lifecycle "
+            "status, phase, health, last_observation, and process_state_version "
+            "when answering process-status questions; prefer it over stale "
+            "natural-language summaries, and never invent or cite an Interaction "
+            "ID that is not present there. "
             "Remote research never authorizes a user-visible action: a trusted "
             "user request and OpenHalo runtime governance decide whether an "
             "action may proceed. Use the native memory tool to keep compact, "

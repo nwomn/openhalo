@@ -1,4 +1,5 @@
 import unittest
+import json
 
 from personal_runtime.runtime_memory import build_model_grounding_bundle
 from personal_runtime.runtime_state import RuntimeState
@@ -257,6 +258,23 @@ class RuntimeMemoryTests(unittest.TestCase):
         self.assertEqual(
             [item["text"] for item in grounding["recent_memory"]["user_inputs"]],
             ["message 2", "message 3", "message 4"],
+        )
+
+    def test_related_process_grounding_has_an_independent_size_boundary(self) -> None:
+        state = RuntimeState()
+        grounding = build_model_grounding_bundle(
+            state=state,
+            snapshot={},
+            related_process_summaries=[
+                {"interaction_id": f"interaction-{index}", "objective": {"summary": "x" * 10000}}
+                for index in range(8)
+            ],
+        )
+
+        self.assertEqual(4, len(grounding["related_processes"]))
+        self.assertLessEqual(
+            len(json.dumps(grounding["related_processes"], ensure_ascii=False)),
+            16384,
         )
 
 

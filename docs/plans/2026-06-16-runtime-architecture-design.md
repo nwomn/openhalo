@@ -285,6 +285,20 @@ There is deliberately no separate `ContinuationRouter` architecture module.
 Continuation is the combination of `RuntimeOrchestrator` dispatch and
 `InteractionPool` lifecycle operations.
 
+For a new user Interaction that may be asking about an existing long-running
+process, `InteractionPool` also provides a bounded related-process projection.
+The Pool selects persistent recent records by deterministic source context,
+returns lifecycle/process-state summaries, and stores only stable referenced
+Interaction IDs plus state versions in the new Interaction lineage. Runtime
+passes that projection through the existing grounding bundle to Proposal
+Formation/Hermes. Runtime does not maintain a second process-state index and
+Hermes does not read or own InteractionPool records.
+
+The projection carries causal scope and available process/capability labels so
+multiple ongoing processes on one Edge remain distinguishable. Pool summaries
+and the grounding boundary apply independent size limits, and Pool mutations
+advance the persisted process-state version used by lineage references.
+
 #### Presence Router
 
 This internal governance submodule decides how the runtime should show up.

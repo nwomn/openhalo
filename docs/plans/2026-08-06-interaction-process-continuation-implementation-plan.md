@@ -23,6 +23,16 @@
 - Add provider-backed continuation proposal fixtures and end-to-end process health re-entry acceptance.
 - Verify Coding completion, camera-style feature/evidence escalation, Edge inactivity, retry, failure, and recovery with production Edge adapters.
 
+## Cross-interaction context projection
+
+`InteractionPool` remains the sole owner of Interaction records and related
+process lookup. When a new Interaction is registered, the Pool may return a
+bounded summary of persistent recent processes from the same source Edge and
+stores only `{interaction_id, process_state_version}` references in the new
+record's lineage. `RuntimeOrchestrator` places those summaries in the existing
+grounding bundle for the new Hermes turn. No duplicate RuntimeState process
+index or complete Interaction history is introduced.
+
 ## Verification evidence (2026-08-07)
 
 - `tests.test_interaction_continuation` proves base-fact watch matching, bounded

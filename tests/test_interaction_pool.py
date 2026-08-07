@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+import json
 
 from personal_runtime.interaction_pool import InteractionPool
 from personal_runtime.runtime_state import RuntimeState
@@ -93,6 +94,177 @@ class InteractionPoolTests(unittest.TestCase):
         self.assertTrue(reopened.created)
         self.assertNotEqual(first.interaction.interaction_id, reopened.interaction.interaction_id)
         self.assertEqual(3, len(pool))
+
+    def test_register_projects_same_source_recent_persistent_process_and_binds_reference(self) -> None:
+        pool = InteractionPool(RuntimeState())
+        completed_process = pool.register(
+            origin="user_event",
+            causal_scope={"key": "coding:completed"},
+            trigger={"event_id": "coding-start"},
+            participant_device_ids=["terminal-1"],
+            source_device_id="terminal-1",
+            continuation_policy="until_settled",
+            objective={"summary": "Complete the coding task."},
+            watches=[
+                {
+                    "watch_id": "completion",
+                    "observation_names": ["coding.activity.v1"],
+                }
+            ],
+        ).interaction
+        pool.update_process_state(
+            completed_process.interaction_id,
+            updates={
+                "last_observation": {
+                    "name": "coding.activity.v1",
+                    "event_kind": "turn_completed",
+                    "observed_at": "2026-08-08T00:00:00Z",
+                }
+            },
+            health={"state": "healthy", "last_progress_at": "2026-08-08T00:00:00Z"},
+        )
+        pool.resolve_watch(completed_process.interaction_id, "completion")
+        pool.complete(completed_process.interaction_id)
+        pool.register(
+            origin="user_event",
+            causal_scope={"key": "other-device:completed"},
+            trigger={"event_id": "other-start"},
+            participant_device_ids=["terminal-2"],
+            source_device_id="terminal-2",
+            continuation_policy="until_settled",
+            watches=[
+                {
+                    "watch_id": "completion",
+                    "observation_names": ["coding.activity.v1"],
+                }
+            ],
+        )
+        pool.register(
+            origin="user_event",
+            causal_scope={"key": "one-shot:completed"},
+            trigger={"event_id": "one-shot"},
+            participant_device_ids=["terminal-1"],
+            source_device_id="terminal-1",
+        )
+
+        query = pool.register(
+            origin="user_event",
+            causal_scope={"key": "terminal-query:completion"},
+            trigger={"event_id": "query"},
+            participant_device_ids=["terminal-1"],
+            source_device_id="terminal-1",
+        )
+
+        self.assertEqual(
+            [
+                {
+                    "interaction_id": completed_process.interaction_id,
+                    "causal_scope_key": "coding:completed",
+                    "objective": {"summary": "Complete the coding task."},
+                    "status": "completed",
+                    "lifecycle_phase": "completed",
+                    "last_observation": {
+                        "name": "coding.activity.v1",
+                        "event_kind": "turn_completed",
+                        "observed_at": "2026-08-08T00:00:00Z",
+                    },
+                    "last_progress_at": "2026-08-08T00:00:00Z",
+                    "health_state": "healthy",
+                    "process_state_version": 3,
+                }
+            ],
+            query.related_process_summaries,
+        )
+        self.assertEqual(
+            [{"interaction_id": completed_process.interaction_id, "process_state_version": 3}],
+            query.interaction.lineage["context_process_refs"],
+        )
+        self.assertNotIn("process_state", query.interaction.lineage)
+
+    def test_related_process_projection_can_select_one_process_on_a_shared_edge(self) -> None:
+        pool = InteractionPool(RuntimeState())
+        coding = pool.register(
+            origin="user_event",
+            causal_scope={"key": "coding:shared-edge"},
+            trigger={"event_id": "coding-start"},
+            participant_device_ids=["terminal-1"],
+            source_device_id="terminal-1",
+            continuation_policy="until_settled",
+            watches=[{
+                "watch_id": "coding-completion",
+                "observation_names": ["coding.activity.v1"],
+                "process_id": "codex-task-1",
+                "source_capability": "coding",
+            }],
+        ).interaction
+        download = pool.register(
+            origin="user_event",
+            causal_scope={"key": "download:shared-edge"},
+            trigger={"event_id": "download-start"},
+            participant_device_ids=["terminal-1"],
+            source_device_id="terminal-1",
+            continuation_policy="until_settled",
+            watches=[{
+                "watch_id": "download-completion",
+                "observation_names": ["download.activity.v1"],
+                "process_id": "download-1",
+                "source_capability": "download",
+            }],
+        ).interaction
+
+        selected = pool.related_process_summaries(
+            source_device_id="terminal-1",
+            process_id="codex-task-1",
+        )
+
+        self.assertEqual([coding.interaction_id], [item["interaction_id"] for item in selected])
+        self.assertEqual("codex-task-1", selected[0]["process_id"])
+        self.assertEqual("coding", selected[0]["source_capability"])
+        self.assertNotEqual(coding.interaction_id, download.interaction_id)
+
+    def test_related_process_projection_bounds_nested_summary_payload(self) -> None:
+        pool = InteractionPool(RuntimeState())
+        process = pool.register(
+            origin="user_event",
+            causal_scope={"key": "large-process"},
+            trigger={"event_id": "large-process"},
+            participant_device_ids=["terminal-1"],
+            source_device_id="terminal-1",
+            continuation_policy="until_settled",
+            objective={"summary": "x" * 10000, "nested": {"items": ["y" * 10000] * 100}},
+            watches=[{"watch_id": "watch", "observation_names": ["process.activity.v1"], "process_id": "large-1"}],
+        ).interaction
+        pool.update_process_state(
+            process.interaction_id,
+            updates={"last_observation": {"payload": "z" * 10000}},
+        )
+
+        summary = pool.related_process_summaries(source_device_id="terminal-1")[0]
+        self.assertLessEqual(len(json.dumps(summary, ensure_ascii=False)), 4096)
+
+    def test_process_state_version_advances_for_lifecycle_and_watch_changes(self) -> None:
+        pool = InteractionPool(RuntimeState())
+        process = pool.register(
+            origin="user_event",
+            causal_scope={"key": "versioned-process"},
+            trigger={"event_id": "versioned-process"},
+            participant_device_ids=["terminal-1"],
+            source_device_id="terminal-1",
+            continuation_policy="until_settled",
+            watches=[{"watch_id": "completion", "observation_names": ["process.activity.v1"]}],
+        ).interaction
+        initial = pool.get(process.interaction_id).process_state.get("version", 0)
+        pool.transition(process.interaction_id, phase="monitoring", status="monitoring")
+        after_transition = pool.get(process.interaction_id).process_state["version"]
+        pool.resolve_watch(process.interaction_id, "completion")
+        after_watch = pool.get(process.interaction_id).process_state["version"]
+        pool.complete(process.interaction_id)
+
+        self.assertGreater(after_transition, initial)
+        self.assertGreater(after_watch, after_transition)
+        self.assertGreater(
+            pool.get(process.interaction_id).process_state["version"], after_watch
+        )
 
     def test_action_result_lookup_requires_exact_interaction_turn_and_request(self) -> None:
         pool = InteractionPool(RuntimeState())

@@ -1032,6 +1032,7 @@ class RuntimeOrchestrator:
             edge_history=edge_history,
             online_device_ids=set(self.gateway.online_device_ids),
             request_source_device_id=frame["device_id"],
+            related_process_summaries=registration.related_process_summaries,
         )
         self.gateway._record_diagnostic(
             module="Grounding / Runtime Memory",

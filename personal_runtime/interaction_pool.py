@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import json
 from typing import Callable
 
 from personal_runtime.context_contracts import RuntimeObservation
@@ -12,6 +13,12 @@ from personal_runtime.context_contracts import RuntimeObservation
 
 _CONTINUATION_POLICIES = {"one_shot", "until_settled", "until_verified"}
 _TERMINAL_PHASES = {"completed", "failed", "cancelled", "expired"}
+_RELATED_PROCESS_LIMIT = 4
+_RELATED_PROCESS_SUMMARY_BYTES = 4096
+_SUMMARY_STRING_LIMIT = 256
+_SUMMARY_LIST_LIMIT = 8
+_SUMMARY_MAP_LIMIT = 12
+_SUMMARY_DEPTH_LIMIT = 3
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,6 +109,7 @@ def validate_continuation_intent(intent: object) -> dict:
 class InteractionRegistration:
     interaction: "InteractionRecord"
     created: bool
+    related_process_summaries: list[dict] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -286,6 +294,8 @@ class InteractionPool:
         process_state: dict | None = None,
         health: dict | None = None,
         lineage: dict | None = None,
+        process_id: str | None = None,
+        process_source_capability: str | None = None,
     ) -> InteractionRegistration:
         scope_key = causal_scope.get("key")
         if not isinstance(scope_key, str) or not scope_key:
@@ -297,6 +307,23 @@ class InteractionPool:
             return InteractionRegistration(interaction=existing, created=False)
 
         participants = list(dict.fromkeys(participant_device_ids))
+        resolved_source_device_id = source_device_id or (
+            participants[0] if participants else None
+        )
+        related_process_summaries = self.related_process_summaries(
+            source_device_id=resolved_source_device_id,
+            process_id=process_id,
+            source_capability=process_source_capability,
+        )
+        record_lineage = dict(lineage or {})
+        if related_process_summaries:
+            record_lineage["context_process_refs"] = [
+                {
+                    "interaction_id": summary["interaction_id"],
+                    "process_state_version": summary["process_state_version"],
+                }
+                for summary in related_process_summaries
+            ]
         interaction_id = self._allocate_interaction_id()
         record = InteractionRecord(
             interaction_id=interaction_id,
@@ -304,7 +331,7 @@ class InteractionPool:
             causal_scope=dict(causal_scope),
             trigger=dict(trigger),
             participant_device_ids=participants,
-            source_device_id=source_device_id or (participants[0] if participants else None),
+            source_device_id=resolved_source_device_id,
             initiator_kind=initiator_kind,
             requesting_device_id=requesting_device_id,
             outcome_delivery_required=outcome_delivery_required,
@@ -317,13 +344,17 @@ class InteractionPool:
             obligations=[_normalize_obligation(obligation) for obligation in obligations or []],
             process_state=dict(process_state or {}),
             health={"state": "healthy", **dict(health or {})},
-            lineage=dict(lineage or {}),
+            lineage=record_lineage,
         )
         if hasattr(self.state, "record_interaction"):
             self.state.record_interaction(record.to_dict())
         else:
             self.state.interactions.append(record.to_dict())
-        return InteractionRegistration(interaction=record, created=True)
+        return InteractionRegistration(
+            interaction=record,
+            created=True,
+            related_process_summaries=related_process_summaries,
+        )
 
     def get(self, interaction_id: str) -> InteractionRecord | None:
         payload = self._payload_for(interaction_id)
@@ -335,6 +366,98 @@ class InteractionPool:
             for payload in self.state.interactions
             if payload.get("status") not in _TERMINAL_PHASES
         ]
+
+    def related_process_summaries(
+        self,
+        *,
+        source_device_id: str | None,
+        limit: int = _RELATED_PROCESS_LIMIT,
+        process_id: str | None = None,
+        source_capability: str | None = None,
+    ) -> list[dict]:
+        """Return bounded authoritative process facts relevant to one source.
+
+        This deliberately exposes summaries rather than raw records. The Pool
+        remains the lifecycle authority and callers may only persist its stable
+        ID/version references in a new Interaction's lineage.
+        """
+
+        if not source_device_id or limit < 1:
+            return []
+        summaries = []
+        for payload in reversed(self.state.interactions):
+            record = InteractionRecord.from_dict(payload)
+            if record.source_device_id != source_device_id:
+                continue
+            if record.continuation_policy == "one_shot":
+                continue
+            if process_id and not self._record_matches_process_id(record, process_id):
+                continue
+            if source_capability and not self._record_matches_capability(
+                record, source_capability
+            ):
+                continue
+            summaries.append(self._process_summary(record))
+            if len(summaries) >= limit:
+                break
+        return summaries
+
+    @staticmethod
+    def _process_summary(record: InteractionRecord) -> dict:
+        process_state = dict(record.process_state)
+        process_ids = {
+            watch.get("process_id")
+            for watch in record.watches
+            if isinstance(watch.get("process_id"), str) and watch.get("process_id")
+        }
+        if isinstance(process_state.get("process_id"), str) and process_state["process_id"]:
+            process_ids.add(process_state["process_id"])
+        process_ids = sorted(process_ids)
+        source_capabilities = {
+            watch.get("source_capability")
+            for watch in record.watches
+            if isinstance(watch.get("source_capability"), str)
+            and watch.get("source_capability")
+        }
+        if isinstance(process_state.get("source_capability"), str) and process_state["source_capability"]:
+            source_capabilities.add(process_state["source_capability"])
+        source_capabilities = sorted(source_capabilities)
+        summary = {
+            "interaction_id": record.interaction_id,
+            "causal_scope_key": _bound_summary_value(record.causal_scope.get("key")),
+            "objective": _bound_summary_value(record.objective),
+            "status": record.status,
+            "lifecycle_phase": record.lifecycle_phase,
+            "last_observation": _bound_summary_value(
+                process_state.get("last_observation", {})
+            ),
+            "last_progress_at": record.health.get("last_progress_at"),
+            "health_state": record.health.get("state", "unknown"),
+            "process_state_version": int(process_state.get("version", 0)),
+        }
+        if process_ids:
+            summary["process_id"] = _bound_summary_value(
+                process_ids[0] if len(process_ids) == 1 else process_ids
+            )
+        if source_capabilities:
+            summary["source_capability"] = _bound_summary_value(
+                source_capabilities[0]
+                if len(source_capabilities) == 1
+                else source_capabilities
+            )
+        return _fit_summary_bytes(summary)
+
+    @staticmethod
+    def _record_matches_process_id(record: InteractionRecord, process_id: str) -> bool:
+        return record.process_state.get("process_id") == process_id or any(
+            watch.get("process_id") == process_id for watch in record.watches
+        )
+
+    @staticmethod
+    def _record_matches_capability(record: InteractionRecord, capability: str) -> bool:
+        return record.process_state.get("source_capability") == capability or any(
+            watch.get("source_capability") == capability for watch in record.watches
+        )
 
     def apply_observations(
         self,
@@ -556,7 +679,6 @@ class InteractionPool:
             raise KeyError(f"unknown interaction: {interaction_id}")
         state = dict(payload.get("process_state", {}))
         state.update(updates)
-        state["version"] = int(state.get("version", 0)) + 1
         payload["process_state"] = state
         if health is not None:
             current_health = dict(payload.get("health", {}))
@@ -958,6 +1080,9 @@ class InteractionPool:
         return None
 
     def _mark_changed(self, payload: dict) -> None:
+        process_state = dict(payload.get("process_state", {}))
+        process_state["version"] = int(process_state.get("version", 0)) + 1
+        payload["process_state"] = process_state
         marker = getattr(self.state, "mark_interaction_changed", None)
         if marker is not None:
             marker(payload)
@@ -992,6 +1117,55 @@ def _phase_for_status(status: str) -> str:
     }:
         return status
     return "planned"
+
+
+def _bound_summary_value(value: object, *, depth: int = 0) -> object:
+    """Keep Pool-owned prompt projections small and JSON-safe."""
+
+    if depth >= _SUMMARY_DEPTH_LIMIT:
+        return "[truncated]"
+    if isinstance(value, str):
+        return value[:_SUMMARY_STRING_LIMIT]
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    if isinstance(value, dict):
+        return {
+            str(key)[:_SUMMARY_STRING_LIMIT]: _bound_summary_value(
+                item, depth=depth + 1
+            )
+            for key, item in list(value.items())[:_SUMMARY_MAP_LIMIT]
+        }
+    if isinstance(value, (list, tuple)):
+        return [
+            _bound_summary_value(item, depth=depth + 1)
+            for item in list(value)[:_SUMMARY_LIST_LIMIT]
+        ]
+    return str(value)[:_SUMMARY_STRING_LIMIT]
+
+
+def _fit_summary_bytes(summary: dict) -> dict:
+    """Enforce a final byte budget after field-level projection."""
+
+    if len(json.dumps(summary, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) <= _RELATED_PROCESS_SUMMARY_BYTES:
+        return summary
+    compact = dict(summary)
+    compact["objective"] = _bound_summary_value(
+        {"summary": compact.get("objective", {}).get("summary", "")}
+        if isinstance(compact.get("objective"), dict)
+        else {}
+    )
+    compact["last_observation"] = _bound_summary_value(
+        {"name": compact.get("last_observation", {}).get("name", "")}
+        if isinstance(compact.get("last_observation"), dict)
+        else {}
+    )
+    if len(json.dumps(compact, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) > _RELATED_PROCESS_SUMMARY_BYTES:
+        compact["objective"] = {}
+        compact["last_observation"] = {}
+    if len(json.dumps(compact, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) > _RELATED_PROCESS_SUMMARY_BYTES:
+        for key in ("causal_scope_key", "process_id", "source_capability"):
+            compact.pop(key, None)
+    return compact
 
 
 def _normalize_obligation(obligation: dict) -> dict:

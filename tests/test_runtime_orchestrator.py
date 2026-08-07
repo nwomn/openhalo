@@ -119,6 +119,90 @@ class RuntimeOrchestratorTests(unittest.TestCase):
             "mcp_executor_placeholder",
         )
 
+    def test_normal_turn_projects_pool_owned_related_process_summary_to_harness(self) -> None:
+        class CapturingHarness:
+            def __init__(self) -> None:
+                self.inputs = []
+
+            def run(self, harness_input):
+                self.inputs.append(harness_input)
+                proposal = InterventionProposal(
+                    kind="no_intervention",
+                    proposal_type="no_intervention",
+                    source="harness",
+                    action_capability=None,
+                    required_capability=None,
+                    action_payload={},
+                    message="",
+                    metadata={},
+                    visibility_intent="silent",
+                )
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=proposal,
+                )
+
+        harness = CapturingHarness()
+        gateway = RuntimeGateway(
+            shared_token="dev-token",
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+            agent_harness=harness,
+        )
+        client = SessionClient(
+            device_id="terminal-edge-1",
+            device_type="desktop-cli",
+            token="dev-token",
+        )
+        gateway.run_roundtrip(
+            [client.build_connect_frame(), client.build_capability_announce_frame()]
+        )
+        process = gateway.interaction_pool.register(
+            origin="user_event",
+            causal_scope={"key": "coding:completed"},
+            trigger={"event_id": "coding-start"},
+            participant_device_ids=["terminal-edge-1"],
+            source_device_id="terminal-edge-1",
+            continuation_policy="until_settled",
+            objective={"summary": "Complete the coding task."},
+            watches=[
+                {
+                    "watch_id": "completion",
+                    "observation_names": ["coding.activity.v1"],
+                }
+            ],
+        ).interaction
+        gateway.interaction_pool.update_process_state(
+            process.interaction_id,
+            updates={
+                "last_observation": {
+                    "name": "coding.activity.v1",
+                    "event_kind": "turn_completed",
+                    "observed_at": "2026-08-08T00:00:00Z",
+                }
+            },
+            health={"last_progress_at": "2026-08-08T00:00:00Z"},
+        )
+        gateway.interaction_pool.resolve_watch(process.interaction_id, "completion")
+        gateway.interaction_pool.complete(process.interaction_id)
+
+        gateway.run_roundtrip([client.build_text_event("编码任务结束了吗？")])
+
+        harness_input = harness.inputs[-1]
+        self.assertEqual(
+            process.interaction_id,
+            harness_input.grounding_bundle["related_processes"][0]["interaction_id"],
+        )
+        self.assertEqual(
+            "coding:completed",
+            harness_input.grounding_bundle["related_processes"][0]["causal_scope_key"],
+        )
+        self.assertEqual("completed", harness_input.grounding_bundle["related_processes"][0]["status"])
+        self.assertEqual(
+            [{"interaction_id": process.interaction_id, "process_state_version": 3}],
+            harness_input.interaction["lineage"]["context_process_refs"],
+        )
+
     def test_orchestrator_keeps_runtime_local_intent_off_device_edge(self) -> None:
         class RuntimeLocalHarness:
             def run(self, harness_input):
