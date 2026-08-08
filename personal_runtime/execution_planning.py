@@ -564,8 +564,12 @@ def _canonical_action_payload(
     normalized = dict(payload)
     if action_capability == "coding.turn.start":
         prompt = normalized.pop("prompt", None)
-        if "task" not in normalized and isinstance(prompt, str):
-            normalized["task"] = prompt
+        instruction = normalized.pop("instruction", None)
+        if "task" not in normalized:
+            for candidate in (prompt, instruction):
+                if isinstance(candidate, str) and candidate.strip():
+                    normalized["task"] = candidate
+                    break
         if interaction_id and "interaction_id" not in normalized:
             normalized["interaction_id"] = interaction_id
         workspace_ref = (
