@@ -1,6 +1,6 @@
 # Personal Runtime Architecture Baseline
 
-Date: 2026-06-16 (updated 2026-08-07)
+Date: 2026-06-16 (updated 2026-08-09)
 Status: Working design baseline
 
 ## Purpose
@@ -20,6 +20,12 @@ This is a design baseline, not a final implementation spec.
 This diagram is the current reference diagram for the agreed frontend/backend split, internal component layout, and cross-boundary communication rule.
 
 If later discussions produce alternative sketches, this diagram should remain the baseline until it is intentionally replaced by a newer accepted version.
+
+The Agent Runtime portion below reflects the accepted target architecture for
+[issue #17](https://github.com/nwomn/openhalo/issues/17). The current code has
+only begun the non-blocking Gateway ingress slice; persistent Main Hermes,
+per-Interaction workers, Child Session deltas, and the complete context
+contract remain implementation work.
 
 ```mermaid
 flowchart LR
@@ -41,14 +47,16 @@ flowchart LR
         BE1["Gateway<br/>device access<br/>auth<br/>pairing<br/>transport termination<br/>protocol adaptation<br/>ingress / egress routing"]
         BE2["State / Context / Task<br/>device state<br/>event log<br/>task state<br/>context memory<br/>handoff state"]
         subgraph BE3["Agent Runtime"]
-            AR0["InteractionPool<br/>lifecycle / turn and result correlation<br/>watches / obligations / re-entry state"]
-            AR1["Proposal Formation<br/>context interpretation<br/>initiative evaluation<br/>intervention proposal building"]
-            AR2["Presence Router<br/>whether to intervene<br/>where to surface<br/>intensity / timing"]
-            AR3["Execution Planning<br/>reply generation<br/>tool selection<br/>action coordination"]
+            AR0["Persistent Main Hermes Session<br/>unified personality / semantic memory<br/>proposal formation / semantic planning"]
+            AR1["InteractionPool<br/>lifecycle / turn and result correlation<br/>queues / watches / obligations / health"]
+            AR2["Child Sessions<br/>process-local context / local reasoning<br/>bounded semantic deltas"]
+            AR3["Presence Router<br/>explicit model-independent governance"]
+            AR4["Runtime Validation & Action Planning<br/>schema / permission / target / capability"]
 
-            AR0 --> AR1
-            AR1 --> AR2
-            AR2 --> AR3
+            AR0 -->|"create / continue intent"| AR1
+            AR1 <--> AR2
+            AR0 --> AR3
+            AR3 --> AR4
         end
         BE5["Action Layer<br/>device actions<br/>remote commands<br/>external API calls<br/>notifications"]
         BE6["Model / Tool / Skill Runtime"]
@@ -57,10 +65,9 @@ flowchart LR
         BE2 <--> AR0
         BE2 <--> AR1
         BE2 <--> AR2
-        BE2 <--> AR3
-        AR1 <--> BE6
-        AR3 <--> BE5
-        AR3 <--> BE6
+        AR0 <--> BE6
+        AR2 <--> BE6
+        AR4 <--> BE5
         BE5 <--> BE2
         BE5 <--> BE1
         BE1 -. "direct action fast path" .-> BE5
@@ -134,14 +141,17 @@ flowchart TD
     AI1["Agent-Initiative Trigger<br/>memory / goals / schedule / anomalies / unfinished work"] --> AI2["Context refresh or observation check"]
     AI2 --> SC
     SC --> IP["Agent Runtime<br/>InteractionPool<br/>register / correlate / resume"]
-    IP --> AP["Agent Runtime<br/>Proposal Formation"]
-    AP --> PR["Agent Runtime<br/>Presence Router"]
-    PR -->|allow| EP["Agent Runtime<br/>Execution Planning"]
+    IP --> MS["Persistent Main Hermes Session<br/>versioned context envelope<br/>proposal / semantic planning"]
+    MS --> PR["Agent Runtime<br/>Presence Router"]
+    PR -->|allow| EP["Runtime Validation & Action Planning"]
     PR -->|suppress / defer| NOOP["No user-facing intervention"]
     EP --> AL["Action Layer"]
     AL --> OUT["Edge / external effect"]
     AL --> ST["State / Context update and action result recording"]
     ST --> IP
+    IP --> CS["Child Session<br/>local process continuation"]
+    CS -->|"bounded semantic delta"| ST
+    ST -->|"relevant state update"| MS
     DF1["Direct Action Fast Path<br/>edge-requested urgent action"] --> GW["Gateway"]
     GW --> AL
 ```
@@ -265,21 +275,32 @@ Responsibilities:
 
 - own the bounded lifecycle of each source-neutral interaction, including
   action-result correlation, watches, obligations, health, and re-entry state
-- interpret compact context and supporting evidence
-- form intervention proposals from edge/context activity or agent initiative
+- host one persistent Main Hermes Session that maintains unified personality,
+  long-term semantic memory, user-intent understanding, proposal formation,
+  semantic action planning, and result interpretation
+- provide the Main Session with bounded, versioned Runtime context rather than
+  a raw serialized state record
+- delegate long-horizon process-local reasoning to Child Sessions that return
+  bounded, evidence-backed semantic deltas
 - hold an explicit `Presence Router` governance submodule before user-facing intervention
-- continue into execution planning only after presence allows intervention
-- select tools, generate responses, and coordinate action requests
+- retain deterministic Runtime validation and Action Planning after Presence
+  allows an action intent
 
 #### InteractionPool And Runtime Orchestration
 
-`InteractionPool` is a sibling internal module of Proposal Formation, Presence
-Router, and Execution Planning. It is not a new top-level `Process` domain and
-does not live inside Hermes. `RuntimeState` persists its records, while
-`RuntimeOrchestrator` receives ordinary observations, action results, timeouts,
-and health changes; it asks the pool to correlate and transition the relevant
-interaction, then reawakens the same Hermes child session when another semantic
-turn is required.
+`InteractionPool` is an internal lifecycle and concurrency component of Agent
+Runtime. It is not a new top-level `Process` domain and does not live inside
+Hermes. `RuntimeState` persists its records, while `RuntimeOrchestrator`
+receives ordinary observations, action results, timeouts, and health changes;
+it asks the Pool to correlate and transition the relevant Interaction.
+
+The target architecture tracked by [issue #17](https://github.com/nwomn/openhalo/issues/17)
+uses an ordered mailbox/worker per Interaction, while unrelated Interactions
+may run concurrently. Gateway ingress persists and schedules a frame without
+holding a global model-execution lock. Existing Interaction facts may be
+updated immediately; Main Hermes is awakened only for semantically relevant
+versioned deltas. A Child Session absorbs process-local detail and supplies a
+bounded semantic delta to Runtime/Main Hermes.
 
 There is deliberately no separate `ContinuationRouter` architecture module.
 Continuation is the combination of `RuntimeOrchestrator` dispatch and
@@ -289,10 +310,11 @@ For a new user Interaction that may be asking about an existing long-running
 process, `InteractionPool` also provides a bounded related-process projection.
 The Pool selects persistent recent records by deterministic source context,
 returns lifecycle/process-state summaries, and stores only stable referenced
-Interaction IDs plus state versions in the new Interaction lineage. Runtime
-passes that projection through the existing grounding bundle to Proposal
-Formation/Hermes. Runtime does not maintain a second process-state index and
-Hermes does not read or own InteractionPool records.
+Interaction IDs plus state versions in the new Interaction lineage. The
+harness-internal Context Compiler turns those facts into a concise Main Hermes
+or Child Session context envelope. Runtime does not maintain a second
+process-state index, and no raw InteractionPool record or complete Interaction
+history is injected into a model prompt.
 
 The projection carries causal scope and available process/capability labels so
 multiple ongoing processes on one Edge remain distinguishable. Pool summaries
@@ -311,11 +333,23 @@ Responsibilities:
 
 This is one of the biggest differences from a channel-first agent architecture.
 
-#### Proposal Formation And Execution Planning
+#### Main Hermes Semantic Loop And Runtime Planning
 
-Before presence gating, `Agent Runtime` may form intervention proposals from compact context, memory, goals, schedules, anomalies, and unfinished work.
+Proposal Formation and semantic Execution Planning are phases of the one
+persistent Main Hermes Session, not isolated model conversations. The Main
+Session connects user intent, long-term memory, current Runtime facts, process
+understanding, proposal formation, action intent, and result explanation.
 
-After presence allows intervention, that same module may continue into execution planning, tool selection, response generation, and action coordination.
+Runtime remains the factual and mechanical boundary: it records facts and
+evidence, labels hypotheses/uncertainty, applies Presence, validates action
+schemas, permissions, targets and capabilities, and dispatches side effects.
+Main Hermes may not overwrite Runtime facts or bypass these gates. Runtime does
+not independently compose a user-facing fallback answer.
+
+Child Sessions are process-local context relief, not competing personalities.
+They receive only the context needed for one Interaction and publish bounded,
+versioned, evidence-backed semantic deltas. The detailed contract is documented
+in [Main Hermes And Parallel Interaction Runtime Design](../design/2026-08-09-main-hermes-interaction-runtime-design.md).
 
 ### Action Layer
 
