@@ -138,6 +138,8 @@ class RuntimeGateway:
         self.pending_authentications: dict[str, PendingAuthentication] = {}
         self._last_storage_maintenance_at = 0.0
         self._deferred_storage_flush_handle = None
+        self._websocket_send_locks: dict[int, asyncio.Lock] = {}
+        self._interaction_processing_locks: dict[str, tuple[asyncio.Lock, int]] = {}
         self.orchestrator = RuntimeOrchestrator(self)
         self._action_request_counter = count(1)
         self.proposal_formation = ProposalFormation(
@@ -160,7 +162,6 @@ class RuntimeGateway:
             diagnostic_recorder=diagnostic_recorder,
             runtime_instance_id=runtime_instance_id,
         )
-        self._websocket_frame_lock = asyncio.Lock()
 
     def _persist_state(self, *, deferred: bool = False) -> None:
         if not self.persist_state:
@@ -1347,77 +1348,144 @@ class RuntimeGateway:
     def run_roundtrip(self, frames: list[dict]) -> list[dict]:
         return self._handle_frames_sync(frames)
 
+    @staticmethod
+    def _interaction_id_for_frame(frame: dict) -> str | None:
+        interaction_id = frame.get("interaction_id")
+        if isinstance(interaction_id, str) and interaction_id:
+            return interaction_id
+        payload = frame.get("payload")
+        if not isinstance(payload, dict):
+            return None
+        reentry_parent = frame.get("reentry_parent") or payload.get(
+            "reentry_parent"
+        )
+        if isinstance(reentry_parent, dict):
+            interaction_id = reentry_parent.get("interaction_id")
+            if isinstance(interaction_id, str) and interaction_id:
+                return interaction_id
+        interaction_ids = {
+            observation.get("value", {}).get("interaction_id")
+            for observation in payload.get("observations", [])
+            if isinstance(observation, dict)
+            and isinstance(observation.get("value"), dict)
+            and isinstance(observation["value"].get("interaction_id"), str)
+            and observation["value"]["interaction_id"]
+        }
+        if len(interaction_ids) == 1:
+            return interaction_ids.pop()
+        return None
+
+    @asynccontextmanager
+    async def _interaction_processing_slot(self, frame: dict):
+        interaction_id = self._interaction_id_for_frame(frame)
+        if interaction_id is None:
+            yield
+            return
+        lock, references = self._interaction_processing_locks.get(
+            interaction_id,
+            (asyncio.Lock(), 0),
+        )
+        self._interaction_processing_locks[interaction_id] = (lock, references + 1)
+        try:
+            async with lock:
+                yield
+        finally:
+            _, references = self._interaction_processing_locks[interaction_id]
+            if references == 1:
+                del self._interaction_processing_locks[interaction_id]
+            else:
+                self._interaction_processing_locks[interaction_id] = (
+                    lock,
+                    references - 1,
+                )
+
     async def _handle_websocket_frame(
         self,
         frame: dict,
         progress_sink=None,
     ) -> list[dict]:
-        async with self._websocket_frame_lock:
-            if progress_sink is None:
-                return await asyncio.to_thread(
-                    self._handle_frames_sync,
-                    [frame],
-                )
-
-            loop = asyncio.get_running_loop()
-            streamed_reply_queue: asyncio.Queue[list[dict]] = asyncio.Queue()
-            streamed_reply_ids: set[int] = set()
-            streamed_reply_batches: list[list[dict]] = []
-            dispatched_reply_ids: set[int] = set()
-
-            def enqueue_streamed_replies(replies: list[dict]) -> None:
-                streamed_reply_ids.update(id(reply) for reply in replies)
-                streamed_reply_batches.append(replies)
-                loop.call_soon_threadsafe(streamed_reply_queue.put_nowait, replies)
-
-            async def dispatch_streamed_replies(replies: list[dict]) -> None:
-                unsent_replies = [
-                    reply for reply in replies if id(reply) not in dispatched_reply_ids
-                ]
-                if not unsent_replies:
-                    return
-                dispatched_reply_ids.update(id(reply) for reply in unsent_replies)
-                await progress_sink(unsent_replies)
-
-            emitter_token = _streamed_reply_emitter.set(enqueue_streamed_replies)
-            worker_task = asyncio.create_task(
-                asyncio.to_thread(
-                    self._handle_frames_sync,
-                    [frame],
-                )
+        async with self._interaction_processing_slot(frame):
+            return await self._handle_websocket_frame_unlocked(
+                frame,
+                progress_sink=progress_sink,
             )
-            progress_task = asyncio.create_task(streamed_reply_queue.get())
-            try:
-                while True:
-                    completed, _ = await asyncio.wait(
-                        {worker_task, progress_task},
-                        return_when=asyncio.FIRST_COMPLETED,
-                    )
-                    if progress_task in completed:
-                        await dispatch_streamed_replies(progress_task.result())
-                        progress_task = asyncio.create_task(streamed_reply_queue.get())
-                    if worker_task not in completed:
-                        continue
 
-                    if progress_task.done():
-                        await dispatch_streamed_replies(progress_task.result())
-                    for streamed_replies in streamed_reply_batches:
-                        await dispatch_streamed_replies(streamed_replies)
-                    replies = await worker_task
-                    return [
-                        reply
-                        for reply in replies
-                        if id(reply) not in streamed_reply_ids
-                    ]
-            finally:
-                _streamed_reply_emitter.reset(emitter_token)
-                if not progress_task.done():
-                    progress_task.cancel()
-                    with suppress(asyncio.CancelledError):
-                        await progress_task
+    async def _handle_websocket_frame_unlocked(
+        self,
+        frame: dict,
+        progress_sink=None,
+    ) -> list[dict]:
+        if progress_sink is None:
+            return await asyncio.to_thread(
+                self._handle_frames_sync,
+                [frame],
+            )
+
+        loop = asyncio.get_running_loop()
+        streamed_reply_queue: asyncio.Queue[list[dict]] = asyncio.Queue()
+        streamed_reply_ids: set[int] = set()
+        streamed_reply_batches: list[list[dict]] = []
+        dispatched_reply_ids: set[int] = set()
+
+        def enqueue_streamed_replies(replies: list[dict]) -> None:
+            streamed_reply_ids.update(id(reply) for reply in replies)
+            streamed_reply_batches.append(replies)
+            loop.call_soon_threadsafe(streamed_reply_queue.put_nowait, replies)
+
+        async def dispatch_streamed_replies(replies: list[dict]) -> None:
+            unsent_replies = [
+                reply for reply in replies if id(reply) not in dispatched_reply_ids
+            ]
+            if not unsent_replies:
+                return
+            dispatched_reply_ids.update(id(reply) for reply in unsent_replies)
+            await progress_sink(unsent_replies)
+
+        emitter_token = _streamed_reply_emitter.set(enqueue_streamed_replies)
+        worker_task = asyncio.create_task(
+            asyncio.to_thread(
+                self._handle_frames_sync,
+                [frame],
+            )
+        )
+        progress_task = asyncio.create_task(streamed_reply_queue.get())
+        try:
+            while True:
+                completed, _ = await asyncio.wait(
+                    {worker_task, progress_task},
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                if progress_task in completed:
+                    await dispatch_streamed_replies(progress_task.result())
+                    progress_task = asyncio.create_task(streamed_reply_queue.get())
+                if worker_task not in completed:
+                    continue
+
+                if progress_task.done():
+                    await dispatch_streamed_replies(progress_task.result())
+                for streamed_replies in streamed_reply_batches:
+                    await dispatch_streamed_replies(streamed_replies)
+                replies = await worker_task
+                return [
+                    reply
+                    for reply in replies
+                    if id(reply) not in streamed_reply_ids
+                ]
+        finally:
+            _streamed_reply_emitter.reset(emitter_token)
+            if not progress_task.done():
+                progress_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await progress_task
 
     async def _send_frame(self, websocket, frame: dict) -> None:
-        await websocket.send(json.dumps(frame))
+        websocket_key = id(websocket)
+        send_lock = self._websocket_send_locks.setdefault(
+            websocket_key,
+            asyncio.Lock(),
+        )
+        async with send_lock:
+            await websocket.send(json.dumps(frame))
 
     @staticmethod
     def _build_target_missing_action_result(reply: dict) -> dict:
@@ -1973,6 +2041,85 @@ class RuntimeGateway:
     async def _websocket_handler(self, websocket) -> None:
         registered_device_id = None
         pending_session_id = None
+        processing_tasks: set[asyncio.Task] = set()
+
+        def track_processing_task(task: asyncio.Task) -> None:
+            processing_tasks.add(task)
+
+            def finish(completed_task: asyncio.Task) -> None:
+                processing_tasks.discard(completed_task)
+                if not completed_task.cancelled():
+                    exc = completed_task.exception()
+                    if exc is not None:
+                        self._record_diagnostic(
+                            module="Gateway",
+                            operation="background_frame",
+                            phase="output",
+                            correlation={},
+                            input_payload={"device_id": registered_device_id},
+                            output_payload={"error_class": type(exc).__name__},
+                            summary="Background WebSocket frame processing failed.",
+                        )
+
+            task.add_done_callback(finish)
+
+        async def process_authenticated_frame(
+            frame: dict,
+            source_device_id: str,
+        ) -> None:
+            try:
+                async def dispatch_streamed_progress(replies: list[dict]) -> None:
+                    await self._dispatch_websocket_replies(
+                        source_device_id,
+                        websocket,
+                        replies,
+                    )
+
+                replies = await self._handle_websocket_frame(
+                    frame,
+                    progress_sink=dispatch_streamed_progress,
+                )
+                await self._dispatch_websocket_replies(
+                    source_device_id,
+                    websocket,
+                    replies,
+                )
+            except Exception as exc:
+                self._record_diagnostic(
+                    module="Gateway",
+                    operation="background_frame",
+                    phase="output",
+                    correlation={
+                        key: frame[key]
+                        for key in (
+                            "trace_id",
+                            "session_id",
+                            "turn_id",
+                            "interaction_id",
+                            "interaction_turn_id",
+                            "request_id",
+                        )
+                        if frame.get(key) is not None
+                    },
+                    input_payload={
+                        "device_id": source_device_id,
+                        "frame_type": frame.get("type"),
+                    },
+                    output_payload={"error_class": type(exc).__name__},
+                    summary="Background WebSocket frame processing failed.",
+                )
+                await self._dispatch_websocket_replies(
+                    source_device_id,
+                    websocket,
+                    [
+                        self._build_public_error(
+                            code="frame_processing_failed",
+                            message="Runtime could not process this frame.",
+                            device_id=source_device_id,
+                        )
+                    ],
+                )
+
         try:
             async for raw_frame in websocket:
                 frame = self._normalize_public_frame(validate_frame(json.loads(raw_frame)))
@@ -2043,23 +2190,26 @@ class RuntimeGateway:
                     await self._send_frame(websocket, session_error)
                     continue
 
-                source_device_id = registered_device_id
-
-                async def dispatch_streamed_progress(replies: list[dict]) -> None:
+                if frame["type"] == "capability_announce":
+                    # Capability registration is a short ingress prerequisite.
+                    # Complete it before accepting later frames from this Edge;
+                    # long-running user/observation processing remains queued
+                    # below and is not held by a global frame lock.
+                    replies = self._handle_frames_sync([frame])
                     await self._dispatch_websocket_replies(
-                        source_device_id,
+                        registered_device_id,
                         websocket,
                         replies,
                     )
+                    continue
 
-                replies = await self._handle_websocket_frame(
-                    frame,
-                    progress_sink=dispatch_streamed_progress,
-                )
-                await self._dispatch_websocket_replies(
-                    source_device_id,
-                    websocket,
-                    replies,
+                track_processing_task(
+                    asyncio.create_task(
+                        process_authenticated_frame(
+                            frame,
+                            registered_device_id,
+                        )
+                    )
                 )
         except (ConnectionClosedOK, ConnectionClosedError) as exc:
             self._record_diagnostic(
@@ -2085,6 +2235,12 @@ class RuntimeGateway:
                         observed_at=_utc_now(),
                     )
                     self._persist_state()
+            # Release the device session before waiting for in-flight work.
+            # A slow Hermes/Edge interaction must not prevent this device from
+            # reconnecting while its already-admitted work finishes.
+            if processing_tasks:
+                await asyncio.gather(*processing_tasks, return_exceptions=True)
+            self._websocket_send_locks.pop(id(websocket), None)
 
     @asynccontextmanager
     async def run_test_server(self):

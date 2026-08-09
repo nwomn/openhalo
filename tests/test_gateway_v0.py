@@ -1,4 +1,7 @@
+import asyncio
 import json
+import threading
+import time
 import unittest
 from datetime import UTC
 from datetime import datetime
@@ -79,6 +82,82 @@ def _auth_proof(private_key, challenge: dict) -> dict:
 
 
 class GatewayTests(unittest.IsolatedAsyncioTestCase):
+    async def test_frames_for_same_interaction_are_processed_in_arrival_order(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(persist_state=False)
+        first_started = threading.Event()
+        release_first = threading.Event()
+        handled_markers: list[str] = []
+
+        def ordered_handler(frames: list[dict]) -> list[dict]:
+            marker = frames[0]["marker"]
+            if marker == "first":
+                first_started.set()
+                release_first.wait(timeout=1)
+            handled_markers.append(marker)
+            return [{"type": marker}]
+
+        gateway._handle_frames_sync = ordered_handler  # type: ignore[method-assign]
+        first_task = asyncio.create_task(
+            gateway._handle_websocket_frame(
+                {
+                    "marker": "first",
+                    "payload": {
+                        "observations": [
+                            {"value": {"interaction_id": "interaction-1"}}
+                        ]
+                    },
+                }
+            )
+        )
+        await asyncio.wait_for(asyncio.to_thread(first_started.wait), timeout=1)
+        second_task = asyncio.create_task(
+            gateway._handle_websocket_frame(
+                {
+                    "marker": "second",
+                    "payload": {
+                        "observations": [
+                            {"value": {"interaction_id": "interaction-1"}}
+                        ]
+                    },
+                }
+            )
+        )
+        await asyncio.sleep(0.05)
+
+        self.assertEqual(handled_markers, [])
+        release_first.set()
+        await asyncio.gather(first_task, second_task)
+        self.assertEqual(handled_markers, ["first", "second"])
+
+    async def test_independent_websocket_frames_do_not_wait_on_global_processing_lock(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(persist_state=False)
+        original_handler = gateway._handle_frames_sync
+
+        def slow_then_fast_handler(frames: list[dict]) -> list[dict]:
+            marker = frames[0]["marker"]
+            if marker == "slow":
+                time.sleep(0.25)
+            return [{"type": marker}]
+
+        gateway._handle_frames_sync = slow_then_fast_handler  # type: ignore[method-assign]
+        slow_task = asyncio.create_task(
+            gateway._handle_websocket_frame({"marker": "slow"})
+        )
+        await asyncio.sleep(0.02)
+
+        started_at = time.perf_counter()
+        fast_replies = await gateway._handle_websocket_frame({"marker": "fast"})
+        fast_elapsed = time.perf_counter() - started_at
+        await slow_task
+
+        self.assertEqual(fast_replies, [{"type": "fast"}])
+        self.assertLess(fast_elapsed, 0.20)
+        gateway._handle_frames_sync = original_handler  # type: ignore[method-assign]
+
     async def test_interaction_update_projects_safe_receipt_with_authorized_real_device_name(
         self,
     ) -> None:

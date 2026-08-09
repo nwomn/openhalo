@@ -1007,6 +1007,148 @@ class WebSocketRoundtripTests(unittest.IsolatedAsyncioTestCase):
             "Slow model reply.",
         )
 
+    async def test_websocket_reads_new_input_while_prior_frame_is_still_processing(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        slow_started = asyncio.Event()
+        release_slow = asyncio.Event()
+
+        async def fake_handle_websocket_frame(frame, progress_sink=None):
+            del progress_sink
+            text = frame["payload"]["text"]
+            if text == "slow background interaction":
+                slow_started.set()
+                await release_slow.wait()
+            return [{"type": "test_marker", "text": text}]
+
+        with patch.object(
+            gateway,
+            "_handle_websocket_frame",
+            side_effect=fake_handle_websocket_frame,
+        ):
+            async with gateway.run_test_server() as server_info:
+                edge = build_test_edge(
+                    device_id="desktop-dev-1",
+                    device_type="desktop-cli",
+                    display_name="Desktop Edge",
+                    audience=server_info["url"],
+                )
+                provision_test_edge(gateway, edge)
+                async with websockets.connect(server_info["url"]) as websocket:
+                    await authenticate_websocket_edge(websocket, edge)
+                    await websocket.send(
+                        json.dumps(
+                            edge.client.build_text_event(
+                                "slow background interaction"
+                            )
+                        )
+                    )
+                    await asyncio.wait_for(slow_started.wait(), timeout=1)
+                    await websocket.send(
+                        json.dumps(edge.client.build_text_event("normal query"))
+                    )
+
+                    fast_reply = json.loads(
+                        await asyncio.wait_for(websocket.recv(), timeout=0.2)
+                    )
+                    self.assertEqual(fast_reply["text"], "normal query")
+                    release_slow.set()
+
+                    slow_reply = json.loads(
+                        await asyncio.wait_for(websocket.recv(), timeout=1)
+                    )
+                    self.assertEqual(
+                        slow_reply["text"], "slow background interaction"
+                    )
+
+    async def test_background_frame_failure_returns_a_public_error(self) -> None:
+        gateway = RuntimeGateway(
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+
+        async def failing_handle_websocket_frame(frame, progress_sink=None):
+            del frame, progress_sink
+            raise RuntimeError("simulated background failure")
+
+        with patch.object(
+            gateway,
+            "_handle_websocket_frame",
+            side_effect=failing_handle_websocket_frame,
+        ):
+            async with gateway.run_test_server() as server_info:
+                edge = build_test_edge(
+                    device_id="desktop-dev-1",
+                    device_type="desktop-cli",
+                    display_name="Desktop Edge",
+                    audience=server_info["url"],
+                )
+                provision_test_edge(gateway, edge)
+                async with websockets.connect(server_info["url"]) as websocket:
+                    await authenticate_websocket_edge(websocket, edge)
+                    await websocket.send(
+                        json.dumps(edge.client.build_text_event("trigger failure"))
+                    )
+
+                    reply = json.loads(
+                        await asyncio.wait_for(websocket.recv(), timeout=1)
+                    )
+
+        self.assertEqual(reply["type"], "error")
+        self.assertEqual(reply["code"], "frame_processing_failed")
+
+    async def test_disconnect_does_not_block_same_device_reconnect_on_background_work(
+        self,
+    ) -> None:
+        gateway = RuntimeGateway(
+            persist_state=False,
+            llm_config_path=TEST_LLM_CONFIG,
+        )
+        slow_started = asyncio.Event()
+        release_slow = asyncio.Event()
+
+        async def fake_handle_websocket_frame(frame, progress_sink=None):
+            del progress_sink
+            if frame["payload"]["text"] == "slow background interaction":
+                slow_started.set()
+                await release_slow.wait()
+            return [{"type": "test_marker", "text": frame["payload"]["text"]}]
+
+        with patch.object(
+            gateway,
+            "_handle_websocket_frame",
+            side_effect=fake_handle_websocket_frame,
+        ):
+            async with gateway.run_test_server() as server_info:
+                edge = build_test_edge(
+                    device_id="desktop-dev-1",
+                    device_type="desktop-cli",
+                    display_name="Desktop Edge",
+                    audience=server_info["url"],
+                )
+                provision_test_edge(gateway, edge)
+                first = await websockets.connect(server_info["url"])
+                await authenticate_websocket_edge(first, edge)
+                await first.send(
+                    json.dumps(
+                        edge.client.build_text_event("slow background interaction")
+                    )
+                )
+                await asyncio.wait_for(slow_started.wait(), timeout=1)
+                await first.close()
+
+                second = await websockets.connect(server_info["url"])
+                await asyncio.wait_for(
+                    authenticate_websocket_edge(second, edge),
+                    timeout=1,
+                )
+                release_slow.set()
+                await second.close()
+
     async def test_websocket_roundtrip_routes_action_to_other_connected_edge(self) -> None:
         gateway = RuntimeGateway(
             persist_state=False,
