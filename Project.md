@@ -10,7 +10,7 @@ detail documents only when the task needs their evidence or design depth.
 | Phase | Post-M16 multi-edge and productization expansion |
 | Current milestone | `M17.8` Mobile sensitive-screen capture governance |
 | Parent milestone | `M17` Multi-edge interaction expansion ([parent Issue](https://github.com/nwomn/openhalo/issues/2)) |
-| Next route | `M17.8` -> `M17.9` -> `M17.10` -> broader `M18` -> `M20.1` -> `M21` -> `M22` -> `M23` |
+| Next route | `M17.8` -> `M17.11` -> `M17.9` -> `M17.10` -> broader `M18` -> `M20.1` -> `M21` -> `M22` -> `M23` |
 | Accepted baseline | `M17.0` through `M17.7.2`, `M18.1`, `M4.1`, `M19`, `M20`, `M20.2`, and `M20.3` |
 | Accepted cross-cutting slice | Hosted Coding Bridge adapter ([#14](https://github.com/nwomn/openhalo/issues/14)); parent/design tracked by [#10](https://github.com/nwomn/openhalo/issues/10) and [#11](https://github.com/nwomn/openhalo/issues/11) |
 | Goal status | Goals 1-3 completed; Goal 4 runtime execution in progress; Goal 5 productization in progress; Goal 6 future research |
@@ -21,7 +21,7 @@ Project tracking rules:
 - Goals are the durable strategic baseline; GitHub Project `Initiative` is the active execution theme.
 - Existing `M0` through `M23` identifiers remain historical identifiers.
 - Future execution hierarchy uses Parent Issues and sub-issues rather than deeper milestone numbering.
-- `M17` is the parent Issue; `M17.8`, `M17.9`, and `M17.10` are its child Issues.
+- `M17` is the parent Issue; `M17.8`, `M17.9`, `M17.10`, and `M17.11` are its child Issues.
 - A milestone becomes active only when its Parent Issue or child Issue is ready for implementation; later roadmap items remain planning drafts.
 
 Progressive disclosure:
@@ -311,7 +311,7 @@ Current milestone groups:
 
 - `M0`-`M16`: architecture, runtime, context, presence, model, terminal, and action-loop foundations; accepted baseline.
 - `M17.0`-`M17.7.2`: public Edge API and Android/multi-edge foundations; accepted baseline.
-- `M17.8`-`M17.10`: current Device Edge expansion under parent Issue `M17`.
+- `M17.8`-`M17.11`: current Device Edge expansion under parent Issue `M17`.
 - `M18`-`M19`: observation understanding and bounded storage; `M18.1` and `M19` accepted, broader `M18` remains on the active route.
 - `M20`-`M20.3`: Harness, action governance, progress presentation, and stable Terminal Edge; accepted baseline.
 - Hosted Coding Bridge adapter ([#14](https://github.com/nwomn/openhalo/issues/14)): accepted cross-cutting Terminal Edge capability; it does not create a new milestone or alter the active `M17.8` route.
@@ -412,8 +412,8 @@ The project is in the post-M16 multi-edge and productization expansion phase.
 ### Current execution state
 
 - `M17.8` is the active milestone under parent Issue `M17`. Its focus is allowlist-first mobile sensitive-screen capture governance.
-- `M17.9` and `M17.10` are the next Device Edge child Issues under `M17`.
-- Broader `M18` follows the three M17 child milestones and uses the accepted Harness, progress, and snapshot foundations.
+- `M17.11` is the next Device Edge child Issue after the active `M17.8`; `M17.9` and `M17.10` follow it as the native Windows and ambient-context child Issues under `M17`.
+- Broader `M18` follows the four M17 child milestones and uses the accepted Harness, progress, and snapshot foundations.
 - `M20.1`, `M21`, `M22`, and `M23` remain later roadmap items with planning summaries rather than active implementation tasks.
 - `M19` is accepted and reopens only if bounded-storage or response-path regressions recur.
 
@@ -426,16 +426,16 @@ The project is in the post-M16 multi-edge and productization expansion phase.
 - 2026-08-08 projection hardening: shared-edge summaries retain causal/process/capability labels for disambiguation, Pool and grounding apply independent byte/count limits, and every Pool-owned lifecycle/process mutation advances the persisted process-state version used by lineage references.
 - 2026-08-08 SQLite recovery/update hardening: Runtime state recovery preserves the corrupt database and sidecars, updater integrity-checks SQLite before switching releases, and rollback/migration moves the database together with its WAL/SHM artifacts.
 - 2026-08-08 Coding action contract repair: Execution Planning canonicalizes a Hermes `coding.turn.start` `instruction` payload to the registered Edge `task` schema before injecting the Runtime-owned workspace and Interaction identifiers, preventing a valid coding request from being rejected as an unregistered capability.
-- 2026-08-08 architecture upgrade queued as Ready/P0 in [issue #17](https://github.com/nwomn/openhalo/issues/17): parallel per-Interaction workers, non-blocking Gateway ingress, a persistent Main Hermes semantic session, Child Session context relief, and versioned Runtime state/evidence projection must be implemented as one coupled Runtime/Hermes loop.
+- 2026-08-08 architecture upgrade is In Progress/P0 in [issue #17](https://github.com/nwomn/openhalo/issues/17): parallel per-Interaction workers, non-blocking Gateway ingress, a persistent Main Hermes semantic session, Child Session context relief, and versioned Runtime state/evidence projection must be implemented as one coupled Runtime/Hermes loop.
 - 2026-08-09 non-blocking Gateway ingress acceptance slice completed: authenticated WebSocket frames now start independently, while frames carrying the same explicit Interaction identity (including Coding activity observations) are serialized in arrival order. Capability registration remains a short ordered ingress prerequisite and outbound frames remain serialized per WebSocket. This removes the observed background-coding-to-normal-dialogue head-of-line block without changing the Gateway -> Agent Runtime architecture; the broader per-Interaction worker, priority, coalescing, and Main Hermes loop work remains in [issue #17](https://github.com/nwomn/openhalo/issues/17).
 - 2026-08-09 manual acceptance evidence: while Coding `interaction-62` was active, status-query `interaction-63` completed at 08:30:18 UTC before the Coding `turn_completed` observation at 08:30:53 UTC; a later `interaction-64` correctly reported the completed state. This accepts removal of the foreground-dialogue head-of-line block. The same run also exposed an open result-projection gap: Runtime persisted the finished file and passing-test evidence, but the later user reply said that no artifact/test detail was available. Child-process result evidence must therefore be projected into the bounded authoritative context used by the Main Hermes loop before the broader interaction-context acceptance can close.
 - 2026-08-09 Main Hermes architecture clarification: the persistent Main Session spans semantic Proposal Formation and semantic Execution Planning across the Agent Runtime, so one continuous memory can connect user intent, process understanding, proposal, action intent, and result interpretation. Runtime retains deterministic action validation/execution boundaries, while Presence Router remains an explicit model-independent governance gate; Child Sessions handle process-local context and return bounded semantic deltas to Main.
 - The accepted target layout, concurrency rules, authority boundaries, and Main/Child context contract are documented in [Main Hermes And Parallel Interaction Runtime Design](docs/design/2026-08-09-main-hermes-interaction-runtime-design.md) and tracked for implementation by [issue #17](https://github.com/nwomn/openhalo/issues/17).
 - Cross-boundary traffic must continue through `Edge Session Link <-> Gateway`.
 - Presence remains an explicit, inspectable governance layer inside `Agent Runtime`.
-- 2026-08-03 Coding Agent Bridge direction: the Codex-first bridge is a cross-cutting capability inside the existing Terminal Edge, not a new Device Edge identity or coding-specific Runtime lifecycle. Terminal Edge owns local App Server observation, bounded evidence, and confirmed turn steering; broader M18 owns attention admission, sealed `experience_discovery`, Interaction Pool registration, Presence, and proposal governance; M20.1 remains the later owner of governed Skill drafts. The delivery is tracked under [#10](https://github.com/nwomn/openhalo/issues/10) with design child [#11](https://github.com/nwomn/openhalo/issues/11), and does not alter the active `M17.8 -> M17.9 -> M17.10` route.
+- 2026-08-03 Coding Agent Bridge direction: the Codex-first bridge is a cross-cutting capability inside the existing Terminal Edge, not a new Device Edge identity or coding-specific Runtime lifecycle. Terminal Edge owns local App Server observation, bounded evidence, and confirmed turn steering; broader M18 owns attention admission, sealed `experience_discovery`, Interaction Pool registration, Presence, and proposal governance; M20.1 remains the later owner of governed Skill drafts. The delivery is tracked under [#10](https://github.com/nwomn/openhalo/issues/10) with design child [#11](https://github.com/nwomn/openhalo/issues/11), and does not alter the active `M17.8 -> M17.11 -> M17.9 -> M17.10` route.
 - 2026-08-03 hosted Coding Bridge implementation: Terminal Edge now owns a managed stdio Codex App Server lifecycle, one independent Codex thread per OpenHalo interaction, bounded `coding.attention.v1` evidence, `coding.turn.start`, confirmed `coding.turn.steer`, and local Codex approval handling. Runtime remains the authority for task interpretation and governance; no second Device Edge identity or provider-specific Runtime shortcut was introduced.
-- 2026-08-04 Issue [#16](https://github.com/nwomn/openhalo/issues/16) implementation direction: the existing hosted bridge gains an expandable structured Coding activity panel and exact foreground correction/interrupt routing through the outer composer. New activity events use the neutral `coding.activity.v1` ordinary-observation vocabulary; the previous `coding.attention.v1` name remains readable only for historical compatibility and is not dual-written. Edge-local active-task journals are paged and durable without a small per-task event ceiling; the default concurrent-active guard is 32 and completed-task cleanup is capacity-based. This cross-cutting work does not alter the active `M17.8 -> M17.9 -> M17.10` route.
+- 2026-08-04 Issue [#16](https://github.com/nwomn/openhalo/issues/16) implementation direction: the existing hosted bridge gains an expandable structured Coding activity panel and exact foreground correction/interrupt routing through the outer composer. New activity events use the neutral `coding.activity.v1` ordinary-observation vocabulary; the previous `coding.attention.v1` name remains readable only for historical compatibility and is not dual-written. Edge-local active-task journals are paged and durable without a small per-task event ceiling; the default concurrent-active guard is 32 and completed-task cleanup is capacity-based. This cross-cutting work does not alter the active `M17.8 -> M17.11 -> M17.9 -> M17.10` route.
 - 2026-08-04 Issue [#16](https://github.com/nwomn/openhalo/issues/16) Edge acceptance: a real paired Terminal Edge displayed live Coding activity, selected an explicit task, routed outer-composer correction to the exact Codex turn, interrupted it with `Esc`, and loaded local history with `PageUp`. Runtime received `coding.activity.v1` as an ordinary observation with reasoning, command, test, agent-message, correction, and turn-lifecycle events. The acceptance also found and fixed late same-turn activity reopening a completed local task; the focused Issue #16 regression set passes 88 tests.
 - 2026-08-05 Issue [#16](https://github.com/nwomn/openhalo/issues/16) activity-stream follow fix: a second acceptance pass found the Coding activity panel appeared stuck at the first minutes while the task kept running. Runtime and Edge-local records proved the data path was healthy (runtime received `coding.activity` until 08:38:20Z; the Edge journal held 46 events and the task completed), and the root cause was purely presentational: `#coding-activity-log` was a fixed-height `Static`, whose virtual size never grows with content, so overflow was clipped and no scrolling existed. The fix wraps the text in a `VerticalScroll` container (`#coding-activity-scroll`) whose virtual size tracks content, adds anchored bottom-follow on each refresh, pauses follow while the user scrolls up and resumes at the bottom, and keeps follow paused during `PageUp` history paging. Two auto-scroll regression tests were added; the full regression passes 858 tests (4 intentional skips, 19 subtests). Published as `v0.1.15` with immutable GitHub Release assets (`openhalo-v0.1.15.tar.gz`, `release-manifest.json`, `SHA256SUMS`).
 - 2026-08-09 Issue [#16](https://github.com/nwomn/openhalo/issues/16) is formally closed: its Terminal Edge activity-window scope is accepted and complete. It remains a completed Coding Bridge work item, not a separate Runtime milestone and not evidence that broader `M18` or [#17](https://github.com/nwomn/openhalo/issues/17) is complete.
@@ -453,13 +453,14 @@ The project is in the post-M16 multi-edge and productization expansion phase.
 ### Next execution route
 
 1. `M17.8` mobile sensitive-screen capture governance.
-2. `M17.9` native Windows Desktop Edge baseline.
-3. `M17.10` Ambient Home Presence Edge baseline.
-4. Broader `M18` Agent Harness-controlled observation understanding.
-5. `M20.1` governed procedural-memory and skill lifecycle.
-6. `M21` policy learning and review.
-7. `M22` first packaged three-end product slice.
-8. `M23` Home Assistant and smart-home bridge.
+2. `M17.11` Proxy Interaction Edge baseline.
+3. `M17.9` native Windows Desktop Edge baseline.
+4. `M17.10` Ambient Home Presence Edge baseline.
+5. Broader `M18` Agent Harness-controlled observation understanding.
+6. `M20.1` governed procedural-memory and skill lifecycle.
+7. `M21` policy learning and review.
+8. `M22` first packaged three-end product slice.
+9. `M23` Home Assistant and smart-home bridge.
 
 For detailed evidence, read the linked archives or the relevant milestone plan/Issue rather than expanding this section with another historical log.
 
