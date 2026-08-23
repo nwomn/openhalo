@@ -118,9 +118,19 @@ The bounded local status payload is written atomically to
 render only this payload; it must not become a raw camera viewer or control
 plane.
 
+After stopping any MaixVision preview, add `--capture-probe` to intentionally
+open the sensor once, discard one in-memory 320×240 frame, close the sensor,
+and report only `ready` or `unavailable` in the health Observation. It never
+writes or uploads that frame:
+
+```powershell
+ssh -i $cameraKey $cameraHost "python3 /root/openhalo_camera_edge/health_daemon.py --url $runtimeUrl --once --capture-probe"
+```
+
 For a supervised, repeated health session, omit `--once` only after the one
 snapshot has been verified and a deliberate process-supervision decision is
 recorded. The current slice does not install a boot service.
+
 
 ## Troubleshooting
 
@@ -131,6 +141,7 @@ recorded. The current slice does not install a boot service.
 | `device_already_paired` | Use `reconnect`; revoke only if deliberately replacing the device identity. |
 | `ModuleNotFoundError` for the bootstrap | Repeat the two-file deployment step; the device copy is intentionally separate from the repository checkout. |
 | P-256/OpenSSL failure | Confirm `openssl version`; do not substitute a random key format or introduce a compiler toolchain. |
+| Capture probe reports `unavailable` | Stop a conflicting MaixVision preview, then retry once. Do not turn this into a continuous retry loop. |
 
 ## What this does not verify
 

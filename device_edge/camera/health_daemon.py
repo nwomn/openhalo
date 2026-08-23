@@ -136,6 +136,33 @@ def collect_health(*, min_free_mib: int, connection_state: str, last_error: str 
     )
 
 
+def probe_camera_capture() -> str:
+    """Open the sensor once, read one frame, and always release it.
+
+    This has no media side effect: the frame never leaves process memory and
+    is immediately discarded. Callers must opt in because it temporarily owns
+    the sensor and can conflict with a MaixVision preview.
+    """
+
+    camera_device = None
+    try:
+        from maix import camera
+
+        camera_device = camera.Camera(320, 240, fps=1, buff_num=2)
+        frame = camera_device.read(block=True, block_ms=3000)
+        if frame is None:
+            return "unavailable"
+        return "ready"
+    except Exception:
+        return "unavailable"
+    finally:
+        if camera_device is not None:
+            try:
+                camera_device.close()
+            except Exception:
+                pass
+
+
 def build_health_frame(device_id: str, status: CameraHealthStatus) -> dict:
     observations = [
         {
@@ -182,6 +209,7 @@ class CameraHealthDaemon:
         status_store: LocalStatusStore,
         interval_seconds: float,
         min_free_mib: int,
+        capture_probe_enabled: bool = False,
     ) -> None:
         if interval_seconds <= 0:
             raise ValueError("interval_seconds must be positive.")
@@ -191,12 +219,23 @@ class CameraHealthDaemon:
         self.status_store = status_store
         self.interval_seconds = interval_seconds
         self.min_free_mib = min_free_mib
+        self.capture_state = "not_checked"
+        if capture_probe_enabled:
+            self.capture_state = probe_camera_capture()
 
     def _record_status(self, connection_state: str, last_error: str | None = None) -> CameraHealthStatus:
         status = collect_health(
             min_free_mib=self.min_free_mib,
             connection_state=connection_state,
             last_error=last_error,
+        )
+        status = CameraHealthStatus(
+            updated_at=status.updated_at,
+            connection_state=status.connection_state,
+            capture_state=self.capture_state,
+            storage_state=status.storage_state,
+            storage_free_mib=status.storage_free_mib,
+            last_error=status.last_error,
         )
         self.status_store.write(status)
         return status
@@ -246,6 +285,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--status-path", default="/root/.openhalo-camera-edge/status.json")
     parser.add_argument("--interval-seconds", type=float, default=60.0)
     parser.add_argument("--min-free-mib", type=int, default=256)
+    parser.add_argument(
+        "--capture-probe",
+        action="store_true",
+        help="Open the camera once and report ready/unavailable; does not save or upload a frame.",
+    )
     parser.add_argument("--once", action="store_true", help="Authenticate and publish one health snapshot.")
     return parser
 
@@ -264,6 +308,7 @@ def main(argv: list[str] | None = None) -> int:
         status_store=LocalStatusStore(Path(args.status_path)),
         interval_seconds=args.interval_seconds,
         min_free_mib=args.min_free_mib,
+        capture_probe_enabled=args.capture_probe,
     )
     if args.once:
         asyncio.run(daemon.run_once())

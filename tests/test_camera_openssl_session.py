@@ -260,3 +260,32 @@ def test_camera_health_daemon_authenticates_before_publishing() -> None:
     assert connect.entered == 1
     assert websocket.sent[0]["type"] == "observation_push"
     assert websocket.sent[0]["capability"] == "camera.health"
+
+
+def test_camera_health_daemon_runs_capture_probe_only_when_enabled() -> None:
+    from device_edge.camera import health_daemon
+
+    class FakeClient:
+        audience = "ws://runtime.example.test:8765"
+        device_id = "camera-edge-1"
+
+    with TemporaryDirectory() as directory, patch(
+        "device_edge.camera.health_daemon.probe_camera_capture", return_value="ready"
+    ) as probe:
+        enabled = health_daemon.CameraHealthDaemon(
+            client=FakeClient(),
+            status_store=health_daemon.LocalStatusStore(Path(directory) / "enabled.json"),
+            interval_seconds=60,
+            min_free_mib=0,
+            capture_probe_enabled=True,
+        )
+        disabled = health_daemon.CameraHealthDaemon(
+            client=FakeClient(),
+            status_store=health_daemon.LocalStatusStore(Path(directory) / "disabled.json"),
+            interval_seconds=60,
+            min_free_mib=0,
+        )
+
+    probe.assert_called_once_with()
+    assert enabled.capture_state == "ready"
+    assert disabled.capture_state == "not_checked"

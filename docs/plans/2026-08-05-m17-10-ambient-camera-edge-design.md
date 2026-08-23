@@ -113,6 +113,22 @@ and all four values: connection `connected`, capture `not_checked`, storage
 process, local display implementation, camera capture, Feature subscription,
 Evidence, or raw-media test.
 
+2026-08-23 explicit capture-probe verification passed: using the vendor Maix
+SDK, the device opened the GC4653 sensor at 320x240, read exactly one frame in
+memory, reported only success and dimensions to the owner development channel,
+then released the multimedia driver. No image was saved, displayed, sent to
+Runtime, or added to a diagnostic record. The service exposes this only behind
+an explicit `--capture-probe` switch; normal health reporting retains
+`capture_state=not_checked` and does not compete with MaixVision preview.
+
+2026-08-23 display-adapter finding: a direct `maix.display.Display()` attempt
+also initialized the vendor multimedia/sensor stack and kept the device's SSH
+management path unresponsive longer than the bounded five-second rendering
+window. The device later recovered and no display process remained. Do not use
+that adapter as a "status-only" surface or ship it beside capture code. The
+atomic local status JSON remains the current read-only status contract; a later
+display design must first establish safe single-owner multimedia lifecycle.
+
 2026-08-23 development-host reachability verification passed: ICMP and TCP/22
 reached the device, while an unauthenticated SSH attempt was correctly denied.
 No device credential was used and no device state was changed. An authenticated
