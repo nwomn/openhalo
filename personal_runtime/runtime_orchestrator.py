@@ -106,6 +106,12 @@ class RuntimeOrchestrator:
                 semantic_memory=memory_context["semantic"],
                 episodic_memory=memory_context["episodic"],
             )
+        if self._uses_native_main_session():
+            main_session = self.gateway.ensure_main_hermes_session()
+            harness_input = replace(
+                harness_input,
+                main_session_id=main_session.session_id,
+            )
         outcome = self.gateway.agent_harness.run(harness_input)
         internal_tool_events = sanitize_internal_tool_events(
             outcome.metadata.get("internal_tool_events")
@@ -287,6 +293,16 @@ class RuntimeOrchestrator:
                 None,
             )
             == "openhalo_legacy"
+        )
+
+    def _uses_native_main_session(self) -> bool:
+        return (
+            getattr(
+                self.gateway.agent_harness,
+                "durable_memory_engine",
+                None,
+            )
+            == "hermes_native"
         )
 
     @staticmethod

@@ -40,6 +40,7 @@ from personal_runtime.context_facts import ContextFactStore
 from personal_runtime.display_lifecycle import DisplayLifecycle
 from personal_runtime.execution_planning import ExecutionPlanner
 from personal_runtime.interaction_pool import InteractionPool
+from personal_runtime.main_session import MainSessionManager
 from personal_runtime.mobile_liveness import record_mobile_session_state
 from personal_runtime.mobile_liveness import update_mobile_liveness_after_observations
 from personal_runtime.outcome_receipt import append_receipt_entry
@@ -161,6 +162,11 @@ class RuntimeGateway:
             config_path=llm_config_path,
             legacy_runner=legacy_harness,
         )
+        self.main_session_manager = MainSessionManager(
+            state=self.state.main_session,
+            restore=self._restore_main_session,
+            create=self._create_main_session,
+        )
         self.presence_router = PresenceRouter(
             diagnostic_recorder=diagnostic_recorder,
             runtime_instance_id=runtime_instance_id,
@@ -192,6 +198,27 @@ class RuntimeGateway:
             now=now or _utc_now(),
             interaction_projection=interaction_projection,
         )
+
+    def ensure_main_hermes_session(self):
+        if getattr(self.agent_harness, "durable_memory_engine", None) != "hermes_native":
+            return None
+        session = self.main_session_manager.ensure_session()
+        self.state.mark_state_value("main_session")
+        self._persist_state()
+        return session
+
+    def _restore_main_session(self, session_id: str) -> bool:
+        restore = getattr(self.agent_harness, "restore_main_session", None)
+        if not callable(restore):
+            return False
+        try:
+            return bool(restore(session_id))
+        except Exception:
+            return False
+
+    @staticmethod
+    def _create_main_session(generation: int) -> str:
+        return f"openhalo-main-g{generation}-{uuid4().hex}"
 
     def _persist_state_deferred(self) -> None:
         try:

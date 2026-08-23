@@ -144,6 +144,7 @@ class HarnessInput:
     semantic_memory: list[dict] | None = None
     episodic_memory: list[dict] | None = None
     context_envelope: dict | None = None
+    main_session_id: str | None = None
     correlation: dict | None = None
 
 

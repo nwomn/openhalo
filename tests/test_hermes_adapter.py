@@ -184,6 +184,32 @@ class HermesToolCallAdapterTests(unittest.TestCase):
         self.assertIsNone(thinking_callback("Hermes thinking status"))
         self.assertIs(agent._print_fn, thinking_callback)
 
+    def test_runner_uses_runtime_main_session_identity(self) -> None:
+        captured_kwargs = []
+
+        def fake_agent_factory(**kwargs):
+            captured_kwargs.append(kwargs)
+            return SimpleNamespace()
+
+        HermesHarnessRunner(
+            config_path=HERMES_TEST_LLM_CONFIG,
+            agent_factory=fake_agent_factory,
+        )._build_agent(
+            HarnessInput(
+                operation=HarnessOperation.NORMAL,
+                interaction_id="interaction-main-session",
+                interaction_turn_id="turn-main-session",
+                main_session_id="openhalo-main-g1-persisted",
+                frame={"payload": {"text": "continue our conversation"}},
+            )
+        )
+
+        self.assertEqual(
+            captured_kwargs[0]["session_id"],
+            "openhalo-main-g1-persisted",
+        )
+        self.assertIsNone(captured_kwargs[0]["parent_session_id"])
+
     def test_runner_exposes_native_memory_write_tool_only_for_normal_turn(self) -> None:
         captured_kwargs = []
 

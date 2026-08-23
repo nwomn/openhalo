@@ -273,7 +273,7 @@ python3 scripts/build_release.py \
   --tag v<version> \
   --commit <40-character-commit> \
   --output ./dist/release \
-  --state-schema sqlite-v2
+  --state-schema sqlite-v1
 gh release create v<version> \
   ./dist/release/openhalo-v<version>.tar.gz \
   ./dist/release/release-manifest.json \
@@ -284,6 +284,11 @@ The builder uses `git archive` at the exact supplied commit and writes the
 archive name, tag, commit, and SHA-256 into `release-manifest.json`. Do not
 upload a Runtime archive to an Android-only preview Release: `openhalo update`
 will reject releases without the complete Runtime asset set.
+
+Keep the manifest `state_schema` at `sqlite-v1` while supporting installed
+updaters that predate `sqlite-v2`; a candidate Runtime may perform its own
+compatible SQLite v1-to-v2 migration on first start. Publish `sqlite-v2` only
+after the oldest supported updater accepts that manifest value.
 
 ## Development Runtime
 

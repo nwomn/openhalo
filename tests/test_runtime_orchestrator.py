@@ -16,6 +16,7 @@ from personal_runtime.agent_harness import ActionBatch
 from personal_runtime.agent_harness import ActionGovernance
 from personal_runtime.agent_harness import ActionSideEffect
 from personal_runtime.agent_harness import ActionVisibility
+from personal_runtime.agent_harness import HarnessInput
 from personal_runtime.agent_harness import HarnessOperation
 from personal_runtime.agent_harness import HarnessOutcome
 from personal_runtime.agent_harness import RuntimeActionIntent
@@ -30,6 +31,143 @@ HERMES_LLM_CONFIG = Path("tests/fixtures/llm-config-hermes-test.toml")
 
 
 class RuntimeOrchestratorTests(unittest.TestCase):
+    def test_runtime_reuses_native_main_session_after_restart(self) -> None:
+        class NativeMainHarness:
+            durable_memory_engine = "hermes_native"
+
+            def __init__(self, native_sessions: set[str]) -> None:
+                self.native_sessions = native_sessions
+                self.inputs = []
+                self.restore_attempts = []
+
+            def restore_main_session(self, session_id: str) -> bool:
+                self.restore_attempts.append(session_id)
+                return session_id in self.native_sessions
+
+            def run(self, harness_input):
+                self.inputs.append(harness_input)
+                self.native_sessions.add(harness_input.main_session_id)
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=InterventionProposal(
+                        kind="no_intervention",
+                        proposal_type="no_intervention",
+                        source="hermes",
+                        action_capability=None,
+                        required_capability=None,
+                        action_payload={},
+                        message="",
+                        metadata={},
+                        visibility_intent="silent",
+                    ),
+                    metadata={"runner": "native-main-test"},
+                )
+
+        def normal_input(turn_id: str) -> HarnessInput:
+            return HarnessInput(
+                operation=HarnessOperation.NORMAL,
+                interaction_id=f"interaction-{turn_id}",
+                interaction_turn_id=turn_id,
+                frame={"payload": {"text": "remember this conversation"}},
+            )
+
+        with TemporaryDirectory() as directory:
+            state_path = Path(directory) / "state.sqlite3"
+            native_sessions: set[str] = set()
+            first_harness = NativeMainHarness(native_sessions)
+            first_gateway = RuntimeGateway(
+                state_path=state_path,
+                llm_config_path=TEST_LLM_CONFIG,
+                agent_harness=first_harness,
+            )
+            first_gateway.orchestrator._proposal_from_harness(
+                normal_input("interaction-turn-1")
+            )
+            main_session_id = first_harness.inputs[0].main_session_id
+
+            second_harness = NativeMainHarness(native_sessions)
+            second_gateway = RuntimeGateway(
+                state_path=state_path,
+                llm_config_path=TEST_LLM_CONFIG,
+                agent_harness=second_harness,
+            )
+            second_gateway.orchestrator._proposal_from_harness(
+                normal_input("interaction-turn-2")
+            )
+
+        self.assertEqual(second_harness.inputs[0].main_session_id, main_session_id)
+        self.assertEqual(second_harness.restore_attempts, [main_session_id])
+        self.assertEqual(second_gateway.state.main_session["generation"], 1)
+
+    def test_runtime_audits_main_session_recovery_failure_after_restart(self) -> None:
+        class NativeMainHarness:
+            durable_memory_engine = "hermes_native"
+
+            def __init__(self, native_sessions: set[str]) -> None:
+                self.native_sessions = native_sessions
+                self.inputs = []
+
+            def restore_main_session(self, session_id: str) -> bool:
+                return session_id in self.native_sessions
+
+            def run(self, harness_input):
+                self.inputs.append(harness_input)
+                self.native_sessions.add(harness_input.main_session_id)
+                return HarnessOutcome.from_proposal(
+                    operation=harness_input.operation,
+                    proposal=InterventionProposal(
+                        kind="no_intervention",
+                        proposal_type="no_intervention",
+                        source="hermes",
+                        action_capability=None,
+                        required_capability=None,
+                        action_payload={},
+                        message="",
+                        metadata={},
+                        visibility_intent="silent",
+                    ),
+                    metadata={"runner": "native-main-test"},
+                )
+
+        def normal_input(turn_id: str) -> HarnessInput:
+            return HarnessInput(
+                operation=HarnessOperation.NORMAL,
+                interaction_id=f"interaction-{turn_id}",
+                interaction_turn_id=turn_id,
+                frame={"payload": {"text": "continue the conversation"}},
+            )
+
+        with TemporaryDirectory() as directory:
+            state_path = Path(directory) / "state.sqlite3"
+            first_harness = NativeMainHarness(set())
+            first_gateway = RuntimeGateway(
+                state_path=state_path,
+                llm_config_path=TEST_LLM_CONFIG,
+                agent_harness=first_harness,
+            )
+            first_gateway.orchestrator._proposal_from_harness(
+                normal_input("interaction-turn-1")
+            )
+            prior_session_id = first_harness.inputs[0].main_session_id
+
+            second_harness = NativeMainHarness(set())
+            second_gateway = RuntimeGateway(
+                state_path=state_path,
+                llm_config_path=TEST_LLM_CONFIG,
+                agent_harness=second_harness,
+            )
+            second_gateway.orchestrator._proposal_from_harness(
+                normal_input("interaction-turn-2")
+            )
+
+        main_session = second_gateway.state.main_session
+        self.assertNotEqual(second_harness.inputs[0].main_session_id, prior_session_id)
+        self.assertEqual(main_session["generation"], 2)
+        self.assertEqual(
+            main_session["recovery_audit"][-1]["reason"],
+            "native_session_unavailable",
+        )
+
     @staticmethod
     def _valid_research_event(
         *,

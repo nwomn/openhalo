@@ -1401,7 +1401,9 @@ class HermesHarnessRunner:
             thinking_callback=_discard_embedded_hermes_display,
             platform="subagent",
             session_id=self._agent_session_id(harness_input),
-            parent_session_id="openhalo-main",
+            parent_session_id=(
+                None if harness_input.main_session_id else "openhalo-main"
+            ),
             skip_context_files=True,
             load_soul_identity=True,
             skip_memory=False,
@@ -1416,12 +1418,28 @@ class HermesHarnessRunner:
 
     @staticmethod
     def _agent_session_id(harness_input: HarnessInput) -> str:
+        if isinstance(harness_input.main_session_id, str) and harness_input.main_session_id:
+            return harness_input.main_session_id
         interaction = harness_input.interaction
         if isinstance(interaction, dict):
             session_id = interaction.get("agent_session_id")
             if isinstance(session_id, str) and session_id:
                 return session_id
         return harness_input.interaction_id
+
+    def restore_main_session(self, session_id: str) -> bool:
+        if not isinstance(session_id, str) or not session_id:
+            return False
+        with self._hermes_home_scope():
+            from hermes_state import SessionDB
+
+            session_db = SessionDB()
+            try:
+                return session_db.get_session(session_id) is not None
+            finally:
+                close = getattr(session_db, "close", None)
+                if callable(close):
+                    close()
 
     def _build_shared_context(
         self,
