@@ -19,7 +19,7 @@ from personal_runtime.runtime_state import RuntimeState
 from personal_runtime.runtime_state import sanitize_event_for_storage
 
 
-SCHEMA_VERSION = "sqlite-v1"
+SCHEMA_VERSION = "sqlite-v2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +68,8 @@ _STATE_VALUE_KEYS = (
     "managed_host_edge",
     "action_registry",
     "harness_memory",
+    "main_session",
+    "interaction_work",
 )
 _INTERACTION_LINKED_COLLECTIONS = {
     "action_results",
@@ -142,6 +144,9 @@ class SQLiteRuntimeStateStore:
             payload["managed_host_edge"] = values.get("managed_host_edge", {})
             payload["action_registry"] = values.get("action_registry", {})
             payload["harness_memory"] = values.get("harness_memory", {})
+            payload["main_session"] = values.get("main_session", {})
+            payload["interaction_work"] = values.get("interaction_work", [])
+            state.replace_context_facts(self.load_context_facts())
             for collection in _HISTORY_COLLECTIONS:
                 limit = self._hot_limit(collection)
                 if collection == "interactions":
@@ -201,7 +206,9 @@ class SQLiteRuntimeStateStore:
                 payload[collection] = [
                     json.loads(row["payload"]) for row in reversed(rows)
                 ]
-            return RuntimeState.from_dict(payload)
+            restored = RuntimeState.from_dict(payload)
+            restored.replace_context_facts(self.load_context_facts())
+            return restored
 
     def save(self, state: RuntimeState, *, deferred: bool = False) -> None:
         with self._lock:
@@ -337,6 +344,25 @@ class SQLiteRuntimeStateStore:
                                     record_batch,
                                 )
                                 record_batch.clear()
+                        elif kind == "context_fact":
+                            connection.execute(
+                                """
+                                INSERT INTO context_facts(
+                                    fact_id, source_device_id, observation_name,
+                                    value_payload, confidence, observed_at, expires_at,
+                                    disposition, provenance_payload, fact_version,
+                                    withheld_reason
+                                ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                """,
+                                (
+                                    payload["fact_id"], payload["source_device_id"],
+                                    payload["observation_name"], _json(payload["value"]),
+                                    payload["confidence"], payload["observed_at"],
+                                    payload["expires_at"], payload["disposition"],
+                                    _json(payload["provenance"]), payload["version"],
+                                    payload.get("withheld_reason"),
+                                ),
+                            )
                         else:
                             raise ValueError(f"unknown legacy import entry: {kind}")
                     if record_batch:
@@ -853,6 +879,21 @@ class SQLiteRuntimeStateStore:
                     ON records(collection, id);
                 CREATE INDEX IF NOT EXISTS records_collection_time
                     ON records(collection, recorded_at);
+                CREATE TABLE IF NOT EXISTS context_facts (
+                    fact_id TEXT PRIMARY KEY,
+                    source_device_id TEXT NOT NULL,
+                    observation_name TEXT NOT NULL,
+                    value_payload TEXT NOT NULL,
+                    confidence REAL NOT NULL,
+                    observed_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL,
+                    disposition TEXT NOT NULL,
+                    provenance_payload TEXT NOT NULL,
+                    fact_version INTEGER NOT NULL,
+                    withheld_reason TEXT
+                );
+                CREATE INDEX IF NOT EXISTS context_facts_source_name
+                    ON context_facts(source_device_id, observation_name);
                 """
             )
             existing = connection.execute(
@@ -861,6 +902,11 @@ class SQLiteRuntimeStateStore:
             if existing is None:
                 connection.execute(
                     "INSERT INTO metadata(key, value) VALUES('schema_version', ?)",
+                    (SCHEMA_VERSION,),
+                )
+            elif existing[0] == "sqlite-v1":
+                connection.execute(
+                    "UPDATE metadata SET value = ? WHERE key = 'schema_version'",
                     (SCHEMA_VERSION,),
                 )
             elif existing[0] != SCHEMA_VERSION:
@@ -882,6 +928,76 @@ class SQLiteRuntimeStateStore:
             self._connection.execute("PRAGMA journal_size_limit=67108864")
             self._connection.execute("PRAGMA auto_vacuum=INCREMENTAL")
         return self._connection
+
+    def upsert_context_fact(self, fact: dict) -> None:
+        """Persist one materialized fact without coupling storage to Gateway."""
+
+        required = {
+            "fact_id", "source_device_id", "observation_name", "value",
+            "confidence", "observed_at", "expires_at", "disposition",
+            "provenance", "version",
+        }
+        missing = required.difference(fact)
+        if missing:
+            raise ValueError(f"context fact is missing fields: {sorted(missing)}")
+        with self._lock:
+            connection = self._connect()
+            with connection:
+                connection.execute(
+                    """
+                    INSERT INTO context_facts(
+                        fact_id, source_device_id, observation_name, value_payload,
+                        confidence, observed_at, expires_at, disposition,
+                        provenance_payload, fact_version, withheld_reason
+                    ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(fact_id) DO UPDATE SET
+                        source_device_id = excluded.source_device_id,
+                        observation_name = excluded.observation_name,
+                        value_payload = excluded.value_payload,
+                        confidence = excluded.confidence,
+                        observed_at = excluded.observed_at,
+                        expires_at = excluded.expires_at,
+                        disposition = excluded.disposition,
+                        provenance_payload = excluded.provenance_payload,
+                        fact_version = excluded.fact_version,
+                        withheld_reason = excluded.withheld_reason
+                    """,
+                    (
+                        fact["fact_id"], fact["source_device_id"],
+                        fact["observation_name"], _json(fact["value"]),
+                        fact["confidence"], fact["observed_at"], fact["expires_at"],
+                        fact["disposition"], _json(fact["provenance"]),
+                        fact["version"], fact.get("withheld_reason"),
+                    ),
+                )
+
+    def load_context_facts(self) -> list[dict]:
+        with self._lock:
+            connection = self._connect()
+            rows = connection.execute(
+                """
+                SELECT fact_id, source_device_id, observation_name, value_payload,
+                       confidence, observed_at, expires_at, disposition,
+                       provenance_payload, fact_version, withheld_reason
+                FROM context_facts ORDER BY fact_id
+                """
+            ).fetchall()
+        return [
+            {
+                "fact_id": row["fact_id"],
+                "source_device_id": row["source_device_id"],
+                "observation_name": row["observation_name"],
+                "value": json.loads(row["value_payload"]),
+                "confidence": row["confidence"],
+                "observed_at": row["observed_at"],
+                "expires_at": row["expires_at"],
+                "disposition": row["disposition"],
+                "provenance": json.loads(row["provenance_payload"]),
+                "version": row["fact_version"],
+                "withheld_reason": row["withheld_reason"],
+            }
+            for row in rows
+        ]
 
     def _replace_from_state(
         self,
@@ -974,6 +1090,8 @@ class SQLiteRuntimeStateStore:
             "managed_host_edge": state.managed_host_edge,
             "action_registry": state.action_registry,
             "harness_memory": state.harness_memory,
+            "main_session": state.main_session,
+            "interaction_work": state.interaction_work,
         }
 
     def _is_empty(self, connection: sqlite3.Connection) -> bool:

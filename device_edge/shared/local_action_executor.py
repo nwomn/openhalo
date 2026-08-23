@@ -13,9 +13,11 @@ class LocalActionExecutor:
         device_type: str,
         diagnostic_recorder=None,
         trace_recorder=None,
+        evidence_reader=None,
     ) -> None:
         self.device_id = device_id
         self.trace_recorder = trace_recorder
+        self.evidence_reader = evidence_reader
         self.device = {
             "device_id": device_id,
             "device_name": device_id,
@@ -36,7 +38,11 @@ class LocalActionExecutor:
             input_payload={"action": frame["action"]},
             summary="Executed local action request.",
         ) as boundary:
-            result = execute_action(frame["action"])
+            action = frame["action"]
+            if action["capability"] == "context.evidence.read":
+                result = self._read_evidence(action)
+            else:
+                result = execute_action(action)
             if self.trace_recorder is not None:
                 capability = frame["action"]["capability"]
                 self.trace_recorder.record(
@@ -68,3 +74,33 @@ class LocalActionExecutor:
                     action_result[key] = frame[key]
             boundary.output({"result": result, "frame": action_result})
             return action_result
+
+    def _read_evidence(self, action: dict) -> dict:
+        payload = action.get("payload", {})
+        evidence_ref = payload.get("evidence_ref")
+        limit = payload.get("limit", 16)
+        if (
+            self.evidence_reader is None
+            or not isinstance(evidence_ref, str)
+            or not evidence_ref
+            or not isinstance(limit, int)
+            or limit < 1
+            or limit > 16
+        ):
+            return {
+                "status": "error",
+                "capability": "context.evidence.read",
+                "reason": "evidence_unavailable",
+            }
+        evidence = self.evidence_reader(evidence_ref, limit)
+        if not isinstance(evidence, list):
+            return {
+                "status": "error",
+                "capability": "context.evidence.read",
+                "reason": "invalid_evidence_reader_result",
+            }
+        return {
+            "status": "ok",
+            "capability": "context.evidence.read",
+            "details": {"evidence": evidence[:limit]},
+        }

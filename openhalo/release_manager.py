@@ -65,7 +65,7 @@ class ReleaseManifest:
             or Path(archive_name).name != archive_name
         ):
             raise ValueError("release manifest archive name must be a filename")
-        if state_schema not in {"json-v1", "sqlite-v1"}:
+        if state_schema not in {"json-v1", "sqlite-v1", "sqlite-v2"}:
             raise ValueError(f"unsupported release state schema: {state_schema}")
         if not isinstance(sha256, str) or not _SHA256_PATTERN.fullmatch(sha256):
             raise ValueError("release manifest requires a SHA-256 checksum")

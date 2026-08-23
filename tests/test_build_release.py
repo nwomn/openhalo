@@ -38,6 +38,8 @@ def test_build_release_writes_archive_manifest_and_checksum_for_exact_commit() -
                 str(output),
                 "--repository",
                 str(source),
+                "--state-schema",
+                "sqlite-v2",
             ],
             check=True,
         )
@@ -50,7 +52,7 @@ def test_build_release_writes_archive_manifest_and_checksum_for_exact_commit() -
             "archive_name": archive.name,
             "commit": commit,
             "sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
-            "state_schema": "sqlite-v1",
+            "state_schema": "sqlite-v2",
             "tag": "v0.22.0",
             "version": "0.22.0",
         }

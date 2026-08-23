@@ -23,6 +23,9 @@ class RuntimeState:
         self.device_registry = {}
         self.capability_registry = {}
         self.observation_registry = {}
+        self.context_facts = {}
+        self.main_session = {}
+        self.interaction_work = []
         self.events = []
         self.tasks = []
         self.action_results = []
@@ -55,6 +58,13 @@ class RuntimeState:
         self.internal_tool_events = []
         self.hermes_memory_events = []
         self._storage_operations = []
+
+    def replace_context_facts(self, facts: list[dict]) -> None:
+        self.context_facts = {
+            fact["fact_id"]: dict(fact)
+            for fact in facts
+            if isinstance(fact, dict) and isinstance(fact.get("fact_id"), str)
+        }
 
     def _queue_record(
         self,
@@ -500,6 +510,9 @@ class RuntimeState:
             "device_registry": self.device_registry,
             "capability_registry": self.capability_registry,
             "observation_registry": self.observation_registry,
+            "context_facts": self.context_facts,
+            "main_session": self.main_session,
+            "interaction_work": self.interaction_work,
             "events": self.events,
             "tasks": self.tasks,
             "action_results": self.action_results,
@@ -542,6 +555,9 @@ class RuntimeState:
         state.device_registry = dict(payload.get("device_registry", {}))
         state.capability_registry = dict(payload.get("capability_registry", {}))
         state.observation_registry = dict(payload.get("observation_registry", {}))
+        state.context_facts = dict(payload.get("context_facts", {}))
+        state.main_session = dict(payload.get("main_session", {}))
+        state.interaction_work = list(payload.get("interaction_work", []))
         state.events = list(payload.get("events", []))
         state.tasks = list(payload.get("tasks", []))
         state.action_results = list(payload.get("action_results", []))

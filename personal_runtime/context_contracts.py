@@ -34,6 +34,7 @@ class RuntimeObservation:
     process_id: str | None = None
     evidence_ref: str | None = None
     coverage: dict | None = None
+    context_disposition: str = "full"
 
     def to_dict(self) -> dict:
         return asdict(self)

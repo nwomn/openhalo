@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from personal_runtime.sqlite_state_store import SQLiteRuntimeStateStore
+from personal_runtime.sqlite_state_store import SCHEMA_VERSION
 
 
 _ARRAY_COLLECTIONS = {
@@ -37,6 +38,8 @@ _STATE_VALUE_KEYS = {
     "managed_host_edge",
     "action_registry",
     "harness_memory",
+    "main_session",
+    "interaction_work",
 }
 
 
@@ -65,7 +68,7 @@ def migrate_json_to_sqlite(source: Path, target: Path) -> dict[str, Any]:
         target_created = True
         os.chmod(target, 0o600)
         return {
-            "schema_version": "sqlite-v1",
+            "schema_version": SCHEMA_VERSION,
             "source": str(source),
             "target": str(target),
             "counts": status["counts"],
@@ -153,6 +156,12 @@ def _legacy_entries(source: Path) -> Iterator[tuple[str, str, Any, int]]:
             if isinstance(value, Iterator):
                 value = list(value)
             yield "state_value", key, value, 0
+        elif key == "context_facts":
+            values = value.values() if isinstance(value, dict) else value
+            for fact in values:
+                if not isinstance(fact, dict):
+                    raise ValueError("legacy context_facts contains a non-object")
+                yield "context_fact", key, fact, 0
         else:
             raise ValueError(f"unsupported legacy state key: {key}")
 

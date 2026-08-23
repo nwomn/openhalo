@@ -27,7 +27,7 @@ def build_release(
         raise ValueError("release tag must be a simple immutable version tag")
     if not _COMMIT_PATTERN.fullmatch(commit):
         raise ValueError("release commit must be a 40-character lowercase SHA")
-    if state_schema not in {"json-v1", "sqlite-v1"}:
+    if state_schema not in {"json-v1", "sqlite-v1", "sqlite-v2"}:
         raise ValueError(f"unsupported release state schema: {state_schema}")
     resolved = subprocess.check_output(
         ["git", "-C", str(repository), "rev-parse", f"{commit}^{{commit}}"],

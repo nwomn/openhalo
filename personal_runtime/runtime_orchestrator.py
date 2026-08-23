@@ -1055,9 +1055,13 @@ class RuntimeOrchestrator:
                 interaction_turn_id=interaction_turn_id,
                 frame=frame,
                 interaction=registration.interaction.to_dict(),
-                snapshot=snapshot,
-                grounding_bundle=grounding_bundle,
-                correlation=correlation,
+            snapshot=snapshot,
+            grounding_bundle=grounding_bundle,
+            context_envelope=self.gateway.build_context_envelope(
+                now=decision_time,
+                interaction_projection=registration.related_process_summaries,
+            ).to_dict(),
+            correlation=correlation,
             )
         )
         self.gateway.state.record_model_health(

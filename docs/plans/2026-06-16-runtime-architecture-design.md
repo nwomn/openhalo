@@ -17,7 +17,7 @@ This is a design baseline, not a final implementation spec.
 
 ## Canonical Architecture Diagram
 
-This diagram is the current reference diagram for the agreed frontend/backend split, internal component layout, and cross-boundary communication rule.
+This diagram is the current reference diagram for the agreed frontend/backend split, internal component layout, and cross-boundary communication rule. The M18 context and scheduling components shown below are independently owned modules: Gateway never takes on Context compilation, scheduling, Hermes semantics, or Presence policy.
 
 If later discussions produce alternative sketches, this diagram should remain the baseline until it is intentionally replaced by a newer accepted version.
 
@@ -47,29 +47,38 @@ flowchart LR
         BE1["Gateway<br/>device access<br/>auth<br/>pairing<br/>transport termination<br/>protocol adaptation<br/>ingress / egress routing"]
         BE2["State / Context / Task<br/>device state<br/>event log<br/>task state<br/>context memory<br/>handoff state"]
         subgraph BE3["Agent Runtime"]
-            AR0["Persistent Main Hermes Session<br/>unified personality / semantic memory<br/>proposal formation / semantic planning"]
-            AR1["InteractionPool<br/>lifecycle / turn and result correlation<br/>queues / watches / obligations / health"]
-            AR2["Child Sessions<br/>process-local context / local reasoning<br/>bounded semantic deltas"]
+            ARF["ContextFact Materializer + SQLite Fact Store<br/>registered Observation facts / provenance / versions"]
+            ARC["ContextEnvelope Compiler<br/>bounded fact projection / read-only fact query"]
+            ARS["InteractionScheduler<br/>persistent work ledger / serial Main mailbox<br/>ordered interaction workers; max 4 Child workers"]
+            AR0["Persistent Main-session Manager + Hermes<br/>recovery / unified personality / semantic intent"]
+            AR1["Child Sessions<br/>per-Interaction local reasoning<br/>bounded SemanticDelta"]
+            ARD["Experience Discovery Harness<br/>skip / defer / observe_more / trigger"]
             AR3["Presence Router<br/>explicit model-independent governance"]
             AR4["Runtime Validation & Action Planning<br/>schema / permission / target / capability"]
 
-            AR0 -->|"create / continue intent"| AR1
-            AR1 <--> AR2
+            ARF --> ARC
+            ARC --> ARS
+            ARS -->|"serial Main work"| AR0
+            ARS <--> AR1
+            AR1 -->|"bounded semantic delta"| ARS
+            AR0 -->|"attention input"| ARD
+            ARD -->|"trigger / observe_more"| ARS
             AR0 --> AR3
             AR3 --> AR4
         end
         BE5["Action Layer<br/>device actions<br/>remote commands<br/>external API calls<br/>notifications"]
         BE6["Model / Tool / Skill Runtime"]
 
-        BE1 <--> BE2
-        BE2 <--> AR0
-        BE2 <--> AR1
-        BE2 <--> AR2
+        BE1 -->|"accepted Observation"| ARF
+        BE1 -->|"user request / action result"| ARS
+        BE2 <--> ARS
+        AR0 -->|"context.fact.query"| ARC
         AR0 <--> BE6
-        AR2 <--> BE6
+        AR1 <--> BE6
         AR4 <--> BE5
         BE5 <--> BE2
         BE5 <--> BE1
+        ARS -->|"context.evidence.read\ncorrelated Edge action"| AR4
         BE1 -. "direct action fast path" .-> BE5
     end
 

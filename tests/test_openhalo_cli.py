@@ -599,7 +599,7 @@ def test_version_fallback_matches_the_release_package_version(
     monkeypatch.setattr(version_module, "distribution_version", package_not_installed)
 
     assert version_module.format_cli_version("openhalo", executable="/tmp/python") == (
-        "openhalo 0.1.22 (dev)"
+        "openhalo 0.1.23 (dev)"
     )
 
 

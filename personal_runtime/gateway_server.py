@@ -34,6 +34,9 @@ from personal_runtime.agent_executor import ProposalFormation
 from personal_runtime.agent_harness import LegacyProposalHarness
 from personal_runtime.hermes_adapter import configured_harness_runner
 from personal_runtime.context_contracts import RuntimeObservation
+from personal_runtime.context_envelope import ContextEnvelopeCompiler
+from personal_runtime.context_facts import ContextFact
+from personal_runtime.context_facts import ContextFactStore
 from personal_runtime.display_lifecycle import DisplayLifecycle
 from personal_runtime.execution_planning import ExecutionPlanner
 from personal_runtime.interaction_pool import InteractionPool
@@ -119,6 +122,11 @@ class RuntimeGateway:
             self.state = RuntimeState()
         else:
             self.state = self.state_store.load()
+        self.context_fact_store = ContextFactStore(
+            ContextFact.from_dict(fact)
+            for fact in self.state.context_facts.values()
+        )
+        self.context_envelope_compiler = ContextEnvelopeCompiler()
         self.interaction_pool = InteractionPool(self.state)
         self.display_lifecycle = DisplayLifecycle()
         self.runtime_event_emitter = runtime_event_emitter
@@ -170,6 +178,20 @@ class RuntimeGateway:
         if deferred:
             self._schedule_deferred_storage_flush()
         self._maybe_maintain_storage()
+
+    def build_context_envelope(
+        self,
+        *,
+        processed_version: int = 0,
+        now: str | None = None,
+        interaction_projection: list[dict] | None = None,
+    ):
+        return self.context_envelope_compiler.compile(
+            facts=self.context_fact_store.query(now=now or _utc_now()),
+            processed_version=processed_version,
+            now=now or _utc_now(),
+            interaction_projection=interaction_projection,
+        )
 
     def _persist_state_deferred(self) -> None:
         try:
@@ -1119,6 +1141,7 @@ class RuntimeGateway:
                 self.state.record_observations(
                     self._extract_runtime_observations(frame)
                 )
+                self._materialize_context_facts(frame)
                 update_mobile_liveness_after_observations(
                     self.state,
                     device_id=frame["device_id"],
@@ -1197,9 +1220,39 @@ class RuntimeGateway:
                 coverage=dict(observation_payload["coverage"])
                 if isinstance(observation_payload.get("coverage"), dict)
                 else None,
+                context_disposition=observation_payload.get(
+                    "context_disposition", "full"
+                ),
             )
             for observation_payload in observations
         ]
+
+    def _materialize_context_facts(self, frame: dict) -> None:
+        device_id = frame["device_id"]
+        capability = frame["capability"]
+        registrations = self.state.observation_registry.get(device_id, {}).get(
+            capability,
+            {},
+        )
+        changed = []
+        for observation in self._extract_runtime_observations(frame):
+            registration = registrations.get(observation.name, {})
+            if self.context_fact_store.materialize(
+                observation,
+                freshness_seconds=int(registration.get("freshness_seconds", 120)),
+                schema_version=registration.get("schema_version"),
+            ):
+                fact = next(
+                    item for item in self.context_fact_store.all_facts()
+                    if item.fact_id == f"{observation.source_device_id}/{observation.name}"
+                )
+                payload = fact.to_dict()
+                self.state.context_facts[fact.fact_id] = payload
+                changed.append(payload)
+        upsert = getattr(self.state_store, "upsert_context_fact", None)
+        if upsert is not None:
+            for fact in changed:
+                upsert(fact)
 
     def _validate_observation_ingress(self, frame: dict) -> dict | None:
         observations = frame.get("payload", {}).get("observations", [])
@@ -1223,6 +1276,15 @@ class RuntimeGateway:
             )
         for observation in observations:
             observation_name = observation.get("name")
+            disposition = observation.get("context_disposition", "full")
+            if disposition not in {"full", "structural", "unavailable", "withheld"}:
+                return self._build_observation_error(
+                    code="invalid_context_disposition",
+                    message="Observation context_disposition is unsupported.",
+                    device_id=device_id,
+                    capability=capability,
+                    observation=observation_name,
+                )
             registration = registered.get(observation_name)
             if registration is None:
                 return self._build_observation_error(

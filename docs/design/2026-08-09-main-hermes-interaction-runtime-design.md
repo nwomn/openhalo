@@ -39,14 +39,24 @@ governance gate between semantic intent and user-visible or external action.
 
 ```mermaid
 flowchart LR
-    Edge["Device Edge\nuser input / observations / action results"]
-    Gateway["Gateway\nauth / protocol / bounded ingress routing"]
-    State["Runtime State\nregistration / context facts / evidence / health / results"]
+    Edge["Device Edge\nuser input / observations / action results\nsource-local evidence"]
+    Gateway["Gateway\nauth / protocol validation\npersist + enqueue only"]
+
+    subgraph Context["Context"]
+        Facts["ContextFact Materializer\nregistered Observation -> normalized fact"]
+        FactStore[("SQLite ContextFact Store\ncurrent facts / provenance / versions")]
+        Compiler["ContextEnvelope Compiler\nbounded facts / query index"]
+        Evidence["Evidence Registry\nreferences / summaries / audit only"]
+        Facts --> FactStore
+        FactStore --> Compiler
+        FactStore --> Evidence
+    end
 
     subgraph Agent["Agent Runtime"]
-        Main["Persistent Main Hermes Session\nunified personality / long-term semantic memory\nproposal formation / semantic execution planning"]
-        Pool["InteractionPool\ninteraction lifecycle / correlation / queues\nwatches / obligations / health"]
-        Child["Child Sessions\nprocess-local context / local reasoning\nbounded semantic deltas"]
+        Scheduler["InteractionScheduler\npersistent work ledger / Main mailbox\nordered interaction workers; max 4 Child workers"]
+        Main["Persistent Main-session Manager + Hermes\nsession recovery / continuous personality\nsemantic intent + attention decision"]
+        Child["Child Sessions\nper-Interaction local reasoning\nbounded SemanticDelta"]
+        Discovery["Experience Discovery Harness\nskip / defer / observe_more / trigger"]
         Presence["Presence Router\nexplicit model-independent governance"]
         Validate["Runtime Validation & Action Planning\nschema / permissions / target / capability"]
     end
@@ -54,19 +64,23 @@ flowchart LR
     Action["Action Layer"]
 
     Edge <--> Gateway
-    Gateway <--> State
-    State --> Pool
-    State -->|versioned ContextEnvelope| Main
-    Main -->|bounded fact query| State
-    Main -->|create / continue / cancel intent| Pool
-    Pool <--> Child
-    Child -->|bounded semantic delta| State
-    State -->|relevant versioned update| Main
+    Gateway -->|accepted Observation| Facts
+    Gateway -->|user request / action result| Scheduler
+    Compiler -->|versioned ContextEnvelope| Scheduler
+    Scheduler -->|one serial Main event| Main
+    Scheduler <-->|per-Interaction ordered work| Child
+    Child -->|bounded SemanticDelta| Scheduler
+    Main -->|read-only context.fact.query| Compiler
+    Compiler -->|bounded facts| Main
+    Main -->|attention input| Discovery
+    Discovery -->|trigger / observe_more| Scheduler
+    Scheduler -->|context.evidence.read\ncorrelated Edge action| Validate
     Main -->|semantic action intent| Presence
     Presence -->|allow| Validate
     Validate --> Action
     Action --> Gateway
-    Action --> State
+    Gateway -->|correlated evidence result| Evidence
+    Evidence -->|redacted temporary evidence| Scheduler
 ```
 
 ## Authority And Responsibilities

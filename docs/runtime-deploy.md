@@ -273,7 +273,7 @@ python3 scripts/build_release.py \
   --tag v<version> \
   --commit <40-character-commit> \
   --output ./dist/release \
-  --state-schema sqlite-v1
+  --state-schema sqlite-v2
 gh release create v<version> \
   ./dist/release/openhalo-v<version>.tar.gz \
   ./dist/release/release-manifest.json \

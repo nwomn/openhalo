@@ -12,6 +12,7 @@ from personal_runtime.state_migration import export_sqlite_to_json
 from personal_runtime.state_migration import migrate_json_to_sqlite
 from personal_runtime.state_migration import sha256_file
 from personal_runtime.state_migration import write_bounded_legacy_snapshot
+from personal_runtime.sqlite_state_store import SCHEMA_VERSION
 
 
 class StateMigrationTests(unittest.TestCase):
@@ -59,7 +60,7 @@ class StateMigrationTests(unittest.TestCase):
                 result = migrate_json_to_sqlite(source, target)
 
             restored = SQLiteRuntimeStateStore(target).load()
-            self.assertEqual(result["schema_version"], "sqlite-v1")
+            self.assertEqual(result["schema_version"], SCHEMA_VERSION)
             self.assertEqual(restored.events[0]["event_id"], "event-1")
             self.assertEqual(restored.observations[0].name, "terminal.activity")
             self.assertEqual(restored.interactions[0]["status"], "awaiting_action_results")

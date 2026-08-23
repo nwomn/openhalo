@@ -1478,6 +1478,7 @@ class HermesHarnessRunner:
                 for process in grounding.get("related_processes", [])
                 if isinstance(process, dict)
             ],
+            "context_envelope": dict(harness_input.context_envelope or {}),
             "action_result_set": action_result_set,
         }
 

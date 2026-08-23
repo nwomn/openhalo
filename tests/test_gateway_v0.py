@@ -720,6 +720,70 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             "string",
         )
 
+    async def test_registered_observation_materializes_a_context_fact(self) -> None:
+        gateway = RuntimeGateway(persist_state=False, llm_config_path=TEST_LLM_CONFIG)
+        await gateway.handle_test_frames(
+            [
+                {
+                    "type": "connect",
+                    "device": {"device_id": "camera-edge-1", "device_type": "camera"},
+                    "auth": {"token": "dev-token"},
+                },
+                {
+                    "type": "capability_announce",
+                    "device_id": "camera-edge-1",
+                    "capabilities": [{
+                        "name": "camera.person_presence",
+                        "direction": "edge_to_runtime",
+                        "kind": "observation_provider",
+                        "observations": [{
+                            "name": "camera.person_presence.v1",
+                            "schema": {"type": "object"},
+                            "freshness_seconds": 60,
+                        }],
+                    }],
+                },
+                {
+                    "type": "observation_push",
+                    "device_id": "camera-edge-1",
+                    "capability": "camera.person_presence",
+                    "event_id": "presence-1",
+                    "observations": [{
+                        "name": "camera.person_presence.v1",
+                        "value": {"state": "present", "count": 1},
+                        "observed_at": "2026-08-23T10:00:00Z",
+                        "confidence": 0.9,
+                        "context_disposition": "full",
+                    }],
+                },
+            ]
+        )
+
+        self.assertEqual(
+            gateway.state.context_facts["camera-edge-1/camera.person_presence.v1"]["value"],
+            {"state": "present", "count": 1},
+        )
+
+        envelope = gateway.build_context_envelope(processed_version=0, now="2026-08-23T10:00:01Z")
+
+        self.assertEqual(envelope.context_version, 1)
+        self.assertEqual(envelope.facts[0]["fact_id"], "camera-edge-1/camera.person_presence.v1")
+
+    async def test_rejects_invalid_context_disposition_at_gateway_boundary(self) -> None:
+        gateway = RuntimeGateway(persist_state=False, llm_config_path=TEST_LLM_CONFIG)
+        await gateway.handle_test_frames([
+            {"type": "connect", "device": {"device_id": "edge-1", "device_type": "sensor"}, "auth": {"token": "dev-token"}},
+            {"type": "capability_announce", "device_id": "edge-1", "capabilities": [{"name": "sensor", "direction": "edge_to_runtime", "kind": "observation_provider", "observations": [{"name": "sensor.state", "schema": {"type": "string"}}]}]},
+        ])
+
+        replies = await gateway.handle_test_frames([{
+            "type": "observation_push", "device_id": "edge-1", "capability": "sensor", "event_id": "event-1",
+            "observations": [{"name": "sensor.state", "value": "ok", "observed_at": "2026-08-23T10:00:00Z", "confidence": 1.0, "context_disposition": "raw_media"}],
+        }])
+
+        self.assertEqual(_last_error(replies)["code"], "invalid_context_disposition")
+        self.assertEqual(gateway.state.context_facts, {})
+
     async def test_legacy_capability_announce_keeps_name_set_compatibility(
         self,
     ) -> None:

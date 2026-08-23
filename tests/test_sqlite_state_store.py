@@ -13,12 +13,57 @@ from personal_runtime.context_contracts import RuntimeObservation
 from personal_runtime.interaction_pool import InteractionPool
 from personal_runtime.runtime_state import RuntimeState
 from personal_runtime.sqlite_state_store import RetentionPolicy
+from personal_runtime.sqlite_state_store import SCHEMA_VERSION
 from personal_runtime.sqlite_state_store import StorageQuotaExceeded
 from personal_runtime.sqlite_state_store import SQLiteRuntimeStateStore
 from personal_runtime.state_store import build_state_store
 
 
 class SQLiteRuntimeStateStoreTests(unittest.TestCase):
+    def test_context_facts_are_upserted_and_survive_reopen(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "state.sqlite3"
+            store = SQLiteRuntimeStateStore(path)
+            store.upsert_context_fact(
+                {
+                    "fact_id": "camera-1/camera.person_presence.v1",
+                    "source_device_id": "camera-1",
+                    "observation_name": "camera.person_presence.v1",
+                    "value": {"state": "present"},
+                    "confidence": 0.9,
+                    "observed_at": "2026-08-23T10:00:00Z",
+                    "expires_at": "2026-08-23T10:01:00Z",
+                    "disposition": "full",
+                    "provenance": {"source_event_id": "event-1"},
+                    "version": 1,
+                    "withheld_reason": None,
+                }
+            )
+            store.upsert_context_fact(
+                {
+                    "fact_id": "camera-1/camera.person_presence.v1",
+                    "source_device_id": "camera-1",
+                    "observation_name": "camera.person_presence.v1",
+                    "value": {"state": "absent"},
+                    "confidence": 1.0,
+                    "observed_at": "2026-08-23T10:00:30Z",
+                    "expires_at": "2026-08-23T10:01:30Z",
+                    "disposition": "full",
+                    "provenance": {"source_event_id": "event-2"},
+                    "version": 2,
+                    "withheld_reason": None,
+                }
+            )
+            store.close()
+
+            restored = SQLiteRuntimeStateStore(path)
+            facts = restored.load_context_facts()
+            restored.close()
+
+        self.assertEqual(len(facts), 1)
+        self.assertEqual(facts[0]["value"], {"state": "absent"})
+        self.assertEqual(facts[0]["version"], 2)
+
     def test_state_store_factory_selects_sqlite_for_database_paths(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             store = build_state_store(Path(directory) / "state.sqlite3")
@@ -475,7 +520,7 @@ class SQLiteRuntimeStateStoreTests(unittest.TestCase):
             status = store.storage_status()
             encoded = json.dumps(status, ensure_ascii=True)
 
-            self.assertEqual(status["schema_version"], "sqlite-v1")
+            self.assertEqual(status["schema_version"], SCHEMA_VERSION)
             self.assertEqual(status["counts"]["events"], 1)
             self.assertGreater(status["bytes"]["database"], 0)
             self.assertEqual(status["recent_write_volume"]["total"], 1)

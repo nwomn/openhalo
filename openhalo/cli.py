@@ -298,7 +298,7 @@ def _build_updater(home: PersonalHome) -> ReleaseUpdater:
 
 
 def _migrate_runtime_state(home: PersonalHome, state_schema: str) -> None:
-    if state_schema != "sqlite-v1":
+    if state_schema not in {"sqlite-v1", "sqlite-v2"}:
         return
     stale_path = None
     if home.state_database_path.exists() and home.legacy_state_path.exists():
@@ -379,7 +379,7 @@ def _remove_sqlite_artifacts(path: Path) -> None:
 
 
 def _commit_runtime_state_migration(home: PersonalHome, state_schema: str) -> None:
-    if state_schema == "sqlite-v1":
+    if state_schema in {"sqlite-v1", "sqlite-v2"}:
         write_bounded_legacy_snapshot(
             home.state_database_path,
             home.legacy_state_path,

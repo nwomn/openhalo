@@ -25,6 +25,27 @@ TEST_LLM_CONFIG = Path("tests/fixtures/llm-config-test.toml")
 
 
 class EdgeClientTests(unittest.TestCase):
+    def test_evidence_read_requires_an_explicit_local_reader(self) -> None:
+        executor = LocalActionExecutor(
+            "terminal-edge-1",
+            "desktop-cli",
+            evidence_reader=lambda ref, limit: [{"evidence_ref": ref, "summary": "safe"}][:limit],
+        )
+
+        result = executor.handle_action_request(
+            {
+                "type": "action_request",
+                "device_id": "terminal-edge-1",
+                "request_id": "request-1",
+                "action": {
+                    "capability": "context.evidence.read",
+                    "payload": {"evidence_ref": "coding-evidence://interaction-1/1", "limit": 1},
+                },
+            }
+        )
+
+        self.assertEqual(result["result"]["status"], "ok")
+        self.assertEqual(result["result"]["details"]["evidence"][0]["summary"], "safe")
     def test_local_cli_helper_does_not_accept_a_bearer_token(self) -> None:
         self.assertNotIn("token", inspect.signature(run_cli_once).parameters)
 

@@ -246,6 +246,15 @@ structured `unknown_device`, `not_connected`, `device_mismatch`, or
 `device_already_connected` errors at the public boundary rather than admitting a
 post-connect frame by device ID alone.
 
+Every accepted Observation is eligible for generic Runtime context admission.
+An Observation may include `context_disposition` as `full`, `structural`,
+`unavailable`, or `withheld` (default `full`). Runtime materializes a
+device-scoped latest `ContextFact` without an Observation-name-specific
+reducer. Sensitive, redacted, and `health_only` values become structural state
+before reaching model context. An Edge may register `context.evidence.read`
+and answer its ordinary correlated action with a bounded, redacted evidence
+window; raw media is never returned through this contract.
+
 ## User Events
 
 User intent and explicit edge requests use `event_push`.

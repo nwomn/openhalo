@@ -143,6 +143,7 @@ class HarnessInput:
     procedural_memory: list[dict] | None = None
     semantic_memory: list[dict] | None = None
     episodic_memory: list[dict] | None = None
+    context_envelope: dict | None = None
     correlation: dict | None = None
 
 
