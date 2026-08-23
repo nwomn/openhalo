@@ -385,4 +385,14 @@ Observation. The next test must therefore be user-launched from the physical
 Maix Launcher, which owns the App lifecycle; do not retry foreground App start
 through SSH or set boot auto-start before that test passes.
 
+The owner then launched `openhalo_camera_edge` manually from the physical
+Launcher. The App stayed active and Runtime persisted two fresh semantic-only
+`absent` Observations 30 seconds apart, including the latest at
+`2026-08-23T10:17:06.958198Z`. This accepts the minimal App's Launcher-managed
+lifecycle, retained camera/NPU ownership, and periodic Feature freshness path.
+The intentionally UI-less App presents a black screen in this version; that is
+not a camera failure. A `present` state scene test, a single-process local
+status UI, and a deliberate App-level boot-auto-start decision remain separate
+work.
+
 The first slice does not require continuous cloud video, full open-vocabulary detection, unrestricted face recognition, a general-purpose Edge agent, or packaged ambient-home hardware. Packaging and provisioning remain later product work under M22.
