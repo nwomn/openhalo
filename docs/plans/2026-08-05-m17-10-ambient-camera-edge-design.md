@@ -387,8 +387,11 @@ snapshot code classifies them as `not_high_salience`; they are persisted
 ordinary evidence and do not reach normal Agent queries. The accepted target is
 not a camera-specific compact-snapshot reducer: every accepted registered
 Observation will receive generic, freshness-aware, provenance-bearing context
-admission to Main Hermes. A separately governed proactive policy remains
-required before that perception may generate an intervention. A
+admission to Main Hermes. That generic ContextFact/Main Hermes implementation
+belongs to broader `M18` under issue #17; M17.10 supplies real Camera Edge
+acceptance input but does not absorb the Runtime refactor. A separately
+governed proactive policy remains required before that perception may generate
+an intervention. A
 direct SSH invocation of that installed entry is explicitly not a valid App
 lifecycle acceptance: while the MaixVision/Launcher multimedia environment was
 still active, the vendor SDK reported `vi_sdk_enable_chn ... Out of memory` and
