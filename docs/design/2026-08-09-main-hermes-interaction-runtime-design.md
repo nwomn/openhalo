@@ -2,7 +2,8 @@
 
 Date: 2026-08-09
 
-Status: Accepted target architecture; implementation tracked by [issue #17](https://github.com/nwomn/openhalo/issues/17).
+Status: Accepted target architecture; registration-driven context admission
+updated 2026-08-23; implementation tracked by [issue #17](https://github.com/nwomn/openhalo/issues/17).
 
 ## Purpose
 
@@ -40,7 +41,7 @@ governance gate between semantic intent and user-visible or external action.
 flowchart LR
     Edge["Device Edge\nuser input / observations / action results"]
     Gateway["Gateway\nauth / protocol / bounded ingress routing"]
-    State["Runtime State\nversioned facts / evidence / health / results"]
+    State["Runtime State\nregistration / context facts / evidence / health / results"]
 
     subgraph Agent["Agent Runtime"]
         Main["Persistent Main Hermes Session\nunified personality / long-term semantic memory\nproposal formation / semantic execution planning"]
@@ -55,7 +56,8 @@ flowchart LR
     Edge <--> Gateway
     Gateway <--> State
     State --> Pool
-    State <--> Main
+    State -->|versioned ContextEnvelope| Main
+    Main -->|bounded fact query| State
     Main -->|create / continue / cancel intent| Pool
     Pool <--> Child
     Child -->|bounded semantic delta| State
@@ -131,6 +133,115 @@ meaningful fact-state delta wakes Main Hermes. This is not permission for raw
 media or unbounded payloads: such data must remain outside the ordinary
 Observation contract and behind explicit evidence retrieval. Presence Router
 continues to govern whether a perceived fact may cause a user-facing action.
+
+#### Replacement Data Flow
+
+The refactor replaces the current per-name mapping:
+
+```text
+fixed observation name -> fixed compact-snapshot field -> prompt
+```
+
+with one Runtime-owned, device-neutral pipeline:
+
+```text
+registered Observation schema
+  -> accepted Observation registry entry
+  -> generic ContextFact table
+  -> versioned ContextEnvelope
+  -> persistent Main Hermes Session
+```
+
+Registration is the admission decision. An Edge does not need a later
+Runtime-source edit merely because it introduces a new valid semantic
+Observation. Action-only capabilities produce no fact; every accepted
+Observation-provider value produces one.
+
+#### Generic ContextFact Contract
+
+`ContextFact` is a materialized current fact, not an unbounded event history.
+Its identity is `(source_device_id, observation_name)`, so identical
+Observation names reported by different Edges never overwrite each other.
+
+```json
+{
+  "fact_id": "camera-edge-1/camera.person_presence.v1",
+  "source_device_id": "camera-edge-1",
+  "observation_name": "camera.person_presence.v1",
+  "value": {"state": "present", "count": 1},
+  "confidence": 0.859375,
+  "observed_at": "2026-08-23T10:22:24.248688Z",
+  "freshness": "fresh",
+  "expires_at": "2026-08-23T10:23:24.248688Z",
+  "provenance": {
+    "source_capability": "camera.person_presence",
+    "source_event_id": "camera-person-presence-...",
+    "schema_version": "person_presence.v1"
+  }
+}
+```
+
+The generic materializer must:
+
+- validate the registered schema before creating or replacing a fact;
+- take freshness from registration metadata, with a documented global fallback
+  rather than an Observation-name branch;
+- retain a reported `unavailable` value as a fact, but expose stale facts as
+  `unknown`;
+- replace a current fact only with a newer accepted observation from the same
+  fact identity;
+- record provenance and state version for every material change; and
+- reject raw media, opaque oversized values, and unregistered data before the
+  fact table.
+
+The event/observation log remains the authoritative history. A ContextFact is
+the generic latest-state index that makes registered device reality available
+to personality without replaying all history.
+
+#### ContextEnvelope Contract
+
+The Context Compiler builds Main Hermes context from the generic fact table,
+not `_snapshot_field_specs()` or a device-specific field list. Each envelope
+contains a bounded current-fact view, meaningful changes since the last Main
+turn, and an index for on-demand fact queries:
+
+```json
+{
+  "context_version": 248,
+  "facts": ["bounded current ContextFact values"],
+  "changed_facts": ["semantic fact-state changes since Main Hermes processed version 247"],
+  "fact_sources": ["registered device and Observation identities"],
+  "uncertainty": ["stale, unavailable, conflicting, or omitted facts"]
+}
+```
+
+All registered facts are therefore normally perceptible to OpenHalo
+personality. Bounded prompt construction may summarize stable facts, but must
+preserve a fact-source index and Runtime-owned query path; it must not make an
+unmapped new Edge invisible. Repeated heartbeats that do not alter the
+material fact update freshness/provenance only and do not create a new Main
+Hermes wakeup.
+
+#### Migration From Fixed Compact Snapshots
+
+The migration is deliberately generic:
+
+1. Extend the registration contract with optional fact freshness metadata and
+   add the persisted `ContextFact` table/index.
+2. Materialize facts for every accepted registered Observation at Gateway
+   ingress, with one common schema/size/provenance implementation.
+3. Introduce a versioned `ContextEnvelope` compiler and bounded fact-query
+   interface for Main Hermes.
+4. Move normal user-query grounding to `ContextEnvelope`; a newly registered
+   Observation must be visible without Runtime source changes.
+5. Retain the existing fixed compact snapshot only as a temporary compatibility
+   projection for already-shipped Presence rules, then retire it from
+   personality context.
+6. Let semantic fact changes coalesce into Main Hermes wakeups; Presence Router
+   separately decides whether a perceived change may become a proactive action.
+
+This migration must not add camera, phone, Coding, or any other Edge-specific
+branches to Runtime context compilation.
 
 ### Child Session Context
 
@@ -218,7 +329,9 @@ sequenceDiagram
   evidence checks.
 - Runtime does not independently compose user-facing fallback answers; it
   records and constrains reality for Main Hermes.
-- Main Hermes does not receive every observation or every Child transcript.
+- Main Hermes does not receive every event frame or every Child transcript;
+  it receives the current generic facts derived from all accepted registered
+  Observations, plus bounded semantic deltas and queries for detail.
 - A model cannot claim files, commands, test results, completion, or health
   states that are absent from the current Runtime projection or permitted
   evidence query result.
@@ -241,6 +354,15 @@ The implementation acceptance for issue #17 must prove all of the following:
 6. High-frequency observations are coalesced and cannot create an unbounded
    Main or Child Hermes wakeup backlog.
 7. Presence Router and Runtime Action governance remain explicit and intact.
+8. A newly registered, schema-valid Observation from an otherwise unknown Edge
+   becomes visible to a normal Main Hermes user query without a Runtime
+   Observation-name code change.
+9. Two Edges reporting the same Observation name remain separately queryable;
+   stale and `unavailable` states are reported truthfully rather than as the
+   last fresh value.
+10. The real MaixCAM `camera.person_presence.v1` fact is visible to a phone
+    query as its latest semantic state, with no raw image upload and no
+    automatic intervention unless Presence later permits one.
 
 ## Relationship To Existing Architecture
 
