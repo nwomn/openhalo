@@ -1,7 +1,7 @@
 id: openhalo_camera_edge
 name: OpenHalo Camera Edge
 name[zh]: OpenHalo 摄像头边缘节点
-version: 0.1.1
+version: 0.1.2
 icon: assets/openhalo-logo-primary.png
 author: OpenHalo
 desc: Local-only person presence Camera Edge for OpenHalo Personal Runtime

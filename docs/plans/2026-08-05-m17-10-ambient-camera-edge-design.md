@@ -374,13 +374,15 @@ manual Launcher lifecycle acceptance may the owner choose Maix's App-level
 auto-start mechanism.
 
 The minimal package was generated with `maixtool` and installed through the
-device's `app_store_cli` on 2026-08-23. The follow-up `0.1.1` package embeds
-the confirmed OpenHalo primary logo and is installed with
-`icon=assets/openhalo-logo-primary.png` and `exec=main.py` in
-`/maixapp/apps/app.info`; the packaged PNG exists on the device. This is
-metadata/install evidence only until the owner visually confirms it in the
-Launcher. Its device-private configuration exists with restrictive permissions,
-and no App auto-start entry exists. A
+device's `app_store_cli` on 2026-08-23. The first icon package (`0.1.1`) had
+valid `icon=assets/openhalo-logo-primary.png` metadata but retained the default
+Launcher image in the owner's visual check. The corrective `0.1.2` package
+keeps that path but uses the same confirmed logo as a `128×128` RGBA PNG with
+world-readable mode; its metadata, image dimensions, and installed file mode
+are verified on the device. This remains metadata/install evidence until the
+owner reloads Launcher and visually confirms it. The device-private
+configuration exists with restrictive permissions, and no App auto-start entry
+exists. A
 direct SSH invocation of that installed entry is explicitly not a valid App
 lifecycle acceptance: while the MaixVision/Launcher multimedia environment was
 still active, the vendor SDK reported `vi_sdk_enable_chn ... Out of memory` and
