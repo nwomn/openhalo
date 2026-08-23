@@ -388,10 +388,14 @@ through SSH or set boot auto-start before that test passes.
 The owner then launched `openhalo_camera_edge` manually from the physical
 Launcher. The App stayed active and Runtime persisted two fresh semantic-only
 `absent` Observations 30 seconds apart, including the latest at
-`2026-08-23T10:17:06.958198Z`. This accepts the minimal App's Launcher-managed
-lifecycle, retained camera/NPU ownership, and periodic Feature freshness path.
-The intentionally UI-less App presents a black screen in this version; that is
-not a camera failure. A `present` state scene test, a single-process local
+`2026-08-23T10:17:06.958198Z`. The owner then stood in view: Runtime persisted
+repeated `{state: "present", count: 1}` Observations, latest at
+`2026-08-23T10:22:24.248688Z` with confidence `0.859375`. This accepts the
+minimal App's Launcher-managed lifecycle, retained camera/NPU ownership,
+periodic Feature freshness path, and basic absent-to-present transition. It is
+not an identity, multi-person, distance, or accuracy evaluation. The
+intentionally UI-less App presents a black screen in this version; that is not
+a camera failure. A single-process local
 status UI, and a deliberate App-level boot-auto-start decision remain separate
 work.
 
