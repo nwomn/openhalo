@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import io
 import json
 import os
 from pathlib import Path
@@ -131,3 +132,40 @@ def test_openssl_camera_client_emits_gateway_compatible_pairing_frames() -> None
             assert verify_challenge_signature(public_key_der, payload, signature)
 
     asyncio.run(scenario())
+
+
+def test_maixcam_cli_reads_pairing_code_only_from_stdin() -> None:
+    from device_edge.camera import maixcam_cli
+
+    class FakeClient:
+        device_id = "camera-edge-1"
+
+        async def pair(self, pairing_code: str, capabilities: list[str]):
+            assert pairing_code == "one-time-code"
+            assert capabilities == ["camera.health"]
+            return type(
+                "Credentials",
+                (),
+                {
+                    "device_id": self.device_id,
+                    "display_name": "Desk Camera",
+                    "public_key_fingerprint": "sha256:test",
+                },
+            )()
+
+    with patch("device_edge.camera.maixcam_cli._client_from_args", return_value=FakeClient()), patch(
+        "sys.stdin", io.StringIO("one-time-code\n")
+    ), patch("sys.stdout", new_callable=io.StringIO) as stdout:
+        assert (
+            maixcam_cli.main(
+                [
+                    "--url",
+                    "ws://runtime.example.test:8765",
+                    "pair",
+                    "--pairing-code-stdin",
+                ]
+            )
+            == 0
+        )
+
+    assert json.loads(stdout.getvalue())["state"] == "paired"

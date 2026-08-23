@@ -8,6 +8,10 @@ Observation, evidence, or media-transfer validation yet.
 
 This document records the proposed first implementation shape for a fixed home/desk camera Edge. It is intentionally a bounded ambient-observation design, not a commitment to continuous raw camera or microphone streaming.
 
+The repeatable owner-development procedure is in [MaixCAM Camera Edge
+Development Runbook](../ops/maixcam-camera-edge-runbook.md). It stores no
+dynamic LAN address, pairing code, private key, or device credential.
+
 ## 0. Hardware validation preparation
 
 The first physical experiment is deliberately a fixed, mains-powered desk or
