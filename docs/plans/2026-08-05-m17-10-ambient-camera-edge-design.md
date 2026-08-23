@@ -1,8 +1,125 @@
 # M17.10 Ambient Camera Edge Design
 
-Status: design baseline; implementation has not started.
+Status: design baseline with a bounded Camera Edge bootstrap implementation.
+The selected hardware sample has passed basic stock-device bring-up, the
+Edge-session dependency probe, real-device P-256 proof verification, and one
+owner-Runtime pairing/authentication session. It has no sustained connection,
+Observation, evidence, or media-transfer validation yet.
 
 This document records the proposed first implementation shape for a fixed home/desk camera Edge. It is intentionally a bounded ambient-observation design, not a commitment to continuous raw camera or microphone streaming.
+
+## 0. Hardware validation preparation
+
+The first physical experiment is deliberately a fixed, mains-powered desk or
+room camera, rather than a battery-powered wearable. This keeps the first
+question architectural: can a normal Camera Edge capture bounded evidence and
+participate in the governed Runtime loop? It does not start a custom PCB,
+wearable, or product-packaging workstream.
+
+The selected physical validation target is the received **Sipeed MaixCAM
+standard kit**, using its integrated display, Wi-Fi, vendor camera, a
+user-provided 64 GB TF card flashed with the official MaixCAM system image,
+stable USB-C power supply, and a simple desk/room mount. Its camera pipeline,
+local display, and MaixPy/Linux development route make it a hardware-validation
+target; this is not a requirement that all future Camera Edges use this board
+or run a general Linux distribution.
+
+The display is a local, diagnostic status surface, not a second interaction
+channel or an ungoverned video viewer. The first display contract is read-only
+and limited to provisioning/pairing state, Runtime-session connectivity,
+camera state, capture/evidence-transfer state, storage health, and a
+privacy/capture-active indicator. It must not show raw camera content by
+default or create a transport path outside the public Edge API.
+
+The validation kit has arrived, but the no-card SKU needs a first system flash
+through a card reader before it can boot. The immediate evidence target is only
+a stock bring-up: flash the exact MaixCAM image onto the user-provided 64 GB TF
+card, boot to the device UI, obtain a Wi-Fi IP address, install the vendor
+runtime libraries, run a factory camera example, and reach the device from the
+development host over the local network. No OpenHalo hardware integration,
+Runtime capability, or acceptance evidence exists yet.
+
+2026-08-23 user-reported stock validation passed: the device joined Wi-Fi,
+connected to the development host, ran `hello_maix.py`, and showed a normal
+camera preview. This is hardware/SDK evidence only; it does not prove a
+Gateway session, pairing, capability announcement, Observation, or video
+transfer. The next probe checks whether the device system can run the
+WebSocket and P-256 dependencies required by the existing public Edge API.
+
+2026-08-23 dependency-probe result: Python `3.11.6`, OpenSSL `3.1.4`, and
+`websockets 10.4` are present. `cryptography` is absent, so a P-256 private key
+could not be generated and the existing OpenHalo P-256 pairing client cannot
+run on the device yet. The repository's current client dependency range is
+`websockets >=12,<16` and `cryptography >=46,<47`; before installation, inspect
+the device ABI and package-manager/build-tool availability rather than assuming
+a compatible prebuilt wheel exists.
+
+2026-08-23 installation-path result: the device reports `riscv64`, has
+`pip 22.3.1`, and has neither `gcc` nor `rustc`. Direct inspection of the
+official PyPI file lists for `cryptography 46.0.3` and `46.0.6` found no Linux
+`riscv64` wheel, so the current dependency range would fall back to a source
+build that this device cannot perform. Do not add a compiler/Rust toolchain as
+the prototype default. Instead, first validate a narrow signer backend that
+uses the device's existing OpenSSL command-line support for the required
+P-256/prime256v1 key and ECDSA-SHA256 signature; it must still produce the
+same PKCS#8, SPKI DER, and DER-signature wire values expected by the public
+Edge API.
+
+2026-08-23 OpenSSL bootstrap implementation and physical verification passed:
+`device_edge.camera.openssl_session` now creates a persistent prime256v1
+PKCS#8 identity through the device's OpenSSL binary, derives its SPKI DER public
+key, and emits the normal `edge.runtime.v2.auth` ECDSA-SHA256 proof without
+depending on `cryptography`. The module was deployed to the MaixCAM over the
+owner-authorized SSH development channel. The device created its persistent
+identity, signed a canonical OpenHalo challenge payload, and the resulting
+SPKI/signature pair was accepted by the repository's Gateway signature
+verifier on the development host. This proves cryptographic wire compatibility
+only: no pairing code, Runtime endpoint, WebSocket session, capability
+announcement, Observation, or camera media was sent. The next step requires an
+owner-selected Runtime endpoint and one-time pairing code.
+
+2026-08-23 owner-Runtime pairing verification passed: the owner-selected
+Runtime `ws://8.153.37.167:8765` was live (`openhalo 0.1.22`, listening on
+`0.0.0.0:8765`). A newly issued five-minute one-time code was transferred only
+to the authenticated MaixCAM process and was not recorded in this repository.
+The persistent device key completed `connect -> auth_challenge -> auth_proof
+-> connect_ok`; it then emitted the minimal `camera.health` capability
+announcement before the bounded probe closed its WebSocket. The Runtime's
+paired-device registry confirms an active, non-revoked `camera-edge-1` record
+named `Desk Camera`, with the expected direct-IP audience and a current
+authentication timestamp. This is pairing and public session evidence, not a
+claim that the Runtime has a Camera Feature registry, a long-lived Camera Edge
+service, camera Observations, retained evidence, or media transfer.
+
+Immediately after pairing, the device opened a second WebSocket without a
+pairing code, completed the same challenge/proof flow with the retained
+identity, and emitted `camera.health` again. The Runtime retained the active
+record and advanced its `last_authenticated_at` timestamp. This verifies that
+the stored key, rather than the one-time code, is sufficient for later Camera
+Edge authentication.
+
+2026-08-23 development-host reachability verification passed: ICMP and TCP/22
+reached the device, while an unauthenticated SSH attempt was correctly denied.
+No device credential was used and no device state was changed. An authenticated
+but read-only dependency probe remains the next task.
+
+The initial hardware-validation acceptance is limited to:
+
+1. The device can establish a normal authenticated `Device Edge` session over
+   the public Edge API and report camera, storage, and connection health.
+2. It can create a bounded local video clip on a simple trigger and make that
+   clip available only through a Runtime-governed evidence request.
+3. It can retain a short, bounded local buffer or explicitly record the
+   platform limitation; continuous raw-media upload is not a fallback.
+4. The experiment records power, thermal, storage-write, network reliability,
+   and capture-indicator/privacy-control findings before a custom board is
+   considered.
+5. The local display renders the bounded diagnostic-status contract without
+   exposing raw camera content or becoming an independent control plane.
+
+Non-goals for this experiment are on-device VLM inference, continuous cloud
+recording, a wearable/battery design, custom PCB fabrication, and any change to
+the active `M17.8` implementation priority.
 
 ## 1. Architecture position
 
