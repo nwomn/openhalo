@@ -169,3 +169,94 @@ def test_maixcam_cli_reads_pairing_code_only_from_stdin() -> None:
         )
 
     assert json.loads(stdout.getvalue())["state"] == "paired"
+
+
+def test_camera_health_contract_and_status_file_are_bounded() -> None:
+    from device_edge.camera.health_daemon import CAPABILITY_NAME
+    from device_edge.camera.health_daemon import CameraHealthStatus
+    from device_edge.camera.health_daemon import DEFAULT_CAPABILITIES
+    from device_edge.camera.health_daemon import LocalStatusStore
+    from device_edge.camera.health_daemon import build_health_frame
+
+    with TemporaryDirectory() as directory:
+        status = CameraHealthStatus(
+            updated_at="2030-01-01T00:00:00Z",
+            connection_state="connected",
+            capture_state="not_checked",
+            storage_state="ready",
+            storage_free_mib=1024,
+        )
+        path = Path(directory) / "status.json"
+        LocalStatusStore(path).write(status)
+        assert json.loads(path.read_text(encoding="utf-8")) == {
+            "capture_state": "not_checked",
+            "connection_state": "connected",
+            "last_error": None,
+            "storage_free_mib": 1024,
+            "storage_state": "ready",
+            "updated_at": "2030-01-01T00:00:00Z",
+        }
+
+    capability = DEFAULT_CAPABILITIES[0]
+    assert capability["name"] == CAPABILITY_NAME
+    assert [item["name"] for item in capability["observations"]] == [
+        "camera.connection_state",
+        "camera.capture_state",
+        "camera.storage_state",
+        "camera.storage_free_mib",
+    ]
+    frame = build_health_frame("camera-edge-1", status)
+    assert frame["type"] == "observation_push"
+    assert frame["capability"] == CAPABILITY_NAME
+    assert frame["observations"] == frame["payload"]["observations"]
+    assert "raw_media" not in json.dumps(frame)
+
+
+def test_camera_health_daemon_authenticates_before_publishing() -> None:
+    from device_edge.camera import health_daemon
+
+    class FakeClient:
+        audience = "ws://runtime.example.test:8765"
+        device_id = "camera-edge-1"
+
+        async def authenticate(self, websocket, capabilities):
+            assert capabilities == health_daemon.DEFAULT_CAPABILITIES
+            websocket.authenticated = True
+
+    class FakeWebSocket:
+        authenticated = False
+
+        def __init__(self) -> None:
+            self.sent: list[dict] = []
+
+        async def send(self, payload: str) -> None:
+            assert self.authenticated
+            self.sent.append(json.loads(payload))
+
+    class FakeConnect:
+        def __init__(self, websocket: FakeWebSocket) -> None:
+            self.websocket = websocket
+            self.entered = 0
+
+        async def __aenter__(self):
+            self.entered += 1
+            return self.websocket
+
+        async def __aexit__(self, *_args) -> bool:
+            return False
+
+    with TemporaryDirectory() as directory:
+        websocket = FakeWebSocket()
+        connect = FakeConnect(websocket)
+        daemon = health_daemon.CameraHealthDaemon(
+            client=FakeClient(),
+            status_store=health_daemon.LocalStatusStore(Path(directory) / "status.json"),
+            interval_seconds=60,
+            min_free_mib=0,
+        )
+        with patch("device_edge.camera.health_daemon.websockets.connect", return_value=connect):
+            asyncio.run(daemon.run_once())
+
+    assert connect.entered == 1
+    assert websocket.sent[0]["type"] == "observation_push"
+    assert websocket.sent[0]["capability"] == "camera.health"

@@ -102,6 +102,17 @@ record and advanced its `last_authenticated_at` timestamp. This verifies that
 the stored key, rather than the one-time code, is sufficient for later Camera
 Edge authentication.
 
+2026-08-23 health-only session verification passed: the new Camera Edge
+service registers `camera.health` as an `observation_provider` with four
+versioned, schema-validated health fields. A physical MaixCAM `--once` run
+authenticated normally, did not initialize the camera (`capture_state` was
+explicitly `not_checked`), atomically wrote the local status payload, and sent
+one Observation batch. The owner Runtime persisted the registered capability
+and all four values: connection `connected`, capture `not_checked`, storage
+`ready`, and a bounded numeric free-space report. This is not a persistent
+process, local display implementation, camera capture, Feature subscription,
+Evidence, or raw-media test.
+
 2026-08-23 development-host reachability verification passed: ICMP and TCP/22
 reached the device, while an unauthenticated SSH attempt was correctly denied.
 No device credential was used and no device state was changed. An authenticated
@@ -122,8 +133,10 @@ The initial hardware-validation acceptance is limited to:
    exposing raw camera content or becoming an independent control plane.
 
 Non-goals for this experiment are on-device VLM inference, continuous cloud
-recording, a wearable/battery design, custom PCB fabrication, and any change to
-the active `M17.8` implementation priority.
+recording, a wearable/battery design, and custom PCB fabrication. On
+2026-08-23 the owner explicitly authorized this bounded M17.10 implementation
+slice; it does not make the milestone accepted or authorize the later raw-media,
+Feature/Scene-Profile, or Runtime-understanding work.
 
 ## 1. Architecture position
 
@@ -296,5 +309,12 @@ The first implementation sequence should be:
 4. Add Runtime Feature Subscription and bounded Feature/Evidence queries.
 5. Add Runtime video understanding and the `pending_understanding` lifecycle.
 6. Validate the full Gateway boundary, privacy controls, retention, and human acceptance with a real fixed-camera scenario.
+
+The owner-authorized first active slice implements step 1 only as a persistent
+health-only session: it registers `camera.health`, sends connection,
+capture-probe, and storage health Observations, and atomically maintains a
+bounded local status payload. `capture_state=not_checked` is intentional: this
+slice must not seize the sensor while MaixVision is previewing it and must not
+be described as camera capture or evidence functionality.
 
 The first slice does not require continuous cloud video, full open-vocabulary detection, unrestricted face recognition, a general-purpose Edge agent, or packaged ambient-home hardware. Packaging and provisioning remain later product work under M22.

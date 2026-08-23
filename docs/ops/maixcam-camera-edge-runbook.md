@@ -102,6 +102,26 @@ record for `camera-edge-1` on the Runtime. If a device is intentionally
 revoked, run `openhalo revoke camera-edge-1` on the Runtime and repeat the
 pairing step with a new code.
 
+## 6. Publish one health-only snapshot
+
+The first active M17.10 service sends only connection, capture-probe, and
+storage health. It does not initialize the camera, alter a MaixVision preview,
+record clips, or upload media:
+
+```powershell
+scp -i $cameraKey device_edge/camera/health_daemon.py "${cameraHost}:/root/openhalo_camera_edge/"
+ssh -i $cameraKey $cameraHost "python3 /root/openhalo_camera_edge/health_daemon.py --url $runtimeUrl --once"
+```
+
+The bounded local status payload is written atomically to
+`/root/.openhalo-camera-edge/status.json`. The later device-display adapter may
+render only this payload; it must not become a raw camera viewer or control
+plane.
+
+For a supervised, repeated health session, omit `--once` only after the one
+snapshot has been verified and a deliberate process-supervision decision is
+recorded. The current slice does not install a boot service.
+
 ## Troubleshooting
 
 | Symptom | Likely cause and response |
