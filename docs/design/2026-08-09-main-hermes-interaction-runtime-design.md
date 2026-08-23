@@ -2,8 +2,9 @@
 
 Date: 2026-08-09
 
-Status: Accepted target architecture; registration-driven context admission
-updated 2026-08-23; implementation tracked by [issue #17](https://github.com/nwomn/openhalo/issues/17).
+Status: Accepted implementation architecture; registration-driven context admission
+updated 2026-08-24; M18 Runtime acceptance is complete. Real Coding
+workflow/concurrent-child acceptance is separately tracked by [issue #13](https://github.com/nwomn/openhalo/issues/13).
 
 ## Purpose
 
@@ -355,26 +356,27 @@ sequenceDiagram
 
 ## Acceptance Direction
 
-The implementation acceptance for issue #17 must prove all of the following:
+M18 acceptance proves the Runtime contracts below. The real Coding condition is
+intentionally separated to [issue #13](https://github.com/nwomn/openhalo/issues/13)
+and does not block this milestone:
 
-1. A background Coding Interaction does not block a new normal user request.
-2. Multiple unrelated Interactions progress concurrently while each preserves
+1. Multiple unrelated Interactions progress concurrently while each preserves
    ordered local turns and exact result correlation.
-3. Main Hermes retains one stable session identity and continuous semantic
+2. Main Hermes retains one stable session identity and continuous semantic
    memory across user queries and process updates.
-4. Child-to-Main projection is bounded, versioned and evidence-backed.
-5. A user can ask Main Hermes for the current status or final result of a
+3. Child-to-Main projection is bounded, versioned and evidence-backed.
+4. A user can ask Main Hermes for the current status or final result of a
    process and receive an answer grounded in Runtime facts.
-6. High-frequency observations are coalesced and cannot create an unbounded
+5. High-frequency observations are coalesced and cannot create an unbounded
    Main or Child Hermes wakeup backlog.
-7. Presence Router and Runtime Action governance remain explicit and intact.
-8. A newly registered, schema-valid Observation from an otherwise unknown Edge
+6. Presence Router and Runtime Action governance remain explicit and intact.
+7. A newly registered, schema-valid Observation from an otherwise unknown Edge
    becomes visible to a normal Main Hermes user query without a Runtime
    Observation-name code change.
-9. Two Edges reporting the same Observation name remain separately queryable;
+8. Two Edges reporting the same Observation name remain separately queryable;
    stale and `unavailable` states are reported truthfully rather than as the
    last fresh value.
-10. The real MaixCAM `camera.person_presence.v1` fact is visible to a phone
+9. The real MaixCAM `camera.person_presence.v1` fact is visible to a phone
     query as its latest semantic state, with no raw image upload and no
     automatic intervention unless Presence later permits one.
 
