@@ -114,6 +114,24 @@ Runtime persists the complete structured record, including:
 - exact ActionBatch/action-result lineage; and
 - bounded raw observation and evidence records.
 
+### Registered Edge Context Admission
+
+Device capability registration is also Main Hermes context admission. Every
+schema-valid, accepted Observation from a registered Edge must automatically
+produce a generic, provenance-bearing Runtime context fact; adding a new Edge
+or Observation name must not require a device-specific snapshot reducer or
+fixed Runtime prompt rule. The shared mechanism applies the registered schema,
+latest-state replacement, declared freshness, bounded value/byte limits,
+provenance, and a generic `unknown` result for stale or unavailable facts.
+
+The Context Compiler includes these current registered facts in Main Hermes's
+bounded `ContextEnvelope` and exposes bounded Runtime-owned fact queries for
+additional detail. High-frequency equivalent reports are coalesced; only a
+meaningful fact-state delta wakes Main Hermes. This is not permission for raw
+media or unbounded payloads: such data must remain outside the ordinary
+Observation contract and behind explicit evidence retrieval. Presence Router
+continues to govern whether a perceived fact may cause a user-facing action.
+
 ### Child Session Context
 
 A Child Session receives only the objective, local process history, relevant
@@ -150,7 +168,7 @@ database record or Child transcript. It contains, in priority order:
 
 1. the current user request or semantic event;
 2. the relevant confirmed process facts and their state version;
-3. only the newest meaningful delta;
+3. current registered-Edge context facts and only the newest meaningful delta;
 4. unresolved uncertainty, obligations, and permitted claims;
 5. evidence references that may be queried on demand.
 
