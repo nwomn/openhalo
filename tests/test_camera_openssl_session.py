@@ -289,3 +289,134 @@ def test_camera_health_daemon_runs_capture_probe_only_when_enabled() -> None:
     probe.assert_called_once_with()
     assert enabled.capture_state == "ready"
     assert disabled.capture_state == "not_checked"
+
+
+def test_person_presence_feature_keeps_frames_and_geometry_local() -> None:
+    from device_edge.camera.person_presence import MaixPersonPresenceFeature
+    from device_edge.camera.person_presence import PersonPresenceSample
+    from device_edge.camera.person_presence import PresenceDebouncer
+
+    class Detection:
+        class_id = 0
+        score = 0.87
+        x = 12
+        y = 34
+        w = 56
+        h = 78
+
+    class Detector:
+        labels = ["person", "chair"]
+
+        def __init__(self, **kwargs) -> None:
+            assert kwargs == {"model": "/tmp/yolo11.mud", "dual_buff": True}
+
+        def input_width(self) -> int:
+            return 320
+
+        def input_height(self) -> int:
+            return 224
+
+        def input_format(self):
+            return "rgb"
+
+        def detect(self, frame, **kwargs):
+            assert frame == "private-frame"
+            assert kwargs == {"conf_th": 0.6, "iou_th": 0.45}
+            return [Detection()]
+
+    class Camera:
+        def __init__(self, *args) -> None:
+            assert args == (320, 224, "rgb")
+            self.closed = False
+
+        def read(self, **kwargs):
+            assert kwargs == {"block": True, "block_ms": 3000}
+            return "private-frame"
+
+        def close(self) -> None:
+            self.closed = True
+
+    feature = MaixPersonPresenceFeature(
+        model_path="/tmp/yolo11.mud",
+        confidence_threshold=0.6,
+        detector_factory=Detector,
+        camera_factory=Camera,
+    )
+    assert feature.sample() == PersonPresenceSample("present", 1, 0.87)
+    feature.close()
+
+    debouncer = PresenceDebouncer(confirm_samples=2)
+    assert debouncer.observe(PersonPresenceSample("present", 1, 0.9)) is None
+    decision = debouncer.observe(PersonPresenceSample("present", 1, 0.8))
+    assert decision is not None
+    assert (decision.state, decision.count, decision.confidence) == ("present", 1, 0.8)
+
+
+def test_person_presence_daemon_registers_and_publishes_only_semantic_observation() -> None:
+    from device_edge.camera import health_daemon
+    from device_edge.camera.person_presence import PersonPresenceSample
+
+    class FakeClient:
+        audience = "ws://runtime.example.test:8765"
+        device_id = "camera-edge-1"
+
+        async def authenticate(self, websocket, capabilities):
+            assert [capability["name"] for capability in capabilities] == [
+                "camera.health",
+                "camera.person_presence",
+            ]
+            websocket.authenticated = True
+
+    class Feature:
+        closed = False
+
+        def sample(self):
+            return PersonPresenceSample("present", 1, 0.91)
+
+        def close(self) -> None:
+            self.closed = True
+
+    class FakeWebSocket:
+        authenticated = False
+
+        def __init__(self) -> None:
+            self.sent: list[dict] = []
+
+        async def send(self, payload: str) -> None:
+            assert self.authenticated
+            self.sent.append(json.loads(payload))
+
+    class FakeConnect:
+        def __init__(self, websocket: FakeWebSocket) -> None:
+            self.websocket = websocket
+
+        async def __aenter__(self):
+            return self.websocket
+
+        async def __aexit__(self, *_args) -> bool:
+            return False
+
+    with TemporaryDirectory() as directory:
+        websocket = FakeWebSocket()
+        feature = Feature()
+        daemon = health_daemon.CameraHealthDaemon(
+            client=FakeClient(),
+            status_store=health_daemon.LocalStatusStore(Path(directory) / "status.json"),
+            interval_seconds=60,
+            min_free_mib=0,
+            person_presence_feature=feature,
+            presence_confirm_samples=1,
+        )
+        with patch("device_edge.camera.health_daemon.websockets.connect", return_value=FakeConnect(websocket)):
+            asyncio.run(daemon.run_once())
+
+    presence_frame = websocket.sent[1]
+    assert presence_frame["capability"] == "camera.person_presence"
+    assert presence_frame["observations"][0]["value"] == {
+        "state": "present",
+        "count": 1,
+        "feature_version": "person_presence.v1",
+    }
+    assert "raw_media" not in json.dumps(presence_frame)
+    assert "bbox" not in json.dumps(presence_frame)
+    assert feature.closed is True

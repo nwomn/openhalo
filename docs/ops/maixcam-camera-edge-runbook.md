@@ -131,6 +131,41 @@ For a supervised, repeated health session, omit `--once` only after the one
 snapshot has been verified and a deliberate process-supervision decision is
 recorded. The current slice does not install a boot service.
 
+## 7. Opt in to local-only person presence
+
+The first ambient Feature is `person_presence.v1`. It opens the MaixCAM sensor
+and YOLO11 pipeline in the same process, classifies only the built-in `person`
+label, requires repeated matching samples before changing state, and publishes
+only this structured value:
+
+```json
+{"state":"present|absent|unavailable","count":1,"feature_version":"person_presence.v1"}
+```
+
+No camera frame, image reference, bounding box, object geometry, face data, or
+other detected labels leaves the device. `unavailable` is distinct from
+`absent`, so a sensor/model failure cannot be interpreted as an empty room.
+
+Stop MaixVision's preview first: this process becomes the sole owner of the
+camera/NPU pipeline. Deploy all three required files and make a supervised
+one-shot verification with one confirmation sample:
+
+```powershell
+scp -i $cameraKey device_edge/camera/openssl_session.py device_edge/camera/person_presence.py device_edge/camera/health_daemon.py "${cameraHost}:/root/openhalo_camera_edge/"
+ssh -i $cameraKey $cameraHost "python3 /root/openhalo_camera_edge/health_daemon.py --url $runtimeUrl --once --person-presence --presence-confirm-samples 1"
+```
+
+For a manually supervised continuous session, retain the safer two-sample
+default and use a one-second sample interval with a 30-second freshness
+heartbeat:
+
+```powershell
+ssh -i $cameraKey $cameraHost "python3 /root/openhalo_camera_edge/health_daemon.py --url $runtimeUrl --person-presence"
+```
+
+Do not also start a separate `Display()` or camera script. A future local
+display must be integrated into this same process and lifecycle.
+
 
 ## Troubleshooting
 
@@ -142,10 +177,12 @@ recorded. The current slice does not install a boot service.
 | `ModuleNotFoundError` for the bootstrap | Repeat the two-file deployment step; the device copy is intentionally separate from the repository checkout. |
 | P-256/OpenSSL failure | Confirm `openssl version`; do not substitute a random key format or introduce a compiler toolchain. |
 | Capture probe reports `unavailable` | Stop a conflicting MaixVision preview, then retry once. Do not turn this into a continuous retry loop. |
+| Presence reports `unavailable` | Check that no MaixVision preview or other camera process owns the sensor; the Edge deliberately reports failure rather than `absent`. |
 
 ## What this does not verify
 
-This runbook proves device access and the public Edge session boundary only.
-It does not prove a persistent service, local display state, camera health
-Observation, Scene Profile/Feature Subscription governance, bounded evidence,
-or any raw-media policy. Those remain explicit M17.10 work.
+This runbook proves device access and the public Edge session boundary, plus a
+bounded local `person_presence.v1` Feature when section 7 has been accepted on
+the owner Runtime. It does not prove a boot-supervised service, local display
+state, Scene Profile/Feature Subscription governance, bounded evidence, face
+identity, OCR, or any raw-media policy. Those remain explicit M17.10 work.

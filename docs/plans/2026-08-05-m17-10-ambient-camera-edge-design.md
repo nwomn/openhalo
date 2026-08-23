@@ -326,11 +326,35 @@ The first implementation sequence should be:
 5. Add Runtime video understanding and the `pending_understanding` lifecycle.
 6. Validate the full Gateway boundary, privacy controls, retention, and human acceptance with a real fixed-camera scenario.
 
-The owner-authorized first active slice implements step 1 only as a persistent
+The initial owner-authorized slice implemented step 1 as a persistent
 health-only session: it registers `camera.health`, sends connection,
 capture-probe, and storage health Observations, and atomically maintains a
-bounded local status payload. `capture_state=not_checked` is intentional: this
-slice must not seize the sensor while MaixVision is previewing it and must not
-be described as camera capture or evidence functionality.
+bounded local status payload. `capture_state=not_checked` is intentional: that
+health-only mode must not seize the sensor while MaixVision is previewing it.
+
+On 2026-08-23 the owner authorized the first bounded Feature, implemented as
+an opt-in `camera.person_presence` capability with the registered Observation
+`camera.person_presence.v1`. One process owns `maix.camera.Camera()` and
+`maix.nn.YOLO11()`; it filters to the built-in `person` class, confirms a state
+only after a configurable number of matching local samples (two by default),
+and emits `{state, count, feature_version}` plus a model confidence. It never
+writes a frame, sends image bytes, keeps a bounding box, exposes another class
+label, or enables face/OCR/gesture inference. `unavailable` is an explicit
+state rather than a false `absent` result. This is a device-authorized Feature
+implementation, not yet Runtime Scene-Profile/Feature-Subscription governance
+or full M17.10 acceptance.
+
+The first physical Feature run on 2026-08-23 authenticated to the owner
+Runtime, registered `camera.person_presence`, and persisted a schema-valid
+`camera.person_presence.v1` Observation with `state=unavailable` and
+`count=null`; the Runtime recorded it as ordinary low-salience evidence. The
+MaixCAM's camera/ISP pipeline then timed out even with the previously working
+minimal capture configuration after a stale experimental `status_display.py`
+process had been terminated. This is deliberately not counted as a
+`present`/`absent` acceptance result. The remaining physical prerequisite is a
+user-controlled MaixCAM reboot and a successful MaixVision camera-preview
+check, followed by a repeated one-shot Feature run. Do not restart vendor
+services or install a boot daemon as a workaround without a separate owner
+decision.
 
 The first slice does not require continuous cloud video, full open-vocabulary detection, unrestricted face recognition, a general-purpose Edge agent, or packaged ambient-home hardware. Packaging and provisioning remain later product work under M22.

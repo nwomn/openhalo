@@ -1,7 +1,7 @@
-"""Persistent, health-only Camera Edge session for the MaixCAM bootstrap.
+"""Persistent Camera Edge session with opt-in local person-presence sensing.
 
-This first M17.10 service deliberately reports only connection, capture-probe,
-and storage health. It never opens the camera, records media, or uploads media.
+Health reporting is always available.  Person presence is an explicit opt-in
+Feature that processes frames locally and sends only debounced semantic state.
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ import secrets
 import shutil
 import sys
 import tempfile
+import time
 from dataclasses import asdict
 from dataclasses import dataclass
 from datetime import UTC
@@ -31,6 +32,8 @@ except ImportError:  # pragma: no cover - exercised on the copied MaixCAM files.
 
 
 CAPABILITY_NAME = "camera.health"
+PERSON_PRESENCE_CAPABILITY_NAME = "camera.person_presence"
+PERSON_PRESENCE_OBSERVATION_NAME = "camera.person_presence.v1"
 DEFAULT_CAPABILITIES = [
     {
         "name": CAPABILITY_NAME,
@@ -78,6 +81,33 @@ DEFAULT_CAPABILITIES = [
         ],
     }
 ]
+
+PERSON_PRESENCE_CAPABILITY = {
+    "name": PERSON_PRESENCE_CAPABILITY_NAME,
+    "direction": "edge_to_runtime",
+    "kind": "observation_provider",
+    "observations": [
+        {
+            "name": PERSON_PRESENCE_OBSERVATION_NAME,
+            "schema": {
+                "type": "object",
+                "required": ["state", "count", "feature_version"],
+                "properties": {
+                    "state": {
+                        "type": "string",
+                        "enum": ["present", "absent", "unavailable"],
+                    },
+                    "count": {"type": "integer", "nullable": True, "minimum": 0},
+                    "feature_version": {"type": "string", "enum": ["person_presence.v1"]},
+                },
+            },
+            "semantics": ["ambient_presence", "person_presence"],
+            "privacy": "ambient_presence",
+            "freshness_seconds": 30,
+            "confidence": {"type": "model_score"},
+        }
+    ],
+}
 
 
 def _utc_timestamp() -> str:
@@ -201,6 +231,37 @@ def build_health_frame(device_id: str, status: CameraHealthStatus) -> dict:
     }
 
 
+def build_person_presence_frame(
+    device_id: str,
+    decision,
+    *,
+    observed_at: str,
+) -> dict:
+    """Build a semantic-only Feature frame; geometry and raw media are absent."""
+
+    observations = [
+        {
+            "name": PERSON_PRESENCE_OBSERVATION_NAME,
+            "value": {
+                "state": decision.state,
+                "count": decision.count,
+                "feature_version": "person_presence.v1",
+            },
+            "observed_at": observed_at,
+            "confidence": decision.confidence,
+        }
+    ]
+    return {
+        "api_version": API_VERSION,
+        "type": "observation_push",
+        "device_id": device_id,
+        "capability": PERSON_PRESENCE_CAPABILITY_NAME,
+        "event_id": f"camera-person-presence-{secrets.token_urlsafe(12)}",
+        "observations": observations,
+        "payload": {"observations": observations},
+    }
+
+
 class CameraHealthDaemon:
     def __init__(
         self,
@@ -210,11 +271,17 @@ class CameraHealthDaemon:
         interval_seconds: float,
         min_free_mib: int,
         capture_probe_enabled: bool = False,
+        person_presence_feature=None,
+        presence_confirm_samples: int = 2,
+        presence_interval_seconds: float = 1.0,
+        presence_freshness_seconds: float = 30.0,
     ) -> None:
         if interval_seconds <= 0:
             raise ValueError("interval_seconds must be positive.")
         if min_free_mib < 0:
             raise ValueError("min_free_mib must be non-negative.")
+        if presence_interval_seconds <= 0 or presence_freshness_seconds <= 0:
+            raise ValueError("presence intervals must be positive.")
         self.client = client
         self.status_store = status_store
         self.interval_seconds = interval_seconds
@@ -222,6 +289,46 @@ class CameraHealthDaemon:
         self.capture_state = "not_checked"
         if capture_probe_enabled:
             self.capture_state = probe_camera_capture()
+        self.person_presence_feature = person_presence_feature
+        self.presence_interval_seconds = presence_interval_seconds
+        self.presence_freshness_seconds = presence_freshness_seconds
+        self._presence_debouncer = None
+        self._last_presence_published_at = 0.0
+        if person_presence_feature is not None:
+            try:
+                from .person_presence import PresenceDebouncer
+            except ImportError:  # pragma: no cover - copied MaixCAM files.
+                from person_presence import PresenceDebouncer
+            self._presence_debouncer = PresenceDebouncer(presence_confirm_samples)
+
+    @property
+    def capabilities(self) -> list[dict]:
+        if self.person_presence_feature is None:
+            return DEFAULT_CAPABILITIES
+        return [*DEFAULT_CAPABILITIES, PERSON_PRESENCE_CAPABILITY]
+
+    def _next_presence_frame(self, *, force: bool = False) -> dict | None:
+        if self.person_presence_feature is None or self._presence_debouncer is None:
+            return None
+        decision = self._presence_debouncer.observe(self.person_presence_feature.sample())
+        now_monotonic = time.monotonic()
+        confirmed = self._presence_debouncer.confirmed
+        if decision is None and not (
+            force
+            or (
+                confirmed is not None
+                and now_monotonic - self._last_presence_published_at >= self.presence_freshness_seconds
+            )
+        ):
+            return None
+        if confirmed is None:
+            return None
+        self._last_presence_published_at = now_monotonic
+        return build_person_presence_frame(
+            self.client.device_id,
+            confirmed,
+            observed_at=_utc_timestamp(),
+        )
 
     def _record_status(self, connection_state: str, last_error: str | None = None) -> CameraHealthStatus:
         status = collect_health(
@@ -242,22 +349,39 @@ class CameraHealthDaemon:
 
     async def _run_session(self, *, once: bool) -> None:
         self._record_status("reconnecting")
-        async with websockets.connect(self.client.audience) as websocket:
-            await self.client.authenticate(websocket, DEFAULT_CAPABILITIES)
-            while True:
-                status = self._record_status("connected")
-                await websocket.send(json.dumps(build_health_frame(self.client.device_id, status)))
-                if once:
-                    return
-                try:
-                    raw_frame = await asyncio.wait_for(
-                        websocket.recv(), timeout=self.interval_seconds
-                    )
-                except TimeoutError:
-                    continue
-                reply = json.loads(raw_frame)
-                if reply.get("type") == "error":
-                    raise RuntimeError(reply.get("message", "Runtime rejected a Camera Edge frame."))
+        next_health_at = 0.0
+        next_presence_at = 0.0
+        try:
+            async with websockets.connect(self.client.audience) as websocket:
+                await self.client.authenticate(websocket, self.capabilities)
+                while True:
+                    now_monotonic = time.monotonic()
+                    if now_monotonic >= next_health_at:
+                        status = self._record_status("connected")
+                        await websocket.send(json.dumps(build_health_frame(self.client.device_id, status)))
+                        next_health_at = now_monotonic + self.interval_seconds
+                    if self.person_presence_feature is not None and now_monotonic >= next_presence_at:
+                        presence_frame = self._next_presence_frame(force=once)
+                        if presence_frame is not None:
+                            await websocket.send(json.dumps(presence_frame))
+                        next_presence_at = now_monotonic + self.presence_interval_seconds
+                    if once:
+                        return
+                    next_due = [next_health_at]
+                    if self.person_presence_feature is not None:
+                        next_due.append(next_presence_at)
+                    wait_seconds = min(next_due) - time.monotonic()
+                    wait_seconds = max(0.05, wait_seconds)
+                    try:
+                        raw_frame = await asyncio.wait_for(websocket.recv(), timeout=wait_seconds)
+                    except TimeoutError:
+                        continue
+                    reply = json.loads(raw_frame)
+                    if reply.get("type") == "error":
+                        raise RuntimeError(reply.get("message", "Runtime rejected a Camera Edge frame."))
+        finally:
+            if self.person_presence_feature is not None:
+                self.person_presence_feature.close()
 
     async def run_once(self) -> None:
         await self._run_session(once=True)
@@ -290,6 +414,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Open the camera once and report ready/unavailable; does not save or upload a frame.",
     )
+    parser.add_argument(
+        "--person-presence",
+        action="store_true",
+        help="Enable local-only YOLO11 person presence; no frames or geometry leave the device.",
+    )
+    parser.add_argument("--presence-model", default="/root/models/yolo11n.mud")
+    parser.add_argument("--presence-confidence", type=float, default=0.55)
+    parser.add_argument("--presence-confirm-samples", type=int, default=2)
+    parser.add_argument("--presence-interval-seconds", type=float, default=1.0)
+    parser.add_argument("--presence-freshness-seconds", type=float, default=30.0)
     parser.add_argument("--once", action="store_true", help="Authenticate and publish one health snapshot.")
     return parser
 
@@ -303,12 +437,26 @@ def main(argv: list[str] | None = None) -> int:
         display_name=args.display_name,
         device_type="camera-edge",
     )
+    person_presence_feature = None
+    if args.person_presence:
+        try:
+            from .person_presence import MaixPersonPresenceFeature
+        except ImportError:  # pragma: no cover - copied MaixCAM files.
+            from person_presence import MaixPersonPresenceFeature
+        person_presence_feature = MaixPersonPresenceFeature(
+            model_path=args.presence_model,
+            confidence_threshold=args.presence_confidence,
+        )
     daemon = CameraHealthDaemon(
         client=client,
         status_store=LocalStatusStore(Path(args.status_path)),
         interval_seconds=args.interval_seconds,
         min_free_mib=args.min_free_mib,
         capture_probe_enabled=args.capture_probe,
+        person_presence_feature=person_presence_feature,
+        presence_confirm_samples=args.presence_confirm_samples,
+        presence_interval_seconds=args.presence_interval_seconds,
+        presence_freshness_seconds=args.presence_freshness_seconds,
     )
     if args.once:
         asyncio.run(daemon.run_once())
