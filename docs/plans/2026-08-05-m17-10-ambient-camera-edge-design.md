@@ -379,10 +379,14 @@ valid `icon=assets/openhalo-logo-primary.png` metadata but retained the default
 Launcher image in the owner's visual check. The corrective `0.1.2` package
 keeps that path but uses the same confirmed logo as a `128×128` RGBA PNG with
 world-readable mode; its metadata, image dimensions, and installed file mode
-are verified on the device. This remains metadata/install evidence until the
-owner reloads Launcher and visually confirms it. The device-private
-configuration exists with restrictive permissions, and no App auto-start entry
-exists. A
+are verified on the device. After device restart, the owner visually confirmed
+the corrected Launcher icon. The device-private configuration exists with
+restrictive permissions, and no App auto-start entry exists. Camera Feature
+Observations do reach Runtime's proactive admission gate, but its current
+allowlist classifies them as `not_high_salience`; they are persisted ordinary
+evidence and do not enter Agent proposal formation or generate an intervention.
+A later compact-snapshot reducer and explicitly governed proactive policy are
+required before that behavior changes. A
 direct SSH invocation of that installed entry is explicitly not a valid App
 lifecycle acceptance: while the MaixVision/Launcher multimedia environment was
 still active, the vendor SDK reported `vi_sdk_enable_chn ... Out of memory` and
