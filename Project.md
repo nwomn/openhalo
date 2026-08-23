@@ -14,6 +14,7 @@ detail documents only when the task needs their evidence or design depth.
 | Accepted baseline | `M17.0` through `M17.7.2`, `M18.1`, `M4.1`, `M19`, `M20`, `M20.2`, and `M20.3` |
 | Accepted cross-cutting slice | Hosted Coding Bridge adapter ([#14](https://github.com/nwomn/openhalo/issues/14)); parent/design tracked by [#10](https://github.com/nwomn/openhalo/issues/10) and [#11](https://github.com/nwomn/openhalo/issues/11) |
 | Goal status | Goals 1-3 completed; Goal 4 runtime execution in progress; Goal 5 productization in progress; Goal 6 future research |
+| Visual identity | Confirmed primary OpenHalo logo: the lower-left indigo `soft halo little ghost` with mint halo and muted periwinkle backdrop ([asset](assets/brand/openhalo-logo-primary.png)); selected 2026-08-23 |
 | Execution source | [OpenHalo Development GitHub Project](https://github.com/users/nwomn/projects/1) |
 
 Project tracking rules:
