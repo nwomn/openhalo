@@ -350,11 +350,18 @@ Runtime, registered `camera.person_presence`, and persisted a schema-valid
 `count=null`; the Runtime recorded it as ordinary low-salience evidence. The
 MaixCAM's camera/ISP pipeline then timed out even with the previously working
 minimal capture configuration after a stale experimental `status_display.py`
-process had been terminated. This is deliberately not counted as a
-`present`/`absent` acceptance result. The remaining physical prerequisite is a
-user-controlled MaixCAM reboot and a successful MaixVision camera-preview
-check, followed by a repeated one-shot Feature run. Do not restart vendor
-services or install a boot daemon as a workaround without a separate owner
-decision.
+process had been terminated. This was deliberately not counted as a
+`present`/`absent` acceptance result.
+
+After the owner rebooted the MaixCAM, a repeated one-shot Feature run completed
+the local Camera -> YOLO11 -> P-256 Edge Session Link -> Gateway -> persisted
+Observation path. The Runtime stored `camera.person_presence.v1` from
+`camera-edge-1` as `{state: "absent", count: 0, feature_version:
+"person_presence.v1"}` at `2026-08-23T09:48:17.464423Z`; the device logs also
+confirmed normal vendor multimedia release. This is narrow physical acceptance
+for the Feature's `absent` state and safe `unavailable` failure state, not an
+identity claim, a `present`-scene evaluation, a supervised service, or full
+M17.10 acceptance. Do not restart vendor services or install a boot daemon
+without a separate owner decision.
 
 The first slice does not require continuous cloud video, full open-vocabulary detection, unrestricted face recognition, a general-purpose Edge agent, or packaged ambient-home hardware. Packaging and provisioning remain later product work under M22.
