@@ -16,3 +16,7 @@ The initial App has no Display UI. It is manually launched from the Maix
 Launcher and remains the sole camera/NPU owner until the Launcher or MaixVision
 stops it. Do not configure boot auto-start until that manual lifecycle has
 passed on the real device.
+
+`app.yaml` packages the confirmed OpenHalo primary logo at
+`assets/openhalo-logo-primary.png`; Maix Launcher reads its `icon` field rather
+than using the system default icon.
