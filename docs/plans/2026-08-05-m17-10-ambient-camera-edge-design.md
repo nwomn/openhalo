@@ -364,4 +364,25 @@ identity claim, a `present`-scene evaluation, a supervised service, or full
 M17.10 acceptance. Do not restart vendor services or install a boot daemon
 without a separate owner decision.
 
+The next owner-authorized packaging step is a minimal, manually launched Maix
+App with ID `openhalo_camera_edge`. It will package the existing local-only
+Feature files with a `main.py` entrypoint, read only a device-private Runtime
+configuration and retained P-256 identity, and own the camera/NPU until the
+Maix Launcher or MaixVision stops it. It intentionally has no `Display()` UI,
+no system service, and no boot auto-start in this validation stage. Only after
+manual Launcher lifecycle acceptance may the owner choose Maix's App-level
+auto-start mechanism.
+
+The minimal package was generated with `maixtool` and installed through the
+device's `app_store_cli` on 2026-08-23. It is registered in
+`/maixapp/apps/app.info` with `exec=main.py`, its device-private configuration
+exists with restrictive permissions, and no App auto-start entry exists. A
+direct SSH invocation of that installed entry is explicitly not a valid App
+lifecycle acceptance: while the MaixVision/Launcher multimedia environment was
+still active, the vendor SDK reported `vi_sdk_enable_chn ... Out of memory` and
+then crashed in its own multimedia path. The process exited and did not emit an
+Observation. The next test must therefore be user-launched from the physical
+Maix Launcher, which owns the App lifecycle; do not retry foreground App start
+through SSH or set boot auto-start before that test passes.
+
 The first slice does not require continuous cloud video, full open-vocabulary detection, unrestricted face recognition, a general-purpose Edge agent, or packaged ambient-home hardware. Packaging and provisioning remain later product work under M22.

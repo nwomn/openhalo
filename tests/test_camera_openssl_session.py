@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import importlib.util
 import io
 import json
 import os
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -420,3 +422,28 @@ def test_person_presence_daemon_registers_and_publishes_only_semantic_observatio
     assert "raw_media" not in json.dumps(presence_frame)
     assert "bbox" not in json.dumps(presence_frame)
     assert feature.closed is True
+
+
+def test_maix_app_requires_private_runtime_configuration() -> None:
+    app_directory = Path(__file__).parents[1] / "device_edge" / "camera" / "maix_app" / "openhalo_camera_edge"
+    camera_directory = Path(__file__).parents[1] / "device_edge" / "camera"
+    previous_path = list(sys.path)
+    try:
+        sys.path.insert(0, str(camera_directory))
+        spec = importlib.util.spec_from_file_location("openhalo_camera_edge_app", app_directory / "main.py")
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with TemporaryDirectory() as directory:
+            config_path = Path(directory) / "app-config.json"
+            config_path.write_text('{"runtime_url":"ws://runtime.example.test:8765"}', encoding="utf-8")
+            assert module.load_config(config_path)["runtime_url"] == "ws://runtime.example.test:8765"
+            config_path.write_text("{}", encoding="utf-8")
+            try:
+                module.load_config(config_path)
+            except RuntimeError as error:
+                assert "runtime_url" in str(error)
+            else:
+                raise AssertionError("App accepted a missing Runtime endpoint.")
+    finally:
+        sys.path[:] = previous_path
