@@ -1514,6 +1514,9 @@ class RuntimeOrchestratorTests(unittest.TestCase):
             def __init__(self) -> None:
                 self.inputs = []
 
+            def create_main_session(self, session_id: str) -> None:
+                return None
+
             def run(self, harness_input):
                 self.inputs.append(harness_input)
                 return HarnessOutcome.from_proposal(
@@ -1591,6 +1594,9 @@ class RuntimeOrchestratorTests(unittest.TestCase):
         class CapturingHermesHarness(HermesHarnessRunner):
             def __init__(self) -> None:
                 self.inputs = []
+
+            def create_main_session(self, session_id: str) -> None:
+                return None
 
             def run(self, harness_input):
                 self.inputs.append(harness_input)
@@ -2105,7 +2111,13 @@ class RuntimeOrchestratorTests(unittest.TestCase):
             def __init__(self, **_kwargs) -> None:
                 pass
 
-            def run_conversation(self, user_message, system_message, task_id):
+            def run_conversation(
+                self,
+                user_message,
+                system_message,
+                task_id,
+                **_kwargs,
+            ):
                 from tools.registry import registry
 
                 action_handler = registry.get_entry("openhalo_action").handler

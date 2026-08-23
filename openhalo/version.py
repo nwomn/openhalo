@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 _COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
-_FALLBACK_VERSION = "0.1.24"
+_FALLBACK_VERSION = "0.1.25"
 
 
 def format_cli_version(command: str, *, executable: str | Path | None = None) -> str:

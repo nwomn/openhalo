@@ -216,9 +216,12 @@ class RuntimeGateway:
         except Exception:
             return False
 
-    @staticmethod
-    def _create_main_session(generation: int) -> str:
-        return f"openhalo-main-g{generation}-{uuid4().hex}"
+    def _create_main_session(self, generation: int) -> str:
+        session_id = f"openhalo-main-g{generation}-{uuid4().hex}"
+        create = getattr(self.agent_harness, "create_main_session", None)
+        if callable(create):
+            create(session_id)
+        return session_id
 
     def _persist_state_deferred(self) -> None:
         try:

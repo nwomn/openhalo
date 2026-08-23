@@ -1380,7 +1380,7 @@ class HermesHarnessRunner:
 
         return {"timeout": timeout, "extra_headers": headers}
 
-    def _build_agent(self, harness_input: HarnessInput):
+    def _build_agent(self, harness_input: HarnessInput, *, session_db=None):
         config = load_runtime_model_config(self.config_path)
         profile = resolve_profile_config(config, "proposal_formation")
         model = config.models[profile.model_ref]
@@ -1407,6 +1407,7 @@ class HermesHarnessRunner:
             skip_context_files=True,
             load_soul_identity=True,
             skip_memory=False,
+            session_db=session_db,
             request_overrides=self._provider_request_overrides(provider),
         )
         # The embedded Agent owns neither the Runtime console nor an Edge.
@@ -1430,16 +1431,45 @@ class HermesHarnessRunner:
     def restore_main_session(self, session_id: str) -> bool:
         if not isinstance(session_id, str) or not session_id:
             return False
-        with self._hermes_home_scope():
-            from hermes_state import SessionDB
-
-            session_db = SessionDB()
+        with self._hermes_home_scope() as hermes_home:
+            session_db = self._open_native_session_db(hermes_home)
             try:
                 return session_db.get_session(session_id) is not None
             finally:
-                close = getattr(session_db, "close", None)
-                if callable(close):
-                    close()
+                session_db.close()
+
+    def create_main_session(self, session_id: str) -> None:
+        if not isinstance(session_id, str) or not session_id:
+            raise ValueError("main session ID must be a non-empty string")
+        with self._hermes_home_scope() as hermes_home:
+            session_db = self._open_native_session_db(hermes_home)
+            try:
+                if session_db.get_session(session_id) is None:
+                    session_db.create_session(session_id, source="openhalo")
+            finally:
+                session_db.close()
+
+    @staticmethod
+    def _open_native_session_db(hermes_home: Path):
+        from hermes_state import SessionDB
+
+        return SessionDB(db_path=hermes_home / "state.db")
+
+    @staticmethod
+    def _session_history(session_db, session_id: str) -> list[dict]:
+        if session_db.get_session(session_id) is None:
+            return []
+        return session_db.get_messages_as_conversation(session_id)
+
+    def _main_session_history(self, session_id: str) -> list[dict]:
+        if not isinstance(session_id, str) or not session_id:
+            return []
+        with self._hermes_home_scope() as hermes_home:
+            session_db = self._open_native_session_db(hermes_home)
+            try:
+                return self._session_history(session_db, session_id)
+            finally:
+                session_db.close()
 
     def _build_shared_context(
         self,
@@ -1808,9 +1838,13 @@ class HermesHarnessRunner:
         with TemporaryDirectory(prefix="openhalo-hermes-run-") as sandbox:
             with self._hermes_home_scope() as hermes_home:
                 collector.hermes_home = hermes_home
+                session_db = self._open_native_session_db(hermes_home)
                 token = _ACTIVE_BRIDGE_COLLECTOR.set(collector)
                 try:
-                    agent = self._build_agent(harness_input)
+                    agent = self._build_agent(
+                        harness_input,
+                        session_db=session_db,
+                    )
                     request_log_directory = Path(sandbox) / "hermes-request-logs"
                     request_log_directory.mkdir(mode=0o700)
                     agent.logs_dir = request_log_directory
@@ -1819,6 +1853,14 @@ class HermesHarnessRunner:
                         allowed_tool_names=self._allowed_tool_names(harness_input),
                     )
                     _install_native_memory_audit(agent, collector)
+                    conversation_kwargs = {}
+                    if harness_input.main_session_id:
+                        conversation_kwargs["conversation_history"] = (
+                            self._session_history(
+                                session_db,
+                                harness_input.main_session_id,
+                            )
+                        )
                     result = agent.run_conversation(
                         user_message=json.dumps(prompt_context, ensure_ascii=True),
                         system_message=self._system_message(
@@ -1826,9 +1868,11 @@ class HermesHarnessRunner:
                             behavior_contract,
                         ),
                         task_id=harness_input.interaction_turn_id,
+                        **conversation_kwargs,
                     )
                 finally:
                     _ACTIVE_BRIDGE_COLLECTOR.reset(token)
+                    session_db.close()
 
         action_intent = None
         action_batch = None

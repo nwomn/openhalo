@@ -210,6 +210,100 @@ class HermesToolCallAdapterTests(unittest.TestCase):
         )
         self.assertIsNone(captured_kwargs[0]["parent_session_id"])
 
+    def test_runner_creates_and_restores_native_main_session_history(self) -> None:
+        with TemporaryDirectory() as directory:
+            config_path = Path(directory) / "runtime-config.toml"
+            config_path.write_text(
+                HERMES_TEST_LLM_CONFIG.read_text(encoding="utf-8").replace(
+                    'home = ".runtime/hermes-test"',
+                    'home = "hermes"',
+                ),
+                encoding="utf-8",
+            )
+            runner = HermesHarnessRunner(config_path=config_path)
+            session_id = "openhalo-main-g1-native-history"
+
+            runner.create_main_session(session_id)
+
+            self.assertTrue(runner.restore_main_session(session_id))
+            with runner._hermes_home_scope() as hermes_home:
+                session_db = runner._open_native_session_db(hermes_home)
+                try:
+                    session_db.append_message(
+                        session_id=session_id,
+                        role="user",
+                        content="temporary passphrase: north-star-418",
+                    )
+                finally:
+                    session_db.close()
+
+            history = runner._main_session_history(session_id)
+
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0]["role"], "user")
+        self.assertEqual(
+            history[0]["content"],
+            "temporary passphrase: north-star-418",
+        )
+
+    def test_runner_supplies_main_history_to_native_agent_turn(self) -> None:
+        with TemporaryDirectory() as directory:
+            config_path = Path(directory) / "runtime-config.toml"
+            config_path.write_text(
+                HERMES_TEST_LLM_CONFIG.read_text(encoding="utf-8").replace(
+                    'home = ".runtime/hermes-test"',
+                    'home = "hermes"',
+                ),
+                encoding="utf-8",
+            )
+            agent_kwargs = {}
+            turn_kwargs = {}
+
+            class NativeAgent:
+                def run_conversation(self, **kwargs):
+                    turn_kwargs.update(kwargs)
+                    return {"failed": False, "final_response": "acknowledged"}
+
+            def agent_factory(**kwargs):
+                agent_kwargs.update(kwargs)
+                return NativeAgent()
+
+            runner = HermesHarnessRunner(
+                config_path=config_path,
+                agent_factory=agent_factory,
+            )
+            session_id = "openhalo-main-g1-agent-history"
+            runner.create_main_session(session_id)
+            with runner._hermes_home_scope() as hermes_home:
+                session_db = runner._open_native_session_db(hermes_home)
+                try:
+                    session_db.append_message(
+                        session_id=session_id,
+                        role="user",
+                        content="temporary passphrase: north-star-418",
+                    )
+                finally:
+                    session_db.close()
+
+            harness_input = HarnessInput(
+                operation=HarnessOperation.NORMAL,
+                interaction_id="interaction-agent-history",
+                interaction_turn_id="turn-agent-history",
+                main_session_id=session_id,
+                frame={"payload": {"text": "what was the passphrase?"}},
+            )
+            with patch.object(hermes_adapter, "_install_openhalo_dispatch_gate"), patch.object(
+                hermes_adapter,
+                "_install_native_memory_audit",
+            ):
+                runner.run(harness_input)
+
+        self.assertIsNotNone(agent_kwargs["session_db"])
+        self.assertEqual(
+            turn_kwargs["conversation_history"][0]["content"],
+            "temporary passphrase: north-star-418",
+        )
+
     def test_runner_exposes_native_memory_write_tool_only_for_normal_turn(self) -> None:
         captured_kwargs = []
 
