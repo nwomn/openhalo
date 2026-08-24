@@ -28,6 +28,13 @@ local display, and MaixPy/Linux development route make it a hardware-validation
 target; this is not a requirement that all future Camera Edges use this board
 or run a general Linux distribution.
 
+The production cellular Camera Edge is deliberately outside this document and
+is tracked as the independent `M24` milestone in [M24 Cellular Camera Edge
+Design](2026-08-24-m24-cellular-camera-edge-design.md). `M17.10` accepts only
+the MaixCAM v1 scene, capability, privacy, and public-Edge-contract validation
+slice; it neither selects product hardware nor requires site-independent
+connectivity.
+
 The display is a local, diagnostic status surface, not a second interaction
 channel or an ungoverned video viewer. The first display contract is read-only
 and limited to provisioning/pairing state, Runtime-session connectivity,
