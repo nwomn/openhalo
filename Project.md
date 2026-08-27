@@ -23,7 +23,7 @@ Project tracking rules:
 - Goals are the durable strategic baseline; GitHub Project `Initiative` is the active execution theme.
 - Existing `M0` through `M24` identifiers remain historical identifiers.
 - Future execution hierarchy uses Parent Issues and sub-issues rather than deeper milestone numbering.
-- `M17` is the parent Issue; `M17.8`, `M17.9`, `M17.10`, and `M17.11` are its child Issues.
+- [`M17`](https://github.com/nwomn/openhalo/issues/2) is the parent Issue; [`M17.8`](https://github.com/nwomn/openhalo/issues/3), [`M17.9`](https://github.com/nwomn/openhalo/issues/4), [`M17.10`](https://github.com/nwomn/openhalo/issues/5), and [`M17.11`](https://github.com/nwomn/openhalo/issues/19) are its child Issues.
 - `M24` Cellular Camera Edge is a separate later product-hardware milestone, not an `M17` child and not a prerequisite for accepting the MaixCAM-based `M17.10` validation slice. Its GitHub planning Issue is [#18](https://github.com/nwomn/openhalo/issues/18), assigned to the OpenHalo Development Project as `Backlog` / `Device Edge` / `Goal 5` / `P2`.
 - A milestone becomes active only when its Parent Issue or child Issue is ready for implementation; later roadmap items remain planning drafts.
 
