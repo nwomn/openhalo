@@ -27,6 +27,7 @@ class SessionClient:
         trace_recorder=None,
         diagnostic_recorder=None,
         capabilities: list[str | dict] | None = None,
+        action_executor=None,
     ) -> None:
         self.device_id = device_id
         self.device_type = device_type
@@ -51,7 +52,7 @@ class SessionClient:
             diagnostic_recorder=diagnostic_recorder,
             device=self.edge_device,
         )
-        self.action_executor = LocalActionExecutor(
+        self.action_executor = action_executor or LocalActionExecutor(
             device_id=device_id,
             device_type=device_type,
             diagnostic_recorder=diagnostic_recorder,

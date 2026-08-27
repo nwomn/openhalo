@@ -321,6 +321,43 @@ using `observation_push` or `event_push` with `payload.observations`.
 Unregistered observations and schema-mismatched observation values are rejected
 with public `error` frames and are not stored as runtime observations.
 
+## Proxy Interaction Edge
+
+A Proxy Interaction Edge lets Runtime observe and operate an unmodified target
+through external capture and input hardware. The proxy is a separately paired
+Edge device; it does not inherit the target's identity and it does not connect
+to Runtime through an adapter-specific shortcut.
+
+The first public capability bundle is vendor-neutral:
+
+- `proxy.interaction.observe` provides `proxy.target_attachment.v1` and
+  `proxy.screen_frame.v1` observations.
+- `proxy.keyboard.input` accepts bounded text or USB-HID key chords.
+- `proxy.pointer.input` accepts normalized `x`/`y` coordinates in `[0, 1]` and
+  bounded move or click operations.
+
+Every registration and action payload names both `target_id` and `surface_id`.
+The target identifies the unmodified device, while the surface identifies the
+specific display/input relationship controlled by this proxy. The Edge rejects
+device, target, or surface mismatches before an adapter is invoked. Runtime still
+owns normal registration, permission, Presence, action routing, correlation, and
+audit decisions.
+
+`proxy.target_attachment.v1` reports one of `detached`, `attached`, `degraded`,
+or `incompatible` and explicitly lists the state of `screen`, `audio`,
+`keyboard`, `pointer`, `virtual_media`, and `power`. A target class unsupported
+by the adapter is `incompatible`; missing video or USB is an unavailable or
+degraded capability, not evidence that the target supports an empty screen or
+ignored input.
+
+`proxy.screen_frame.v1` represents human-visible pixels, not structured target
+OS state. Its ordinary Observation contains resolution, media type, digest,
+capture timing, and a body-free `proxy-evidence://` reference. Raw JPEG bodies
+remain in a bounded Edge-local frame store and are not copied into ordinary
+Runtime context. When a native Edge exists for the same surface, the attachment
+may name `native_device_id` so Runtime can bind provenance while preferring the
+native structured capabilities during normal operation.
+
 ## Hosted Coding Agent Bridge
 
 The Terminal Edge may advertise a Codex-first coding capability bundle while
