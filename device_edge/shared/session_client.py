@@ -10,6 +10,7 @@ from device_edge.shared.edge_session_link import EdgeSessionLink
 from device_edge.shared.identity import DeviceIdentity
 from device_edge.shared.identity import create_ephemeral_identity
 from device_edge.shared.local_action_executor import LocalActionExecutor
+from edge_api.protocol import build_connect_frame
 from openhalo_common.diagnostics import build_trace_id
 from openhalo_common.diagnostics import build_turn_id
 
@@ -63,6 +64,21 @@ class SessionClient:
     def build_connect_frame(self) -> dict:
         self._record_trace("EDGE", "build connect frame", device_id=self.device_id)
         return self.session_link.build_connect_frame()
+
+    def build_pairing_connect_frame(self, pairing_code: str) -> dict:
+        """Build a one-time pairing connect frame for this persistent identity."""
+
+        if not isinstance(pairing_code, str) or not pairing_code:
+            raise ValueError("pairing_code must be a non-empty string.")
+        return build_connect_frame(
+            self.device_id,
+            self.device_type,
+            self.audience,
+            pairing_code=pairing_code,
+            public_key=self.identity.public_key,
+            display_name=self.session_link.display_name,
+            session_id=self.session_id,
+        )
 
     def build_auth_proof_frame(self, challenge_frame: dict) -> dict:
         return self.session_link.build_auth_proof_frame(challenge_frame)

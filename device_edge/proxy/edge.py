@@ -5,6 +5,7 @@ from device_edge.proxy.contracts import ProxyTargetAttachment
 from device_edge.proxy.contracts import build_proxy_capability_registrations
 from device_edge.proxy.contracts import unavailable_capabilities
 from device_edge.proxy.executor import ProxyActionExecutor
+from device_edge.proxy.adapter import ProxyAdapterError
 from device_edge.shared.session_client import SessionClient
 
 
@@ -46,8 +47,11 @@ class ProxyInteractionEdge:
             capabilities = unavailable_capabilities("incompatible_target_class")
             attachment_state = "incompatible"
         else:
-            probe = self.adapter.probe()
-            capabilities = probe.capabilities
+            try:
+                probe = self.adapter.probe()
+                capabilities = probe.capabilities
+            except ProxyAdapterError as exc:
+                capabilities = unavailable_capabilities(str(exc))
             required_states = [
                 capabilities[name].state for name in ("screen", "keyboard", "pointer")
             ]
@@ -70,6 +74,16 @@ class ProxyInteractionEdge:
             native_device_id=self.native_device_id,
         )
 
+    def refresh_attachment(self, observed_at: str) -> ProxyTargetAttachment:
+        """Re-probe the adapter and make its current safe state authoritative."""
+
+        self.attachment = self._build_attachment(observed_at)
+        self.action_executor.attachment = self.attachment
+        self.client.capability_runtime.capabilities = build_proxy_capability_registrations(
+            self.attachment
+        )
+        return self.attachment
+
     def build_connect_frame(self) -> dict:
         return self.client.build_connect_frame()
 
@@ -82,14 +96,21 @@ class ProxyInteractionEdge:
             [self.attachment.to_observation()],
         )
 
-    def build_screen_observation_frame(self) -> dict:
+    def build_screen_observation_frame(
+        self,
+        *,
+        action_request_id: str | None = None,
+    ) -> dict:
         availability = self.attachment.capability_state("screen")
         if availability.state == "unavailable":
             raise ValueError(availability.reason or "screen_unavailable")
         frame = self.adapter.capture_frame()
+        observation = frame.to_observation(self.attachment)
+        if action_request_id is not None:
+            observation["value"]["action_request_id"] = action_request_id
         return self.client.build_observation_event(
             OBSERVATION_CAPABILITY,
-            [frame.to_observation(self.attachment)],
+            [observation],
         )
 
     def handle_action_request(self, frame: dict) -> dict:

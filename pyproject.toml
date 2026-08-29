@@ -12,6 +12,7 @@ dependencies = [
 [project.scripts]
 openhalo = "openhalo.cli:main"
 openhalo-edge = "openhalo.edge_cli:main"
+openhalo-proxy-edge-dev = "device_edge.proxy.proxy_daemon:main"
 
 [project.optional-dependencies]
 dev = [
