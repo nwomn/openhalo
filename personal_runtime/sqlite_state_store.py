@@ -1081,6 +1081,7 @@ class SQLiteRuntimeStateStore:
             "device_registry": state.device_registry,
             "capability_registry": state.capability_registry,
             "observation_registry": state.observation_registry,
+            "proxy_screen_profiles": state.proxy_screen_profiles,
             "tasks": state.tasks,
             "interaction_sequence": state.interaction_sequence,
             "interaction_turn_sequence": state.interaction_turn_sequence,

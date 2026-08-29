@@ -6,6 +6,8 @@ from device_edge.proxy.contracts import build_proxy_capability_registrations
 from device_edge.proxy.contracts import unavailable_capabilities
 from device_edge.proxy.executor import ProxyActionExecutor
 from device_edge.proxy.adapter import ProxyAdapterError
+from device_edge.proxy.screen_governance import SCREEN_FEATURE_CAPABILITY
+from device_edge.proxy.screen_governance import ProxyScreenGovernance
 from device_edge.shared.session_client import SessionClient
 
 
@@ -30,7 +32,13 @@ class ProxyInteractionEdge:
         self.target_class = target_class
         self.native_device_id = native_device_id
         self.attachment = self._build_attachment(observed_at)
-        self.action_executor = ProxyActionExecutor(device_id, self.attachment, adapter)
+        self.screen_governance = ProxyScreenGovernance()
+        self.action_executor = ProxyActionExecutor(
+            device_id,
+            self.attachment,
+            adapter,
+            screen_governance=self.screen_governance,
+        )
         self.client = SessionClient(
             device_id=device_id,
             device_type="proxy-interaction",
@@ -112,6 +120,32 @@ class ProxyInteractionEdge:
             OBSERVATION_CAPABILITY,
             [observation],
         )
+
+    def build_screen_feature_observation_frame(
+        self,
+        *,
+        action_request_id: str | None = None,
+    ) -> dict | None:
+        """Capture only when an active Runtime Screen Profile has subscribed."""
+
+        availability = self.attachment.capability_state("screen")
+        if availability.state == "unavailable" or not self.screen_governance.has_active_profile():
+            return None
+        frame = self.adapter.capture_frame()
+        observations = self.screen_governance.observe(
+            frame,
+            self.attachment,
+            action_request_id=action_request_id,
+        )
+        if not observations:
+            return None
+        return self.client.build_observation_event(SCREEN_FEATURE_CAPABILITY, observations)
+
+    def drain_evidence_transfers(self) -> list[dict]:
+        return self.action_executor.drain_evidence_transfers()
+
+    def handle_understanding_update(self, frame: dict) -> None:
+        self.screen_governance.accept_understanding_update(frame, self.attachment)
 
     def handle_action_request(self, frame: dict) -> dict:
         return self.client.handle_action_request(frame)

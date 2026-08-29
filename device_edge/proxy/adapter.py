@@ -42,6 +42,8 @@ class ProxyAdapter(Protocol):
 
     def capture_frame(self) -> CapturedFrame: ...
 
+    def read_evidence(self, evidence_ref: str, max_bytes: int) -> bytes: ...
+
     def execute_keyboard(self, payload: dict) -> dict: ...
 
     def execute_pointer(self, payload: dict) -> dict: ...
@@ -182,6 +184,18 @@ class EspKvmHttpAdapter:
             sha256=digest,
             capture_latency_ms=latency_ms,
         )
+
+    def read_evidence(self, evidence_ref: str, max_bytes: int) -> bytes:
+        """Return one already-captured local item without refetching the screen."""
+
+        if not isinstance(max_bytes, int) or isinstance(max_bytes, bool) or max_bytes < 1:
+            raise ProxyAdapterError("invalid_evidence_max_bytes")
+        body = self.frame_store.get(evidence_ref)
+        if body is None:
+            raise ProxyAdapterError("evidence_unavailable")
+        if len(body) > max_bytes:
+            raise ProxyAdapterError("evidence_exceeds_policy_limit")
+        return body
 
     def execute_keyboard(self, payload: dict) -> dict:
         operation = payload.get("operation")

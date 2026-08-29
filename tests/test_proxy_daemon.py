@@ -96,7 +96,14 @@ class ProxyEdgeDaemonTests(unittest.TestCase):
 
         self.assertEqual(attachment.attachment_state, "detached")
         self.assertEqual(attachment.capability_state("pointer").reason, "adapter_unreachable")
-        self.assertEqual(capability_names, ["proxy.interaction.observe"])
+        self.assertEqual(
+            capability_names,
+            [
+                "proxy.interaction.observe",
+                "proxy.screen.features",
+                "proxy.screen.profile.configure",
+            ],
+        )
 
     def test_session_authenticates_publishes_and_binds_post_action_frame(self) -> None:
         edge = build_edge(FakeProxyAdapter())
@@ -160,8 +167,6 @@ class ProxyEdgeDaemonTests(unittest.TestCase):
         sent = [json.loads(call.args[0]) for call in websocket.send.await_args_list]
         self.assertEqual(sent[0]["auth"]["kind"], "pairing")
         self.assertEqual(sent[2]["type"], "capability_announce")
-        self.assertEqual(sent[5]["type"], "action_result")
-        post_action = sent[-1]["observations"][0]
-        self.assertEqual(post_action["name"], "proxy.screen_frame.v1")
-        self.assertEqual(post_action["value"]["action_request_id"], "action-1")
-
+        self.assertEqual(sent[4]["type"], "action_result")
+        self.assertEqual(sent[-1]["type"], "observation_push")
+        self.assertEqual(sent[-1]["observations"][0]["name"], "proxy.target_attachment.v1")

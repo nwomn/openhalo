@@ -1,10 +1,12 @@
 # M17.11 Proxy Interaction Edge Baseline
 
-Status: first contract, ESP-KVM adapter, and host-run persistent-session
-development harness implemented. The initial native ESP-IDF component and
+Status: first contract, ESP-KVM adapter, host-run persistent-session
+development harness, and governed Proxy Screen Profile/evidence protocol are
+implemented and regression-covered. The initial native ESP-IDF component and
 FreeRTOS state machine are now wired into the ESP-KVM Waveshare P4-WIFI6/C6
 tree and compile cleanly. The first P4-WIFI6/C6 boot verifies the board task,
-capture/HID, and C6 bring-up; public-Gateway session acceptance remains pending.
+capture/HID, and C6 bring-up; public-Gateway session and real P4 screen-governance
+acceptance remain pending.
 
 ## Goal
 
@@ -129,10 +131,28 @@ buffer. A `candidate_event` is an input to Runtime evaluation, not authority to
 act. On an authorized evidence query, Runtime receives a bounded frame (or a
 bounded action-correlated pre/post pair) over the authenticated Edge Session
 Link, keeps the bytes out of ordinary durable context, and records the returned
-visual Understanding with its evidence reference and expiry. The exact initial
-feature schemas, buffer duration, wire transfer framing, and Runtime vision
-provider remain implementation work and require compatibility review before
-they are claimed as firmware behavior.
+visual Understanding with its evidence reference and expiry. Exact P4-native
+feature schemas, buffer duration, and the production Runtime vision provider
+remain implementation work and require compatibility review before they are
+claimed as firmware behavior.
+
+The first host/runtime protocol slice now implements the Profile and wire
+boundaries: `proxy.screen.profile.configure` validates a target/surface-bound,
+expiring allowlist; `proxy.screen.features` emits capture-health, digest-based
+change, and action-effect Observations only when a Profile is active; and
+`proxy.screen.evidence.read` queues a byte-limited `evidence_transfer` only
+after its corresponding action result. Gateway accepts the transfer only when
+that result is present, supplies the bytes to a transient injected vision
+evaluator, records only safe audit metadata, and sends an expiring
+`understanding_update`. Profile and Understanding frames additionally carry a
+short monotonic lease for boards without a trusted wall clock; the RFC3339
+expiry remains the Runtime audit value. Runtime without such an evaluator fails
+closed as `understanding_failed`. When a Profile says `require_understanding`, the Edge
+rejects keyboard/pointer input without the matching current authorization. This
+is host/runtime protocol acceptance. The P4 native component now implements the
+same bounded JPEG ring, Profile-selected Feature emission, authorized transfer,
+and monotonic Understanding lease; a configured production vision provider and
+the end-to-end Runtime-dispatched visual-control acceptance remain outstanding.
 
 This is source integration with compile evidence, not acceptance evidence.
 After GitHub HTTPS recovered, the declared `third_party/microlink` submodule was

@@ -63,7 +63,7 @@ class ProxyEdgeDaemon:
         pending: deque[dict],
         *,
         observed_at: str,
-        include_screen: bool,
+        include_screen_features: bool,
         action_request_id: str | None = None,
     ) -> None:
         self.edge.refresh_attachment(observed_at)
@@ -73,16 +73,17 @@ class ProxyEdgeDaemon:
             self.edge.build_attachment_observation_frame(),
             pending,
         )
-        if include_screen and self.edge.attachment.capability_state("screen").state != "unavailable":
+        if include_screen_features:
             try:
-                frame = self.edge.build_screen_observation_frame(
+                frame = self.edge.build_screen_feature_observation_frame(
                     action_request_id=action_request_id,
                 )
             except Exception:
                 # The next probe reports the adapter failure as unavailable; raw
                 # adapter exceptions never cross the public Edge boundary.
                 return
-            await self._send_observation(websocket, frame, pending)
+            if frame is not None:
+                await self._send_observation(websocket, frame, pending)
 
     async def _bootstrap(self, websocket, pairing_code: str | None) -> None:
         connect = (
@@ -118,7 +119,7 @@ class ProxyEdgeDaemon:
                 websocket,
                 pending,
                 observed_at=utc_now(),
-                include_screen=True,
+                include_screen_features=True,
             )
             while max_action_requests is None or len(action_results) < max_action_requests:
                 try:
@@ -130,23 +131,33 @@ class ProxyEdgeDaemon:
                         websocket,
                         pending,
                         observed_at=utc_now(),
-                        include_screen=False,
+                        include_screen_features=True,
                     )
                     idle_cycles += 1
                     if max_idle_cycles is not None and idle_cycles >= max_idle_cycles:
                         break
+                    continue
+                if frame.get("type") == "understanding_update":
+                    try:
+                        self.edge.handle_understanding_update(frame)
+                    except ValueError:
+                        # A stale or incompatible Runtime understanding must
+                        # never be treated as an input authorization.
+                        pass
                     continue
                 if frame.get("type") != "action_request":
                     continue
                 idle_cycles = 0
                 result = self.edge.handle_action_request(frame)
                 await self._send(websocket, result)
+                for transfer in self.edge.drain_evidence_transfers():
+                    await self._send(websocket, transfer)
                 action_results.append(result)
                 await self._publish_state(
                     websocket,
                     pending,
                     observed_at=utc_now(),
-                    include_screen=result.get("result", {}).get("status") == "ok",
+                    include_screen_features=result.get("result", {}).get("status") == "ok",
                     action_request_id=frame.get("request_id"),
                 )
         return action_results

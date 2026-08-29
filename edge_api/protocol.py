@@ -17,6 +17,8 @@ REQUIRED_TYPES = {
     "event_ack",
     "action_request",
     "action_result",
+    "evidence_transfer",
+    "understanding_update",
     "interaction_progress",
     "interaction_update",
     "error",
