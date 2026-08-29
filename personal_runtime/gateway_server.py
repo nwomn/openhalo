@@ -49,6 +49,7 @@ from personal_runtime.pairing_store import PairingError
 from personal_runtime.pairing_store import PairingStore
 from personal_runtime.presence_router import PresenceRouter
 from personal_runtime.proactive_trigger_gate import ProactiveTriggerGate
+from personal_runtime.proxy_screen_governance import ProxyScreenEvidenceService
 from personal_runtime.runtime_console_presenter import RuntimeConsolePresenter
 from personal_runtime.runtime_orchestrator import RuntimeOrchestrator
 from personal_runtime.runtime_state import RuntimeState
@@ -108,6 +109,7 @@ class RuntimeGateway:
         agent_harness=None,
         pairing_store: PairingStore | None = None,
         audience: str = "wss://runtime.invalid/openhalo/edge",
+        proxy_screen_vision_evaluator=None,
     ) -> None:
         del shared_token
         self.audience = audience
@@ -175,6 +177,9 @@ class RuntimeGateway:
         self.execution_planner = ExecutionPlanner(
             diagnostic_recorder=diagnostic_recorder,
             runtime_instance_id=runtime_instance_id,
+        )
+        self.proxy_screen_evidence = ProxyScreenEvidenceService(
+            vision_evaluator=proxy_screen_vision_evaluator,
         )
 
     def _persist_state(self, *, deferred: bool = False) -> None:
@@ -549,6 +554,26 @@ class RuntimeGateway:
                 "provenance": action_intent.get("provenance", {}),
             }
         self.state.record_action_result(result)
+        if (
+            result.get("capability") == "proxy.screen.profile.configure"
+            and result.get("status") == "ok"
+            and isinstance(result.get("details"), dict)
+        ):
+            details = result["details"]
+            required = {
+                "target_id",
+                "surface_id",
+                "profile_id",
+                "revision",
+                "features",
+                "expires_at",
+                "visual_action_policy",
+            }
+            if required.issubset(details):
+                self.state.record_proxy_screen_profile(
+                    frame["device_id"],
+                    {key: details[key] for key in required},
+                )
         interaction_id = frame.get("interaction_id")
         if isinstance(interaction_id, str) and interaction_id:
             self._append_outcome_receipt_entry(
@@ -1202,6 +1227,27 @@ class RuntimeGateway:
                     )
                     self._persist_state()
                 replies.extend(self._build_action_result_replies(frame))
+            elif frame["type"] == "evidence_transfer":
+                validation_error = self._validate_proxy_evidence_transfer(frame)
+                if validation_error is not None:
+                    replies.append(validation_error)
+                    continue
+                try:
+                    update = self.proxy_screen_evidence.ingest(frame)
+                except ValueError as exc:
+                    replies.append(
+                        self._build_public_error(
+                            code=str(exc),
+                            message="Proxy screen evidence was rejected.",
+                            device_id=frame.get("device_id"),
+                        )
+                    )
+                    continue
+                # Only safe metadata enters Runtime state; raw JPEG bytes are
+                # intentionally absent from this event and all persisted records.
+                self.state.record_event(self.proxy_screen_evidence.audit_event(frame, update))
+                self._persist_state()
+                replies.extend([with_api_version({"type": "event_ack"}), update])
             elif frame["type"] == "interaction_update":
                 self.state.record_interaction(frame["interaction"])
                 self._persist_state()
@@ -1336,6 +1382,49 @@ class RuntimeGateway:
                     capability=capability,
                     observation=observation_name,
                 )
+        return None
+
+    def _validate_proxy_evidence_transfer(self, frame: dict) -> dict | None:
+        """Require a preceding accepted bounded-evidence action before bytes arrive."""
+
+        device_id = frame.get("device_id")
+        request_id = frame.get("request_id")
+        transfer_id = frame.get("transfer_id")
+        evidence = frame.get("evidence")
+        if not (
+            isinstance(device_id, str)
+            and isinstance(request_id, str)
+            and isinstance(transfer_id, str)
+            and isinstance(evidence, dict)
+        ):
+            return self._build_public_error(
+                code="invalid_evidence_transfer",
+                message="Proxy screen evidence transfer is malformed.",
+                device_id=device_id if isinstance(device_id, str) else None,
+            )
+        registration = self.state.capability_registry.get(device_id, {}).get(
+            "proxy.screen.evidence.read"
+        )
+        if not isinstance(registration, dict):
+            return self._build_public_error(
+                code="unregistered_evidence_transfer",
+                message="Proxy Edge has not registered bounded screen evidence.",
+                device_id=device_id,
+            )
+        accepted = any(
+            result.get("device_id") == device_id
+            and result.get("request_id") == request_id
+            and result.get("capability") == "proxy.screen.evidence.read"
+            and result.get("status") == "ok"
+            and result.get("details", {}).get("transfer_id") == transfer_id
+            for result in self.state.action_results
+        )
+        if not accepted:
+            return self._build_public_error(
+                code="unauthorized_evidence_transfer",
+                message="Proxy screen evidence lacks an accepted request.",
+                device_id=device_id,
+            )
         return None
 
     @staticmethod
@@ -1654,7 +1743,12 @@ class RuntimeGateway:
             target_device_id = reply.get("device_id")
             if (
                 reply["type"]
-                in {"action_request", "interaction_progress", "interaction_update"}
+                in {
+                    "action_request",
+                    "interaction_progress",
+                    "interaction_update",
+                    "understanding_update",
+                }
                 and target_device_id != source_device_id
             ):
                 target_websocket = self.live_connections.get(target_device_id)
@@ -1708,7 +1802,12 @@ class RuntimeGateway:
                 await self._send_frame(source_websocket, reply)
                 if not (
                     reply["type"]
-                    in {"action_request", "interaction_progress", "interaction_update"}
+                    in {
+                        "action_request",
+                        "interaction_progress",
+                        "interaction_update",
+                        "understanding_update",
+                    }
                     and target_device_id != source_device_id
                 ):
                     self._record_dispatch_diagnostic(

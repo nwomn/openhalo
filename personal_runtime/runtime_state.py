@@ -23,6 +23,7 @@ class RuntimeState:
         self.device_registry = {}
         self.capability_registry = {}
         self.observation_registry = {}
+        self.proxy_screen_profiles = {}
         self.context_facts = {}
         self.main_session = {}
         self.interaction_work = []
@@ -152,6 +153,12 @@ class RuntimeState:
         self._queue_state_value("devices", self._devices_payload())
         self._queue_state_value("capability_registry", self.capability_registry)
         self._queue_state_value("observation_registry", self.observation_registry)
+
+    def record_proxy_screen_profile(self, device_id: str, profile: dict) -> None:
+        """Persist configuration metadata only; never raw screen evidence."""
+
+        self.proxy_screen_profiles[device_id] = dict(profile)
+        self._queue_state_value("proxy_screen_profiles", self.proxy_screen_profiles)
 
     def record_event(self, event: dict) -> None:
         payload = dict(event)
@@ -510,6 +517,7 @@ class RuntimeState:
             "device_registry": self.device_registry,
             "capability_registry": self.capability_registry,
             "observation_registry": self.observation_registry,
+            "proxy_screen_profiles": self.proxy_screen_profiles,
             "context_facts": self.context_facts,
             "main_session": self.main_session,
             "interaction_work": self.interaction_work,
@@ -555,6 +563,7 @@ class RuntimeState:
         state.device_registry = dict(payload.get("device_registry", {}))
         state.capability_registry = dict(payload.get("capability_registry", {}))
         state.observation_registry = dict(payload.get("observation_registry", {}))
+        state.proxy_screen_profiles = dict(payload.get("proxy_screen_profiles", {}))
         state.context_facts = dict(payload.get("context_facts", {}))
         state.main_session = dict(payload.get("main_session", {}))
         state.interaction_work = list(payload.get("interaction_work", []))

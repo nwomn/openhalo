@@ -137,7 +137,14 @@ class ProxyInteractionEdgeTests(unittest.TestCase):
             frame["observations"][0]["value"]["attachment_state"],
             "incompatible",
         )
-        self.assertEqual([item["name"] for item in capabilities], ["proxy.interaction.observe"])
+        self.assertEqual(
+            [item["name"] for item in capabilities],
+            [
+                "proxy.interaction.observe",
+                "proxy.screen.features",
+                "proxy.screen.profile.configure",
+            ],
+        )
 
     def test_degraded_target_does_not_announce_unavailable_hid_actions(self) -> None:
         adapter = FakeProxyAdapter(
@@ -149,7 +156,15 @@ class ProxyInteractionEdgeTests(unittest.TestCase):
         attachment = edge.build_attachment_observation_frame()["observations"][0]
 
         self.assertEqual(attachment["value"]["attachment_state"], "degraded")
-        self.assertEqual([item["name"] for item in capabilities], ["proxy.interaction.observe"])
+        self.assertEqual(
+            [item["name"] for item in capabilities],
+            [
+                "proxy.interaction.observe",
+                "proxy.screen.features",
+                "proxy.screen.profile.configure",
+                "proxy.screen.evidence.read",
+            ],
+        )
 
     def test_governed_keyboard_action_checks_target_and_preserves_correlation(self) -> None:
         adapter = FakeProxyAdapter()
