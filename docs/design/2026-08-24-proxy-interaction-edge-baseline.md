@@ -10,6 +10,12 @@ computer, tablet, phone, server, or appliance through an attached interaction
 surface. ESP-KVM is the first adapter and bench reference, not the product
 contract.
 
+ESP-KVM is also not the required product firmware base. Its source tree and REST
+surface are disposable bring-up tools: the product may keep selected capture or
+HID drivers while removing unrelated services, or replace the firmware
+entirely. Only the governed OpenHalo contract and accepted physical behavior are
+stable across implementations.
+
 ## Architecture boundary
 
 The normal path is mandatory:
@@ -24,6 +30,28 @@ Runtime retains permission, Presence, exact provider selection, action request
 correlation, result lineage, and audit. The adapter cannot call Runtime directly
 or execute a Runtime proposal without an `action_request` delivered to its proxy
 device identity.
+
+## Target-facing connector profile
+
+The intended product packaging exposes one full-function USB-C male target lead
+for both observation and control. A target with native USB-C DisplayPort Alt
+Mode and USB host support connects directly: DisplayPort flows from the target
+to the Proxy Edge, while the Proxy Edge's USB HID device traffic flows back to
+the target over the same cable.
+
+Legacy computers remain supported through an active host-side aggregation
+accessory. That accessory accepts one GPU HDMI or DisplayPort source plus one
+USB-A or data-capable USB-C host connection, and exposes a full-function USB-C
+female receptacle for the Proxy Edge target lead. It must synthesize the correct
+DisplayPort Alt Mode, USB data-role, CC, and power behavior; a passive gender or
+video-only adapter is not sufficient. The current split HDMI capture and
+four-pin USB HID bench wiring remains the validation baseline until this
+single-cable accessory is selected and physically accepted.
+
+This connector profile is a product-surface direction, not a change to the
+hardware-independent Proxy Interaction Edge contract. Other adapters may retain
+separate physical video and input paths while exposing the same governed Edge
+capabilities.
 
 ## Public contract
 
@@ -107,18 +135,60 @@ never emitted in capability, observation, diagnostic, or action-result frames.
   survived restart and returned changed JPEG frames without credentials. This is
   a bring-up convenience, not a deployment default: every network participant
   can otherwise read the screen and invoke the enabled HID REST endpoints.
+- Real Xiaomi Pad 6S Pro bench evidence accepts HDMI observation plus relative
+  USB-HID movement, button hold, continuous drag, release, and a visually proven
+  post-action line on the same note surface. The current absolute-pointer path
+  remains unsuitable for the tablet's rotated external display.
+- Real Windows desktop bench evidence accepts the split GPU-HDMI plus USB-HID
+  transport and a same-surface keyboard loop. In Windows duplicate mode, a KVM
+  pre-frame showed Notepad with `OPENHALO-SAFE-135`, Agent REST typed a newline
+  plus `OPENHALO-DUPLICATE-1142`, and the KVM post-frame visibly showed both
+  lines. This result does not depend on target process or window-title state.
+- The same duplicate-mode desktop profile accepts absolute pointer placement. A
+  KVM-observed click at adapter coordinates `x=3456,y=3095` moved the Notepad
+  caret onto the first line, and the following `MOUSE-` input appeared at that
+  location in the post-action KVM frame.
+- After a 30-second no-viewer interval, the first requested JPEG returned in
+  about 1.4 seconds and already contained a just-injected HID marker; the second
+  frame agreed. A one-frame retry remains defensive for display-mode changes,
+  where a prior first request returned the immediately preceding frame once.
+- A controlled upstream-firmware restart restored the ESP32-C6 AP and WLAN
+  association but left P4 HTTP availability intermittent even after manual WLAN
+  reassociation. This is recorded as reference-stack evidence, not a requirement
+  to repair ESP-KVM before continuing Proxy Interaction Edge development.
+- A later Waveshare P4 rev 1.3 / C6 `3.0.6` bench build enabled P4 internal
+  pull-ups on SDIO CLK/CMD/D0--D3 before ESP-Hosted initialisation, supplementing
+  the board's 51k external pull-ups. At 4-bit 40 MHz streaming, three P4/C6
+  resets followed by explicit WLAN reassociation each recovered DHCP and HTTP;
+  ten further reassociation cycles completed thirty page requests, and a
+  100-request page burst transferred about 22 MB without error. Windows did not
+  autojoin in the first eight seconds after one P4 reboot despite a visible SSID,
+  but explicit reassociation succeeded. This is controlled single-client
+  reference-stack transport evidence, not an accepted long-duration, multi-client
+  or product-firmware recovery guarantee.
+- For the first desktop profile, the capture output must duplicate the operator's
+  primary desktop or otherwise be the explicitly governed target surface.
+  Extended multi-monitor mode is degraded until surface selection, foreground
+  focus, virtual-desktop pointer mapping, and destructive-shortcut safeguards are
+  explicit. A window being visible on one screen is not evidence that it owns
+  keyboard focus.
 
 ## Still required for M17.11 acceptance
 
 - Run the proxy as a paired long-lived Edge against the public Gateway and prove
   `connect_ok`, capability registration, observation persistence, Presence,
   governed action dispatch, result audit, disconnect, reconnect, and revocation.
-- Resolve the current four-pin USB enumeration gap and prove keyboard plus pointer
-  actions on the Xiaomi Pad 6S Pro.
+- Add the governed relative-pointer/calibration contract needed by the accepted
+  Xiaomi Pad 6S Pro hardware path.
 - Add governed fresh-frame retrieval/understanding without exposing raw media to
-  ordinary Runtime context.
+  ordinary Runtime context, implementing the accepted one-retry freshness policy
+  and action-bound post-observation behavior.
 - Measure `capture -> decision -> HID -> post-action capture` latency and bind the
   resulting observation to the originating action.
-- Exercise one native-Edge-unavailable or pre-boot/recovery scenario.
+- Define and accept recovery against the selected Proxy Edge firmware and
+  transport; upstream ESP-KVM AP/P4 recovery behavior is nonbinding.
+- Select and validate the active legacy-computer aggregation accessory, including
+  video capture, USB HID return, hot-plug recovery, and independent Edge power
+  through the intended single target-facing USB-C lead.
 - Extend or explicitly keep unavailable virtual media, power, and optional audio
   capabilities based on the selected adapter profile.
