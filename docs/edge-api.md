@@ -352,39 +352,53 @@ ignored input.
 
 `proxy.screen_frame.v1` represents human-visible pixels, not structured target
 OS state. Its ordinary Observation contains resolution, media type, digest,
-capture timing, and a body-free `proxy-evidence://` reference. Raw JPEG bodies
-remain in a bounded Edge-local frame store and are not copied into ordinary
-Runtime context. When a native Edge exists for the same surface, the attachment
-may name `native_device_id` so Runtime can bind provenance while preferring the
-native structured capabilities during normal operation.
+capture timing, and a body-free Edge-local `evidence_id` (the legacy
+`evidence_ref` field may be mirrored during migration). Raw JPEG bodies remain
+in a bounded Edge-local frame store and are not copied into ordinary Runtime
+context. When a native Edge exists for the same surface, the attachment may name
+`native_device_id` so Runtime can bind provenance while preferring the native
+structured capabilities during normal operation.
 
 ### Proxy screen Profile and evidence loop
 
 The proxy additionally advertises `proxy.screen.features`,
 `proxy.screen.profile.configure`, and (when capture is available)
-`proxy.screen.evidence.read`. Runtime confirms a target/surface-bound Screen
-Profile by sending the configuration action with a profile ID/revision,
-allowlisted feature names, RFC3339 expiry, a short `valid_for_seconds` lease for
-clockless board enforcement, bounded evidence-byte limit, and visual action
-policy. The first supported Features are `proxy.screen.capture_health.v1`,
+`proxy.screen.read`. Runtime confirms a target/surface-bound Screen Profile by
+sending the configuration action with a profile ID/revision, allowlisted feature
+names, RFC3339 expiry, a short `valid_for_seconds` lease for clockless board
+enforcement, bounded evidence-byte limit, and visual action policy. The first
+supported Features are `proxy.screen.capture_health.v1`,
 `proxy.screen.change.v1`, and `proxy.screen.action_effect.v1`. They are compact
 structural Observations: a change detector may say that pixels changed, but it
 must report `unknown`/request evidence rather than claim arbitrary GUI meaning.
 
 An active Profile can require a current `visual_authorization` for keyboard or
 pointer input. The authorization refers to a short-lived Runtime
-`understanding_id`; the Edge refuses blind or expired visual actions. An
-authorized `proxy.screen.evidence.read` first produces a body-free action
-result with a transfer ID. Only then may the Edge send one bounded
-`evidence_transfer` frame containing the JPEG bytes, hash, media type, Profile
-binding, and purpose. Gateway rejects a transfer unless its preceding evidence
-action succeeded. It feeds the bytes only to the configured transient vision
-evaluator, persists safe audit metadata rather than the JPEG, and returns an
-expiring `understanding_update` to the same Edge. That update includes its
-monotonic `valid_for_seconds` lease as well as the audit-visible RFC3339 expiry,
-so a P4 without a trusted wall clock still expires authorization. A Runtime
-without a configured vision evaluator returns `understanding_failed`; it must
-not authorize HID from that failure.
+`understanding_id`; the Edge refuses blind or expired visual actions. The normal
+screen action is one ordinary request/result pair:
+
+```json
+{
+  "capability": "proxy.screen.read",
+  "payload": {
+    "target_id": "desktop-1",
+    "surface_id": "main",
+    "freshness": "latest",
+    "max_bytes": 98304
+  }
+}
+```
+
+The `latest` result includes an Edge-generated `evidence_id`. A later `cached`
+request must include that exact ID. The Edge validates its device/boot scope,
+300-second TTL, slot presence, byte bound, and SHA-256 before returning the same
+JPEG; an evicted, expired, reboot-invalid, foreign, or tampered ID returns
+`evidence_unavailable` or an integrity error and never falls back to another
+frame. Gateway feeds the bounded bytes only to the configured transient vision
+evaluator, persists the ID/time/digest and textual Understanding rather than the
+JPEG, and returns any normal follow-up through Hermes. The older
+`proxy.screen.evidence.read`/`evidence_transfer` sequence remains a compatibility
+experiment and is not used by normal screen reads.
 
 ## Hosted Coding Agent Bridge
 

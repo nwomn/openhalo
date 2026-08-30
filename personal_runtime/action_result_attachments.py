@@ -8,6 +8,7 @@ from hashlib import sha256
 
 
 MAX_ATTACHMENT_BYTES = 98_304
+MAX_EVIDENCE_ID_LENGTH = 256
 
 
 class ActionResultAttachmentService:
@@ -61,6 +62,7 @@ class ActionResultAttachmentService:
         mime_type = payload.get("mime_type")
         size_bytes = payload.get("size_bytes")
         digest = payload.get("sha256")
+        evidence_id = payload.get("evidence_id")
         encoded = payload.get("jpeg_bytes")
         if not isinstance(observed_at, str) or not observed_at:
             raise ValueError("invalid_attachment_observed_at")
@@ -75,18 +77,30 @@ class ActionResultAttachmentService:
             or not isinstance(encoded, str)
         ):
             raise ValueError("invalid_action_result_attachment")
+        if evidence_id is not None:
+            if (
+                not isinstance(evidence_id, str)
+                or not evidence_id
+                or len(evidence_id) > MAX_EVIDENCE_ID_LENGTH
+                or not evidence_id.isascii()
+                or any(character.isspace() or ord(character) < 0x21 for character in evidence_id)
+            ):
+                raise ValueError("invalid_evidence_id")
         try:
             body = base64.b64decode(encoded, validate=True)
         except (ValueError, binascii.Error) as exc:
             raise ValueError("invalid_action_result_attachment_encoding") from exc
         if len(body) != size_bytes or sha256(body).hexdigest() != digest:
             raise ValueError("action_result_attachment_integrity_mismatch")
-        return body, {
+        safe_attachment = {
             "observed_at": observed_at,
             "mime_type": mime_type,
             "sha256": digest,
             "size_bytes": size_bytes,
         }
+        if evidence_id is not None:
+            safe_attachment["evidence_id"] = evidence_id
+        return body, safe_attachment
 
     def _understanding(self, body: bytes, attachment: dict) -> dict:
         if self.vision_evaluator is None:

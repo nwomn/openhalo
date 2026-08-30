@@ -6,6 +6,7 @@ from hashlib import sha256
 from http.cookiejar import CookieJar
 import json
 from time import monotonic
+import secrets
 from typing import Protocol
 from urllib.error import HTTPError
 from urllib.parse import urlsplit
@@ -49,27 +50,135 @@ class ProxyAdapter(Protocol):
     def execute_pointer(self, payload: dict) -> dict: ...
 
 
+FRAME_STORE_MAX_FRAMES = 64
+FRAME_STORE_MAX_AGE_SECONDS = 300.0
+FRAME_STORE_MAX_TOTAL_BYTES = 6 * 1024 * 1024
+FRAME_STORE_MAX_FRAME_BYTES = 96 * 1024
+
+
+@dataclass(frozen=True, slots=True)
+class StoredFrame:
+    """Metadata plus one raw JPEG retained only in the Edge-local ring."""
+
+    evidence_id: str
+    body: bytes
+    sha256: str
+    captured_at: str
+    stored_at: float
+
+
+@dataclass(frozen=True, slots=True)
+class StoredFrameMetadata:
+    """Body-free description used when the governance index misses an ID."""
+
+    evidence_id: str
+    sha256: str
+    captured_at: str
+    size_bytes: int
+
+
 class BoundedFrameStore:
-    """Small Edge-local raw-frame cache; Runtime sees only body-free references."""
+    """Five-minute Edge-local raw-frame ring; Runtime sees only its index."""
 
-    def __init__(self, max_frames: int = 4) -> None:
-        if max_frames < 1 or max_frames > 16:
-            raise ValueError("Frame store capacity must be between 1 and 16.")
+    def __init__(
+        self,
+        max_frames: int = FRAME_STORE_MAX_FRAMES,
+        *,
+        max_age_seconds: float = FRAME_STORE_MAX_AGE_SECONDS,
+        max_total_bytes: int = FRAME_STORE_MAX_TOTAL_BYTES,
+        max_frame_bytes: int = FRAME_STORE_MAX_FRAME_BYTES,
+        boot_id: str | None = None,
+        clock=None,
+    ) -> None:
+        if max_frames < 1 or max_frames > FRAME_STORE_MAX_FRAMES:
+            raise ValueError(
+                f"Frame store capacity must be between 1 and {FRAME_STORE_MAX_FRAMES}."
+            )
+        if max_age_seconds <= 0:
+            raise ValueError("Frame store TTL must be positive.")
+        if max_frame_bytes < 1 or max_frame_bytes > FRAME_STORE_MAX_FRAME_BYTES:
+            raise ValueError(
+                f"Frame store frame bound must be between 1 and {FRAME_STORE_MAX_FRAME_BYTES}."
+            )
+        if max_total_bytes < max_frame_bytes:
+            raise ValueError("Frame store total bound must fit one frame.")
+        if boot_id is not None and (
+            not isinstance(boot_id, str) or not boot_id or len(boot_id) > 32
+        ):
+            raise ValueError("Frame store boot_id must be a short non-empty string.")
         self.max_frames = max_frames
-        self._frames: OrderedDict[str, bytes] = OrderedDict()
+        self.max_age_seconds = float(max_age_seconds)
+        self.max_total_bytes = max_total_bytes
+        self.max_frame_bytes = max_frame_bytes
+        self.boot_id = boot_id or secrets.token_hex(4)
+        self.clock = clock or monotonic
+        self._frames: OrderedDict[str, StoredFrame] = OrderedDict()
+        self._total_bytes = 0
+        self._sequence = 0
 
-    def put(self, adapter_id: str, body: bytes) -> tuple[str, str]:
+    def put(
+        self,
+        owner_id: str,
+        body: bytes,
+        *,
+        captured_at: str = "",
+    ) -> tuple[str, str]:
+        if not isinstance(owner_id, str) or not owner_id:
+            raise ValueError("Frame store owner_id must be non-empty.")
+        if not isinstance(body, (bytes, bytearray, memoryview)):
+            raise ValueError("Frame store body must be bytes.")
+        body = bytes(body)
+        if not body or len(body) > self.max_frame_bytes:
+            raise ValueError("frame_exceeds_store_limit")
+        self._evict_expired()
+        self._sequence += 1
         digest = sha256(body).hexdigest()
-        evidence_ref = f"proxy-evidence://{adapter_id}/screen/{digest[:24]}"
-        self._frames[evidence_ref] = bytes(body)
-        self._frames.move_to_end(evidence_ref)
-        while len(self._frames) > self.max_frames:
-            self._frames.popitem(last=False)
-        return evidence_ref, digest
+        evidence_id = f"{owner_id}/boot-{self.boot_id}/frame-{self._sequence}"
+        entry = StoredFrame(
+            evidence_id=evidence_id,
+            body=body,
+            sha256=digest,
+            captured_at=captured_at,
+            stored_at=self.clock(),
+        )
+        while self._frames and (
+            len(self._frames) >= self.max_frames
+            or self._total_bytes + len(body) > self.max_total_bytes
+        ):
+            _, evicted = self._frames.popitem(last=False)
+            self._total_bytes -= len(evicted.body)
+        self._frames[evidence_id] = entry
+        self._total_bytes += len(body)
+        return evidence_id, digest
 
-    def get(self, evidence_ref: str) -> bytes | None:
-        body = self._frames.get(evidence_ref)
-        return bytes(body) if body is not None else None
+    def get_entry(self, evidence_id: str) -> StoredFrame | None:
+        self._evict_expired()
+        entry = self._frames.get(evidence_id)
+        return entry
+
+    def get(self, evidence_id: str) -> bytes | None:
+        entry = self.get_entry(evidence_id)
+        return bytes(entry.body) if entry is not None else None
+
+    def get_metadata(self, evidence_id: str) -> StoredFrameMetadata | None:
+        entry = self.get_entry(evidence_id)
+        if entry is None:
+            return None
+        return StoredFrameMetadata(
+            evidence_id=entry.evidence_id,
+            sha256=entry.sha256,
+            captured_at=entry.captured_at,
+            size_bytes=len(entry.body),
+        )
+
+    def _evict_expired(self) -> None:
+        now = self.clock()
+        while self._frames:
+            first_key, first = next(iter(self._frames.items()))
+            if now - first.stored_at <= self.max_age_seconds:
+                break
+            self._frames.pop(first_key)
+            self._total_bytes -= len(first.body)
 
 
 class EspKvmHttpAdapter:
@@ -90,6 +199,7 @@ class EspKvmHttpAdapter:
         base_url: str,
         username: str | None = None,
         password: str | None = None,
+        evidence_owner_id: str | None = None,
         timeout_seconds: float = 3.0,
         frame_store: BoundedFrameStore | None = None,
         opener=None,
@@ -101,6 +211,7 @@ class EspKvmHttpAdapter:
         if parsed.path not in {"", "/"} or parsed.query or parsed.fragment:
             raise ValueError("ESP-KVM base_url must not include a path, query, or fragment.")
         self.adapter_id = adapter_id
+        self.evidence_owner_id = evidence_owner_id or adapter_id
         self.base_url = base_url.rstrip("/")
         self.username = username
         self.password = password
@@ -173,10 +284,18 @@ class EspKvmHttpAdapter:
         latency_ms = round((monotonic() - started) * 1000)
         if not body or not content_type.startswith("image/jpeg"):
             raise ProxyAdapterError("invalid_jpeg_frame")
-        evidence_ref, digest = self.frame_store.put(self.adapter_id, body)
+        captured_at = self.clock()
+        try:
+            evidence_ref, digest = self.frame_store.put(
+                self.evidence_owner_id,
+                body,
+                captured_at=captured_at,
+            )
+        except ValueError as exc:
+            raise ProxyAdapterError("evidence_unavailable") from exc
         return CapturedFrame(
             evidence_ref=evidence_ref,
-            captured_at=self.clock(),
+            captured_at=captured_at,
             width=_positive_int(video.get("width"), "video width"),
             height=_positive_int(video.get("height"), "video height"),
             mime_type="image/jpeg",
@@ -196,6 +315,14 @@ class EspKvmHttpAdapter:
         if len(body) > max_bytes:
             raise ProxyAdapterError("evidence_exceeds_policy_limit")
         return body
+
+    def read_evidence_metadata(self, evidence_ref: str) -> StoredFrameMetadata:
+        """Return metadata for one live ring item without exposing its bytes."""
+
+        entry = self.frame_store.get_metadata(evidence_ref)
+        if entry is None:
+            raise ProxyAdapterError("evidence_unavailable")
+        return entry
 
     def execute_keyboard(self, payload: dict) -> dict:
         operation = payload.get("operation")

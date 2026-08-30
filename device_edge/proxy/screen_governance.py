@@ -13,9 +13,12 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import UTC
 from datetime import datetime
+from hashlib import sha256
 
+from device_edge.proxy.adapter import ProxyAdapterError
 from device_edge.proxy.contracts import CapturedFrame
 from device_edge.proxy.contracts import ProxyTargetAttachment
+from device_edge.proxy.contracts import SCREEN_EVIDENCE_ID_MAX_LENGTH
 from device_edge.proxy.contracts import SCREEN_FEATURE_CAPABILITY
 from device_edge.proxy.contracts import SCREEN_PROFILE_CAPABILITY
 
@@ -39,6 +42,18 @@ def _parse_timestamp(value: object, label: str) -> datetime:
     if parsed.tzinfo is None:
         raise ValueError(f"{label} must include a timezone.")
     return parsed.astimezone(UTC)
+
+
+def _validate_evidence_id(value: object) -> str:
+    if (
+        not isinstance(value, str)
+        or not value
+        or len(value) > SCREEN_EVIDENCE_ID_MAX_LENGTH
+        or not value.isascii()
+        or any(character.isspace() or ord(character) < 0x21 for character in value)
+    ):
+        raise ValueError("invalid_evidence_id")
+    return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,9 +108,9 @@ class ScreenProfile:
 class ProxyScreenGovernance:
     """Local Screen Profile, bounded evidence index, and action authorization."""
 
-    def __init__(self, *, max_items: int = 4, clock=None) -> None:
-        if not 1 <= max_items <= 16:
-            raise ValueError("max_items must be between 1 and 16.")
+    def __init__(self, *, max_items: int = 64, clock=None) -> None:
+        if not 1 <= max_items <= 64:
+            raise ValueError("max_items must be between 1 and 64.")
         self.max_items = max_items
         self.clock = clock or (lambda: datetime.now(UTC))
         self.profile: ScreenProfile | None = None
@@ -121,10 +136,7 @@ class ProxyScreenGovernance:
     ) -> list[dict]:
         """Record one local frame and emit safe Profile-independent facts."""
 
-        self._evidence[frame.evidence_ref] = frame
-        self._evidence.move_to_end(frame.evidence_ref)
-        while len(self._evidence) > self.max_items:
-            self._evidence.popitem(last=False)
+        self._remember_frame(frame)
         changed = self._last_sha256 is None or self._last_sha256 != frame.sha256
         self._last_sha256 = frame.sha256
         base = {
@@ -153,10 +165,12 @@ class ProxyScreenGovernance:
                     "feature_version": "screen_change.v1",
                     "state": "changed" if changed else "unchanged",
                     "evidence_ref": frame.evidence_ref,
+                    "evidence_id": frame.evidence_ref,
                 },
                 "observed_at": frame.captured_at,
                 "confidence": 1.0,
                 "evidence_ref": frame.evidence_ref,
+                "evidence_id": frame.evidence_ref,
                 "context_disposition": "structural",
             },
         ]
@@ -170,10 +184,12 @@ class ProxyScreenGovernance:
                         "action_request_id": action_request_id,
                         "state": "changed" if changed else "unchanged",
                         "evidence_ref": frame.evidence_ref,
+                        "evidence_id": frame.evidence_ref,
                     },
                     "observed_at": frame.captured_at,
                     "confidence": 1.0,
                     "evidence_ref": frame.evidence_ref,
+                    "evidence_id": frame.evidence_ref,
                     "context_disposition": "structural",
                 }
             )
@@ -217,14 +233,12 @@ class ProxyScreenGovernance:
         adapter,
         attachment: ProxyTargetAttachment,
     ) -> dict:
-        """Return one current screen frame as a normal bounded action result."""
+        """Return one current or Edge-cached frame as a normal action result."""
 
         if payload.get("target_id") != attachment.target_id:
             raise ValueError("target_mismatch")
         if payload.get("surface_id") != attachment.surface_id:
             raise ValueError("surface_mismatch")
-        if payload.get("freshness") != "latest":
-            raise ValueError("unsupported_screen_freshness")
         requested_max = payload.get("max_bytes")
         if (
             not isinstance(requested_max, int)
@@ -232,10 +246,24 @@ class ProxyScreenGovernance:
             or not 1 <= requested_max <= MAX_SCREEN_READ_BYTES
         ):
             raise ValueError("invalid_evidence_max_bytes")
-        frame = adapter.capture_frame()
-        body = adapter.read_evidence(frame.evidence_ref, requested_max)
+        freshness = payload.get("freshness")
+        if freshness == "cached":
+            evidence_id = payload.get("evidence_id")
+            _validate_evidence_id(evidence_id)
+            frame = self._lookup_frame(evidence_id, adapter)
+            body = adapter.read_evidence(evidence_id, requested_max)
+        elif freshness == "latest":
+            if payload.get("evidence_id") is not None:
+                raise ValueError("evidence_id_not_allowed_for_latest")
+            frame = adapter.capture_frame()
+            self._remember_frame(frame)
+            body = adapter.read_evidence(frame.evidence_ref, requested_max)
+        else:
+            raise ValueError("unsupported_screen_freshness")
         if len(body) != frame.size_bytes or len(body) > MAX_SCREEN_READ_BYTES:
             raise ValueError("evidence_exceeds_policy_limit")
+        if sha256(body).hexdigest() != frame.sha256:
+            raise ValueError("evidence_integrity_mismatch")
         import base64
 
         return {
@@ -245,9 +273,40 @@ class ProxyScreenGovernance:
             "mime_type": frame.mime_type,
             "size_bytes": frame.size_bytes,
             "sha256": frame.sha256,
+            "evidence_id": frame.evidence_ref,
             "encoding": "base64",
             "jpeg_bytes": base64.b64encode(body).decode("ascii"),
         }
+
+    def _remember_frame(self, frame: CapturedFrame) -> None:
+        self._evidence[frame.evidence_ref] = frame
+        self._evidence.move_to_end(frame.evidence_ref)
+        while len(self._evidence) > self.max_items:
+            self._evidence.popitem(last=False)
+
+    def _lookup_frame(self, evidence_id: str, adapter) -> CapturedFrame:
+        frame = self._evidence.get(evidence_id)
+        if frame is not None:
+            return frame
+        describe = getattr(adapter, "read_evidence_metadata", None)
+        if describe is None:
+            raise ValueError("evidence_unavailable")
+        try:
+            stored = describe(evidence_id)
+        except (ProxyAdapterError, ValueError) as exc:
+            raise ValueError("evidence_unavailable") from exc
+        size_bytes = getattr(stored, "size_bytes", None)
+        if not isinstance(size_bytes, int) or size_bytes < 1:
+            raise ValueError("evidence_unavailable")
+        return CapturedFrame(
+            evidence_ref=stored.evidence_id,
+            captured_at=stored.captured_at,
+            width=getattr(stored, "width", 0) or 1,
+            height=getattr(stored, "height", 0) or 1,
+            mime_type="image/jpeg",
+            size_bytes=size_bytes,
+            sha256=stored.sha256,
+        )
 
     def accept_understanding_update(self, frame: dict, attachment: ProxyTargetAttachment) -> None:
         update = frame.get("understanding")

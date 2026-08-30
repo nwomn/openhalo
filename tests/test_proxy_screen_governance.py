@@ -1,7 +1,9 @@
 import hashlib
 import json
 import os
+from pathlib import Path
 import sys
+from tempfile import TemporaryDirectory
 import types
 import unittest
 
@@ -29,6 +31,7 @@ class BytesProxyAdapter:
         self.body = body
         self.digest = hashlib.sha256(body).hexdigest()
         self.ref = f"proxy-evidence://bytes-proxy/screen/{self.digest[:24]}"
+        self.capture_count = 0
 
     def probe(self):
         return AdapterProbe(
@@ -44,6 +47,7 @@ class BytesProxyAdapter:
         )
 
     def capture_frame(self):
+        self.capture_count += 1
         return CapturedFrame(
             evidence_ref=self.ref,
             captured_at="2026-08-30T08:30:00Z",
@@ -110,6 +114,23 @@ class ProxyScreenReadTests(unittest.TestCase):
         self.assertEqual(replies[0]["type"], "event_ack")
         self.assertIn("proxy-edge-1/proxy.screen.capture_health.v1", gateway.state.context_facts)
 
+    def test_screen_read_registration_advertises_latest_and_cached_evidence(self):
+        edge, _ = build_edge()
+        registration = next(
+            item
+            for item in edge.build_capability_announce_frame()["capabilities"]
+            if item["name"] == "proxy.screen.read"
+        )
+
+        self.assertEqual(
+            registration["input_schema"]["properties"]["freshness"]["enum"],
+            ["latest", "cached"],
+        )
+        self.assertEqual(
+            registration["input_schema"]["properties"]["evidence_id"]["maxLength"],
+            256,
+        )
+
     def test_screen_read_is_one_normal_action_result_and_runtime_never_persists_jpeg(self):
         edge, adapter = build_edge()
         action_result = edge.handle_action_request(read_request())
@@ -131,6 +152,14 @@ class ProxyScreenReadTests(unittest.TestCase):
         recorded = gateway.state.action_results[-1]
         serialized = json.dumps({"results": gateway.state.action_results, "events": gateway.state.events})
         self.assertNotIn("jpeg_bytes", recorded["payload"])
+        self.assertEqual(
+            recorded["payload"]["evidence_id"],
+            payload["evidence_id"],
+        )
+        self.assertEqual(
+            recorded["payload"]["attachment"]["evidence_id"],
+            payload["evidence_id"],
+        )
         self.assertEqual(recorded["payload"]["visual_understanding"]["summary"], "A desktop is visible.")
         self.assertNotIn(adapter.body.decode("ascii"), serialized)
 
@@ -145,4 +174,69 @@ class ProxyScreenReadTests(unittest.TestCase):
         request = read_request()
         request["action"]["payload"]["freshness"] = "cached"
         result = edge.handle_action_request(request)
-        self.assertEqual(result["result"]["reason"], "unsupported_screen_freshness")
+        self.assertEqual(result["result"]["reason"], "invalid_evidence_id")
+
+    def test_screen_read_cached_replays_the_same_edge_frame_without_capture(self):
+        edge, adapter = build_edge()
+        latest = edge.handle_action_request(read_request())
+        evidence_id = latest["result"]["payload"]["evidence_id"]
+
+        request = read_request()
+        request["request_id"] = "screen-read-cached"
+        request["action"]["payload"].update(
+            {"freshness": "cached", "evidence_id": evidence_id}
+        )
+        cached = edge.handle_action_request(request)
+
+        self.assertEqual(adapter.capture_count, 1)
+        self.assertEqual(cached["result"]["status"], "ok")
+        self.assertEqual(cached["result"]["payload"]["evidence_id"], evidence_id)
+        self.assertEqual(
+            cached["result"]["payload"]["jpeg_bytes"],
+            latest["result"]["payload"]["jpeg_bytes"],
+        )
+
+    def test_cached_read_fails_closed_on_edge_sha_mismatch(self):
+        edge, adapter = build_edge()
+        latest = edge.handle_action_request(read_request())
+
+        adapter.body = b"x" * len(adapter.body)
+        request = read_request()
+        request["action"]["payload"].update(
+            {
+                "freshness": "cached",
+                "evidence_id": latest["result"]["payload"]["evidence_id"],
+            }
+        )
+
+        result = edge.handle_action_request(request)
+
+        self.assertEqual(result["result"]["status"], "error")
+        self.assertEqual(result["result"]["reason"], "evidence_integrity_mismatch")
+        self.assertEqual(adapter.capture_count, 1)
+
+    def test_persisted_runtime_state_never_contains_screen_jpeg(self):
+        edge, adapter = build_edge()
+        action_result = edge.handle_action_request(read_request())
+
+        with TemporaryDirectory() as directory:
+            state_path = Path(directory) / "state.sqlite3"
+            gateway = RuntimeGateway(
+                state_path=state_path,
+                persist_state=True,
+                proxy_screen_vision_evaluator=lambda _body, _attachment: {
+                    "summary": "A desktop is visible.",
+                    "labels": ["desktop"],
+                    "confidence": 0.9,
+                },
+            )
+            try:
+                gateway.run_roundtrip([action_result])
+                persisted_bytes = b"".join(
+                    path.read_bytes()
+                    for path in Path(directory).glob("state.sqlite3*")
+                )
+            finally:
+                gateway.state_store.close()
+
+            self.assertNotIn(adapter.body, persisted_bytes)

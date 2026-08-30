@@ -2,11 +2,12 @@
 
 Status: first contract, ESP-KVM adapter, host-run persistent-session
 development harness, and governed Proxy Screen Profile/evidence protocol are
-implemented and regression-covered. The initial native ESP-IDF component and
-FreeRTOS state machine are now wired into the ESP-KVM Waveshare P4-WIFI6/C6
-tree and compile cleanly. The first P4-WIFI6/C6 boot verifies the board task,
-capture/HID, and C6 bring-up; public-Gateway session and real P4 screen-governance
-acceptance remain pending.
+implemented and regression-covered. The native ESP-IDF component now owns a
+five-minute, 64-slot Edge-local JPEG ring with boot-scoped `evidence_id` values;
+the ordinary `proxy.screen.read` action supports both fresh and exact cached
+reads. The first P4-WIFI6/C6 boot verifies the board task, capture/HID, and C6
+bring-up; public-Gateway session and real P4 history-read acceptance remain
+pending.
 
 ## Goal
 
@@ -114,17 +115,22 @@ loop.
 The current Python Proxy harness therefore publishes capture-health,
 digest-based change, and action-effect facts over `proxy.screen.base_observe`
 without an active Profile.  The Profile-gated `proxy.screen.features` capability
-remains available only to preserve the bounded experiment.  Both paths retain
-only a small Edge-local frame index; an authorized evidence read may use a
-base-frame reference, while raw JPEG bytes remain outside ordinary Runtime
-context and persistence.
+remains available only to preserve the bounded experiment. Both paths retain
+only a small Edge-local frame index; an authorized evidence read names an exact
+`evidence_id`, while raw JPEG bytes remain outside ordinary Runtime context and
+persistence.
 Normal screen reads do not use that older evidence-transfer experiment. The
-registered `proxy.screen.read` action takes target/surface, `freshness:"latest"`,
-and `max_bytes`; the Edge selects its current frame and returns one bounded JPEG
-in the ordinary correlated `action_result.payload`. Gateway's generic
-action-result attachment handler checks the JPEG MIME, byte count, and SHA-256,
-then strips bytes before persistence and returns only transient visual text to
-Hermes.
+registered `proxy.screen.read` action takes target/surface, `freshness` (`latest`
+or `cached`), `max_bytes`, and an `evidence_id` when reading a cached frame. A
+`latest` read captures and stores one frame in the Edge ring; a `cached` read
+must name an exact live ring item. The Edge rejects an unknown device/boot
+generation, expired or evicted slot, missing item, byte-limit violation, or
+SHA mismatch; it never substitutes another frame. Both paths return one bounded
+JPEG in the ordinary correlated `action_result.payload`, including the
+body-free `evidence_id`. Gateway's generic action-result attachment handler
+checks the JPEG MIME, byte count, SHA-256, and evidence index, then strips bytes
+before persistence while retaining the evidence ID, time, digest, and transient
+visual text for Hermes.
 
 The Proxy Interaction Edge adopts the Camera Edge governance model, adapted to
 a human-operated display. It is not a remote-video stream and it is not a
@@ -152,33 +158,31 @@ not a fabricated semantic Observation.
 The selected Screen Profile defines the allowed feature identifiers, sampling
 and debounce policy, privacy class, retention and evidence limits, and its
 revision/expiry. It must not let Runtime send arbitrary detector code to the
-board. The Edge maintains only a small policy-bounded local rolling frame
-buffer. A `candidate_event` is an input to Runtime evaluation, not authority to
-act. On an authorized evidence query, Runtime receives a bounded frame (or a
-bounded action-correlated pre/post pair) over the authenticated Edge Session
-Link, keeps the bytes out of ordinary durable context, and records the returned
-visual Understanding with its evidence reference and expiry. Exact P4-native
-feature schemas, buffer duration, and the production Runtime vision provider
-remain implementation work and require compatibility review before they are
-claimed as firmware behavior.
+board. The Edge maintains a 64-slot, 96 KiB-per-frame, 300-second local rolling
+buffer (about 6 MiB maximum) and scopes every `evidence_id` to the device boot
+generation. A `candidate_event` is an input to Runtime evaluation, not authority
+to act. On a normal screen action, Runtime receives a bounded frame over the
+authenticated Edge Session Link, keeps the bytes out of ordinary durable
+context, and retains only the ID, timestamp, SHA-256, and visual Understanding.
+The ring is RAM/PSRAM-only and is cleared by reboot; an evicted or expired ID is
+unavailable rather than silently replaced.
 
 The first host/runtime protocol slice now implements the Profile and wire
 boundaries: `proxy.screen.profile.configure` validates a target/surface-bound,
 expiring allowlist; `proxy.screen.features` emits capture-health, digest-based
-change, and action-effect Observations only when a Profile is active; and
-`proxy.screen.evidence.read` queues a byte-limited `evidence_transfer` only
-after its corresponding action result. Gateway accepts the transfer only when
-that result is present, supplies the bytes to a transient injected vision
-evaluator, records only safe audit metadata, and sends an expiring
-`understanding_update`. Profile and Understanding frames additionally carry a
-short monotonic lease for boards without a trusted wall clock; the RFC3339
-expiry remains the Runtime audit value. Runtime without such an evaluator fails
-closed as `understanding_failed`. When a Profile says `require_understanding`, the Edge
-rejects keyboard/pointer input without the matching current authorization. This
-is host/runtime protocol acceptance. The P4 native component now implements the
-same bounded JPEG ring, Profile-selected Feature emission, authorized transfer,
-and monotonic Understanding lease; a configured production vision provider and
-the end-to-end Runtime-dispatched visual-control acceptance remain outstanding.
+change, and action-effect Observations only when a Profile is active; and the
+ordinary `proxy.screen.read` action now handles both `latest` and exact `cached`
+ring reads. Gateway supplies either result to a transient injected vision
+evaluator, records only safe audit metadata (including `evidence_id`), and
+retains no JPEG. Profile and Understanding frames additionally carry a short
+monotonic lease for boards without a trusted wall clock; the RFC3339 expiry
+remains the Runtime audit value. Runtime without such an evaluator fails closed
+as `understanding_failed`. When a Profile says `require_understanding`, the Edge
+rejects keyboard/pointer input without the matching current authorization. The
+older `proxy.screen.evidence.read`/`evidence_transfer` path remains a bounded
+compatibility experiment only and is not part of normal Proxy screen reads.
+This is host/runtime protocol acceptance; public-Gateway and end-to-end
+Runtime-dispatched history-read acceptance remain outstanding.
 
 This is source integration with compile evidence, not acceptance evidence.
 After GitHub HTTPS recovered, the declared `third_party/microlink` submodule was
@@ -254,14 +258,14 @@ clipboard capability.
 ## Screen evidence boundary
 
 A fresh ESP-KVM still is fetched from `/api/v1/video/frame.jpg` only in MJPEG
-mode. The JPEG is retained in a small bounded Edge-local frame store. Runtime's
-ordinary observation receives only metadata and a body-free
-`proxy-evidence://...` reference. This preserves the project rule that raw media
-does not enter ordinary context or semantic memory.
+mode. The JPEG is retained in a bounded Edge-local frame store. Runtime's
+ordinary observation receives only metadata and a body-free `evidence_id`.
+This preserves the project rule that raw media does not enter ordinary context
+or semantic memory.
 
 The observation labels its source as `human_visible_pixels`. It must not be
 interpreted as structured Android, Windows, BIOS, or application state. A later
-governed understanding worker may resolve an authorized frame reference and
+governed understanding worker may request an authorized `evidence_id` and
 produce separately attributed visual inference.
 
 ## First ESP-KVM adapter

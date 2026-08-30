@@ -31,7 +31,7 @@ def utc_now() -> str:
 class ProxyEdgeDaemon:
     """Runs one Proxy Edge identity over the public Gateway session."""
 
-    def __init__(self, edge: ProxyInteractionEdge, *, probe_interval_s: float = 15.0) -> None:
+    def __init__(self, edge: ProxyInteractionEdge, *, probe_interval_s: float = 5.0) -> None:
         if probe_interval_s <= 0:
             raise ValueError("probe_interval_s must be positive.")
         self.edge = edge
@@ -211,7 +211,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--adapter-password-env", help="Environment variable holding the ESP-KVM password.")
     parser.add_argument("--pairing-code", help="One-time Runtime pairing code; omit after pairing.")
     parser.add_argument("--home", type=Path, help="Directory for this Edge's persistent P-256 identity.")
-    parser.add_argument("--probe-interval", type=float, default=15.0)
+    parser.add_argument("--probe-interval", type=float, default=5.0)
     return parser
 
 
@@ -228,6 +228,7 @@ def main(argv: list[str] | None = None) -> None:
         args.adapter_url,
         username=args.adapter_username,
         password=password,
+        evidence_owner_id=args.device_id,
     )
     edge = ProxyInteractionEdge(
         device_id=args.device_id,

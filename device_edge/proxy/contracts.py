@@ -22,6 +22,7 @@ POINTER_CAPABILITY = "proxy.pointer.input"
 SCREEN_FEATURE_CAPABILITY = "proxy.screen.features"
 SCREEN_PROFILE_CAPABILITY = "proxy.screen.profile.configure"
 SCREEN_READ_CAPABILITY = "proxy.screen.read"
+SCREEN_EVIDENCE_ID_MAX_LENGTH = 256
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,6 +134,7 @@ class CapturedFrame:
             "mime_type": self.mime_type,
             "size_bytes": self.size_bytes,
             "sha256": self.sha256,
+            "evidence_id": self.evidence_ref,
         }
         if self.capture_latency_ms is not None:
             value["capture_latency_ms"] = self.capture_latency_ms
@@ -142,6 +144,7 @@ class CapturedFrame:
             "observed_at": self.captured_at,
             "confidence": 1.0,
             "evidence_ref": self.evidence_ref,
+            "evidence_id": self.evidence_ref,
             "context_disposition": "structural",
         }
 
@@ -254,6 +257,7 @@ def _screen_base_observation_registration(attachment: ProxyTargetAttachment) -> 
                         "feature_version": {"type": "string", "enum": ["screen_change.v1"]},
                         "state": {"type": "string", "enum": ["changed", "unchanged"]},
                         "evidence_ref": {"type": "string"},
+                        "evidence_id": {"type": "string", "maxLength": SCREEN_EVIDENCE_ID_MAX_LENGTH},
                     },
                 },
                 "semantics": ["screen_change", "candidate_event"],
@@ -273,6 +277,7 @@ def _screen_base_observation_registration(attachment: ProxyTargetAttachment) -> 
                         "action_request_id": {"type": "string"},
                         "state": {"type": "string", "enum": ["changed", "unchanged"]},
                         "evidence_ref": {"type": "string"},
+                        "evidence_id": {"type": "string", "maxLength": SCREEN_EVIDENCE_ID_MAX_LENGTH},
                     },
                 },
                 "semantics": ["action_effect", "screen_change"],
@@ -331,6 +336,7 @@ def _screen_feature_registration(attachment: ProxyTargetAttachment) -> dict:
                         "feature_version": {"type": "string", "enum": ["screen_change.v1"]},
                         "state": {"type": "string", "enum": ["changed", "unchanged"]},
                         "evidence_ref": {"type": "string"},
+                        "evidence_id": {"type": "string", "maxLength": SCREEN_EVIDENCE_ID_MAX_LENGTH},
                     },
                 },
                 "semantics": ["screen_change", "candidate_event"],
@@ -352,6 +358,7 @@ def _screen_feature_registration(attachment: ProxyTargetAttachment) -> dict:
                         "action_request_id": {"type": "string"},
                         "state": {"type": "string", "enum": ["changed", "unchanged"]},
                         "evidence_ref": {"type": "string"},
+                        "evidence_id": {"type": "string", "maxLength": SCREEN_EVIDENCE_ID_MAX_LENGTH},
                     },
                 },
                 "semantics": ["action_effect", "screen_change"],
@@ -405,7 +412,7 @@ def _screen_read_registration(attachment: ProxyTargetAttachment) -> dict:
         "name": SCREEN_READ_CAPABILITY,
         "direction": "runtime_to_edge",
         "kind": "action",
-        "affordances": ["read_latest_bounded_screen"],
+        "affordances": ["read_latest_or_cached_bounded_screen"],
         "privacy": "personal_screen",
         "side_effect": "bounded_private_attachment",
         "target_relationship": {
@@ -418,7 +425,12 @@ def _screen_read_registration(attachment: ProxyTargetAttachment) -> dict:
             "additionalProperties": False,
             "properties": {
                 **_target_properties(attachment),
-                "freshness": {"type": "string", "enum": ["latest"]},
+                "freshness": {"type": "string", "enum": ["latest", "cached"]},
+                "evidence_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": SCREEN_EVIDENCE_ID_MAX_LENGTH,
+                },
                 "max_bytes": {"type": "integer", "minimum": 1, "maximum": 98304},
             },
         },

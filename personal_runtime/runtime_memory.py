@@ -209,13 +209,36 @@ def _collect_recent_action_results(state) -> list[dict]:
     results = []
     for action_result in state.action_results[-RECENT_MEMORY_LIMIT:]:
         details = action_result.get("details", {})
-        results.append(
-            {
-                "status": action_result.get("status", ""),
-                "capability": action_result.get("capability", ""),
-                "body": details.get("body") if isinstance(details, dict) else None,
-            }
-        )
+        projected = {
+            "status": action_result.get("status", ""),
+            "capability": action_result.get("capability", ""),
+            "body": details.get("body") if isinstance(details, dict) else None,
+        }
+        payload = action_result.get("payload")
+        if isinstance(payload, dict):
+            evidence_id = payload.get("evidence_id")
+            if isinstance(evidence_id, str) and 0 < len(evidence_id) <= 256:
+                projected["evidence_id"] = evidence_id
+            observed_at = payload.get("observed_at")
+            if isinstance(observed_at, str) and observed_at:
+                projected["observed_at"] = observed_at
+            digest = payload.get("sha256")
+            if isinstance(digest, str) and len(digest) == 64:
+                projected["sha256"] = digest
+            mime_type = payload.get("mime_type")
+            if isinstance(mime_type, str) and mime_type == "image/jpeg":
+                projected["mime_type"] = mime_type
+            size_bytes = payload.get("size_bytes")
+            if isinstance(size_bytes, int) and not isinstance(size_bytes, bool) and size_bytes > 0:
+                projected["size_bytes"] = size_bytes
+            understanding = payload.get("visual_understanding")
+            if isinstance(understanding, dict):
+                projected["visual_understanding"] = {
+                    key: understanding[key]
+                    for key in ("state", "summary", "labels", "confidence")
+                    if key in understanding
+                }
+        results.append(projected)
     return results
 
 

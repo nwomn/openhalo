@@ -351,7 +351,45 @@ class EspKvmHttpAdapterTests(unittest.TestCase):
         self.assertEqual(frame.height, 720)
         self.assertEqual(frame.captured_at, "2026-08-24T10:00:02Z")
         self.assertEqual(store.get(frame.evidence_ref), jpeg)
-        self.assertTrue(frame.evidence_ref.startswith("proxy-evidence://esp-kvm-1/screen/"))
+        self.assertTrue(frame.evidence_ref.startswith("esp-kvm-1/boot-"))
+        self.assertIn("/frame-1", frame.evidence_ref)
+        metadata = store.get_metadata(frame.evidence_ref)
+        self.assertIsNotNone(metadata)
+        self.assertEqual(metadata.size_bytes, len(jpeg))
+        self.assertFalse(hasattr(metadata, "body"))
+
+    def test_frame_store_evicts_by_capacity_and_ttl(self) -> None:
+        now = [0.0]
+        store = BoundedFrameStore(
+            max_frames=2,
+            max_age_seconds=300,
+            max_total_bytes=6,
+            max_frame_bytes=4,
+            boot_id="7f31",
+            clock=lambda: now[0],
+        )
+
+        first, _ = store.put("proxy-edge-1", b"one", captured_at="t1")
+        second, _ = store.put("proxy-edge-1", b"two", captured_at="t2")
+        third, _ = store.put("proxy-edge-1", b"tri", captured_at="t3")
+
+        self.assertIsNone(store.get(first))
+        self.assertEqual(store.get(second), b"two")
+        self.assertEqual(store.get(third), b"tri")
+        now[0] = 301.0
+        self.assertIsNone(store.get(second))
+        self.assertIsNone(store.get(third))
+
+    def test_frame_store_reboot_scopes_ids_to_the_new_boot(self) -> None:
+        previous = BoundedFrameStore(boot_id="boot-a")
+        evidence_id, _ = previous.put("proxy-edge-1", b"old", captured_at="t1")
+
+        restarted = BoundedFrameStore(boot_id="boot-b")
+
+        self.assertIsNone(restarted.get(evidence_id))
+        new_id, _ = restarted.put("proxy-edge-1", b"new", captured_at="t2")
+        self.assertIn("/boot-boot-b/", new_id)
+        self.assertNotEqual(new_id, evidence_id)
 
     def test_pointer_coordinates_are_mapped_to_adapter_hid_range(self) -> None:
         opener = FakeHttpOpener([self.json_response({"ok": True})])

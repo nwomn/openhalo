@@ -260,6 +260,37 @@ class RuntimeMemoryTests(unittest.TestCase):
             ["message 2", "message 3", "message 4"],
         )
 
+    def test_recent_action_memory_keeps_screen_evidence_index_without_jpeg(self) -> None:
+        state = RuntimeState()
+        state.record_action_result(
+            {
+                "status": "ok",
+                "capability": "proxy.screen.read",
+                "payload": {
+                    "evidence_id": "proxy-edge-1/boot-7f31/frame-105",
+                    "observed_at": "2026-08-30T09:22:29Z",
+                    "mime_type": "image/jpeg",
+                    "size_bytes": 80000,
+                    "sha256": "a" * 64,
+                    "jpeg_bytes": "must-never-enter-memory",
+                    "visual_understanding": {
+                        "state": "ready",
+                        "summary": "A video window is visible.",
+                        "labels": ["video"],
+                        "confidence": 0.9,
+                    },
+                },
+            }
+        )
+
+        grounding = build_model_grounding_bundle(state=state, snapshot={})
+        result = grounding["recent_memory"]["action_results"][0]
+
+        self.assertEqual(result["evidence_id"], "proxy-edge-1/boot-7f31/frame-105")
+        self.assertEqual(result["sha256"], "a" * 64)
+        self.assertEqual(result["visual_understanding"]["summary"], "A video window is visible.")
+        self.assertNotIn("jpeg_bytes", result)
+
     def test_related_process_grounding_has_an_independent_size_boundary(self) -> None:
         state = RuntimeState()
         grounding = build_model_grounding_bundle(
