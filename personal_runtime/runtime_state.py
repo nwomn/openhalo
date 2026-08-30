@@ -154,6 +154,19 @@ class RuntimeState:
         self._queue_state_value("capability_registry", self.capability_registry)
         self._queue_state_value("observation_registry", self.observation_registry)
 
+    def replace_capabilities(
+        self,
+        device_id: str,
+        capabilities: list[str | dict],
+    ) -> None:
+        """Apply an Edge capability announcement as a complete current snapshot."""
+
+        self.capability_registry[device_id] = {}
+        self.observation_registry[device_id] = {}
+        self.devices[device_id]["capabilities"] = set()
+        for capability in capabilities:
+            self.register_capability(device_id, capability)
+
     def record_proxy_screen_profile(self, device_id: str, profile: dict) -> None:
         """Persist configuration metadata only; never raw screen evidence."""
 

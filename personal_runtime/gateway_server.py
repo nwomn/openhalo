@@ -1178,8 +1178,10 @@ class RuntimeGateway:
                         )
                     )
                     continue
-                for capability in frame["capabilities"]:
-                    self.state.register_capability(frame["device_id"], capability)
+                self.state.replace_capabilities(
+                    frame["device_id"],
+                    frame["capabilities"],
+                )
                 self._persist_state()
             elif frame["type"] == "event_push":
                 self._record_trace(

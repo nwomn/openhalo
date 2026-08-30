@@ -720,6 +720,33 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
             "string",
         )
 
+        await gateway.handle_test_frames(
+            [
+                {
+                    "api_version": API_VERSION,
+                    "type": "capability_announce",
+                    "device_id": "phone-edge-1",
+                    "capabilities": [
+                        {
+                            "name": "notification.show",
+                            "direction": "runtime_to_edge",
+                            "kind": "action",
+                        }
+                    ],
+                }
+            ]
+        )
+
+        self.assertEqual(
+            gateway.state.devices["phone-edge-1"]["capabilities"],
+            {"notification.show"},
+        )
+        self.assertNotIn(
+            "mobile.context",
+            gateway.state.capability_registry["phone-edge-1"],
+        )
+        self.assertEqual(gateway.state.observation_registry["phone-edge-1"], {})
+
     async def test_registered_observation_materializes_a_context_fact(self) -> None:
         gateway = RuntimeGateway(persist_state=False, llm_config_path=TEST_LLM_CONFIG)
         await gateway.handle_test_frames(
