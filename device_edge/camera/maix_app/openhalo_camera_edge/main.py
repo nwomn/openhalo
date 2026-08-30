@@ -43,6 +43,8 @@ def build_daemon(config: dict) -> CameraHealthDaemon:
     feature = MaixPersonPresenceFeature(
         model_path=config.get("presence_model", "/root/models/yolo11n.mud"),
         confidence_threshold=float(config.get("presence_confidence", 0.55)),
+        object_labels=config.get("object_labels", ()),
+        regions=config.get("regions", {}),
     )
     return CameraHealthDaemon(
         client=client,

@@ -369,8 +369,8 @@ The model output remains a Runtime candidate/understanding. It cannot bypass pri
 
 The next implementation sequence should be:
 
-1. Register the MaixCAM capability manifest and probe visual/audio availability,
-   camera quality, microphone, network, and storage states.
+1. Register concrete MaixCAM capability contracts and probe visual/audio
+   availability, camera quality, microphone, network, and storage states.
 2. Implement freshness-aware typed visual Features: person count/transitions,
    region occupancy, allowlisted object presence, OCR, face/gesture/pose, and
    the bounded `camera.visual_foreground.v1` selector.
@@ -401,6 +401,24 @@ label, or enables face/OCR/gesture inference. `unavailable` is an explicit
 state rather than a false `absent` result. This is a device-authorized Feature
 implementation, not yet Runtime Feature/Evidence governance
 or full M17.10 acceptance.
+
+On 2026-08-30 the owner-authorized implementation was widened without
+changing that boundary. `MaixPersonPresenceFeature` now wraps one shared local
+visual pass and keeps `camera.person_presence.v1` wire-compatible. The same
+sample can additionally publish `camera.object_presence.v1` for an explicit
+detector-label allowlist, `camera.region_occupancy.v1` for normalized
+person-occupancy regions, `camera.scene_quality.v1` for capture availability
+and detector dimensions, and debounced
+`camera.person_presence_transition.v1` / `camera.region_occupancy_transition.v1`
+for person and region entered/left/count/availability changes. These are
+separate registered observation-provider capabilities, not
+a capability manifest and not a new Runtime reducer. Frames, image
+references, bounding boxes, OCR/face/gesture/pose results, and other
+unconfigured labels remain local. The scene-quality name is deliberately
+coarse until a Maix image-quality API is verified. Host-side regression tests
+cover the shared single-pass behavior, unavailable-vs-absent distinction,
+registration, semantic frame shape, and transition mapping; physical
+MaixCAM validation of the widened set remains outstanding.
 
 The first physical Feature run on 2026-08-23 authenticated to the owner
 Runtime, registered `camera.person_presence`, and persisted a schema-valid

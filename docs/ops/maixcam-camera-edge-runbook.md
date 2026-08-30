@@ -131,20 +131,39 @@ For a supervised, repeated health session, omit `--once` only after the one
 snapshot has been verified and a deliberate process-supervision decision is
 recorded. The current slice does not install a boot service.
 
-## 7. Opt in to local-only person presence
+## 7. Opt in to the shared local visual Feature pass
 
-The first ambient Feature is `person_presence.v1`. It opens the MaixCAM sensor
-and YOLO11 pipeline in the same process, classifies only the built-in `person`
-label, requires repeated matching samples before changing state, and publishes
-only this structured value:
+The local visual pass opens the MaixCAM sensor and YOLO11 pipeline once. It
+derives person presence, configured object counts, configured person-region
+occupancy, and a bounded camera availability/frame-dimension check from the
+same sample. The existing `person_presence.v1` contract remains unchanged and
+still requires repeated matching samples before changing state. The additional
+Observations are:
 
 ```json
 {"state":"present|absent|unavailable","count":1,"feature_version":"person_presence.v1"}
 ```
 
-No camera frame, image reference, bounding box, object geometry, face data, or
-other detected labels leaves the device. `unavailable` is distinct from
-`absent`, so a sensor/model failure cannot be interpreted as an empty room.
+```json
+{"state":"ready","objects":{"chair":1,"cup":0},"feature_version":"object_presence.v1"}
+{"state":"ready","regions":{"desk":{"occupied":true,"count":1}},"feature_version":"region_occupancy.v1"}
+{"state":"ready","camera_state":"ready","width":320,"height":240,"feature_version":"scene_quality.v1"}
+```
+
+`camera.person_presence_transition.v1` is emitted only after a confirmed
+person state/count change and distinguishes `entered`, `left`,
+`count_changed`, and `availability_changed`. The corresponding
+`camera.region_occupancy_transition.v1` reports the same enter/leave/count/
+availability changes for each configured region. Object labels are an
+explicit allowlist and regions are normalized rectangles; neither camera
+frames nor image references, bounding boxes, object geometry, face data, OCR
+text, or other unconfigured labels leave the device. `unavailable` is distinct
+from `absent`, so a sensor/model failure cannot be interpreted as an empty
+room.
+
+The current `scene_quality.v1` name covers capture availability and detector
+dimensions only. It does not claim blur, exposure, or perceptual sharpness;
+those metrics require a separately verified Maix image-quality API.
 
 Stop MaixVision's preview first: this process becomes the sole owner of the
 camera/NPU pipeline. Deploy all three required files and make a supervised
@@ -153,6 +172,22 @@ one-shot verification with one confirmation sample:
 ```powershell
 scp -i $cameraKey device_edge/camera/openssl_session.py device_edge/camera/person_presence.py device_edge/camera/health_daemon.py "${cameraHost}:/root/openhalo_camera_edge/"
 ssh -i $cameraKey $cameraHost "python3 /root/openhalo_camera_edge/health_daemon.py --url $runtimeUrl --once --person-presence --presence-confirm-samples 1"
+```
+
+For the manually launched Maix App, set the explicit allowlist and normalized
+regions in `/root/.openhalo-camera-edge/app-config.json`:
+
+```json
+{
+  "object_labels": ["chair", "cup"],
+  "regions": {"desk": [0.15, 0.20, 0.85, 0.95]}
+}
+```
+
+For the copied CLI daemon, the equivalent flags are repeatable:
+
+```powershell
+ssh -i $cameraKey $cameraHost "python3 /root/openhalo_camera_edge/health_daemon.py --url $runtimeUrl --visual-features --object-label chair --object-label cup --region desk:0.15,0.20,0.85,0.95"
 ```
 
 For a manually supervised continuous session, retain the safer two-sample
@@ -181,7 +216,8 @@ display must be integrated into this same process and lifecycle.
 ## What this does not verify
 
 This runbook proves device access and the public Edge session boundary, plus a
-bounded local `person_presence.v1` Feature when section 7 has been accepted on
-the owner Runtime. It does not prove a boot-supervised service, local display
-state, Scene Profile/Feature Subscription governance, bounded evidence, face
-identity, OCR, or any raw-media policy. Those remain explicit M17.10 work.
+bounded local visual Feature pass when section 7 has been accepted on the owner
+Runtime. It does not prove a boot-supervised service, local display state,
+Scene Profile/Feature Subscription governance, bounded evidence, face identity,
+OCR, gesture/pose inference, audio addressing, or any raw-media policy. Those
+remain explicit M17.10 work.

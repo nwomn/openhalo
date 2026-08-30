@@ -2,6 +2,10 @@
   "runtime_url": "ws://runtime.example.test:8765",
   "device_id": "camera-edge-1",
   "display_name": "Desk Camera",
+  "object_labels": ["chair", "cup"],
+  "regions": {
+    "desk": [0.15, 0.20, 0.85, 0.95]
+  },
   "presence_confirm_samples": 2,
   "presence_interval_seconds": 1.0,
   "presence_freshness_seconds": 30.0

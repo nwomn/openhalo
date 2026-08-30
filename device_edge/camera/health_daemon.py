@@ -1,7 +1,10 @@
-"""Persistent Camera Edge session with opt-in local person-presence sensing.
+"""Persistent Camera Edge session with local visual Feature sensing.
 
-Health reporting is always available.  Person presence is an explicit opt-in
-Feature that processes frames locally and sends only debounced semantic state.
+Health reporting is always available.  The visual Feature is an explicit
+opt-in pipeline that processes frames locally and sends only bounded semantic
+Observations.  Person presence remains a separate backward-compatible
+capability while the object, region, scene-quality, and transition surfaces
+are registered alongside it when the shared pipeline is active.
 """
 
 from __future__ import annotations
@@ -34,6 +37,16 @@ except ImportError:  # pragma: no cover - exercised on the copied MaixCAM files.
 CAPABILITY_NAME = "camera.health"
 PERSON_PRESENCE_CAPABILITY_NAME = "camera.person_presence"
 PERSON_PRESENCE_OBSERVATION_NAME = "camera.person_presence.v1"
+OBJECT_PRESENCE_CAPABILITY_NAME = "camera.object_presence"
+OBJECT_PRESENCE_OBSERVATION_NAME = "camera.object_presence.v1"
+REGION_OCCUPANCY_CAPABILITY_NAME = "camera.region_occupancy"
+REGION_OCCUPANCY_OBSERVATION_NAME = "camera.region_occupancy.v1"
+REGION_TRANSITION_CAPABILITY_NAME = "camera.region_occupancy_transition"
+REGION_TRANSITION_OBSERVATION_NAME = "camera.region_occupancy_transition.v1"
+SCENE_QUALITY_CAPABILITY_NAME = "camera.scene_quality"
+SCENE_QUALITY_OBSERVATION_NAME = "camera.scene_quality.v1"
+PRESENCE_TRANSITION_CAPABILITY_NAME = "camera.person_presence_transition"
+PRESENCE_TRANSITION_OBSERVATION_NAME = "camera.person_presence_transition.v1"
 DEFAULT_CAPABILITIES = [
     {
         "name": CAPABILITY_NAME,
@@ -108,6 +121,189 @@ PERSON_PRESENCE_CAPABILITY = {
         }
     ],
 }
+
+OBJECT_PRESENCE_CAPABILITY = {
+    "name": OBJECT_PRESENCE_CAPABILITY_NAME,
+    "direction": "edge_to_runtime",
+    "kind": "observation_provider",
+    "observations": [
+        {
+            "name": OBJECT_PRESENCE_OBSERVATION_NAME,
+            "schema": {
+                "type": "object",
+                "required": ["state", "objects", "feature_version"],
+                "properties": {
+                    "state": {"type": "string", "enum": ["ready", "unavailable"]},
+                    "objects": {"type": "object"},
+                    "feature_version": {
+                        "type": "string",
+                        "enum": ["object_presence.v1"],
+                    },
+                },
+            },
+            "semantics": ["ambient_scene", "object_presence"],
+            "privacy": "ambient_scene",
+            "freshness_seconds": 30,
+            "confidence": {"type": "model_score"},
+        }
+    ],
+}
+
+REGION_OCCUPANCY_CAPABILITY = {
+    "name": REGION_OCCUPANCY_CAPABILITY_NAME,
+    "direction": "edge_to_runtime",
+    "kind": "observation_provider",
+    "observations": [
+        {
+            "name": REGION_OCCUPANCY_OBSERVATION_NAME,
+            "schema": {
+                "type": "object",
+                "required": ["state", "regions", "feature_version"],
+                "properties": {
+                    "state": {"type": "string", "enum": ["ready", "unavailable"]},
+                    "regions": {"type": "object"},
+                    "feature_version": {
+                        "type": "string",
+                        "enum": ["region_occupancy.v1"],
+                    },
+                },
+            },
+            "semantics": ["ambient_presence", "region_occupancy"],
+            "privacy": "ambient_presence",
+            "freshness_seconds": 30,
+            "confidence": {"type": "model_score"},
+        }
+    ],
+}
+
+REGION_TRANSITION_CAPABILITY = {
+    "name": REGION_TRANSITION_CAPABILITY_NAME,
+    "direction": "edge_to_runtime",
+    "kind": "observation_provider",
+    "observations": [
+        {
+            "name": REGION_TRANSITION_OBSERVATION_NAME,
+            "schema": {
+                "type": "object",
+                "required": [
+                    "region",
+                    "from_occupied",
+                    "to_occupied",
+                    "from_count",
+                    "to_count",
+                    "transition",
+                    "feature_version",
+                ],
+                "properties": {
+                    "region": {"type": "string"},
+                    "from_occupied": {"type": "boolean", "nullable": True},
+                    "to_occupied": {"type": "boolean", "nullable": True},
+                    "from_count": {"type": "integer", "nullable": True, "minimum": 0},
+                    "to_count": {"type": "integer", "nullable": True, "minimum": 0},
+                    "transition": {
+                        "type": "string",
+                        "enum": ["entered", "left", "count_changed", "availability_changed"],
+                    },
+                    "feature_version": {
+                        "type": "string",
+                        "enum": ["region_occupancy_transition.v1"],
+                    },
+                },
+            },
+            "semantics": ["ambient_presence", "region_transition"],
+            "privacy": "ambient_presence",
+            "freshness_seconds": 30,
+            "confidence": {"type": "model_score"},
+        }
+    ],
+}
+
+SCENE_QUALITY_CAPABILITY = {
+    "name": SCENE_QUALITY_CAPABILITY_NAME,
+    "direction": "edge_to_runtime",
+    "kind": "observation_provider",
+    "observations": [
+        {
+            "name": SCENE_QUALITY_OBSERVATION_NAME,
+            "schema": {
+                "type": "object",
+                "required": ["state", "camera_state", "width", "height", "feature_version"],
+                "properties": {
+                    "state": {"type": "string", "enum": ["ready", "unavailable"]},
+                    "camera_state": {
+                        "type": "string",
+                        "enum": ["ready", "unavailable"],
+                    },
+                    "width": {"type": "integer", "nullable": True, "minimum": 0},
+                    "height": {"type": "integer", "nullable": True, "minimum": 0},
+                    "feature_version": {
+                        "type": "string",
+                        "enum": ["scene_quality.v1"],
+                    },
+                },
+            },
+            "semantics": ["camera_availability", "capture_quality"],
+            "privacy": "device_health",
+            "freshness_seconds": 30,
+            "confidence": {"type": "edge_reported"},
+        }
+    ],
+}
+
+PRESENCE_TRANSITION_CAPABILITY = {
+    "name": PRESENCE_TRANSITION_CAPABILITY_NAME,
+    "direction": "edge_to_runtime",
+    "kind": "observation_provider",
+    "observations": [
+        {
+            "name": PRESENCE_TRANSITION_OBSERVATION_NAME,
+            "schema": {
+                "type": "object",
+                "required": [
+                    "from_state",
+                    "to_state",
+                    "from_count",
+                    "to_count",
+                    "transition",
+                    "feature_version",
+                ],
+                "properties": {
+                    "from_state": {
+                        "type": "string",
+                        "nullable": True,
+                        "enum": ["present", "absent", "unavailable"],
+                    },
+                    "to_state": {
+                        "type": "string",
+                        "enum": ["present", "absent", "unavailable"],
+                    },
+                    "from_count": {"type": "integer", "nullable": True, "minimum": 0},
+                    "to_count": {"type": "integer", "nullable": True, "minimum": 0},
+                    "transition": {
+                        "type": "string",
+                        "enum": ["entered", "left", "count_changed", "availability_changed"],
+                    },
+                    "feature_version": {
+                        "type": "string",
+                        "enum": ["person_presence_transition.v1"],
+                    },
+                },
+            },
+            "semantics": ["ambient_presence", "presence_transition"],
+            "privacy": "ambient_presence",
+            "freshness_seconds": 30,
+            "confidence": {"type": "model_score"},
+        }
+    ],
+}
+
+VISUAL_CAPABILITIES = [
+    OBJECT_PRESENCE_CAPABILITY,
+    REGION_OCCUPANCY_CAPABILITY,
+    REGION_TRANSITION_CAPABILITY,
+    SCENE_QUALITY_CAPABILITY,
+    PRESENCE_TRANSITION_CAPABILITY,
+]
 
 
 def _utc_timestamp() -> str:
@@ -262,6 +458,188 @@ def build_person_presence_frame(
     }
 
 
+def _build_visual_frame(
+    device_id: str,
+    *,
+    capability: str,
+    observation_name: str,
+    value: dict,
+    observed_at: str,
+    confidence: float,
+    event_prefix: str,
+) -> dict:
+    observation = {
+        "name": observation_name,
+        "value": value,
+        "observed_at": observed_at,
+        "confidence": confidence,
+    }
+    return {
+        "api_version": API_VERSION,
+        "type": "observation_push",
+        "device_id": device_id,
+        "capability": capability,
+        "event_id": f"{event_prefix}-{secrets.token_urlsafe(12)}",
+        "observations": [observation],
+        "payload": {"observations": [observation]},
+    }
+
+
+def build_object_presence_frame(
+    device_id: str,
+    sample,
+    *,
+    observed_at: str,
+) -> dict:
+    """Build an allowlisted object-count Observation without geometry."""
+
+    return _build_visual_frame(
+        device_id,
+        capability=OBJECT_PRESENCE_CAPABILITY_NAME,
+        observation_name=OBJECT_PRESENCE_OBSERVATION_NAME,
+        value={
+            "state": sample.state,
+            "objects": dict(sample.object_counts),
+            "feature_version": "object_presence.v1",
+        },
+        observed_at=observed_at,
+        confidence=sample.person_confidence if sample.state == "ready" else 0.0,
+        event_prefix="camera-object-presence",
+    )
+
+
+def build_region_occupancy_frame(
+    device_id: str,
+    sample,
+    *,
+    observed_at: str,
+) -> dict:
+    """Build configured region occupancy as person counts and booleans."""
+
+    regions = {
+        name: {
+            "occupied": occupancy.occupied,
+            "count": occupancy.count,
+        }
+        for name, occupancy in sample.regions.items()
+    }
+    return _build_visual_frame(
+        device_id,
+        capability=REGION_OCCUPANCY_CAPABILITY_NAME,
+        observation_name=REGION_OCCUPANCY_OBSERVATION_NAME,
+        value={
+            "state": sample.state,
+            "regions": regions,
+            "feature_version": "region_occupancy.v1",
+        },
+        observed_at=observed_at,
+        confidence=sample.person_confidence if sample.state == "ready" else 0.0,
+        event_prefix="camera-region-occupancy",
+    )
+
+
+def _region_transition_kind(previous, current) -> str:
+    if previous.occupied is False and current.occupied is True:
+        return "entered"
+    if previous.occupied is True and current.occupied is False:
+        return "left"
+    if previous.occupied != current.occupied:
+        return "availability_changed"
+    return "count_changed"
+
+
+def build_region_transition_frame(
+    device_id: str,
+    region_name: str,
+    previous,
+    current,
+    *,
+    observed_at: str,
+    confidence: float,
+) -> dict:
+    """Build one confirmed enter/leave/count change for a configured region."""
+
+    return _build_visual_frame(
+        device_id,
+        capability=REGION_TRANSITION_CAPABILITY_NAME,
+        observation_name=REGION_TRANSITION_OBSERVATION_NAME,
+        value={
+            "region": region_name,
+            "from_occupied": previous.occupied,
+            "to_occupied": current.occupied,
+            "from_count": previous.count,
+            "to_count": current.count,
+            "transition": _region_transition_kind(previous, current),
+            "feature_version": "region_occupancy_transition.v1",
+        },
+        observed_at=observed_at,
+        confidence=confidence,
+        event_prefix="camera-region-occupancy-transition",
+    )
+
+
+def build_scene_quality_frame(
+    device_id: str,
+    sample,
+    *,
+    observed_at: str,
+) -> dict:
+    """Build the bounded camera-availability/frame-dimensions Observation."""
+
+    return _build_visual_frame(
+        device_id,
+        capability=SCENE_QUALITY_CAPABILITY_NAME,
+        observation_name=SCENE_QUALITY_OBSERVATION_NAME,
+        value={
+            "state": sample.state,
+            "camera_state": sample.state,
+            "width": sample.width,
+            "height": sample.height,
+            "feature_version": "scene_quality.v1",
+        },
+        observed_at=observed_at,
+        confidence=1.0 if sample.state == "ready" else 0.0,
+        event_prefix="camera-scene-quality",
+    )
+
+
+def _presence_transition_kind(previous, current) -> str:
+    if previous.state == "absent" and current.state == "present":
+        return "entered"
+    if previous.state == "present" and current.state == "absent":
+        return "left"
+    if previous.state != current.state:
+        return "availability_changed"
+    return "count_changed"
+
+
+def build_presence_transition_frame(
+    device_id: str,
+    previous,
+    current,
+    *,
+    observed_at: str,
+) -> dict:
+    """Build a state/count transition after temporal confirmation."""
+
+    return _build_visual_frame(
+        device_id,
+        capability=PRESENCE_TRANSITION_CAPABILITY_NAME,
+        observation_name=PRESENCE_TRANSITION_OBSERVATION_NAME,
+        value={
+            "from_state": previous.state,
+            "to_state": current.state,
+            "from_count": previous.count,
+            "to_count": current.count,
+            "transition": _presence_transition_kind(previous, current),
+            "feature_version": "person_presence_transition.v1",
+        },
+        observed_at=observed_at,
+        confidence=current.confidence,
+        event_prefix="camera-person-presence-transition",
+    )
+
+
 class CameraHealthDaemon:
     def __init__(
         self,
@@ -290,10 +668,20 @@ class CameraHealthDaemon:
         if capture_probe_enabled:
             self.capture_state = probe_camera_capture()
         self.person_presence_feature = person_presence_feature
+        self.visual_features_enabled = bool(
+            person_presence_feature is not None
+            and (
+                getattr(person_presence_feature, "supports_visual_features", False)
+                or hasattr(person_presence_feature, "last_visual_sample")
+            )
+        )
         self.presence_interval_seconds = presence_interval_seconds
         self.presence_freshness_seconds = presence_freshness_seconds
         self._presence_debouncer = None
         self._last_presence_published_at = 0.0
+        self._last_visual_published_at = 0.0
+        self._last_presence_decision = None
+        self._last_visual_sample = None
         if person_presence_feature is not None:
             try:
                 from .person_presence import PresenceDebouncer
@@ -305,30 +693,119 @@ class CameraHealthDaemon:
     def capabilities(self) -> list[dict]:
         if self.person_presence_feature is None:
             return DEFAULT_CAPABILITIES
-        return [*DEFAULT_CAPABILITIES, PERSON_PRESENCE_CAPABILITY]
+        capabilities = [*DEFAULT_CAPABILITIES, PERSON_PRESENCE_CAPABILITY]
+        if self.visual_features_enabled:
+            capabilities.extend(VISUAL_CAPABILITIES)
+        return capabilities
 
     def _next_presence_frame(self, *, force: bool = False) -> dict | None:
+        """Compatibility helper returning only the person frame, if any."""
+
+        for frame in self._next_visual_frames(force=force):
+            if frame["capability"] == PERSON_PRESENCE_CAPABILITY_NAME:
+                return frame
+        return None
+
+    def _next_visual_frames(self, *, force: bool = False) -> list[dict]:
         if self.person_presence_feature is None or self._presence_debouncer is None:
-            return None
-        decision = self._presence_debouncer.observe(self.person_presence_feature.sample())
+            return []
+        sample = self.person_presence_feature.sample()
+        decision = self._presence_debouncer.observe(sample)
         now_monotonic = time.monotonic()
         confirmed = self._presence_debouncer.confirmed
-        if decision is None and not (
-            force
-            or (
-                confirmed is not None
-                and now_monotonic - self._last_presence_published_at >= self.presence_freshness_seconds
-            )
-        ):
-            return None
-        if confirmed is None:
-            return None
-        self._last_presence_published_at = now_monotonic
-        return build_person_presence_frame(
-            self.client.device_id,
-            confirmed,
-            observed_at=_utc_timestamp(),
+        observed_at = _utc_timestamp()
+        frames: list[dict] = []
+
+        presence_due = confirmed is not None and (
+            decision is not None
+            or force
+            or now_monotonic - self._last_presence_published_at
+            >= self.presence_freshness_seconds
         )
+        if presence_due:
+            frames.append(
+                build_person_presence_frame(
+                    self.client.device_id,
+                    confirmed,
+                    observed_at=observed_at,
+                )
+            )
+            previous = self._last_presence_decision
+            if (
+                decision is not None
+                and previous is not None
+                and (previous.state, previous.count)
+                != (confirmed.state, confirmed.count)
+            ):
+                frames.append(
+                    build_presence_transition_frame(
+                        self.client.device_id,
+                        previous,
+                        confirmed,
+                        observed_at=observed_at,
+                    )
+                )
+            self._last_presence_decision = confirmed
+            self._last_presence_published_at = now_monotonic
+
+        visual = getattr(self.person_presence_feature, "last_visual_sample", None)
+        visual_changed = visual is not None and visual != self._last_visual_sample
+        visual_due = self.visual_features_enabled and visual is not None and (
+            force
+            or visual_changed
+            or self._last_visual_published_at == 0.0
+            or now_monotonic - self._last_visual_published_at
+            >= self.presence_freshness_seconds
+        )
+        if visual_due:
+            frames.append(
+                build_object_presence_frame(
+                    self.client.device_id,
+                    visual,
+                    observed_at=observed_at,
+                )
+            )
+            frames.append(
+                build_region_occupancy_frame(
+                    self.client.device_id,
+                    visual,
+                    observed_at=observed_at,
+                )
+            )
+            previous_visual = self._last_visual_sample
+            if previous_visual is not None:
+                for region_name in sorted(
+                    set(previous_visual.regions) | set(visual.regions)
+                ):
+                    previous_region = previous_visual.regions.get(region_name)
+                    current_region = visual.regions.get(region_name)
+                    if previous_region is None or current_region is None:
+                        continue
+                    if previous_region != current_region:
+                        frames.append(
+                            build_region_transition_frame(
+                                self.client.device_id,
+                                region_name,
+                                previous_region,
+                                current_region,
+                                observed_at=observed_at,
+                                confidence=(
+                                    visual.person_confidence
+                                    if visual.state == "ready"
+                                    else 0.0
+                                ),
+                            )
+                        )
+            frames.append(
+                build_scene_quality_frame(
+                    self.client.device_id,
+                    visual,
+                    observed_at=observed_at,
+                )
+            )
+            self._last_visual_published_at = now_monotonic
+            self._last_visual_sample = visual
+        return frames
 
     def _record_status(self, connection_state: str, last_error: str | None = None) -> CameraHealthStatus:
         status = collect_health(
@@ -361,9 +838,8 @@ class CameraHealthDaemon:
                         await websocket.send(json.dumps(build_health_frame(self.client.device_id, status)))
                         next_health_at = now_monotonic + self.interval_seconds
                     if self.person_presence_feature is not None and now_monotonic >= next_presence_at:
-                        presence_frame = self._next_presence_frame(force=once)
-                        if presence_frame is not None:
-                            await websocket.send(json.dumps(presence_frame))
+                        for visual_frame in self._next_visual_frames(force=once):
+                            await websocket.send(json.dumps(visual_frame))
                         next_presence_at = now_monotonic + self.presence_interval_seconds
                     if once:
                         return
@@ -400,7 +876,7 @@ class CameraHealthDaemon:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run the health-only MaixCAM Camera Edge service."
+        description="Run the MaixCAM Camera Edge health and local-visual service."
     )
     parser.add_argument("--url", required=True)
     parser.add_argument("--device-id", default="camera-edge-1")
@@ -416,16 +892,53 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--person-presence",
+        "--visual-features",
+        dest="person_presence",
         action="store_true",
-        help="Enable local-only YOLO11 person presence; no frames or geometry leave the device.",
+        help="Enable local-only YOLO11 visual Features; no frames or geometry leave the device.",
     )
     parser.add_argument("--presence-model", default="/root/models/yolo11n.mud")
     parser.add_argument("--presence-confidence", type=float, default=0.55)
+    parser.add_argument(
+        "--object-label",
+        dest="object_labels",
+        action="append",
+        default=[],
+        help="Allowlist one detector label for camera.object_presence (repeatable).",
+    )
+    parser.add_argument(
+        "--region",
+        action="append",
+        default=[],
+        type=_parse_region_argument,
+        metavar="NAME:X1,Y1,X2,Y2",
+        help="Configure a normalized person-occupancy region (repeatable).",
+    )
     parser.add_argument("--presence-confirm-samples", type=int, default=2)
     parser.add_argument("--presence-interval-seconds", type=float, default=1.0)
     parser.add_argument("--presence-freshness-seconds", type=float, default=30.0)
     parser.add_argument("--once", action="store_true", help="Authenticate and publish one health snapshot.")
     return parser
+
+
+def _parse_region_argument(value: str) -> tuple[str, tuple[float, float, float, float]]:
+    try:
+        name, raw_bounds = value.split(":", 1)
+        bounds = tuple(float(item.strip()) for item in raw_bounds.split(","))
+    except (ValueError, TypeError) as error:
+        raise argparse.ArgumentTypeError(
+            "region must use NAME:X1,Y1,X2,Y2"
+        ) from error
+    if len(bounds) != 4:
+        raise argparse.ArgumentTypeError(
+            "region must use NAME:X1,Y1,X2,Y2"
+        )
+    x1, y1, x2, y2 = bounds
+    if not name.strip() or not (0.0 <= x1 < x2 <= 1.0 and 0.0 <= y1 < y2 <= 1.0):
+        raise argparse.ArgumentTypeError(
+            "region bounds must be an ordered rectangle in [0, 1]"
+        )
+    return name.strip(), bounds
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -438,7 +951,8 @@ def main(argv: list[str] | None = None) -> int:
         device_type="camera-edge",
     )
     person_presence_feature = None
-    if args.person_presence:
+    parsed_regions = dict(args.region)
+    if args.person_presence or args.object_labels or parsed_regions:
         try:
             from .person_presence import MaixPersonPresenceFeature
         except ImportError:  # pragma: no cover - copied MaixCAM files.
@@ -446,6 +960,8 @@ def main(argv: list[str] | None = None) -> int:
         person_presence_feature = MaixPersonPresenceFeature(
             model_path=args.presence_model,
             confidence_threshold=args.presence_confidence,
+            object_labels=args.object_labels,
+            regions=parsed_regions,
         )
     daemon = CameraHealthDaemon(
         client=client,
