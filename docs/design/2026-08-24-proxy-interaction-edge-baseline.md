@@ -100,6 +100,17 @@ component has one FreeRTOS task and the fixed state sequence
 
 ## Screen Profile, Features, and Evidence
 
+### Architecture status
+
+The current hard Profile activation protocol below is a bounded host/runtime
+experiment, not the durable Edge ingestion architecture.  The accepted
+architecture baseline is [Edge Attention Profile Baseline](2026-08-30-edge-attention-profile-baseline.md): safe bounded base Observations remain
+admissible without a Profile, while a future Attention Profile is a validated
+overlay for additional registered Features, cadence, or local evidence policy.
+Runtime Profile delivery and lease management are deferred and must not be
+implemented as a prerequisite for the visual plus audio/microphone Edge closed
+loop.
+
 The Proxy Interaction Edge adopts the Camera Edge governance model, adapted to
 a human-operated display. It is not a remote-video stream and it is not a
 blind HID injector.

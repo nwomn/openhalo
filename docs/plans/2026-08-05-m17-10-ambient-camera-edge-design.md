@@ -117,7 +117,7 @@ explicitly `not_checked`), atomically wrote the local status payload, and sent
 one Observation batch. The owner Runtime persisted the registered capability
 and all four values: connection `connected`, capture `not_checked`, storage
 `ready`, and a bounded numeric free-space report. This is not a persistent
-process, local display implementation, camera capture, Feature subscription,
+process, local display implementation, camera capture, Attention Profile delivery,
 Evidence, or raw-media test.
 
 2026-08-23 explicit capture-probe verification passed: using the vendor Maix
@@ -159,7 +159,7 @@ Non-goals for this experiment are on-device VLM inference, continuous cloud
 recording, a wearable/battery design, and custom PCB fabrication. On
 2026-08-23 the owner explicitly authorized this bounded M17.10 implementation
 slice; it does not make the milestone accepted or authorize the later raw-media,
-Feature/Scene-Profile, or Runtime-understanding work.
+Feature/Evidence governance, or Runtime-understanding work.
 
 ## 1. Architecture position
 
@@ -176,8 +176,8 @@ Camera sensors
 
 `Personal Runtime` remains authoritative for:
 
-- scene/profile confirmation and change governance;
-- feature subscription policy, privacy, permissions, and retention;
+- registered Feature vocabulary, privacy, permissions, and retention;
+- future Attention Profile validation for incremental collection policy, not base-Observation admission;
 - high-level video/audio understanding;
 - evidence correlation, Presence, and action decisions.
 
@@ -197,21 +197,20 @@ The implementation must keep these objects separate:
 
 The Edge should emit typed, schema-validated observations rather than asking a small model to freely generate arbitrary JSON. Model-assisted extraction, if later needed, must still terminate at a registered Feature schema.
 
-## 3. Scene and feature subscription flow
+## 3. Base Observation and future attention-overlay flow
 
 The intended setup flow is:
 
 ```text
 Camera Edge registers
-  -> Runtime inspects capability and initial bounded evidence
-  -> Runtime proposes or confirms a Scene Profile
-  -> user confirms or edits the profile when needed
-  -> Runtime selects allowlisted Features
-  -> Runtime sends a versioned Feature Subscription
-  -> Edge continuously emits structured Observations
+  -> Edge continuously emits safe, bounded, registered base Observations
+  -> Runtime materializes ContextFacts and ContextEnvelope selects current context
+  -> Main Hermes may propose an Attention Profile for incremental collection
+  -> Runtime validates consent, capability, privacy, budget, and target binding
+  -> a future delivery mechanism applies the accepted overlay
 ```
 
-A first profile might be:
+A base Observation vocabulary may include:
 
 ```text
 scene: living_room
@@ -225,9 +224,9 @@ features:
   - known_person_candidate   # only with explicit enrollment and consent
 ```
 
-The Runtime may propose a profile from an initial scene sample, but one model guess must not permanently become a fact. The user or an explicit policy must be able to confirm, edit, pause, or revoke the profile.
+An Attention Profile may later be proposed from the current scene, but it is an overlay rather than a prerequisite for base facts. One model guess must not permanently become a fact; the user or explicit policy must be able to confirm, edit, pause, or revoke an accepted overlay.
 
-Feature subscriptions are selected from a capability/feature registry and include a feature identifier, version, parameters, output schema, sampling/debounce policy, privacy class, and expiry/revision information. The Runtime must not ask the Edge to execute arbitrary model-generated code or an unregistered monitoring task. Adding a new Feature requires registry, version, permission, and compatibility checks.
+Base Features and any future attention-overlay additions come from a capability/feature registry and include a feature identifier, version, parameters, output schema, sampling/debounce policy, privacy class, and expiry/revision information. The Runtime must not ask the Edge to execute arbitrary model-generated code or an unregistered monitoring task. Adding a new Feature requires registry, version, permission, and compatibility checks.
 
 ## 4. Local Edge responsibilities
 
@@ -329,7 +328,7 @@ The first implementation sequence should be:
 1. Register a fixed camera Edge and expose a small Feature Registry.
 2. Implement one or two structured Features, such as `person_presence` and region entry/exit.
 3. Add freshness-aware Observations, candidate Events, and local ring-buffer retention.
-4. Add Runtime Feature Subscription and bounded Feature/Evidence queries.
+4. Add bounded Runtime Feature/Evidence queries; defer Attention Profile delivery.
 5. Add Runtime video understanding and the `pending_understanding` lifecycle.
 6. Validate the full Gateway boundary, privacy controls, retention, and human acceptance with a real fixed-camera scenario.
 
@@ -348,7 +347,7 @@ and emits `{state, count, feature_version}` plus a model confidence. It never
 writes a frame, sends image bytes, keeps a bounding box, exposes another class
 label, or enables face/OCR/gesture inference. `unavailable` is an explicit
 state rather than a false `absent` result. This is a device-authorized Feature
-implementation, not yet Runtime Scene-Profile/Feature-Subscription governance
+implementation, not yet Runtime Feature/Evidence governance
 or full M17.10 acceptance.
 
 The first physical Feature run on 2026-08-23 authenticated to the owner
