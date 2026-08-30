@@ -272,6 +272,57 @@ An Attention Profile may later be proposed from the current scene, but it is an 
 
 Base Features and any future attention-overlay additions come from a capability/feature registry and include a feature identifier, version, parameters, output schema, sampling/debounce policy, privacy class, and expiry/revision information. The Runtime must not ask the Edge to execute arbitrary model-generated code or an unregistered monitoring task. Adding a new Feature requires registry, version, permission, and compatibility checks.
 
+### 3.2 Person-entity memory and identity candidates
+
+Generic `person_presence` is deliberately not an owner assertion. A scene with
+several detected people must be able to distinguish the owner, another enrolled
+person, an unknown person, and an unresolved match without treating every
+person in front of a camera as the owner.
+
+The canonical memory belongs to Personal Runtime as a `Person` entity, not to
+one camera or one local tracker. A person entity has an opaque stable
+`person_id`, owner-controlled name/aliases and relationship labels, enrollment
+revision and status, reference-photo or face-template records, and bounded
+manual-confirmation/correction history. A Camera Edge may receive only the
+locally required, revisioned face-template cache keyed by `person_id`; it must
+not turn its own transient tracking label into the durable identity record.
+
+The registered Edge contract should be a separate typed
+`camera.person_identity_candidate.v1` Observation. It carries a local,
+short-lived `track_id`, candidate state `owner`, `known`, `unknown`, or
+`ambiguous`, an optional `person_id` only for an enrolled candidate, confidence,
+model/template revision, observed timestamp, and expiry. It carries neither a
+face crop nor bounding-box geometry as ordinary Runtime context. A low-score,
+conflicting, stale, or multi-face-unresolved result must become `unknown` or
+`ambiguous`, never an implicit owner match.
+
+Owner-controlled development may retain or inspect local reference photos and
+face crops long enough to enroll a person and establish ground truth. The
+normal Runtime path stores the abstract person entity and bounded candidate
+result; raw image transfer remains an explicit evidence/enrollment action, not
+the default Observation transport.
+
+Implementation and acceptance sequence:
+
+1. Add a Runtime-owned `Person` registry with create, rename, relationship,
+   enroll, disable/revoke, and correction operations; all mutations advance an
+   enrollment revision and are auditable.
+2. Integrate Maix-supported face detection/landmarks and local face-template
+   extraction behind registered Camera Edge features, then provision the
+   selected revisioned template cache to the Edge.
+3. Track concurrent faces locally, emit identity candidates only after temporal
+   confirmation, and preserve `unknown`/`ambiguous` rather than forcing a
+   nearest-match identity.
+4. Materialize identity candidates through the ordinary ContextFact/
+   ContextEnvelope path so Main Hermes receives scene roles such as owner,
+   known visitor, unknown person, or unresolved identity instead of raw face
+   data.
+5. Admit owner/known/unknown distinctions to Presence only through explicit
+   policy; recognition alone never authorizes an interruption or action.
+6. Accept with owner, enrolled non-owner, unknown, ambiguous, and two-or-more
+   people scenarios, plus enrollment correction/revocation and a phone-side
+   answer that never calls every detected person the owner.
+
 ## 4. Local Edge responsibilities
 
 The first Edge implementation can use small, bounded components for:
@@ -374,14 +425,18 @@ The next implementation sequence should be:
 2. Implement freshness-aware typed visual Features: person count/transitions,
    region occupancy, allowlisted object presence, OCR, face/gesture/pose, and
    the bounded `camera.visual_foreground.v1` selector.
-3. Implement `audio.speech_activity.v1` and the positive-only explicit
+3. Implement Runtime-owned Person entities and the explicit
+   `camera.person_identity_candidate.v1` path, with enrollment, correction,
+   multiple-person, unknown, and ambiguous acceptance before Presence can use
+   identity distinctions.
+4. Implement `audio.speech_activity.v1` and the positive-only explicit
    `audio.addressing.v1` contract; prove that ordinary or ambiguous speech does
    not invoke the Runtime.
-4. Add candidate Events and local ring-buffer retention for selected visual or
+5. Add candidate Events and local ring-buffer retention for selected visual or
    audio changes.
-5. Add bounded Runtime Feature/Evidence queries; defer Attention Profile delivery.
-6. Add Runtime video/audio understanding and the `pending_understanding` lifecycle.
-7. Validate the full Gateway boundary, development capture controls, retention,
+6. Add bounded Runtime Feature/Evidence queries; defer Attention Profile delivery.
+7. Add Runtime video/audio understanding and the `pending_understanding` lifecycle.
+8. Validate the full Gateway boundary, development capture controls, retention,
    non-interruption behavior, and human acceptance with a real fixed-camera scenario.
 
 The initial owner-authorized slice implemented step 1 as a persistent
