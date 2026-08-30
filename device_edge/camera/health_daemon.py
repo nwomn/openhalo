@@ -24,17 +24,6 @@ from pathlib import Path
 import websockets
 
 try:  # Support both ``python -m`` and the copied single-directory device form.
-    from .maixcam_capabilities import CAPABILITY_NAME as MANIFEST_CAPABILITY_NAME
-    from .maixcam_capabilities import CAPABILITY_REGISTRATION as MANIFEST_CAPABILITY
-    from .maixcam_capabilities import OBSERVATION_NAME as MANIFEST_OBSERVATION_NAME
-    from .maixcam_capabilities import collect_capability_manifest
-except ImportError:  # pragma: no cover - exercised on the copied MaixCAM files.
-    from maixcam_capabilities import CAPABILITY_NAME as MANIFEST_CAPABILITY_NAME
-    from maixcam_capabilities import CAPABILITY_REGISTRATION as MANIFEST_CAPABILITY
-    from maixcam_capabilities import OBSERVATION_NAME as MANIFEST_OBSERVATION_NAME
-    from maixcam_capabilities import collect_capability_manifest
-
-try:  # Support both ``python -m`` and the copied single-directory device form.
     from .openssl_session import API_VERSION
     from .openssl_session import OpenSslCameraSessionClient
 except ImportError:  # pragma: no cover - exercised on the copied MaixCAM files.
@@ -91,7 +80,6 @@ DEFAULT_CAPABILITIES = [
             },
         ],
     },
-    MANIFEST_CAPABILITY,
 ]
 
 PERSON_PRESENCE_CAPABILITY = {
@@ -274,26 +262,6 @@ def build_person_presence_frame(
     }
 
 
-def build_capability_manifest_frame(device_id: str, manifest: dict, *, observed_at: str) -> dict:
-    observations = [
-        {
-            "name": MANIFEST_OBSERVATION_NAME,
-            "value": manifest,
-            "observed_at": observed_at,
-            "confidence": 1.0,
-        }
-    ]
-    return {
-        "api_version": API_VERSION,
-        "type": "observation_push",
-        "device_id": device_id,
-        "capability": MANIFEST_CAPABILITY_NAME,
-        "event_id": f"camera-capability-manifest-{secrets.token_urlsafe(12)}",
-        "observations": observations,
-        "payload": {"observations": observations},
-    }
-
-
 class CameraHealthDaemon:
     def __init__(
         self,
@@ -307,7 +275,6 @@ class CameraHealthDaemon:
         presence_confirm_samples: int = 2,
         presence_interval_seconds: float = 1.0,
         presence_freshness_seconds: float = 30.0,
-        capability_manifest_supplier=collect_capability_manifest,
     ) -> None:
         if interval_seconds <= 0:
             raise ValueError("interval_seconds must be positive.")
@@ -327,7 +294,6 @@ class CameraHealthDaemon:
         self.presence_freshness_seconds = presence_freshness_seconds
         self._presence_debouncer = None
         self._last_presence_published_at = 0.0
-        self.capability_manifest_supplier = capability_manifest_supplier
         if person_presence_feature is not None:
             try:
                 from .person_presence import PresenceDebouncer
@@ -381,15 +347,6 @@ class CameraHealthDaemon:
         self.status_store.write(status)
         return status
 
-    def _capability_manifest_frame(self) -> dict:
-        return build_capability_manifest_frame(
-            self.client.device_id,
-            self.capability_manifest_supplier(
-                person_presence_enabled=self.person_presence_feature is not None,
-            ),
-            observed_at=_utc_timestamp(),
-        )
-
     async def _run_session(self, *, once: bool) -> None:
         self._record_status("reconnecting")
         next_health_at = 0.0
@@ -397,7 +354,6 @@ class CameraHealthDaemon:
         try:
             async with websockets.connect(self.client.audience) as websocket:
                 await self.client.authenticate(websocket, self.capabilities)
-                await websocket.send(json.dumps(self._capability_manifest_frame()))
                 while True:
                     now_monotonic = time.monotonic()
                     if now_monotonic >= next_health_at:

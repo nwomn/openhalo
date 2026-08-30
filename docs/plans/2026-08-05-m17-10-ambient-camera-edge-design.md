@@ -268,16 +268,6 @@ may be viewed or retained briefly only to label feature ground truth and debug
 false positives. That permission does not make raw media ordinary Runtime
 context, durable diagnostics, or a default upload path.
 
-The first implementation of this capability family is
-`camera.capability_manifest.v1`. After each authenticated Camera Edge session,
-it reports the local camera/NPU/audio/display SDK surfaces and safe
-network/storage probes without opening a sensor, recording audio, scanning
-nearby devices, or sending media. Each entry has both `state` and
-`implementation_state`: an available vendor SDK is not treated as an enabled
-OpenHalo Feature. The source and focused tests cover this manifest; physical
-MaixCAM publication and every richer visual/audio Feature remain separate
-acceptance evidence.
-
 An Attention Profile may later be proposed from the current scene, but it is an overlay rather than a prerequisite for base facts. One model guess must not permanently become a fact; the user or explicit policy must be able to confirm, edit, pause, or revoke an accepted overlay.
 
 Base Features and any future attention-overlay additions come from a capability/feature registry and include a feature identifier, version, parameters, output schema, sampling/debounce policy, privacy class, and expiry/revision information. The Runtime must not ask the Edge to execute arbitrary model-generated code or an unregistered monitoring task. Adding a new Feature requires registry, version, permission, and compatibility checks.
