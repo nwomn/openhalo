@@ -151,7 +151,7 @@ camera/NPU pipeline. Deploy all three required files and make a supervised
 one-shot verification with one confirmation sample:
 
 ```powershell
-scp -i $cameraKey device_edge/camera/openssl_session.py device_edge/camera/person_presence.py device_edge/camera/health_daemon.py "${cameraHost}:/root/openhalo_camera_edge/"
+scp -i $cameraKey device_edge/camera/openssl_session.py device_edge/camera/person_presence.py device_edge/camera/maixcam_capabilities.py device_edge/camera/health_daemon.py "${cameraHost}:/root/openhalo_camera_edge/"
 ssh -i $cameraKey $cameraHost "python3 /root/openhalo_camera_edge/health_daemon.py --url $runtimeUrl --once --person-presence --presence-confirm-samples 1"
 ```
 
@@ -165,6 +165,20 @@ ssh -i $cameraKey $cameraHost "python3 /root/openhalo_camera_edge/health_daemon.
 
 Do not also start a separate `Display()` or camera script. A future local
 display must be integrated into this same process and lifecycle.
+
+## 8. Publish the MaixCAM capability manifest
+
+The health daemon now publishes `camera.capability_manifest.v1` after each
+successful authentication. It safely probes only SDK imports, local network
+interface presence, and local storage availability; it does not open the
+camera, record microphone audio, scan Bluetooth devices, or upload media.
+
+Every manifest item distinguishes `state` from `implementation_state`. For
+example, an OCR SDK surface can be `available` while OpenHalo still marks the
+Feature `planned`; Runtime must not issue a Feature request merely because the
+board's vendor SDK imported. Verify the manifest with the same supervised
+one-shot service command from section 7, then inspect the registered
+Observation on the owner Runtime.
 
 
 ## Troubleshooting

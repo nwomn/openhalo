@@ -1,15 +1,16 @@
 id: openhalo_camera_edge
 name: OpenHalo Camera Edge
 name[zh]: OpenHalo 摄像头边缘节点
-version: 0.1.2
+version: 0.1.3
 icon: assets/openhalo-logo-primary.png
 author: OpenHalo
-desc: Local-only person presence Camera Edge for OpenHalo Personal Runtime
-desc[zh]: 为 OpenHalo Personal Runtime 提供本地人员在场状态的摄像头边缘节点
+desc: Bounded local Camera Edge capabilities for OpenHalo Personal Runtime
+desc[zh]: 为 OpenHalo Personal Runtime 提供受限本地能力的摄像头边缘节点
 files:
   app.yaml: app.yaml
   assets/openhalo-logo-primary.png: assets/openhalo-logo-primary.png
   main.py: main.py
   health_daemon.py: health_daemon.py
+  maixcam_capabilities.py: maixcam_capabilities.py
   openssl_session.py: openssl_session.py
   person_presence.py: person_presence.py

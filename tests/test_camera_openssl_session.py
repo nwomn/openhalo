@@ -207,6 +207,10 @@ def test_camera_health_contract_and_status_file_are_bounded() -> None:
         "camera.storage_state",
         "camera.storage_free_mib",
     ]
+    assert [capability["name"] for capability in DEFAULT_CAPABILITIES] == [
+        "camera.health",
+        "camera.capability_manifest",
+    ]
     frame = build_health_frame("camera-edge-1", status)
     assert frame["type"] == "observation_push"
     assert frame["capability"] == CAPABILITY_NAME
@@ -261,7 +265,8 @@ def test_camera_health_daemon_authenticates_before_publishing() -> None:
 
     assert connect.entered == 1
     assert websocket.sent[0]["type"] == "observation_push"
-    assert websocket.sent[0]["capability"] == "camera.health"
+    assert websocket.sent[0]["capability"] == "camera.capability_manifest"
+    assert websocket.sent[1]["capability"] == "camera.health"
 
 
 def test_camera_health_daemon_runs_capture_probe_only_when_enabled() -> None:
@@ -365,6 +370,7 @@ def test_person_presence_daemon_registers_and_publishes_only_semantic_observatio
         async def authenticate(self, websocket, capabilities):
             assert [capability["name"] for capability in capabilities] == [
                 "camera.health",
+                "camera.capability_manifest",
                 "camera.person_presence",
             ]
             websocket.authenticated = True
@@ -412,7 +418,7 @@ def test_person_presence_daemon_registers_and_publishes_only_semantic_observatio
         with patch("device_edge.camera.health_daemon.websockets.connect", return_value=FakeConnect(websocket)):
             asyncio.run(daemon.run_once())
 
-    presence_frame = websocket.sent[1]
+    presence_frame = websocket.sent[2]
     assert presence_frame["capability"] == "camera.person_presence"
     assert presence_frame["observations"][0]["value"] == {
         "state": "present",
@@ -422,6 +428,48 @@ def test_person_presence_daemon_registers_and_publishes_only_semantic_observatio
     assert "raw_media" not in json.dumps(presence_frame)
     assert "bbox" not in json.dumps(presence_frame)
     assert feature.closed is True
+
+
+def test_capability_manifest_reports_sdk_surface_without_claiming_planned_features_enabled() -> None:
+    from device_edge.camera.maixcam_capabilities import collect_capability_manifest
+
+    available_modules = {"maix.camera", "maix.nn", "maix.audio", "maix.display"}
+
+    def loader(module_name: str):
+        if module_name not in available_modules:
+            raise ModuleNotFoundError(module_name)
+        return object()
+
+    manifest = collect_capability_manifest(
+        person_presence_enabled=True,
+        module_loader=loader,
+        interface_names=["lo", "wlan0"],
+    )
+    entries = {entry["id"]: entry for entry in manifest["capabilities"]}
+    assert manifest["manifest_version"] == "maixcam.capability_manifest.v1"
+    assert entries["vision.person_presence"]["implementation_state"] == "enabled"
+    assert entries["vision.ocr"] == {
+        "id": "vision.ocr",
+        "state": "available",
+        "implementation_state": "planned",
+        "probe": "maix.camera_and_nn_import",
+    }
+    assert entries["audio.microphone"]["state"] == "available"
+    assert entries["network.link"]["state"] == "available"
+
+
+def test_manifest_frame_contains_no_raw_media_or_sdk_errors() -> None:
+    from device_edge.camera.health_daemon import build_capability_manifest_frame
+
+    frame = build_capability_manifest_frame(
+        "camera-edge-1",
+        {"manifest_version": "maixcam.capability_manifest.v1", "capabilities": []},
+        observed_at="2030-01-01T00:00:00Z",
+    )
+    assert frame["capability"] == "camera.capability_manifest"
+    assert frame["observations"][0]["name"] == "camera.capability_manifest.v1"
+    assert "raw_media" not in json.dumps(frame)
+    assert "traceback" not in json.dumps(frame)
 
 
 def test_maix_app_requires_private_runtime_configuration() -> None:
