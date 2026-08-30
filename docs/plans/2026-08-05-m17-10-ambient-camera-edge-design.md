@@ -181,7 +181,7 @@ Camera sensors
 - high-level video/audio understanding;
 - evidence correlation, Presence, and action decisions.
 
-The camera Edge is responsible for local capture, low-cost feature extraction, candidate-event detection, and bounded pre/post-event evidence buffering. A Runtime model may be local or a governed remote provider, but the camera Edge does not directly depend on a model provider.
+The camera Edge is responsible for local capture, low-cost feature extraction, candidate-event detection, and bounded pre/post-event evidence buffering. Its MaixCAM validation unit may also use the board's built-in microphone, but each audio capability remains separately registered and independently diagnosable; this does not accept the later standalone Audio/Microphone Edge or a combined Multimodal Edge. A Runtime model may be local or a governed remote provider, but the camera Edge does not directly depend on a model provider.
 
 ## 2. Core vocabulary
 
@@ -223,6 +223,50 @@ features:
   - speech_activity
   - known_person_candidate   # only with explicit enrollment and consent
 ```
+
+### 3.1 Camera Edge v2 development capability focus
+
+The next MaixCAM validation is intended to establish what Main Hermes can know
+about the most salient foreground information in front of the device. It is
+not limited to a person count. The initial registered capability family is:
+
+- visual health and quality: availability, freshness, blur/occlusion/exposure
+  degradation, and bounded scene-quality state;
+- people and motion: presence/count, enter/leave, region occupancy, and
+  allowlisted object presence;
+- visual detail: OCR, face detection/landmarks, hand gesture, and human pose;
+- audio activity and address: `audio.speech_activity.v1` and
+  `audio.addressing.v1` from the MaixCAM microphone;
+- `camera.visual_foreground.v1`: a bounded list of the one to three most
+  salient local typed facts, each carrying feature identifier/version,
+  confidence, freshness, and an inspectable local salience reason.
+
+`camera.visual_foreground.v1` is a compact typed selector, not a small-model
+paragraph or a replacement for the source Observations. Main Hermes receives
+the selected facts through normal ContextFact/ContextEnvelope admission and
+decides their meaning through the ordinary proposal and Presence path.
+
+Voice activity is not an addressee decision. The initial `audio.addressing.v1`
+positive state requires an explicit configured wake word, button/gesture, or a
+bounded recognized address phrase. It reports `addressed`, `unaddressed`,
+`ambiguous`, or `unavailable` together with the declared evidence source.
+`ambiguous`, ordinary speech activity, and unavailable audio must not initiate
+an unsolicited Runtime response; this is how the Runtime avoids interrupting a
+conversation that is not for it. Speaker identity, broad free-form transcript
+upload, and voice biometrics are not implied by this first contract.
+
+This explicit addressing contract is deliberately a development-first,
+deterministic wake-up mechanism. A later Main Hermes and Presence capability
+may reason from a bounded sequence of registered visual and audio facts about
+whether it should offer a useful contribution to an ongoing conversation or
+remain silent. That later judgment must remain evidence-backed and
+inspectable, must be governed by Presence before any intervention, and is not
+silently substituted for the initial explicit addressing signal.
+
+For owner-controlled development verification, bounded local raw camera/audio
+may be viewed or retained briefly only to label feature ground truth and debug
+false positives. That permission does not make raw media ordinary Runtime
+context, durable diagnostics, or a default upload path.
 
 An Attention Profile may later be proposed from the current scene, but it is an overlay rather than a prerequisite for base facts. One model guess must not permanently become a fact; the user or explicit policy must be able to confirm, edit, pause, or revoke an accepted overlay.
 
@@ -323,14 +367,22 @@ The model output remains a Runtime candidate/understanding. It cannot bypass pri
 
 ## 8. Implementation sequence and non-goals
 
-The first implementation sequence should be:
+The next implementation sequence should be:
 
-1. Register a fixed camera Edge and expose a small Feature Registry.
-2. Implement one or two structured Features, such as `person_presence` and region entry/exit.
-3. Add freshness-aware Observations, candidate Events, and local ring-buffer retention.
-4. Add bounded Runtime Feature/Evidence queries; defer Attention Profile delivery.
-5. Add Runtime video understanding and the `pending_understanding` lifecycle.
-6. Validate the full Gateway boundary, privacy controls, retention, and human acceptance with a real fixed-camera scenario.
+1. Register the MaixCAM capability manifest and probe visual/audio availability,
+   camera quality, microphone, network, and storage states.
+2. Implement freshness-aware typed visual Features: person count/transitions,
+   region occupancy, allowlisted object presence, OCR, face/gesture/pose, and
+   the bounded `camera.visual_foreground.v1` selector.
+3. Implement `audio.speech_activity.v1` and the positive-only explicit
+   `audio.addressing.v1` contract; prove that ordinary or ambiguous speech does
+   not invoke the Runtime.
+4. Add candidate Events and local ring-buffer retention for selected visual or
+   audio changes.
+5. Add bounded Runtime Feature/Evidence queries; defer Attention Profile delivery.
+6. Add Runtime video/audio understanding and the `pending_understanding` lifecycle.
+7. Validate the full Gateway boundary, development capture controls, retention,
+   non-interruption behavior, and human acceptance with a real fixed-camera scenario.
 
 The initial owner-authorized slice implemented step 1 as a persistent
 health-only session: it registers `camera.health`, sends connection,
