@@ -158,6 +158,7 @@ class ModelProviderConfigTests(unittest.TestCase):
 
         content = request_payload["input"][1]["content"]
         self.assertEqual(content[1]["type"], "input_image")
+        self.assertEqual(content[1]["detail"], "high")
         self.assertTrue(content[1]["image_url"].startswith("data:image/jpeg;base64,"))
         self.assertNotIn("private-jpeg-bytes", content[0]["text"])
 

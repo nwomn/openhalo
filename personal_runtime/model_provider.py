@@ -307,7 +307,7 @@ def build_openai_compatible_screen_understanding_request(
                     {
                         "type": "input_image",
                         "image_url": f"data:image/jpeg;base64,{encoded}",
-                        "detail": "low",
+                        "detail": "high",
                     },
                 ],
             },
