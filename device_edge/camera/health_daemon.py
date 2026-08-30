@@ -20,6 +20,7 @@ import tempfile
 import time
 from dataclasses import asdict
 from dataclasses import dataclass
+from dataclasses import replace
 from datetime import UTC
 from datetime import datetime
 from pathlib import Path
@@ -682,6 +683,9 @@ class CameraHealthDaemon:
         self._last_visual_published_at = 0.0
         self._last_presence_decision = None
         self._last_visual_sample = None
+        self._region_confirm_samples = presence_confirm_samples
+        self._region_candidates = {}
+        self._confirmed_regions = {}
         if person_presence_feature is not None:
             try:
                 from .person_presence import PresenceDebouncer
@@ -749,6 +753,8 @@ class CameraHealthDaemon:
             self._last_presence_published_at = now_monotonic
 
         visual = getattr(self.person_presence_feature, "last_visual_sample", None)
+        if self.visual_features_enabled and visual is not None:
+            visual = self._debounce_regions(visual)
         visual_changed = visual is not None and visual != self._last_visual_sample
         visual_due = self.visual_features_enabled and visual is not None and (
             force
@@ -806,6 +812,45 @@ class CameraHealthDaemon:
             self._last_visual_published_at = now_monotonic
             self._last_visual_sample = visual
         return frames
+
+    def _debounce_regions(self, visual):
+        """Apply the same temporal confirmation to configured regions.
+
+        The first sample establishes a baseline.  A later region change must
+        repeat ``presence_confirm_samples`` times before the occupancy value or
+        transition is published.  An unavailable sensor is surfaced
+        immediately so it cannot be mistaken for an empty region.
+        """
+
+        if visual.state == "unavailable":
+            self._region_candidates.clear()
+            self._confirmed_regions = dict(visual.regions)
+            return visual
+
+        effective_regions = {}
+        for name, current in visual.regions.items():
+            key = (current.occupied, current.count)
+            if name not in self._confirmed_regions:
+                self._confirmed_regions[name] = current
+                self._region_candidates[name] = (key, 0)
+            candidate_key, candidate_samples = self._region_candidates.get(
+                name,
+                (key, 0),
+            )
+            if candidate_key == key:
+                candidate_samples += 1
+            else:
+                candidate_key = key
+                candidate_samples = 1
+            self._region_candidates[name] = (candidate_key, candidate_samples)
+            if candidate_samples >= self._region_confirm_samples:
+                self._confirmed_regions[name] = current
+            effective_regions[name] = self._confirmed_regions[name]
+
+        for name in set(self._confirmed_regions) - set(visual.regions):
+            self._confirmed_regions.pop(name, None)
+            self._region_candidates.pop(name, None)
+        return replace(visual, regions=effective_regions)
 
     def _record_status(self, connection_state: str, last_error: str | None = None) -> CameraHealthStatus:
         status = collect_health(

@@ -154,8 +154,9 @@ Observations are:
 person state/count change and distinguishes `entered`, `left`,
 `count_changed`, and `availability_changed`. The corresponding
 `camera.region_occupancy_transition.v1` reports the same enter/leave/count/
-availability changes for each configured region. Object labels are an
-explicit allowlist and regions are normalized rectangles; neither camera
+availability changes for each configured region after the same temporal
+confirmation. Object labels are an explicit allowlist and regions are
+normalized rectangles; neither camera
 frames nor image references, bounding boxes, object geometry, face data, OCR
 text, or other unconfigured labels leave the device. `unavailable` is distinct
 from `absent`, so a sensor/model failure cannot be interpreted as an empty
