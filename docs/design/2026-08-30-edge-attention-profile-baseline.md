@@ -43,6 +43,17 @@ Profile delivery controller or automatic lease manager yet.  Future work must
 migrate it to base facts plus an Attention Profile overlay before treating
 Profile dispatch as a product or hardware-acceptance prerequisite.
 
+The first migration slice exposes the Profile-independent Proxy facts through
+`proxy.screen.base_observe`: capture health, bounded digest-based change, and
+action-correlated change. They carry exact target/surface binding and no raw
+pixels, Profile identifier, or GUI interpretation. `proxy.screen.features`
+preserves the old hard-Profile experiment separately. When Hermes needs to
+read a screen, it uses ordinary `proxy.screen.read` with `freshness:"latest"`
+and a byte bound. The Edge returns one JPEG in the correlated ordinary
+`action_result.payload`; Gateway validates MIME, size, and SHA-256, removes the
+encoded bytes before persistence, and exposes only transient visual text to the
+continuing Hermes turn. A Profile is not a prerequisite.
+
 ## Near-Term Priority
 
 The immediate implementation priority is the visual Edge plus audio/microphone

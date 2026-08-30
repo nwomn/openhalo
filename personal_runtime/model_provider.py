@@ -7,6 +7,7 @@ import time
 import tomllib
 import urllib.error
 import urllib.request
+from base64 import b64encode
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -115,6 +116,7 @@ class ModelConfig:
     model_id: str
     supports_structured_output: bool = False
     supports_tools: bool = False
+    supports_vision: bool = False
 
 
 @dataclass(slots=True)
@@ -182,6 +184,7 @@ def load_runtime_model_config(path: Path | None = None) -> RuntimeModelConfig:
                 "supports_structured_output", False
             ),
             supports_tools=model_payload.get("supports_tools", False),
+            supports_vision=model_payload.get("supports_vision", False),
         )
         for name, model_payload in llm_payload.get("models", {}).items()
     }
@@ -259,6 +262,121 @@ def build_openai_compatible_request(
             },
         ],
     }
+
+
+def build_openai_compatible_screen_understanding_request(
+    model_id: str,
+    image_bytes: bytes,
+    attachment: dict,
+    reasoning_effort: str,
+    verbosity: str,
+) -> dict:
+    """Build one transient multimodal request for a bounded action attachment."""
+
+    encoded = b64encode(image_bytes).decode("ascii")
+    return {
+        "model": model_id,
+        "reasoning": {"effort": reasoning_effort},
+        "text": {"verbosity": verbosity},
+        "input": [
+            {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": (
+                            "You are a screen-understanding helper for a personal "
+                            "runtime. Describe only visible, task-relevant facts in "
+                            "one concise sentence. Do not infer identity, sensitive "
+                            "attributes, or facts not visible in the image."
+                        ),
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": (
+                            "Interpret this requested desktop screen attachment. "
+                            f"Observed at: {attachment['observed_at']}. "
+                            f"MIME type: {attachment['mime_type']}."
+                        ),
+                    },
+                    {
+                        "type": "input_image",
+                        "image_url": f"data:image/jpeg;base64,{encoded}",
+                        "detail": "low",
+                    },
+                ],
+            },
+        ],
+    }
+
+
+def build_screen_vision_evaluator(config_path: Path | None = None):
+    """Return the configured transient screen evaluator, or ``None``.
+
+    An operator must explicitly mark the selected model as vision-capable. This
+    keeps a normal text-provider configuration from receiving private screen
+    data merely because an Edge advertises ``proxy.screen.read``.
+    """
+
+    try:
+        config = load_runtime_model_config(config_path)
+        profile = resolve_profile_config(
+            config,
+            "screen_understanding"
+            if "screen_understanding" in config.profiles
+            else "interactive_reply",
+        )
+        model = config.models[profile.model_ref]
+        provider = config.providers[model.provider]
+    except (FileNotFoundError, KeyError, tomllib.TOMLDecodeError):
+        return None
+    if provider.adapter_type != "openai_compatible" or not model.supports_vision:
+        return None
+
+    def evaluate(image_bytes: bytes, attachment: dict) -> dict:
+        def request_builder(
+            *,
+            model_id: str,
+            reasoning_effort: str,
+            verbosity: str,
+            **_ignored,
+        ) -> dict:
+            return build_openai_compatible_screen_understanding_request(
+                model_id=model_id,
+                image_bytes=image_bytes,
+                attachment=attachment,
+                reasoning_effort=reasoning_effort,
+                verbosity=verbosity,
+            )
+
+        try:
+            response_payload = execute_openai_compatible_request(
+                provider=provider,
+                model=model,
+                profile=profile,
+                user_text="screen attachment",
+                request_builder=request_builder,
+            )
+            reply = parse_openai_compatible_response(
+                response_payload=response_payload,
+                profile_name=profile.name,
+                provider_name=provider.name,
+                model_id=model.model_id,
+            )
+        except (KeyError, OSError, ValueError, urllib.error.URLError):
+            return {
+                "summary": "The requested screen could not be visually interpreted.",
+                "labels": ["vision_unavailable"],
+                "confidence": 0.0,
+            }
+        return {"summary": reply.message[:512], "labels": [], "confidence": 0.0}
+
+    return evaluate
 
 
 def build_openai_compatible_proposal_request(
@@ -2568,6 +2686,8 @@ __all__ = [
     "build_openai_compatible_proposal_request",
     "build_openai_compatible_prompt_json_observation_proposal_request",
     "build_openai_compatible_request",
+    "build_openai_compatible_screen_understanding_request",
+    "build_screen_vision_evaluator",
     "classify_openai_compatible_response_shape",
     "classify_provider_failure",
     "execute_openai_compatible_request",

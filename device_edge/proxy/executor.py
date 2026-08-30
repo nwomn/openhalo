@@ -3,7 +3,7 @@
 from device_edge.proxy.adapter import ProxyAdapterError
 from device_edge.proxy.contracts import KEYBOARD_CAPABILITY
 from device_edge.proxy.contracts import POINTER_CAPABILITY
-from device_edge.proxy.contracts import SCREEN_EVIDENCE_CAPABILITY
+from device_edge.proxy.contracts import SCREEN_READ_CAPABILITY
 from device_edge.proxy.contracts import SCREEN_PROFILE_CAPABILITY
 from edge_api.protocol import with_api_version
 
@@ -14,12 +14,6 @@ class ProxyActionExecutor:
         self.attachment = attachment
         self.adapter = adapter
         self.screen_governance = screen_governance
-        self._pending_evidence_transfers = []
-
-    def drain_evidence_transfers(self) -> list[dict]:
-        transfers = self._pending_evidence_transfers
-        self._pending_evidence_transfers = []
-        return transfers
 
     def handle_action_request(self, frame: dict) -> dict:
         action = frame.get("action", {})
@@ -81,32 +75,22 @@ class ProxyActionExecutor:
         if self.attachment.attachment_state in {"detached", "incompatible"}:
             return self._error(capability, f"target_{self.attachment.attachment_state}")
 
-        if capability == SCREEN_EVIDENCE_CAPABILITY:
+        if capability == SCREEN_READ_CAPABILITY:
             if self.screen_governance is None:
                 return self._error(capability, "screen_governance_unavailable")
-            request_id = frame.get("request_id")
-            if not isinstance(request_id, str) or not request_id:
-                return self._error(capability, "missing_request_id")
             try:
-                transfer = self.screen_governance.prepare_evidence_transfer(
-                    device_id=self.device_id,
-                    request_id=request_id,
+                attachment = self.screen_governance.read_latest(
                     payload=payload,
                     adapter=self.adapter,
                     attachment=self.attachment,
                 )
             except (ProxyAdapterError, ValueError) as exc:
                 return self._error(capability, str(exc))
-            self._pending_evidence_transfers.append(transfer.payload)
             return {
                 "status": "ok",
                 "capability": capability,
-                "observed_at": self.attachment.observed_at,
-                "details": {
-                    "transfer_id": transfer.transfer_id,
-                    "evidence_ref": payload["evidence_ref"],
-                    "understanding_state": "pending_understanding",
-                },
+                "observed_at": attachment["observed_at"],
+                "payload": attachment,
             }
 
         if capability == KEYBOARD_CAPABILITY:

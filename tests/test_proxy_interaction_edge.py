@@ -142,6 +142,7 @@ class ProxyInteractionEdgeTests(unittest.TestCase):
             [
                 "proxy.interaction.observe",
                 "proxy.screen.features",
+                "proxy.screen.base_observe",
                 "proxy.screen.profile.configure",
             ],
         )
@@ -161,8 +162,9 @@ class ProxyInteractionEdgeTests(unittest.TestCase):
             [
                 "proxy.interaction.observe",
                 "proxy.screen.features",
+                "proxy.screen.base_observe",
                 "proxy.screen.profile.configure",
-                "proxy.screen.evidence.read",
+                "proxy.screen.read",
             ],
         )
 

@@ -30,6 +30,7 @@ from edge_api.endpoint import validate_runtime_endpoint
 from edge_api.protocol import validate_frame, with_api_version
 from personal_runtime.action_layer import build_interaction_progress
 from personal_runtime.action_layer import build_interaction_update
+from personal_runtime.action_result_attachments import ActionResultAttachmentService
 from personal_runtime.agent_executor import ProposalFormation
 from personal_runtime.agent_harness import LegacyProposalHarness
 from personal_runtime.hermes_adapter import configured_harness_runner
@@ -49,7 +50,6 @@ from personal_runtime.pairing_store import PairingError
 from personal_runtime.pairing_store import PairingStore
 from personal_runtime.presence_router import PresenceRouter
 from personal_runtime.proactive_trigger_gate import ProactiveTriggerGate
-from personal_runtime.proxy_screen_governance import ProxyScreenEvidenceService
 from personal_runtime.runtime_console_presenter import RuntimeConsolePresenter
 from personal_runtime.runtime_orchestrator import RuntimeOrchestrator
 from personal_runtime.runtime_state import RuntimeState
@@ -178,7 +178,7 @@ class RuntimeGateway:
             diagnostic_recorder=diagnostic_recorder,
             runtime_instance_id=runtime_instance_id,
         )
-        self.proxy_screen_evidence = ProxyScreenEvidenceService(
+        self.action_result_attachments = ActionResultAttachmentService(
             vision_evaluator=proxy_screen_vision_evaluator,
         )
 
@@ -1211,6 +1211,7 @@ class RuntimeGateway:
                 self._persist_state_deferred()
                 replies.extend(self._build_event_replies(frame))
             elif frame["type"] == "action_result":
+                frame = self.action_result_attachments.sanitize(frame)
                 recordable = self._can_record_action_result(frame)
                 if recordable:
                     frame = self._record_action_result_frame(frame)
@@ -1227,27 +1228,6 @@ class RuntimeGateway:
                     )
                     self._persist_state()
                 replies.extend(self._build_action_result_replies(frame))
-            elif frame["type"] == "evidence_transfer":
-                validation_error = self._validate_proxy_evidence_transfer(frame)
-                if validation_error is not None:
-                    replies.append(validation_error)
-                    continue
-                try:
-                    update = self.proxy_screen_evidence.ingest(frame)
-                except ValueError as exc:
-                    replies.append(
-                        self._build_public_error(
-                            code=str(exc),
-                            message="Proxy screen evidence was rejected.",
-                            device_id=frame.get("device_id"),
-                        )
-                    )
-                    continue
-                # Only safe metadata enters Runtime state; raw JPEG bytes are
-                # intentionally absent from this event and all persisted records.
-                self.state.record_event(self.proxy_screen_evidence.audit_event(frame, update))
-                self._persist_state()
-                replies.extend([with_api_version({"type": "event_ack"}), update])
             elif frame["type"] == "interaction_update":
                 self.state.record_interaction(frame["interaction"])
                 self._persist_state()
@@ -1382,49 +1362,6 @@ class RuntimeGateway:
                     capability=capability,
                     observation=observation_name,
                 )
-        return None
-
-    def _validate_proxy_evidence_transfer(self, frame: dict) -> dict | None:
-        """Require a preceding accepted bounded-evidence action before bytes arrive."""
-
-        device_id = frame.get("device_id")
-        request_id = frame.get("request_id")
-        transfer_id = frame.get("transfer_id")
-        evidence = frame.get("evidence")
-        if not (
-            isinstance(device_id, str)
-            and isinstance(request_id, str)
-            and isinstance(transfer_id, str)
-            and isinstance(evidence, dict)
-        ):
-            return self._build_public_error(
-                code="invalid_evidence_transfer",
-                message="Proxy screen evidence transfer is malformed.",
-                device_id=device_id if isinstance(device_id, str) else None,
-            )
-        registration = self.state.capability_registry.get(device_id, {}).get(
-            "proxy.screen.evidence.read"
-        )
-        if not isinstance(registration, dict):
-            return self._build_public_error(
-                code="unregistered_evidence_transfer",
-                message="Proxy Edge has not registered bounded screen evidence.",
-                device_id=device_id,
-            )
-        accepted = any(
-            result.get("device_id") == device_id
-            and result.get("request_id") == request_id
-            and result.get("capability") == "proxy.screen.evidence.read"
-            and result.get("status") == "ok"
-            and result.get("details", {}).get("transfer_id") == transfer_id
-            for result in self.state.action_results
-        )
-        if not accepted:
-            return self._build_public_error(
-                code="unauthorized_evidence_transfer",
-                message="Proxy screen evidence lacks an accepted request.",
-                device_id=device_id,
-            )
         return None
 
     @staticmethod

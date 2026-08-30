@@ -73,6 +73,16 @@ class ProxyEdgeDaemon:
             self.edge.build_attachment_observation_frame(),
             pending,
         )
+        try:
+            base_frame = self.edge.build_screen_base_observation_frame(
+                action_request_id=action_request_id,
+            )
+        except Exception:
+            # Keep the existing failure boundary: adapter errors become a later
+            # attachment downgrade, never an unstructured public exception.
+            base_frame = None
+        if base_frame is not None:
+            await self._send_observation(websocket, base_frame, pending)
         if include_screen_features:
             try:
                 frame = self.edge.build_screen_feature_observation_frame(
@@ -150,8 +160,6 @@ class ProxyEdgeDaemon:
                 idle_cycles = 0
                 result = self.edge.handle_action_request(frame)
                 await self._send(websocket, result)
-                for transfer in self.edge.drain_evidence_transfers():
-                    await self._send(websocket, transfer)
                 action_results.append(result)
                 await self._publish_state(
                     websocket,

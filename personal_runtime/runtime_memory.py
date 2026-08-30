@@ -82,6 +82,9 @@ def _build_device_roster(
                     "affordances": sorted(capability.get("affordances", [])),
                     "modality": capability.get("modality"),
                     "privacy": capability.get("privacy"),
+                    "side_effect": capability.get("side_effect"),
+                    "target_relationship": capability.get("target_relationship"),
+                    "input_schema": capability.get("input_schema"),
                     "content_capacity": capability.get("content_capacity"),
                     "interruptiveness": capability.get("interruptiveness"),
                 }

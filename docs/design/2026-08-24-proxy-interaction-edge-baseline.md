@@ -111,6 +111,21 @@ Runtime Profile delivery and lease management are deferred and must not be
 implemented as a prerequisite for the visual plus audio/microphone Edge closed
 loop.
 
+The current Python Proxy harness therefore publishes capture-health,
+digest-based change, and action-effect facts over `proxy.screen.base_observe`
+without an active Profile.  The Profile-gated `proxy.screen.features` capability
+remains available only to preserve the bounded experiment.  Both paths retain
+only a small Edge-local frame index; an authorized evidence read may use a
+base-frame reference, while raw JPEG bytes remain outside ordinary Runtime
+context and persistence.
+Normal screen reads do not use that older evidence-transfer experiment. The
+registered `proxy.screen.read` action takes target/surface, `freshness:"latest"`,
+and `max_bytes`; the Edge selects its current frame and returns one bounded JPEG
+in the ordinary correlated `action_result.payload`. Gateway's generic
+action-result attachment handler checks the JPEG MIME, byte count, and SHA-256,
+then strips bytes before persistence and returns only transient visual text to
+Hermes.
+
 The Proxy Interaction Edge adopts the Camera Edge governance model, adapted to
 a human-operated display. It is not a remote-video stream and it is not a
 blind HID injector.

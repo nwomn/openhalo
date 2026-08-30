@@ -16,11 +16,12 @@ PROXY_CAPABILITY_FACETS = (
 )
 
 OBSERVATION_CAPABILITY = "proxy.interaction.observe"
+SCREEN_BASE_OBSERVATION_CAPABILITY = "proxy.screen.base_observe"
 KEYBOARD_CAPABILITY = "proxy.keyboard.input"
 POINTER_CAPABILITY = "proxy.pointer.input"
 SCREEN_FEATURE_CAPABILITY = "proxy.screen.features"
 SCREEN_PROFILE_CAPABILITY = "proxy.screen.profile.configure"
-SCREEN_EVIDENCE_CAPABILITY = "proxy.screen.evidence.read"
+SCREEN_READ_CAPABILITY = "proxy.screen.read"
 
 
 @dataclass(frozen=True, slots=True)
@@ -192,14 +193,95 @@ def build_proxy_capability_registrations(
         }
     ]
     registrations.append(_screen_feature_registration(attachment))
+    registrations.append(_screen_base_observation_registration(attachment))
     registrations.append(_screen_profile_registration(attachment))
     if attachment.capability_state("screen").state != "unavailable":
-        registrations.append(_screen_evidence_registration(attachment))
+        registrations.append(_screen_read_registration(attachment))
     if attachment.capability_state("keyboard").state != "unavailable":
         registrations.append(_keyboard_registration(attachment))
     if attachment.capability_state("pointer").state != "unavailable":
         registrations.append(_pointer_registration(attachment))
     return registrations
+
+
+def _screen_base_observation_registration(attachment: ProxyTargetAttachment) -> dict:
+    """Register Profile-independent, safe screen facts.
+
+    These values describe capture availability and pixel change only.  They do
+    not interpret a target UI or embed screen bytes, so they are admissible as
+    ordinary bounded observations without an Attention Profile.
+    """
+
+    return {
+        "name": SCREEN_BASE_OBSERVATION_CAPABILITY,
+        "direction": "edge_to_runtime",
+        "kind": "observation_provider",
+        "privacy": "personal_screen",
+        "target_relationship": {
+            "target_id": attachment.target_id,
+            "surface_id": attachment.surface_id,
+            "target_class": attachment.target_class,
+        },
+        "observations": [
+            {
+                "name": "proxy.screen.capture_health.v1",
+                "schema": {
+                    "type": "object",
+                    "required": ["target_id", "surface_id", "feature_version", "state", "width", "height"],
+                    "properties": {
+                        "target_id": {"type": "string"},
+                        "surface_id": {"type": "string"},
+                        "feature_version": {"type": "string", "enum": ["capture_health.v1"]},
+                        "state": {"type": "string", "enum": ["ready"]},
+                        "width": {"type": "integer", "minimum": 1},
+                        "height": {"type": "integer", "minimum": 1},
+                        "capture_latency_ms": {"type": "integer", "nullable": True, "minimum": 0},
+                    },
+                },
+                "semantics": ["screen_capture_health"],
+                "privacy": "device_health",
+                "freshness_seconds": 30,
+                "schema_version": 1,
+            },
+            {
+                "name": "proxy.screen.change.v1",
+                "schema": {
+                    "type": "object",
+                    "required": ["target_id", "surface_id", "feature_version", "state", "evidence_ref"],
+                    "properties": {
+                        "target_id": {"type": "string"},
+                        "surface_id": {"type": "string"},
+                        "feature_version": {"type": "string", "enum": ["screen_change.v1"]},
+                        "state": {"type": "string", "enum": ["changed", "unchanged"]},
+                        "evidence_ref": {"type": "string"},
+                    },
+                },
+                "semantics": ["screen_change", "candidate_event"],
+                "privacy": "personal_screen",
+                "freshness_seconds": 30,
+                "schema_version": 1,
+            },
+            {
+                "name": "proxy.screen.action_effect.v1",
+                "schema": {
+                    "type": "object",
+                    "required": ["target_id", "surface_id", "feature_version", "action_request_id", "state", "evidence_ref"],
+                    "properties": {
+                        "target_id": {"type": "string"},
+                        "surface_id": {"type": "string"},
+                        "feature_version": {"type": "string", "enum": ["action_effect.v1"]},
+                        "action_request_id": {"type": "string"},
+                        "state": {"type": "string", "enum": ["changed", "unchanged"]},
+                        "evidence_ref": {"type": "string"},
+                    },
+                },
+                "semantics": ["action_effect", "screen_change"],
+                "privacy": "personal_screen",
+                "freshness_seconds": 30,
+                "schema_version": 1,
+            },
+        ],
+    }
 
 
 def _screen_feature_registration(attachment: ProxyTargetAttachment) -> dict:
@@ -318,28 +400,26 @@ def _screen_profile_registration(attachment: ProxyTargetAttachment) -> dict:
     }
 
 
-def _screen_evidence_registration(attachment: ProxyTargetAttachment) -> dict:
+def _screen_read_registration(attachment: ProxyTargetAttachment) -> dict:
     return {
-        "name": SCREEN_EVIDENCE_CAPABILITY,
+        "name": SCREEN_READ_CAPABILITY,
         "direction": "runtime_to_edge",
         "kind": "action",
-        "affordances": ["request_bounded_screen_evidence"],
+        "affordances": ["read_latest_bounded_screen"],
         "privacy": "personal_screen",
-        "side_effect": "bounded_private_evidence_transfer",
+        "side_effect": "bounded_private_attachment",
         "target_relationship": {
             "target_id": attachment.target_id,
             "surface_id": attachment.surface_id,
         },
         "input_schema": {
             "type": "object",
-            "required": ["target_id", "surface_id", "evidence_ref"],
+            "required": ["target_id", "surface_id", "freshness", "max_bytes"],
             "additionalProperties": False,
             "properties": {
                 **_target_properties(attachment),
-                "evidence_ref": {"type": "string", "maxLength": 256},
-                "purpose": {"type": "string", "enum": ["owner_inspection", "candidate_review", "action_verification"]},
-                "max_bytes": {"type": "integer", "minimum": 1, "maximum": 524288},
-                "understanding_ttl_seconds": {"type": "integer", "minimum": 5, "maximum": 300},
+                "freshness": {"type": "string", "enum": ["latest"]},
+                "max_bytes": {"type": "integer", "minimum": 1, "maximum": 98304},
             },
         },
     }

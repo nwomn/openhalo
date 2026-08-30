@@ -15,6 +15,7 @@ from openhalo_common.diagnostics import JsonlDiagnosticRecorder
 from personal_runtime.gateway_server import RuntimeGateway
 from personal_runtime.managed_host_edge import ManagedHostEdgeSupervisor
 from personal_runtime.model_provider import DEFAULT_CONFIG_PATH
+from personal_runtime.model_provider import build_screen_vision_evaluator
 from personal_runtime.pairing_store import PairingStore
 from personal_runtime.state_migration import migrate_json_to_sqlite
 from personal_runtime.state_migration import write_bounded_legacy_snapshot
@@ -60,6 +61,7 @@ def build_gateway(
         if pairing_store_path is not None
         else None,
         audience=audience,
+        proxy_screen_vision_evaluator=build_screen_vision_evaluator(llm_config_path),
     )
 
 
