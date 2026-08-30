@@ -11,6 +11,7 @@ from personal_runtime.model_provider import (
     classify_provider_failure,
     build_openai_compatible_proposal_request,
     build_openai_compatible_request,
+    build_openai_compatible_screen_understanding_request,
     build_deterministic_post_action_proposal_plan,
     build_deterministic_proposal_plan,
     execute_openai_compatible_request,
@@ -78,6 +79,7 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertEqual(profile.model_ref, "openai_gpt55")
         self.assertEqual(profile.reasoning_effort, "medium")
         self.assertEqual(profile.verbosity, "low")
+        self.assertFalse(config.models["openai_gpt55"].supports_vision)
 
     def test_load_runtime_model_config_uses_runtime_config_when_no_path_is_provided(
         self,
@@ -95,6 +97,7 @@ class ModelProviderConfigTests(unittest.TestCase):
             config.providers["openai_main"].api_key,
             "replace-with-provider-api-key",
         )
+        self.assertTrue(config.models["openai_gpt55"].supports_vision)
         self.assertEqual(
             config.providers["openai_main"].default_headers,
             {"User-Agent": "openhalo-runtime/0.1"},
@@ -140,6 +143,23 @@ class ModelProviderConfigTests(unittest.TestCase):
         self.assertIn('"bundle_version": "m10.v1"', str(request_payload["input"]))
         self.assertIn('"edge_evidence"', str(request_payload["input"]))
         self.assertIn('"recent_memory"', str(request_payload["input"]))
+
+    def test_screen_understanding_request_keeps_image_out_of_text_context(self) -> None:
+        request_payload = build_openai_compatible_screen_understanding_request(
+            model_id="gpt-5.5",
+            image_bytes=b"private-jpeg-bytes",
+            attachment={
+                "observed_at": "2026-08-30T09:00:00Z",
+                "mime_type": "image/jpeg",
+            },
+            reasoning_effort="low",
+            verbosity="low",
+        )
+
+        content = request_payload["input"][1]["content"]
+        self.assertEqual(content[1]["type"], "input_image")
+        self.assertTrue(content[1]["image_url"].startswith("data:image/jpeg;base64,"))
+        self.assertNotIn("private-jpeg-bytes", content[0]["text"])
 
     def test_build_openai_compatible_proposal_request_uses_structured_proposal_contract(
         self,

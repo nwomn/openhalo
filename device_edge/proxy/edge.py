@@ -1,6 +1,7 @@
 """Proxy Interaction Edge composition over the normal public Edge Session Link."""
 
 from device_edge.proxy.contracts import OBSERVATION_CAPABILITY
+from device_edge.proxy.contracts import SCREEN_BASE_OBSERVATION_CAPABILITY
 from device_edge.proxy.contracts import ProxyTargetAttachment
 from device_edge.proxy.contracts import build_proxy_capability_registrations
 from device_edge.proxy.contracts import unavailable_capabilities
@@ -132,7 +133,7 @@ class ProxyInteractionEdge:
         if availability.state == "unavailable" or not self.screen_governance.has_active_profile():
             return None
         frame = self.adapter.capture_frame()
-        observations = self.screen_governance.observe(
+        observations = self.screen_governance.observe_profile_features(
             frame,
             self.attachment,
             action_request_id=action_request_id,
@@ -141,8 +142,26 @@ class ProxyInteractionEdge:
             return None
         return self.client.build_observation_event(SCREEN_FEATURE_CAPABILITY, observations)
 
-    def drain_evidence_transfers(self) -> list[dict]:
-        return self.action_executor.drain_evidence_transfers()
+    def build_screen_base_observation_frame(
+        self,
+        *,
+        action_request_id: str | None = None,
+    ) -> dict | None:
+        """Emit safe capture/change facts without waiting for a Profile."""
+
+        availability = self.attachment.capability_state("screen")
+        if availability.state == "unavailable":
+            return None
+        frame = self.adapter.capture_frame()
+        observations = self.screen_governance.observe_base(
+            frame,
+            self.attachment,
+            action_request_id=action_request_id,
+        )
+        return self.client.build_observation_event(
+            SCREEN_BASE_OBSERVATION_CAPABILITY,
+            observations,
+        )
 
     def handle_understanding_update(self, frame: dict) -> None:
         self.screen_governance.accept_understanding_update(frame, self.attachment)

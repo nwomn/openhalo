@@ -101,6 +101,7 @@ class ProxyEdgeDaemonTests(unittest.TestCase):
             [
                 "proxy.interaction.observe",
                 "proxy.screen.features",
+                "proxy.screen.base_observe",
                 "proxy.screen.profile.configure",
             ],
         )
@@ -167,6 +168,8 @@ class ProxyEdgeDaemonTests(unittest.TestCase):
         sent = [json.loads(call.args[0]) for call in websocket.send.await_args_list]
         self.assertEqual(sent[0]["auth"]["kind"], "pairing")
         self.assertEqual(sent[2]["type"], "capability_announce")
-        self.assertEqual(sent[4]["type"], "action_result")
+        self.assertEqual(sent[4]["capability"], "proxy.screen.base_observe")
+        self.assertEqual(sent[5]["type"], "action_result")
         self.assertEqual(sent[-1]["type"], "observation_push")
-        self.assertEqual(sent[-1]["observations"][0]["name"], "proxy.target_attachment.v1")
+        self.assertEqual(sent[-1]["capability"], "proxy.screen.base_observe")
+        self.assertEqual(sent[-1]["observations"][-1]["name"], "proxy.screen.action_effect.v1")

@@ -57,8 +57,6 @@ class ProxyScreenEvidenceService:
             "request_id": request_id,
             "target_id": evidence.get("target_id"),
             "surface_id": evidence.get("surface_id"),
-            "profile_id": evidence.get("profile_id"),
-            "profile_revision": evidence.get("profile_revision"),
             "evidence_ref": evidence.get("evidence_ref"),
             "expires_at": expires_at,
             # A board may deliberately have no wall clock.  This bounded lease
@@ -66,10 +64,17 @@ class ProxyScreenEvidenceService:
             # treating an RFC3339 timestamp as permanently valid.
             "valid_for_seconds": ttl,
         }
-        if not all(isinstance(safe[key], str) and safe[key] for key in ("target_id", "surface_id", "profile_id", "evidence_ref")):
+        if not all(isinstance(safe[key], str) and safe[key] for key in ("target_id", "surface_id", "evidence_ref")):
             raise ValueError("invalid_evidence_identity")
-        if not isinstance(safe["profile_revision"], int) or isinstance(safe["profile_revision"], bool):
-            raise ValueError("invalid_evidence_profile_revision")
+        profile_id = evidence.get("profile_id")
+        profile_revision = evidence.get("profile_revision")
+        if profile_id is not None or profile_revision is not None:
+            if not isinstance(profile_id, str) or not profile_id:
+                raise ValueError("invalid_evidence_profile")
+            if not isinstance(profile_revision, int) or isinstance(profile_revision, bool):
+                raise ValueError("invalid_evidence_profile_revision")
+            safe["profile_id"] = profile_id
+            safe["profile_revision"] = profile_revision
         if self.vision_evaluator is None:
             update = {
                 **safe,

@@ -11,6 +11,9 @@ provider = "openai_main"
 model_id = "gpt-5.5"
 supports_structured_output = true
 supports_tools = true
+# Required before approved screen-read attachments are sent to this provider
+# for transient visual interpretation.
+supports_vision = true
 
 [llm.profiles.interactive_reply]
 model_ref = "openai_gpt55"
@@ -23,6 +26,12 @@ model_ref = "openai_gpt55"
 reasoning_effort = "medium"
 verbosity = "low"
 provider_failure_behavior = "user_visible_error"
+
+[llm.profiles.screen_understanding]
+model_ref = "openai_gpt55"
+reasoning_effort = "low"
+verbosity = "low"
+provider_failure_behavior = "deterministic"
 
 [harness]
 runner = "hermes"

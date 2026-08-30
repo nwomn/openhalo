@@ -5,22 +5,17 @@ import sys
 import types
 import unittest
 
-# The production Runtime runs on POSIX.  Keep this pure in-process protocol
-# test runnable on the Windows development host without changing its pairing
-# implementation or touching pairing storage.
 if os.name == "nt" and "fcntl" not in sys.modules:
     sys.modules["fcntl"] = types.SimpleNamespace(
-        LOCK_EX=0,
-        LOCK_UN=0,
-        flock=lambda *_args, **_kwargs: None,
+        LOCK_EX=0, LOCK_UN=0, flock=lambda *_args, **_kwargs: None
     )
 
 from device_edge.proxy.adapter import AdapterProbe
+from device_edge.proxy.adapter import ProxyAdapterError
 from device_edge.proxy.contracts import CapabilityAvailability
 from device_edge.proxy.contracts import CapturedFrame
 from device_edge.proxy.edge import ProxyInteractionEdge
 from personal_runtime.gateway_server import RuntimeGateway
-from personal_runtime.proxy_screen_governance import ProxyScreenEvidenceService
 from personal_runtime.runtime_state import RuntimeState
 
 
@@ -30,13 +25,12 @@ class BytesProxyAdapter:
     requirements = ()
     supported_target_classes = frozenset({"desktop"})
 
-    def __init__(self) -> None:
-        self.body = b"bounded-private-jpeg"
-        self.digest = hashlib.sha256(self.body).hexdigest()
-        self.calls = []
+    def __init__(self, body=b"bounded-private-jpeg"):
+        self.body = body
+        self.digest = hashlib.sha256(body).hexdigest()
         self.ref = f"proxy-evidence://bytes-proxy/screen/{self.digest[:24]}"
 
-    def probe(self) -> AdapterProbe:
+    def probe(self):
         return AdapterProbe(
             {
                 "screen": CapabilityAvailability("available"),
@@ -49,10 +43,10 @@ class BytesProxyAdapter:
             {},
         )
 
-    def capture_frame(self) -> CapturedFrame:
+    def capture_frame(self):
         return CapturedFrame(
             evidence_ref=self.ref,
-            captured_at="2026-08-29T13:00:00Z",
+            captured_at="2026-08-30T08:30:00Z",
             width=1280,
             height=720,
             mime_type="image/jpeg",
@@ -60,234 +54,95 @@ class BytesProxyAdapter:
             sha256=self.digest,
         )
 
-    def read_evidence(self, evidence_ref: str, max_bytes: int) -> bytes:
+    def read_evidence(self, evidence_ref, max_bytes):
         if evidence_ref != self.ref or len(self.body) > max_bytes:
-            raise RuntimeError("evidence_unavailable")
+            raise ProxyAdapterError("evidence_unavailable")
         return self.body
 
-    def execute_keyboard(self, payload: dict) -> dict:
-        self.calls.append(("keyboard", payload))
+    def execute_keyboard(self, payload):
         return {"ok": True}
 
-    def execute_pointer(self, payload: dict) -> dict:
-        self.calls.append(("pointer", payload))
+    def execute_pointer(self, payload):
         return {"ok": True}
 
 
-def build_edge() -> tuple[ProxyInteractionEdge, BytesProxyAdapter]:
-    adapter = BytesProxyAdapter()
-    return (
-        ProxyInteractionEdge(
-            device_id="proxy-edge-1",
-            audience="ws://runtime.example.test:8765",
-            target_id="desktop-1",
-            surface_id="main",
-            target_class="desktop",
-            adapter=adapter,
-            observed_at="2026-08-29T13:00:00Z",
-        ),
-        adapter,
-    )
+def build_edge(body=b"bounded-private-jpeg"):
+    adapter = BytesProxyAdapter(body)
+    return ProxyInteractionEdge(
+        device_id="proxy-edge-1",
+        audience="ws://runtime.example.test:8765",
+        target_id="desktop-1",
+        surface_id="main",
+        target_class="desktop",
+        adapter=adapter,
+        observed_at="2026-08-30T08:30:00Z",
+    ), adapter
 
 
-def profile_request() -> dict:
+def read_request(max_bytes=98_304):
     return {
         "type": "action_request",
         "device_id": "proxy-edge-1",
-        "request_id": "profile-1",
+        "request_id": "screen-read-1",
         "action": {
-            "capability": "proxy.screen.profile.configure",
+            "capability": "proxy.screen.read",
             "payload": {
                 "target_id": "desktop-1",
                 "surface_id": "main",
-                "profile_id": "desktop-control-v1",
-                "revision": 1,
-                "features": [
-                    "proxy.screen.capture_health.v1",
-                    "proxy.screen.change.v1",
-                    "proxy.screen.action_effect.v1",
-                ],
-                "expires_at": "2099-08-29T13:00:00Z",
-                "max_evidence_bytes": 1024,
-                "visual_action_policy": "require_understanding",
+                "freshness": "latest",
+                "max_bytes": max_bytes,
             },
         },
     }
 
 
-class ProxyScreenGovernanceTests(unittest.TestCase):
-    def test_profile_selects_features_and_blocks_blind_hid(self) -> None:
-        edge, adapter = build_edge()
-
-        configured = edge.handle_action_request(profile_request())
-        self.assertEqual(configured["result"]["status"], "ok")
-        feature_frame = edge.build_screen_feature_observation_frame()
-        self.assertIsNotNone(feature_frame)
-        assert feature_frame is not None
-        self.assertEqual(feature_frame["capability"], "proxy.screen.features")
-        self.assertEqual(
-            [item["name"] for item in feature_frame["observations"]],
-            [
-                "proxy.screen.capture_health.v1",
-                "proxy.screen.change.v1",
-            ],
-        )
-        blind = edge.handle_action_request(
-            {
-                "type": "action_request",
-                "device_id": "proxy-edge-1",
-                "request_id": "key-1",
-                "action": {
-                    "capability": "proxy.keyboard.input",
-                    "payload": {
-                        "target_id": "desktop-1",
-                        "surface_id": "main",
-                        "operation": "type",
-                        "text": "blocked",
-                    },
-                },
-            }
-        )
-        self.assertEqual(blind["result"]["reason"], "visual_understanding_required")
-        self.assertEqual(adapter.calls, [])
-
-    def test_bounded_transfer_becomes_expiring_understanding_without_media_persistence(self) -> None:
-        edge, adapter = build_edge()
-        edge.handle_action_request(profile_request())
-        feature_frame = edge.build_screen_feature_observation_frame()
-        assert feature_frame is not None
-        evidence_ref = feature_frame["observations"][1]["evidence_ref"]
-        evidence_result = edge.handle_action_request(
-            {
-                "type": "action_request",
-                "device_id": "proxy-edge-1",
-                "request_id": "evidence-1",
-                "action": {
-                    "capability": "proxy.screen.evidence.read",
-                    "payload": {
-                        "target_id": "desktop-1",
-                        "surface_id": "main",
-                        "evidence_ref": evidence_ref,
-                        "purpose": "owner_inspection",
-                        "max_bytes": 1024,
-                        "understanding_ttl_seconds": 60,
-                    },
-                },
-            }
-        )
-        transfer = edge.drain_evidence_transfers()[0]
-        self.assertEqual(evidence_result["result"]["details"]["understanding_state"], "pending_understanding")
-        self.assertNotIn("data_base64", json.dumps(evidence_result))
-
-        service = ProxyScreenEvidenceService(
-            vision_evaluator=lambda _body, _metadata: {
-                "summary": "A configured desktop control surface is visible.",
-                "labels": ["desktop"],
-                "confidence": 0.9,
-            },
-        )
-        update = service.ingest(transfer)
-        self.assertEqual(update["understanding"]["state"], "understanding_ready")
-        self.assertEqual(update["understanding"]["valid_for_seconds"], 60)
-        audit = service.audit_event(transfer, update)
-        self.assertNotIn("data_base64", json.dumps(audit))
-        self.assertNotIn(adapter.body.decode("ascii"), json.dumps(audit))
-
-        edge.handle_understanding_update(update)
-        authorized = edge.handle_action_request(
-            {
-                "type": "action_request",
-                "device_id": "proxy-edge-1",
-                "request_id": "key-2",
-                "action": {
-                    "capability": "proxy.keyboard.input",
-                    "payload": {
-                        "target_id": "desktop-1",
-                        "surface_id": "main",
-                        "operation": "type",
-                        "text": "allowed",
-                        "visual_authorization": {
-                            "understanding_id": update["understanding"]["understanding_id"],
-                        },
-                    },
-                },
-            }
-        )
-        self.assertEqual(authorized["result"]["status"], "ok")
-        self.assertEqual(adapter.calls[0][0], "keyboard")
-
-    def test_edge_rejects_unknown_evidence_reference(self) -> None:
-        edge, _adapter = build_edge()
-        edge.handle_action_request(profile_request())
-        edge.build_screen_feature_observation_frame()
-        transfer = edge.handle_action_request(
-            {
-                "type": "action_request",
-                "device_id": "proxy-edge-1",
-                "request_id": "evidence-2",
-                "action": {
-                    "capability": "proxy.screen.evidence.read",
-                    "payload": {
-                        "target_id": "desktop-1",
-                        "surface_id": "main",
-                        "evidence_ref": "proxy-evidence://missing",
-                    },
-                },
-            }
-        )
-        self.assertEqual(transfer["result"]["reason"], "evidence_unavailable")
-
-    def test_gateway_accepts_only_result_authorized_transfer_and_persists_no_jpeg(self) -> None:
-        edge, adapter = build_edge()
-        configured = edge.handle_action_request(profile_request())
-        feature_frame = edge.build_screen_feature_observation_frame()
-        assert feature_frame is not None
-        evidence_ref = feature_frame["observations"][1]["evidence_ref"]
-        evidence_result = edge.handle_action_request(
-            {
-                "type": "action_request",
-                "device_id": "proxy-edge-1",
-                "request_id": "evidence-3",
-                "action": {
-                    "capability": "proxy.screen.evidence.read",
-                    "payload": {
-                        "target_id": "desktop-1",
-                        "surface_id": "main",
-                        "evidence_ref": evidence_ref,
-                        "purpose": "candidate_review",
-                        "max_bytes": 1024,
-                    },
-                },
-            }
-        )
-        transfer = edge.drain_evidence_transfers()[0]
+class ProxyScreenReadTests(unittest.TestCase):
+    def test_base_observations_reach_context_facts_without_profile(self):
+        edge, _ = build_edge()
         state = RuntimeState()
         state.register_device("proxy-edge-1", "proxy-interaction")
         for capability in edge.build_capability_announce_frame()["capabilities"]:
             state.register_capability("proxy-edge-1", capability)
+        gateway = RuntimeGateway(state=state, persist_state=False)
+
+        replies = gateway.run_roundtrip([edge.build_screen_base_observation_frame()])
+
+        self.assertEqual(replies[0]["type"], "event_ack")
+        self.assertIn("proxy-edge-1/proxy.screen.capture_health.v1", gateway.state.context_facts)
+
+    def test_screen_read_is_one_normal_action_result_and_runtime_never_persists_jpeg(self):
+        edge, adapter = build_edge()
+        action_result = edge.handle_action_request(read_request())
+        payload = action_result["result"]["payload"]
+        self.assertEqual(action_result["result"]["capability"], "proxy.screen.read")
+        self.assertEqual(payload["mime_type"], "image/jpeg")
+        self.assertIn("jpeg_bytes", payload)
+
         gateway = RuntimeGateway(
-            state=state,
             persist_state=False,
-            proxy_screen_vision_evaluator=lambda _body, _metadata: {
-                "summary": "Desktop is available for review.",
+            proxy_screen_vision_evaluator=lambda _body, _attachment: {
+                "summary": "A desktop is visible.",
                 "labels": ["desktop"],
-                "confidence": 0.8,
+                "confidence": 0.9,
             },
         )
-        replies = gateway.run_roundtrip([configured, evidence_result, transfer])
-        update = next(reply for reply in replies if reply["type"] == "understanding_update")
-        self.assertEqual(update["understanding"]["state"], "understanding_ready")
-        self.assertEqual(
-            gateway.state.proxy_screen_profiles["proxy-edge-1"]["profile_id"],
-            "desktop-control-v1",
-        )
-        self.assertNotIn("data_base64", json.dumps(gateway.state.events))
-        self.assertNotIn(adapter.body.decode("ascii"), json.dumps(gateway.state.events))
+        gateway.run_roundtrip([action_result])
 
-        unapproved_state = RuntimeState()
-        unapproved_state.register_device("proxy-edge-1", "proxy-interaction")
-        for capability in edge.build_capability_announce_frame()["capabilities"]:
-            unapproved_state.register_capability("proxy-edge-1", capability)
-        unapproved = RuntimeGateway(state=unapproved_state, persist_state=False)
-        rejected = unapproved.run_roundtrip([transfer])
-        self.assertEqual(rejected[0]["code"], "unauthorized_evidence_transfer")
+        recorded = gateway.state.action_results[-1]
+        serialized = json.dumps({"results": gateway.state.action_results, "events": gateway.state.events})
+        self.assertNotIn("jpeg_bytes", recorded["payload"])
+        self.assertEqual(recorded["payload"]["visual_understanding"]["summary"], "A desktop is visible.")
+        self.assertNotIn(adapter.body.decode("ascii"), serialized)
+
+    def test_screen_read_enforces_edge_byte_bound(self):
+        edge, _ = build_edge(b"x" * 98_305)
+        result = edge.handle_action_request(read_request())
+        self.assertEqual(result["result"]["status"], "error")
+        self.assertEqual(result["result"]["reason"], "evidence_unavailable")
+
+    def test_screen_read_rejects_non_latest_request(self):
+        edge, _ = build_edge()
+        request = read_request()
+        request["action"]["payload"]["freshness"] = "cached"
+        result = edge.handle_action_request(request)
+        self.assertEqual(result["result"]["reason"], "unsupported_screen_freshness")
