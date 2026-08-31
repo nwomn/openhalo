@@ -1,8 +1,7 @@
 # Edge Attention Profile Baseline
 
-Status: architecture baseline. Generic Profile delivery remains deferred, but
-the bounded Camera Region Attention Overlay is the first required M17.10
-delivery slice.
+Status: architecture baseline. Generic Profile delivery, including the bounded
+Camera Region Attention Overlay, remains deferred.
 
 ## Decision
 
@@ -65,10 +64,10 @@ validated action -> correlated result/verification.  This work should reuse
 the existing M17.10 bounded-media, evidence, privacy, and failure semantics;
 it must not wait for Attention Profile delivery.
 
-## First delivery slice: Camera Region Attention Overlay
+## Deferred design: Camera Region Attention Overlay
 
 Static device-private regions are useful only for installation diagnostics;
-they are not the product control surface. The first useful Camera Edge region
+they are not the product control surface. A future useful Camera Edge region
 workflow is a Runtime-owned, hot-applied Attention Profile overlay. Main
 Hermes may propose a named region for the exact paired Camera Edge when it is
 relevant to an Interaction, but it cannot directly reconfigure the device.
