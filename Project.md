@@ -8,10 +8,11 @@ detail documents only when the task needs their evidence or design depth.
 | Field | Current baseline |
 | --- | --- |
 | Phase | Post-M16 multi-edge and productization expansion |
-| Current milestone | `M17.8` / Issue `#3` mobile sensitive-screen capture governance |
+| Current milestone | `M17.11` / Issue `#19` Proxy Interaction Edge baseline |
 | Parent milestone | `M17` multi-edge interaction expansion |
-| Next route | `M17.8` -> `M17.11` -> `M17.9` -> `M17.10` -> `M20.1` -> `M21` -> `M22` -> `M23` -> `M24` |
+| Next route | `M17.11` -> `M17.10` -> `M20.1` -> `M21` -> `M22` -> `M23` -> `M24` |
 | Parallel bounded validation | `M17.10` Camera Edge physical Feature validation is in progress; its full milestone remains later in the route and is not accepted |
+| Explicitly deferred | `M17.8` mobile sensitive-screen capture governance and `M17.9` native Windows Desktop Edge are `Unplanned（未计划）` for the current execution window; they do not block the active route and must be deliberately re-planned before implementation resumes |
 | Immediate execution priority | Advance the visual Edge plus audio/microphone Edge perception-and-control closed loop using admitted base Observations, bounded evidence, ContextFact/ContextEnvelope, Main Hermes, Presence, validated action, and result verification. `Screen Profile` delivery is deliberately deferred. |
 | Active parallel work allocation | This workstream owns `M17.11` Proxy Interaction Edge firmware development and real-hardware verification on the current Waveshare ESP32-P4-WIFI6 / C790 bench. Normal deployment requires a board-resident Proxy Edge service that starts automatically when the P4 powers on, retains its P-256 identity and provisioning locally, and reconnects without a general-purpose computer. ESP-KVM is only a replaceable capture/HID bring-up base; `codex/waveshare-p4-wifi6` is the owner's forked external ESP-KVM bench branch, not an OpenHalo source, release, or user-installation channel, and may hold only temporary board-port patches. The current Python `ProxyEdgeDaemon` is a development harness, not the deployment process. Before product delivery, the selected Proxy Edge firmware, hardware profile/manifest, signed artifacts, recovery path, and OTA workflow must be owned and released by OpenHalo, whether in this repository or a dedicated OpenHalo-owned firmware repository. After the OpenHalo Proxy Edge itself is accepted, selected drivers and recovery behavior may be retained in trimmed or replacement firmware. Compact PCB/package development proceeds separately. Firmware work may define and verify only the stable hardware-facing contract, and does not itself select, change, or accept the compact production PCB/package. This allocation does not use MaixCAM or `M17.10` Camera Edge evidence as the Proxy Edge hardware baseline. |
 | Accepted baseline | `M17.0` through `M17.7.2`, `M18`, `M18.1`, `M4.1`, `M19`, `M20`, `M20.2`, and `M20.3` |
@@ -532,15 +533,17 @@ The project is in the post-M16 multi-edge and productization expansion phase.
 
 ### Next execution route
 
-1. `M17.8` mobile sensitive-screen capture governance.
-2. `M17.11` Proxy Interaction Edge baseline.
-3. `M17.9` native Windows Desktop Edge baseline.
-4. `M17.10` Ambient Home Presence Edge baseline.
-5. `M20.1` governed procedural-memory and skill lifecycle.
-6. `M21` policy learning and review.
-7. `M22` packaged three-end product slice.
-8. `M23` Home Assistant Bridge Edge and smart-home ecosystem bridge.
-9. `M24` Cellular Camera Edge product hardware baseline.
+1. `M17.11` Proxy Interaction Edge baseline.
+2. `M17.10` Ambient Home Presence Edge baseline.
+3. `M20.1` governed procedural-memory and skill lifecycle.
+4. `M21` policy learning and review.
+5. `M22` packaged three-end product slice.
+6. `M23` Home Assistant Bridge Edge and smart-home ecosystem bridge.
+7. `M24` Cellular Camera Edge product hardware baseline.
+
+`M17.8` mobile sensitive-screen capture governance and `M17.9` native Windows
+Desktop Edge remain planned work, but are explicitly `Unplanned（未计划）` for
+the current execution window and therefore do not gate this route.
 
 For detailed evidence, read the linked archives or the relevant milestone plan/Issue rather than expanding this section with another historical log.
 
