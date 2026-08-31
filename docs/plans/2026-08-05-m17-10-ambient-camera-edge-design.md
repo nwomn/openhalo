@@ -1,6 +1,8 @@
 # M17.10 Ambient Camera Edge Design
 
-Status: design baseline with a bounded Camera Edge bootstrap implementation.
+Status: design baseline with a bounded Camera Edge bootstrap implementation;
+the real-device `camera.person_presence.v1` presence-and-transition sub-slice
+is accepted, while the broader M17.10 milestone remains in progress.
 The selected hardware sample has passed basic stock-device bring-up, the
 Edge-session dependency probe, real-device P-256 proof verification, and one
 owner-Runtime pairing/authentication session. It has no sustained connection,
@@ -472,8 +474,26 @@ references, bounding boxes, OCR/face/gesture/pose results, and other
 unconfigured labels remain local. The scene-quality name is deliberately
 coarse until a Maix image-quality API is verified. Host-side regression tests
 cover the shared single-pass behavior, unavailable-vs-absent distinction,
-registration, semantic frame shape, and transition mapping; physical
-MaixCAM validation of the widened set remains outstanding.
+registration, semantic frame shape, and transition mapping. The post-reflash
+physical MaixCAM run on 2026-08-30 persisted the core widened outputs through
+Runtime: person presence, allowlisted object count, configured region
+occupancy, and scene availability/dimensions. A read-only Runtime SQLite
+history check on 2026-08-31 also confirmed the running App continues to write
+`present` person-presence, object-presence, region-occupancy, and
+scene-quality facts. That is narrow transport/persistence validation only:
+the currently active region configuration is empty, so positive configured
+region occupancy and region-transition semantics remain unaccepted.
+
+On 2026-08-31 the owner repeated the real-device person-transition acceptance
+with the manually launched App while the Runtime was observed read-only. The
+server persisted `present -> absent` with transition `left` at
+`2026-08-31T09:28:59.404228Z`, then `absent -> present` with transition
+`entered` at `2026-08-31T09:29:50.612187Z`. The same records retained the
+confirmed counts (`1 -> 0 -> 1`), feature version, and confidence, so this
+accepts the bounded `camera.person_presence.v1` detection plus debounced
+transition contract across `MaixCAM Device Edge -> Gateway -> Personal
+Runtime`. It does not accept configured-region transitions, identity, audio,
+raw-media/evidence, service recovery, or full M17.10.
 
 The first physical Feature run on 2026-08-23 authenticated to the owner
 Runtime, registered `camera.person_presence`, and persisted a schema-valid
