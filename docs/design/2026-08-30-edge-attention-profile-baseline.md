@@ -1,6 +1,8 @@
 # Edge Attention Profile Baseline
 
-Status: architecture baseline; Profile delivery implementation is deferred.
+Status: architecture baseline. Generic Profile delivery remains deferred, but
+the bounded Camera Region Attention Overlay is the first required M17.10
+delivery slice.
 
 ## Decision
 
@@ -62,3 +64,30 @@ ContextFact/ContextEnvelope -> Main Hermes scene reasoning -> Presence and
 validated action -> correlated result/verification.  This work should reuse
 the existing M17.10 bounded-media, evidence, privacy, and failure semantics;
 it must not wait for Attention Profile delivery.
+
+## First delivery slice: Camera Region Attention Overlay
+
+Static device-private regions are useful only for installation diagnostics;
+they are not the product control surface. The first useful Camera Edge region
+workflow is a Runtime-owned, hot-applied Attention Profile overlay. Main
+Hermes may propose a named region for the exact paired Camera Edge when it is
+relevant to an Interaction, but it cannot directly reconfigure the device.
+
+The Runtime validates the proposal against owner consent/policy, the registered
+`camera.region_occupancy` capability, target-device binding, bounded region
+count and normalized coordinates, privacy class, resource budget, revision,
+and finite expiry. It then sends a versioned registered configuration action
+that atomically replaces only the Region Overlay in the running Edge process.
+The Edge returns an explicit applied/rejected action result and subsequently
+tags region occupancy and transition Observations with the accepted overlay
+revision. On expiry, revocation, or replacement, it removes the Runtime overlay
+without restarting the App and falls back to its local diagnostic configuration
+or no configured regions.
+
+The payload is declarative only: stable region IDs, owner-readable labels,
+normalized rectangles, bounded sampling/debounce parameters, revision, and
+expiry. It cannot contain detector code, free-form model prompts, raw-media
+authorization, identity templates, or an action policy. The user or explicit
+owner policy can inspect, edit, pause, revoke, or renew every overlay. Region
+occupancy remains passive structured context; it does not independently create
+an intervention or bypass Presence.

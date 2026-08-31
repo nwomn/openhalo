@@ -272,6 +272,22 @@ context, durable diagnostics, or a default upload path.
 
 An Attention Profile may later be proposed from the current scene, but it is an overlay rather than a prerequisite for base facts. One model guess must not permanently become a fact; the user or explicit policy must be able to confirm, edit, pause, or revoke an accepted overlay.
 
+For `camera.region_occupancy`, the first product-relevant overlay is a
+Runtime-owned hot-applied Region Attention Overlay. A static
+`app-config.json` region remains only a local diagnostic fallback; it must not
+be the normal way to select a region at runtime. Main Hermes may propose a
+named normalized region for one exact paired Camera Edge, but Runtime validates
+owner consent/policy, registered capability, target binding, bounds, privacy,
+budget, revision, and expiry before sending the registered configuration action.
+The Edge atomically applies or rejects the declarative overlay in memory
+without an App restart, returns a correlated action result, and annotates later
+region Observations with the accepted overlay revision. Expiry, revocation, or
+replacement removes the overlay without changing base Feature admission. The
+payload may contain only bounded region IDs/labels, normalized rectangles,
+sampling/debounce parameters, revision, and expiry; arbitrary detector code,
+free-form model prompts, raw-media authorization, identity templates, and
+action policy are excluded.
+
 Base Features and any future attention-overlay additions come from a capability/feature registry and include a feature identifier, version, parameters, output schema, sampling/debounce policy, privacy class, and expiry/revision information. The Runtime must not ask the Edge to execute arbitrary model-generated code or an unregistered monitoring task. Adding a new Feature requires registry, version, permission, and compatibility checks.
 
 ### 3.2 Person-entity memory and identity candidates
