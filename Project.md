@@ -346,7 +346,7 @@ Goal-level acceptance rules:
 
 Status:
 
-- In progress; the current execution target is `M17.8` / Issue `#3` mobile sensitive-screen capture governance.
+- In progress; the current execution target is `M17.11` / Issue `#19` Proxy Interaction Edge baseline. `M17.8` mobile sensitive-screen capture governance and `M17.9` native Windows Desktop Edge remain deferred `Backlog` work for this execution window.
 
 ### Goal 5: Productize OpenHalo into an installable three-end system
 

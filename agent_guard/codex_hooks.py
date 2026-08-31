@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 import sys
 from dataclasses import asdict
 from dataclasses import dataclass
@@ -21,14 +20,6 @@ REQUIRED_SUMMARY_TEMPLATE = """Project.md Check:
 - project_updated: yes|no
 - summary: One concise sentence.
 """
-REQUIRED_PROGRESS_UPDATE_TEMPLATE = """Project progress updates must include separate `Goal 1` through `Goal 5` sections.
-Each Goal section must include:
-- `状态`
-- `架构位置`
-- `本批完成`
-- `对整体链路的作用`
-- `还缺什么`
-"""
 REQUIRED_ARCHITECTURE_SUMMARY_TEMPLATE = """Edited turns must include a final `架构实现小结` block.
 That block must include:
 - `架构位置`
@@ -36,30 +27,6 @@ That block must include:
 - `影响链路`
 """
 
-GOAL_HEADER_RE = re.compile(
-    r"^\s{0,3}(?:[#>*-]+\s*)?(?:\*\*)?Goal\s*([1-4])(?:\*\*)?(?:[:：].*)?$",
-    re.IGNORECASE,
-)
-GOAL_HEADER_RE = re.compile(
-    r"^\s{0,3}(?:[#>*-]+\s*)?(?:\*\*)?Goal\s*([1-5])\b.*$",
-    re.IGNORECASE,
-)
-PROGRESS_REQUEST_PATTERNS = (
-    "progress update",
-    "project progress",
-    "status update",
-    "progress report",
-    "项目进度",
-    "汇报",
-    "进度",
-)
-REQUIRED_PROGRESS_LABELS = (
-    "状态",
-    "架构位置",
-    "本批完成",
-    "对整体链路的作用",
-    "还缺什么",
-)
 REQUIRED_ARCHITECTURE_SUMMARY_LABELS = (
     "架构位置",
     "本步完成",
@@ -161,28 +128,6 @@ def parse_project_check(message_text: str) -> TurnAudit | None:
     )
 
 
-def is_project_progress_update_request(prompt: str | None) -> bool:
-    if prompt is None:
-        return False
-    normalized = prompt.casefold()
-    return any(pattern in normalized for pattern in PROGRESS_REQUEST_PATTERNS)
-
-
-def validate_progress_update_response(message_text: str) -> str | None:
-    sections = _extract_goal_sections(message_text)
-    for goal_number in range(1, 6):
-        section_text = sections.get(goal_number)
-        if section_text is None:
-            return f"Project progress updates must include a Goal {goal_number} section."
-        for label in REQUIRED_PROGRESS_LABELS:
-            if label not in section_text:
-                return (
-                    f"Goal {goal_number} must include the required progress label "
-                    f"`{label}`."
-                )
-    return None
-
-
 def validate_architecture_summary_response(message_text: str) -> str | None:
     if "架构实现小结" not in message_text:
         return "Edited turns must include a `架构实现小结` block."
@@ -190,24 +135,6 @@ def validate_architecture_summary_response(message_text: str) -> str | None:
         if label not in message_text:
             return f"`架构实现小结` must include the required label `{label}`."
     return None
-
-
-def _extract_goal_sections(message_text: str) -> dict[int, str]:
-    lines = message_text.splitlines()
-    headers: list[tuple[int, int]] = []
-    for index, line in enumerate(lines):
-        match = GOAL_HEADER_RE.search(line)
-        if match is None:
-            continue
-        headers.append((int(match.group(1)), index))
-
-    sections: dict[int, str] = {}
-    for current_index, (goal_number, start_line) in enumerate(headers):
-        end_line = len(lines)
-        if current_index + 1 < len(headers):
-            end_line = headers[current_index + 1][1]
-        sections[goal_number] = "\n".join(lines[start_line:end_line])
-    return sections
 
 
 def validate_turn_audit(
@@ -355,10 +282,6 @@ def handle_stop(root: Path, payload: dict) -> int:
     )
     current_project_hash = hash_file(project_path)
     errors: list[str] = []
-    if is_project_progress_update_request(state.last_user_prompt):
-        progress_error = validate_progress_update_response(transcript)
-        if progress_error is not None:
-            errors.append(progress_error + "\n\n" + REQUIRED_PROGRESS_UPDATE_TEMPLATE)
     if state.edit_activity_since_check:
         architecture_error = validate_architecture_summary_response(transcript)
         if architecture_error is not None:
