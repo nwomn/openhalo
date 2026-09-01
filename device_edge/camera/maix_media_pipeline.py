@@ -8,6 +8,8 @@ need MaixPy installed.
 
 from __future__ import annotations
 
+import gc
+import subprocess
 from datetime import UTC
 from datetime import datetime
 from pathlib import Path
@@ -75,9 +77,11 @@ class MaixCameraCaptureOwner:
 class MaixH264Mp4SegmentRecorder:
     """Seal short H.264/MP4 files from shared Maix camera frames.
 
-    Each segment gets its own Maix encoder and output path. This intentionally
-    keeps only one encoder alive at a time (a MaixPy limitation) and makes each
-    sealed Hot Ring item independently uploadable to a video provider.
+    MaixPy's Encoder emits encoded H.264 frames; it does not own or finalize an
+    MP4 output file. We write those frames to a temporary elementary stream,
+    then package the sealed stream with the board's ``ffmpeg`` binary. Each
+    segment gets its own encoder, intentionally keeping only one encoder alive
+    at a time (a MaixPy limitation).
     """
 
     def __init__(
@@ -101,6 +105,7 @@ class MaixH264Mp4SegmentRecorder:
         self.segment_seconds = segment_seconds
         self.enabled = enabled
         self._encoder = None
+        self._encoded_file = None
         self._segment_started_at: str | None = None
         self._segment_path: Path | None = None
         self.directory.mkdir(parents=True, exist_ok=True)
@@ -108,10 +113,9 @@ class MaixH264Mp4SegmentRecorder:
     def _open_segment(self, captured_at: str) -> None:
         from maix import image, video
 
-        filename = f"recording-{captured_at.replace(':', '').replace('+', '').replace('.', '')}.mp4"
+        filename = f"recording-{captured_at.replace(':', '').replace('+', '').replace('.', '')}.h264"
         self._segment_path = self.directory / filename
         self._encoder = video.Encoder(
-            path=str(self._segment_path),
             width=self.width,
             height=self.height,
             format=image.Format.FMT_YVU420SP,
@@ -120,6 +124,7 @@ class MaixH264Mp4SegmentRecorder:
             gop=self.fps,
             bitrate=self.bitrate,
         )
+        self._encoded_file = self._segment_path.open("wb")
         self._segment_started_at = captured_at
 
     def consume(self, captured: CapturedCameraFrame) -> list[EncodedMediaSegment]:
@@ -127,7 +132,9 @@ class MaixH264Mp4SegmentRecorder:
             return []
         if self._encoder is None:
             self._open_segment(captured.captured_at)
-        self._encoder.encode(captured.frame)
+        encoded = self._encoder.encode(captured.frame)
+        if encoded is not None:
+            self._encoded_file.write(encoded.to_bytes(False))
         assert self._segment_started_at is not None
         started = datetime.fromisoformat(self._segment_started_at.replace("Z", "+00:00"))
         current = datetime.fromisoformat(captured.captured_at.replace("Z", "+00:00"))
@@ -137,26 +144,46 @@ class MaixH264Mp4SegmentRecorder:
 
     def _seal_segment(self, ended_at: str) -> EncodedMediaSegment:
         assert self._encoder is not None and self._segment_path is not None
-        self._encoder.finish()
-        body = self._segment_path.read_bytes()
-        self._segment_path.unlink(missing_ok=True)
+        started_at = self._segment_started_at
+        raw_path = self._segment_path
+        self._release_encoder()
+        mp4_path = raw_path.with_suffix(".mp4")
+        try:
+            subprocess.run(
+                [
+                    "ffmpeg", "-y", "-loglevel", "error", "-framerate", str(self.fps),
+                    "-i", str(raw_path), "-c:v", "copy", "-movflags", "+faststart", str(mp4_path),
+                ],
+                check=True,
+                timeout=20,
+            )
+            body = mp4_path.read_bytes()
+        finally:
+            raw_path.unlink(missing_ok=True)
+            mp4_path.unlink(missing_ok=True)
         segment = EncodedMediaSegment(
-            start_at=self._segment_started_at,
+            start_at=started_at,
             end_at=ended_at,
             body=body,
             mime_type="video/mp4",
         )
-        self._encoder = None
         self._segment_started_at = None
         self._segment_path = None
         return segment
 
+    def _release_encoder(self) -> None:
+        """Release the native encoder before using its completed raw stream."""
+
+        self._encoder = None
+        if self._encoded_file is not None:
+            self._encoded_file.close()
+            self._encoded_file = None
+        # MaixPy exposes no Encoder.close()/finish(); prompt destruction frees
+        # its single native encoder instance before the next segment opens.
+        gc.collect()
+
     def close(self) -> None:
-        if self._encoder is not None:
-            try:
-                self._encoder.finish()
-            finally:
-                self._encoder = None
+        self._release_encoder()
         if self._segment_path is not None:
             self._segment_path.unlink(missing_ok=True)
             self._segment_path = None
