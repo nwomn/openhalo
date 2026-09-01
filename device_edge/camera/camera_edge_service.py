@@ -179,10 +179,22 @@ class CameraEdgeService:
             if frame is None:
                 return
             action = frame.get("action", {})
-            if action.get("capability") == MEDIA_PROVIDER_CONFIGURE_CAPABILITY:
-                result = self.provider_credentials.handle_action_request(frame)
-            else:
-                result = await self.media_query_executor.handle_action_request_async(frame)
+            try:
+                if action.get("capability") == MEDIA_PROVIDER_CONFIGURE_CAPABILITY:
+                    result = self.provider_credentials.handle_action_request(frame)
+                else:
+                    result = await self.media_query_executor.handle_action_request_async(frame)
+            except Exception:
+                result = {
+                    "api_version": "edge.runtime.v2",
+                    "type": "action_result",
+                    "device_id": frame.get("device_id"),
+                    "result": {
+                        "status": "error",
+                        "capability": action.get("capability", "unknown"),
+                        "reason": "media_action_failed",
+                    },
+                }
             if self.action_result_sink is not None:
                 await _maybe_await(self.action_result_sink(result))
 

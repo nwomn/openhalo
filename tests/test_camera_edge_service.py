@@ -129,3 +129,32 @@ def test_service_routes_provider_key_action_without_returning_the_key():
     assert configured == "private-key"
     assert results[0]["result"]["details"]["state"] == "configured"
     assert "private-key" not in str(results)
+
+
+def test_service_returns_diagnostic_result_when_media_worker_raises():
+    async def scenario():
+        with TemporaryDirectory() as directory:
+            results = []
+            ring = LocalHotRing(source_ref=SOURCE, directory=Path(directory), retention_seconds=86_400, max_bytes=1024)
+
+            class FailingExecutor:
+                hot_ring = ring
+
+                async def handle_action_request_async(self, _frame):
+                    raise RuntimeError("provider exploded")
+
+            service = CameraEdgeService(
+                capture_owner=_CaptureOwner(), segment_recorder=_SegmentRecorder(), hot_ring=ring,
+                media_query_executor=FailingExecutor(), action_result_sink=results.append,
+            )
+            await service.start()
+            await service.submit_action_request({"type": "action_request", "device_id": "camera-edge-1", "request_id": "q2", "action": {"capability": MEDIA_MEMORY_QUERY_CAPABILITY, "payload": {}}})
+            for _ in range(10):
+                if results:
+                    break
+                await asyncio.sleep(0)
+            await service.stop()
+            return results
+
+    results = asyncio.run(scenario())
+    assert results[0]["result"]["reason"] == "media_action_failed"
