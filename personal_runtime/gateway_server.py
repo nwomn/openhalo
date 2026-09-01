@@ -325,7 +325,15 @@ class RuntimeGateway:
         """
 
         device = self.state.devices.get(device_id, {})
-        if "media.provider.configure" not in device.get("capabilities", set()):
+        media_capability = next(
+            (
+                capability
+                for capability in self.state.capability_registry.get(device_id, {}).values()
+                if isinstance(capability, dict) and capability.get("model_requirements")
+            ),
+            None,
+        )
+        if media_capability is None:
             return None
         # An absent Runtime model configuration is normal for deployments that
         # have no direct-media Edge. Do not turn capability registration into a
@@ -346,7 +354,16 @@ class RuntimeGateway:
             "built direct media provider configure action",
             device_id=device_id,
         )
-        return reply
+        return {
+            "api_version": "edge.runtime.v2",
+            "type": "device_configuration",
+            "device_id": device_id,
+            "request_id": reply.get("request_id"),
+            "configuration": {
+                "kind": "media_provider",
+                **reply["action"]["payload"],
+            },
+        }
 
     def _next_interaction_turn_id(self) -> str:
         return self.state.allocate_interaction_turn_id()
@@ -1289,6 +1306,14 @@ class RuntimeGateway:
                     )
                     self._persist_state()
                 replies.extend(self._build_action_result_replies(frame))
+            elif frame["type"] == "device_configuration_result":
+                self._record_trace(
+                    "GATEWAY",
+                    "received device configuration result",
+                    device_id=frame["device_id"],
+                    kind=frame["kind"],
+                    status=frame["status"],
+                )
             elif frame["type"] == "interaction_update":
                 self.state.record_interaction(frame["interaction"])
                 self._persist_state()

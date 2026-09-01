@@ -998,6 +998,22 @@ class CameraHealthDaemon:
                             action_result = self.handle_action_request(reply)
                             if action_result is not None:
                                 await websocket.send(json.dumps(action_result))
+                    elif reply.get("type") == "device_configuration":
+                        configuration = reply.get("configuration", {})
+                        if configuration.get("kind") == "media_provider" and self.provider_credentials is not None:
+                            result = self.provider_credentials.configure(
+                                provider=configuration.get("provider"),
+                                model=configuration.get("model"),
+                            )
+                            await websocket.send(json.dumps({
+                                "api_version": "edge.runtime.v2",
+                                "type": "device_configuration_result",
+                                "device_id": self.client.device_id,
+                                "kind": "media_provider",
+                                "status": "configured",
+                                "provider": result.get("provider"),
+                                "model": result.get("model"),
+                            }))
         finally:
             if capture_stop_event is not None:
                 capture_stop_event.set()

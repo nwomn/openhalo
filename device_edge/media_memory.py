@@ -42,6 +42,11 @@ def media_memory_query_capability(source_ref: str) -> dict:
     return {
         "name": MEDIA_MEMORY_QUERY_CAPABILITY,
         "source_ref": source_ref,
+        "model_requirements": {
+            "purpose": "video_understanding",
+            "required": True,
+            "accepted_adapters": ["openai_compatible"],
+        },
         "direction": "runtime_to_edge",
         "kind": "action",
         "affordances": ["understand_local_media_interval"],

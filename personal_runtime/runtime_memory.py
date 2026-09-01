@@ -79,6 +79,7 @@ def _build_device_roster(
             projected_capability = {
                     "name": capability_name,
                     "source_ref": capability.get("source_ref"),
+                    "model_requirements": capability.get("model_requirements"),
                     "affordances": sorted(capability.get("affordances", [])),
                     "modality": capability.get("modality"),
                     "privacy": capability.get("privacy"),

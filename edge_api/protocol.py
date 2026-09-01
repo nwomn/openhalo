@@ -17,6 +17,8 @@ REQUIRED_TYPES = {
     "event_ack",
     "action_request",
     "action_result",
+    "device_configuration",
+    "device_configuration_result",
     "evidence_transfer",
     "understanding_update",
     "interaction_progress",
@@ -32,6 +34,11 @@ def validate_frame(frame: dict) -> dict:
     api_version = frame.get("api_version")
     if api_version is not None and api_version != API_VERSION:
         raise ValueError(f"Unsupported api_version: {api_version!r}")
+    if frame_type == "device_configuration" and not isinstance(frame.get("configuration"), dict):
+        raise ValueError("device_configuration requires an object configuration.")
+    if frame_type == "device_configuration_result":
+        if not isinstance(frame.get("kind"), str) or frame.get("status") not in {"configured", "unavailable", "error"}:
+            raise ValueError("device_configuration_result requires kind and status.")
     return frame
 
 
