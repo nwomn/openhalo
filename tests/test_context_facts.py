@@ -87,3 +87,11 @@ class ContextFactStoreTests(unittest.TestCase):
 
         self.assertEqual(fact.disposition, "unknown")
         self.assertEqual(fact.value, {"state": "unknown"})
+
+    def test_preserves_registered_semantic_contract_in_fact_provenance(self) -> None:
+        store = ContextFactStore()
+        store.materialize(
+            observation(), freshness_seconds=60,
+            semantic_contract={"meaning": "A local person-presence feature.", "permitted_inference": "presence only", "must_not_infer": "identity"},
+        )
+        self.assertEqual(store.all_facts()[0].provenance["semantic_contract"]["must_not_infer"], "identity")

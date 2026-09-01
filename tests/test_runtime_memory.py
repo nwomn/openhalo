@@ -6,6 +6,19 @@ from personal_runtime.runtime_state import RuntimeState
 
 
 class RuntimeMemoryTests(unittest.TestCase):
+    def test_device_roster_projects_dual_action_contract_without_secret_fields(self) -> None:
+        state = RuntimeState()
+        state.register_device("edge-1", "test-edge")
+        state.register_capability("edge-1", {
+            "name": "light.pulse", "direction": "runtime_to_edge", "kind": "action",
+            "input_schema": {"type": "object"},
+            "machine_contract": {"input_schema": {"type": "object"}, "side_effect": "user_visible", "result_states": ["ok"], "requires_confirmation": False, "secret": "never-project"},
+            "semantic_contract": {"purpose": "Pulse a light.", "success_meaning": "Pulse accepted.", "limitations": "No delivery proof.", "secret": "never-project"},
+        })
+        projected = build_model_grounding_bundle(state=state, snapshot={})["device_roster"]["devices"][0]["action_capabilities"][0]
+        self.assertEqual(projected["semantic_contract"]["purpose"], "Pulse a light.")
+        self.assertNotIn("secret", projected["semantic_contract"])
+        self.assertNotIn("secret", projected["machine_contract"])
     def test_build_model_grounding_bundle_projects_online_action_device_roster(self) -> None:
         state = RuntimeState()
         state.register_device(

@@ -44,6 +44,7 @@ def media_memory_query_capability(source_ref: str) -> dict:
         "kind": "action",
         "affordances": ["understand_local_media_interval"],
         "privacy": "source_local_media",
+        "contract_version": 1,
         "input_schema": {
             "type": "object",
             "required": ["source_ref", "start_at", "end_at", "question"],
@@ -54,6 +55,18 @@ def media_memory_query_capability(source_ref: str) -> dict:
                 "end_at": {"type": "string", "maxLength": 64},
                 "question": {"type": "string", "minLength": 1, "maxLength": _MAX_QUERY_CHARS},
             },
+        },
+        "machine_contract": {
+            "input_schema": {
+                "type": "object", "required": ["source_ref", "start_at", "end_at", "question"], "additionalProperties": False,
+                "properties": {"source_ref": {"type": "string", "maxLength": 256}, "start_at": {"type": "string", "maxLength": 64}, "end_at": {"type": "string", "maxLength": 64}, "question": {"type": "string", "minLength": 1, "maxLength": _MAX_QUERY_CHARS}},
+            },
+            "side_effect": "edge_local_media_read_and_provider_call", "result_states": ["ok", "error"], "requires_confirmation": False,
+        },
+        "semantic_contract": {
+            "purpose": "Ask one named source to understand a bounded locally retained media interval.",
+            "success_meaning": "A returned Understanding describes only the selected interval and its reported coverage.",
+            "limitations": "It does not prove facts outside coverage, transfer raw media to Runtime, or identify people beyond source evidence.",
         },
     }
 
@@ -67,6 +80,7 @@ def media_provider_configure_capability() -> dict:
         "kind": "action",
         "affordances": ["configure_local_media_provider"],
         "privacy": "provider_credential",
+        "contract_version": 1,
         "input_schema": {
             "type": "object",
             "required": ["provider", "model"],
@@ -76,6 +90,8 @@ def media_provider_configure_capability() -> dict:
                 "model": {"type": "object"},
             },
         },
+        "machine_contract": {"input_schema": {"type": "object", "required": ["provider", "model"], "additionalProperties": False, "properties": {"provider": {"type": "object"}, "model": {"type": "object"}}}, "side_effect": "ephemeral_edge_provider_configuration", "result_states": ["ok", "error"], "requires_confirmation": False},
+        "semantic_contract": {"purpose": "Provision an explicitly selected direct-media provider profile to this Edge for the current process.", "success_meaning": "The Edge can use that named profile until restart or revocation.", "limitations": "Success never means credentials were persisted, broadly shared, or authorized for another Edge."},
     }
 
 

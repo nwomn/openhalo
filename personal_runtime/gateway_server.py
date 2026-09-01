@@ -27,6 +27,7 @@ from edge_api.auth import is_expired
 from edge_api.auth import is_p256_public_key
 from edge_api.auth import verify_challenge_signature
 from edge_api.endpoint import validate_runtime_endpoint
+from edge_api.protocol import validate_capability_registration
 from edge_api.protocol import validate_frame, with_api_version
 from personal_runtime.action_layer import build_interaction_progress
 from personal_runtime.action_layer import build_interaction_update
@@ -1218,6 +1219,18 @@ class RuntimeGateway:
                         )
                     )
                     continue
+                try:
+                    for capability in frame["capabilities"]:
+                        validate_capability_registration(capability)
+                except ValueError as exc:
+                    replies.append(
+                        self._build_public_error(
+                            code="invalid_capability_contract",
+                            message=str(exc),
+                            device_id=frame["device_id"],
+                        )
+                    )
+                    continue
                 self.state.replace_capabilities(
                     frame["device_id"],
                     frame["capabilities"],
@@ -1346,6 +1359,7 @@ class RuntimeGateway:
                 observation,
                 freshness_seconds=int(registration.get("freshness_seconds", 120)),
                 schema_version=registration.get("schema_version"),
+                semantic_contract=registration.get("semantic_contract"),
             ):
                 fact = next(
                     item for item in self.context_fact_store.all_facts()

@@ -204,6 +204,85 @@ def build_proxy_capability_registrations(
         registrations.append(_keyboard_registration(attachment))
     if attachment.capability_state("pointer").state != "unavailable":
         registrations.append(_pointer_registration(attachment))
+    return _complete_proxy_contracts(registrations)
+
+
+def _complete_proxy_contracts(registrations: list[dict]) -> list[dict]:
+    """Attach the v1 machine and Main-Hermes semantic contracts.
+
+    The semantic half describes what the model may conclude, never grants an
+    action permission; Execution Planning still uses the machine half and the
+    registered input schema.
+    """
+    action_semantics = {
+        SCREEN_PROFILE_CAPABILITY: (
+            "Confirm a bounded Screen Profile and allowed local Features for this attached surface.",
+            "The Edge accepted this revision for the named target until it expires.",
+            "It does not establish UI meaning, user consent for arbitrary input, or durable policy.",
+        ),
+        SCREEN_READ_CAPABILITY: (
+            "Request one bounded current or cached screen evidence item from this surface.",
+            "The result identifies available evidence and any Edge-produced bounded understanding.",
+            "It does not make raw pixels part of normal Runtime context or prove facts outside the selected frame.",
+        ),
+        KEYBOARD_CAPABILITY: (
+            "Issue a bounded keyboard operation to the explicitly attached target surface.",
+            "An ok result means the Edge submitted the HID operation to its adapter.",
+            "It does not prove the target accepted, understood, or completed the requested task; readback is separate.",
+        ),
+        POINTER_CAPABILITY: (
+            "Issue a normalized pointer move or click to the explicitly attached target surface.",
+            "An ok result means the Edge submitted the bounded HID operation to its adapter.",
+            "It does not prove the visual target, application state, or downstream effect; verify by Observation.",
+        ),
+    }
+    observation_semantics = {
+        "proxy.target_attachment.v1": (
+            "Reports the current proxy-to-target attachment and available hardware facets.",
+            "It may establish which surface is addressable and which facets are currently available.",
+            "It must not be read as target OS state, user intent, or proof that a requested input succeeded.",
+        ),
+        "proxy.screen_frame.v1": (
+            "Reports metadata for one Edge-local captured human-visible frame.",
+            "It may establish that bounded evidence exists with the stated capture time and dimensions.",
+            "It must not be read as the frame contents, a semantic UI interpretation, or continuous coverage.",
+        ),
+        "proxy.screen.capture_health.v1": (
+            "Reports whether capture can currently provide a frame with the stated dimensions.",
+            "It may support availability and latency-aware routing decisions.",
+            "It must not be read as proof of screen contents or user activity.",
+        ),
+        "proxy.screen.change.v1": (
+            "Reports a local detector's pixel-change state with a bounded evidence reference.",
+            "It may indicate a candidate event worth bounded evidence review.",
+            "It must not be read as the cause, meaning, or user intent behind the change.",
+        ),
+        "proxy.screen.action_effect.v1": (
+            "Reports whether local pixels changed after one correlated action request.",
+            "It may support post-action verification that a visible change occurred.",
+            "It must not be read as proof that the requested task succeeded or that the change was caused by that action alone.",
+        ),
+    }
+    for capability in registrations:
+        if capability.get("kind") == "action":
+            purpose, success, limitations = action_semantics[capability["name"]]
+            capability.update({
+                "contract_version": 1,
+                "machine_contract": {
+                    "input_schema": capability["input_schema"],
+                    "side_effect": capability.get("side_effect", "edge_side_effect"),
+                    "result_states": ["ok", "error"],
+                    "requires_confirmation": capability["name"] in {KEYBOARD_CAPABILITY, POINTER_CAPABILITY},
+                },
+                "semantic_contract": {"purpose": purpose, "success_meaning": success, "limitations": limitations},
+            })
+        for observation in capability.get("observations", []):
+            meaning, permitted, forbidden = observation_semantics[observation["name"]]
+            observation.update({
+                "contract_version": 1,
+                "machine_contract": {"value_schema": observation["schema"], "freshness_seconds": observation["freshness_seconds"]},
+                "semantic_contract": {"meaning": meaning, "permitted_inference": permitted, "must_not_infer": forbidden},
+            })
     return registrations
 
 

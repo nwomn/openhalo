@@ -192,6 +192,21 @@ session.
 Rich action capabilities should include enough metadata for runtime planning to
 choose a compatible provider without device-type-specific branches:
 
+Every newly authored rich Action and Observation registration must also carry a
+versioned **dual contract**. `machine_contract` is the deterministic authority:
+for an Action it repeats the exact `input_schema`, declared side effect, result
+states, and confirmation requirement; for an Observation it repeats its exact
+value schema and freshness. `semantic_contract` is a bounded projection for
+Main Hermes: an Action declares `purpose`, `success_meaning`, and `limitations`;
+an Observation declares `meaning`, `permitted_inference`, and
+`must_not_infer`. Semantic prose never authorizes execution, overrides Presence,
+or upgrades an uncertain Observation into a fact. Version-1 registrations are
+rejected if either half is missing or contradicts the public schema. String
+capability announcements and older rich Action or Observation-provider
+registrations are rejected with `invalid_capability_contract`; an Edge must
+upgrade its own registration before it is admitted. Runtime never fabricates a
+contract on an Edge's behalf.
+
 ```json
 {
   "name": "notification.show",
@@ -203,6 +218,7 @@ choose a compatible provider without device-type-specific branches:
   "privacy": "personal",
   "interruptiveness": "medium",
   "side_effect": "user_visible",
+  "contract_version": 1,
   "input_schema": {
     "type": "object",
     "required": ["body"],
@@ -211,7 +227,9 @@ choose a compatible provider without device-type-specific branches:
       "title": {"type": "string"},
       "body": {"type": "string", "minLength": 1}
     }
-  }
+  },
+  "machine_contract": {"input_schema": {"type": "object", "required": ["body"]}, "side_effect": "user_visible", "result_states": ["ok", "error"], "requires_confirmation": false},
+  "semantic_contract": {"purpose": "Deliver a private user-visible message.", "success_meaning": "The Edge accepted the delivery request.", "limitations": "It does not prove the user saw or understood the message."}
 }
 ```
 
@@ -234,6 +252,9 @@ they may later push:
       "privacy": "personal_device_state",
       "freshness_seconds": 120,
       "confidence": {"type": "edge_reported"}
+      ,"contract_version": 1,
+      "machine_contract": {"value_schema": {"type": "string", "enum": ["locked", "unlocked", "unknown"]}, "freshness_seconds": 120},
+      "semantic_contract": {"meaning": "Current reported screen lock state.", "permitted_inference": "May inform reachability and privacy posture.", "must_not_infer": "Does not disclose screen contents or user intent."}
     }
   ]
 }

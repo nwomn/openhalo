@@ -135,6 +135,52 @@ fun authenticationFailureRequiresRePairing(code: String): Boolean =
         "pairing_required"
     )
 
+private fun addActionContract(
+    capability: JSONObject,
+    purpose: String,
+    successMeaning: String,
+    limitations: String,
+    requiresConfirmation: Boolean = false
+): JSONObject = capability
+    .put("contract_version", 1)
+    .put(
+        "machine_contract",
+        JSONObject()
+            .put("input_schema_binding", "registration.input_schema")
+            .put("side_effect", capability.getString("side_effect"))
+            .put("result_states", JSONArray().put("ok").put("error"))
+            .put("requires_confirmation", requiresConfirmation)
+    )
+    .put(
+        "semantic_contract",
+        JSONObject()
+            .put("purpose", purpose)
+            .put("success_meaning", successMeaning)
+            .put("limitations", limitations)
+    )
+
+private fun addObservationContract(
+    observation: JSONObject,
+    freshnessSeconds: Int,
+    meaning: String,
+    permittedInference: String,
+    mustNotInfer: String
+): JSONObject = observation
+    .put("contract_version", 1)
+    .put(
+        "machine_contract",
+        JSONObject()
+            .put("value_schema_binding", "registration.schema")
+            .put("freshness_seconds", freshnessSeconds)
+    )
+    .put(
+        "semantic_contract",
+        JSONObject()
+            .put("meaning", meaning)
+            .put("permitted_inference", permittedInference)
+            .put("must_not_infer", mustNotInfer)
+    )
+
 fun buildCapabilityAnnounceFrame(deviceId: String): JSONObject =
     JSONObject()
         .put("api_version", EDGE_API_VERSION)
@@ -413,6 +459,19 @@ fun buildCapabilityAnnounceFrame(deviceId: String): JSONObject =
                         )
                 )
         )
+        .also { frame ->
+            val capabilities = frame.getJSONArray("capabilities")
+            addActionContract(capabilities.getJSONObject(1), "Deliver a private notification to the owner.", "The Android Edge accepted the notification request.", "It does not prove the owner saw or understood the notification.")
+            addActionContract(capabilities.getJSONObject(2), "Deliver an interruptive private alert to the owner.", "The Android Edge accepted the alert request.", "It does not prove attention, acknowledgement, or any downstream action.", requiresConfirmation = true)
+            addActionContract(capabilities.getJSONObject(3), "Render a bounded private reply in the Android OpenHalo surface.", "The Android Edge rendered or accepted the reply payload.", "It does not prove the owner read or accepted the response.")
+            val contextObservations = capabilities.getJSONObject(5).getJSONArray("observations")
+            addObservationContract(contextObservations.getJSONObject(0), 120, "Current app foreground/background state reported by this phone.", "May inform reachability and presentation policy.", "Does not disclose app content, user attention, or intent.")
+            addObservationContract(contextObservations.getJSONObject(1), 300, "Current notification permission state reported by this phone.", "May determine whether notification delivery is available.", "Does not establish whether a user will see a delivered notification.")
+            addObservationContract(contextObservations.getJSONObject(2), 60, "Current Edge connection state reported by this phone.", "May inform availability and retry decisions.", "Does not prove broader network health or user presence.")
+            val screenObservations = capabilities.getJSONObject(6).getJSONArray("observations")
+            addObservationContract(screenObservations.getJSONObject(0), 30, "Redacted passive screen-context metadata produced by the accessibility service.", "May provide bounded privacy-aware context subject to its sensitivity and capture-mode fields.", "Does not disclose raw pixels, full text, credentials, or user intent.")
+            addObservationContract(screenObservations.getJSONObject(1), 60, "Availability and pause state of Android screen-context capture.", "May inform whether this source can currently provide a screen-context Observation.", "Does not establish screen contents or the absence of user activity.")
+        }
 
 fun buildObservationPushFrame(
     deviceId: String,

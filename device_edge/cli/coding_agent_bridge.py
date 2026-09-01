@@ -90,6 +90,18 @@ def _action_registration(
         "interruptiveness": "medium",
         "side_effect": side_effect,
         "input_schema": input_schema,
+        "contract_version": 1,
+        "machine_contract": {
+            "input_schema": input_schema,
+            "side_effect": side_effect,
+            "result_states": ["ok", "error"],
+            "requires_confirmation": name in {"coding.turn.steer"},
+        },
+        "semantic_contract": {
+            "purpose": f"Perform the bounded registered coding operation {name} for its correlated interaction.",
+            "success_meaning": "The Terminal Edge accepted or completed the requested bounded operation and reports its result with lineage.",
+            "limitations": "It does not prove an external code change, approval, or task outcome beyond separately reported activity and action results.",
+        },
     }
     if process_contract is not None:
         registration["process_contract"] = process_contract
@@ -109,6 +121,13 @@ CODING_CAPABILITY_REGISTRATIONS = (
                 "privacy": "local_coding_metadata",
                 "freshness_seconds": 30,
                 "confidence": {"type": "bridge_normalized"},
+                "contract_version": 1,
+                "machine_contract": {"value_schema": CODING_ACTIVITY_SCHEMA, "freshness_seconds": 30},
+                "semantic_contract": {
+                    "meaning": "A bounded normalized Coding Edge activity update for one correlated turn.",
+                    "permitted_inference": "May inform current coding progress, availability, and follow-up routing.",
+                    "must_not_infer": "It does not disclose raw reasoning, complete command output, or authorize a Coding action.",
+                },
             }
         ],
     },

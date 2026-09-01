@@ -76,8 +76,7 @@ def _build_device_roster(
                 continue
             if capability.get("kind") not in {None, "action"}:
                 continue
-            action_capabilities.append(
-                {
+            projected_capability = {
                     "name": capability_name,
                     "affordances": sorted(capability.get("affordances", [])),
                     "modality": capability.get("modality"),
@@ -87,7 +86,15 @@ def _build_device_roster(
                     "input_schema": capability.get("input_schema"),
                     "content_capacity": capability.get("content_capacity"),
                     "interruptiveness": capability.get("interruptiveness"),
-                }
+            }
+            machine_contract = _project_machine_contract(capability)
+            semantic_contract = _project_semantic_contract(capability)
+            if machine_contract is not None:
+                projected_capability["machine_contract"] = machine_contract
+            if semantic_contract is not None:
+                projected_capability["semantic_contract"] = semantic_contract
+            action_capabilities.append(
+                {key: value for key, value in projected_capability.items() if value is not None}
             )
         devices.append(
             {
@@ -105,6 +112,29 @@ def _build_device_roster(
     return {
         "request_source_device_id": request_source_device_id,
         "devices": devices,
+    }
+
+
+def _project_machine_contract(capability: dict) -> dict | None:
+    """Keep Main Hermes aware of executable bounds without exposing secrets."""
+    contract = capability.get("machine_contract")
+    if not isinstance(contract, dict):
+        return None
+    return {
+        key: value
+        for key, value in contract.items()
+        if key in {"input_schema", "side_effect", "result_states", "requires_confirmation"}
+    }
+
+
+def _project_semantic_contract(capability: dict) -> dict | None:
+    contract = capability.get("semantic_contract")
+    if not isinstance(contract, dict):
+        return None
+    return {
+        key: value
+        for key, value in contract.items()
+        if key in {"purpose", "success_meaning", "limitations", "meaning", "permitted_inference", "must_not_infer"}
     }
 
 

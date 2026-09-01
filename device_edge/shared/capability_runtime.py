@@ -10,7 +10,8 @@ class CapabilityRuntime:
         diagnostic_recorder=None,
         device: dict | None = None,
     ) -> None:
-        self.capabilities = capabilities or ["text.input", "notification.show"]
+        from device_edge.shared.capability_contracts import normalize_builtin_capabilities
+        self.capabilities = normalize_builtin_capabilities(capabilities or ["text.input", "notification.show"])
         self.diagnostics = DiagnosticBoundaryRecorder(
             recorder=diagnostic_recorder,
             side="edge",

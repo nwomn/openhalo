@@ -47,6 +47,34 @@ class ImportSmokeTests(unittest.TestCase):
 
 
 class ProtocolTests(unittest.TestCase):
+    def test_rejects_incomplete_versioned_dual_action_contract(self) -> None:
+        with self.assertRaisesRegex(ValueError, "machine_contract"):
+            build_capability_announce_frame(
+                "edge-1",
+                [{
+                    "name": "light.pulse",
+                    "direction": "runtime_to_edge",
+                    "kind": "action",
+                    "contract_version": 1,
+                    "input_schema": {"type": "object"},
+                    "semantic_contract": {"purpose": "pulse", "success_meaning": "started", "limitations": "none"},
+                }],
+            )
+
+    def test_rejects_observation_semantic_contract_that_contradicts_schema(self) -> None:
+        with self.assertRaisesRegex(ValueError, "value_schema"):
+            build_capability_announce_frame(
+                "edge-1",
+                [{
+                    "name": "sensor.observe", "direction": "edge_to_runtime", "kind": "observation_provider",
+                    "observations": [{
+                        "name": "sensor.state.v1", "schema": {"type": "string"}, "freshness_seconds": 10,
+                        "contract_version": 1,
+                        "machine_contract": {"value_schema": {"type": "object"}, "freshness_seconds": 10},
+                        "semantic_contract": {"meaning": "state", "permitted_inference": "availability", "must_not_infer": "intent"},
+                    }],
+                }],
+            )
     def test_uses_the_v2_public_protocol_only(self) -> None:
         self.assertEqual(API_VERSION, "edge.runtime.v2")
         with self.assertRaisesRegex(ValueError, "Unsupported api_version"):
@@ -160,6 +188,9 @@ class ProtocolTests(unittest.TestCase):
                     "body": {"type": "string"},
                 },
             },
+            "contract_version": 1,
+            "machine_contract": {"input_schema_binding": "registration.input_schema", "side_effect": "user_visible", "result_states": ["ok", "error"], "requires_confirmation": False},
+            "semantic_contract": {"purpose": "Deliver a private notification.", "success_meaning": "The Edge accepted it.", "limitations": "No read proof."},
         }
         observation_provider = {
             "name": "mobile.context",
@@ -176,6 +207,9 @@ class ProtocolTests(unittest.TestCase):
                     "privacy": "personal_device_state",
                     "freshness_seconds": 120,
                     "confidence": {"type": "edge_reported"},
+                    "contract_version": 1,
+                    "machine_contract": {"value_schema_binding": "registration.schema", "freshness_seconds": 120},
+                    "semantic_contract": {"meaning": "Reported screen state.", "permitted_inference": "May inform reachability.", "must_not_infer": "No screen content or intent."},
                 }
             ],
         }
@@ -220,6 +254,10 @@ class ProtocolTests(unittest.TestCase):
                     "name": "agent.run",
                     "direction": "runtime_to_edge",
                     "kind": "action",
+                    "input_schema": {"type": "object"},
+                    "contract_version": 1,
+                    "machine_contract": {"input_schema_binding": "registration.input_schema", "side_effect": "agent_execution", "result_states": ["ok", "error"], "requires_confirmation": False},
+                    "semantic_contract": {"purpose": "Run a bounded agent process.", "success_meaning": "The Edge accepted the run.", "limitations": "Outcome requires process observations."},
                     "process_contract": {
                         "continuation_policy": "until_settled",
                         "watches": [

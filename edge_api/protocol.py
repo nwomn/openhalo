@@ -93,9 +93,7 @@ def build_capability_announce_frame(
 
 def validate_capability_registration(capability: str | dict) -> str | dict:
     if isinstance(capability, str):
-        if not capability:
-            raise ValueError("Capability name must not be empty.")
-        return capability
+        raise ValueError("String capability registrations are not supported; announce a versioned capability contract object.")
     if not isinstance(capability, dict):
         raise ValueError("Capability registration must be a string or object.")
     name = capability.get("name")
@@ -114,6 +112,7 @@ def validate_capability_registration(capability: str | dict) -> str | dict:
     process_contract = capability.get("process_contract")
     if process_contract is not None:
         _validate_process_contract(process_contract)
+    _validate_capability_contracts(capability)
     observations = capability.get("observations", [])
     if observations is None:
         return capability
@@ -129,6 +128,72 @@ def validate_capability_registration(capability: str | dict) -> str | dict:
         if schema is not None and not isinstance(schema, dict):
             raise ValueError("Observation schema must be an object.")
     return capability
+
+
+def _validate_capability_contracts(capability: dict) -> None:
+    """Validate the additive dual contract used by new rich registrations.
+
+    ``machine_contract`` is the deterministic validation/execution surface.
+    ``semantic_contract`` is the small, non-authoritative explanation supplied
+    to Main Hermes.  Keeping them separate prevents model prose from becoming
+    an execution permission or a replacement for schema validation.
+
+    String capabilities and older rich registrations remain readable during
+    migration.  A registration that opts into ``contract_version`` must supply
+    both halves, which is the required form for newly authored contracts.
+    """
+    version = capability.get("contract_version")
+    machine = capability.get("machine_contract")
+    semantic = capability.get("semantic_contract")
+    if version is None and machine is None and semantic is None:
+        if capability.get("kind") == "action":
+            raise ValueError("Action capability requires contract_version 1 dual contract.")
+        for observation in capability.get("observations", []) or []:
+            _validate_observation_contracts(observation)
+        return
+    if version != 1:
+        raise ValueError("Capability contract_version must be 1.")
+    if not isinstance(machine, dict) or not isinstance(semantic, dict):
+        raise ValueError("Capability contract_version 1 requires machine_contract and semantic_contract objects.")
+    kind = capability.get("kind")
+    if kind == "action":
+        if (
+            machine.get("input_schema") != capability.get("input_schema")
+            and machine.get("input_schema_binding") != "registration.input_schema"
+        ):
+            raise ValueError("Action machine_contract input_schema must equal capability input_schema.")
+        for field in ("side_effect", "result_states"):
+            if field not in machine:
+                raise ValueError(f"Action machine_contract requires {field}.")
+        required_semantic = ("purpose", "success_meaning", "limitations")
+    elif kind == "observation_provider":
+        required_semantic = ()
+    else:
+        return
+    if any(not isinstance(semantic.get(field), str) or not semantic[field].strip() for field in required_semantic):
+        raise ValueError("Capability semantic_contract is incomplete.")
+    for observation in capability.get("observations", []) or []:
+        _validate_observation_contracts(observation)
+
+
+def _validate_observation_contracts(observation: dict) -> None:
+    version = observation.get("contract_version")
+    machine = observation.get("machine_contract")
+    semantic = observation.get("semantic_contract")
+    if version is None and machine is None and semantic is None:
+        raise ValueError("Observation registration requires contract_version 1 dual contract.")
+    if version != 1 or not isinstance(machine, dict) or not isinstance(semantic, dict):
+        raise ValueError("Observation contract_version 1 requires machine_contract and semantic_contract objects.")
+    if (
+        machine.get("value_schema") != observation.get("schema")
+        and machine.get("value_schema_binding") != "registration.schema"
+    ):
+        raise ValueError("Observation machine_contract value_schema must equal observation schema.")
+    if machine.get("freshness_seconds") != observation.get("freshness_seconds"):
+        raise ValueError("Observation machine_contract freshness_seconds must equal observation freshness_seconds.")
+    for field in ("meaning", "permitted_inference", "must_not_infer"):
+        if not isinstance(semantic.get(field), str) or not semantic[field].strip():
+            raise ValueError("Observation semantic_contract is incomplete.")
 
 
 def _validate_process_contract(contract: object) -> None:

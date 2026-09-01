@@ -75,10 +75,16 @@ class HostDaemonTests(unittest.TestCase):
 
         self.assertEqual(bootstrap_frames[0]["type"], "connect")
         self.assertEqual(bootstrap_frames[1]["type"], "capability_announce")
-        self.assertEqual(
-            bootstrap_frames[1]["capabilities"],
-            ["host.metrics", "runtime.health", "runtime.control"],
-        )
+        capabilities = bootstrap_frames[1]["capabilities"]
+        self.assertEqual([item["name"] for item in capabilities], ["host.metrics", "runtime.health", "runtime.control"])
+        for capability in capabilities:
+            if capability["kind"] == "action":
+                self.assertEqual(capability["contract_version"], 1)
+                self.assertIn("machine_contract", capability)
+                self.assertIn("semantic_contract", capability)
+            else:
+                for observation in capability["observations"]:
+                    self.assertEqual(observation["contract_version"], 1)
 
     def test_builds_initial_observation_frames(self) -> None:
         daemon = HostEdgeDaemon(

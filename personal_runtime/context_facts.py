@@ -77,6 +77,7 @@ class ContextFactStore:
         *,
         freshness_seconds: int,
         schema_version: str | None = None,
+        semantic_contract: dict | None = None,
     ) -> bool:
         if freshness_seconds < 1:
             raise ValueError("freshness_seconds must be positive")
@@ -101,6 +102,7 @@ class ContextFactStore:
                 "source_capability": observation.source_capability,
                 "source_event_id": observation.source_event_id,
                 "schema_version": schema_version,
+                "semantic_contract": dict(semantic_contract or {}),
             },
             version=self._version,
             withheld_reason=withheld_reason,
