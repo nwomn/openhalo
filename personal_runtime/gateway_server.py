@@ -58,7 +58,6 @@ from personal_runtime.proactive_trigger_gate import ProactiveTriggerGate
 from personal_runtime.runtime_console_presenter import RuntimeConsolePresenter
 from personal_runtime.runtime_orchestrator import RuntimeOrchestrator
 from personal_runtime.runtime_state import RuntimeState
-from personal_runtime.runtime_state import _compatibility_capability_registration
 from personal_runtime.state_store import build_state_store
 from personal_runtime.trace_recorder import TraceRecorder
 
@@ -1383,16 +1382,6 @@ class RuntimeGateway:
             self.state.observation_registry.get(device_id, {})
             .get(capability, {})
         )
-        if not registered and _compatibility_capability_registration(capability):
-            self.state.devices.setdefault(
-                device_id,
-                {"device_type": "unknown", "capabilities": set()},
-            )
-            self.state.register_capability(device_id, capability)
-            registered = (
-                self.state.observation_registry.get(device_id, {})
-                .get(capability, {})
-            )
         for observation in observations:
             observation_name = observation.get("name")
             disposition = observation.get("context_disposition", "full")

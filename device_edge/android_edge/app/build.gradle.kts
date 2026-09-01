@@ -27,8 +27,8 @@ android {
         applicationId = "dev.openhalo.android.edge"
         minSdk = 24
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.1.34"
+        versionCode = 4
+        versionName = "0.1.36"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField(
