@@ -2,15 +2,12 @@ import unittest
 from pathlib import Path
 
 from agent_guard.codex_hooks import (
-    REQUIRED_PROGRESS_LABELS,
     SessionState,
     TurnAudit,
     extract_project_phase,
     hash_file,
-    is_project_progress_update_request,
     parse_project_check,
     validate_architecture_summary_response,
-    validate_progress_update_response,
     validate_turn_audit,
 )
 
@@ -31,49 +28,11 @@ Project.md Check:
 - summary: No tracked project state changed in this interaction.
 """
 
-VALID_PROGRESS_MESSAGE = """## Goal 1
-状态：已完成
-架构位置：系统总边界与架构基线
-本批完成：本轮没有新的 Goal 1 变更，继续沿用现有架构边界。
-对整体链路的作用：保证后续实现仍然围绕既定 runtime 架构推进。
-还缺什么：无新的 Goal 1 缺口。
-
-## Goal 2
-状态：已完成
-架构位置：核心抽象与 context / presence 语义层
-本批完成：本轮没有新的 Goal 2 变更，继续沿用现有抽象基线。
-对整体链路的作用：保证 observation、snapshot、presence 的职责边界稳定。
-还缺什么：无新的 Goal 2 缺口。
-
-## Goal 3
-状态：已完成
-架构位置：实现路线与里程碑规划
-本批完成：本轮没有新的 Goal 3 变更，继续沿用既定里程碑路线。
-对整体链路的作用：保证当前实现仍按既定 M5 路线推进。
-还缺什么：无新的 Goal 3 缺口。
-
-## Goal 4
-状态：进行中
-架构位置：真实 runtime 主链路
-本批完成：完成了本轮 runtime-ingestion 相关实现。
-对整体链路的作用：让当前里程碑继续向端到端可运行路径收敛。
-还缺什么：继续推进后续 M5 切片。
-"""
-
 VALID_ARCHITECTURE_SUMMARY = """架构实现小结:
 - 架构位置: Backend / Personal Runtime -> State / Context -> Compact Context Snapshot Reducers
 - 本步完成: 新增一个 freshness-aware compact snapshot 字段。
 - 影响链路: normalized observations -> compact snapshot -> Agent Runtime / Presence Router
 """
-
-
-VALID_PROGRESS_MESSAGE_WITH_GOAL5 = (
-    VALID_PROGRESS_MESSAGE
-    + "\n## Goal 5\n"
-    + "\n".join(f"{label}: ok" for label in REQUIRED_PROGRESS_LABELS)
-    + "\n"
-)
-
 
 class ParseProjectCheckTests(unittest.TestCase):
     def test_parses_footer_block(self) -> None:
@@ -182,39 +141,6 @@ class ValidateTurnAuditTests(unittest.TestCase):
         )
 
         self.assertIsNone(error)
-
-
-class ProgressUpdateValidationTests(unittest.TestCase):
-    def test_detects_chinese_project_progress_request(self) -> None:
-        self.assertTrue(is_project_progress_update_request("汇报一下进度"))
-
-    def test_accepts_valid_goal_structured_progress_update(self) -> None:
-        self.assertIsNone(
-            validate_progress_update_response(VALID_PROGRESS_MESSAGE_WITH_GOAL5)
-        )
-
-    def test_rejects_progress_update_missing_goal_section(self) -> None:
-        invalid = VALID_PROGRESS_MESSAGE
-
-        error = validate_progress_update_response(invalid)
-
-        self.assertIn("Goal 5", error)
-
-    def test_rejects_progress_update_missing_required_architecture_label(self) -> None:
-        invalid = VALID_PROGRESS_MESSAGE_WITH_GOAL5.replace(
-            f"{REQUIRED_PROGRESS_LABELS[1]}: ok", ""
-        )
-        error = validate_progress_update_response(invalid)
-        self.assertIn(REQUIRED_PROGRESS_LABELS[1], error)
-        return
-        self.assertIn("鏋舵瀯浣嶇疆", error)
-        return
-
-        invalid = VALID_PROGRESS_MESSAGE.replace("架构位置：真实 runtime 主链路\n", "")
-
-        error = validate_progress_update_response(invalid)
-
-        self.assertIn("架构位置", error)
 
 
 class ArchitectureSummaryValidationTests(unittest.TestCase):

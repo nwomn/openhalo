@@ -5,6 +5,9 @@ wire_api = "responses"
 api_key = "replace-with-provider-api-key"
 timeout_seconds = 30
 default_headers = { "User-Agent" = "openhalo-runtime/0.1" }
+# Must be explicitly true before this provider profile may be sent from Runtime
+# to an Edge for direct media inference.
+edge_direct_eligible = false
 
 [llm.models.openai_gpt55]
 provider = "openai_main"
@@ -14,6 +17,11 @@ supports_tools = true
 # Required before approved screen-read attachments are sent to this provider
 # for transient visual interpretation.
 supports_vision = true
+supports_video = false
+
+[llm.edge_media.camera-edge-1]
+# Set this only to a direct-Edge eligible video model.
+model_ref = "camera_video_model"
 
 [llm.profiles.interactive_reply]
 model_ref = "openai_gpt55"

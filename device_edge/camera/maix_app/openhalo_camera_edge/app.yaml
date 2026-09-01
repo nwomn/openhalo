@@ -10,6 +10,10 @@ files:
   app.yaml: app.yaml
   assets/openhalo-logo-primary.png: assets/openhalo-logo-primary.png
   main.py: main.py
+  ../../camera_edge_service.py: camera_edge_service.py
   health_daemon.py: health_daemon.py
+  ../../maix_media_pipeline.py: maix_media_pipeline.py
+  ../../../media_memory.py: media_memory.py
+  ../../../media_provider.py: media_provider.py
   openssl_session.py: openssl_session.py
   person_presence.py: person_presence.py

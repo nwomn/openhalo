@@ -15,6 +15,23 @@ from health_daemon import LocalStatusStore
 from openssl_session import OpenSslCameraSessionClient
 from person_presence import MaixPersonPresenceFeature
 
+try:  # Packaged Maix App: all new modules are sibling files.
+    from camera_edge_service import CameraEdgeService
+    from maix_media_pipeline import MaixCameraCaptureOwner
+    from maix_media_pipeline import MaixH264Mp4SegmentRecorder
+    from media_memory import InMemoryMediaProviderCredentials
+    from media_memory import LocalHotRing
+    from media_memory import MediaMemoryActionExecutor
+    from media_provider import OpenAICompatibleVideoAdapter
+except ImportError:  # Repository import used by desktop tests.
+    from device_edge.camera.camera_edge_service import CameraEdgeService
+    from device_edge.camera.maix_media_pipeline import MaixCameraCaptureOwner
+    from device_edge.camera.maix_media_pipeline import MaixH264Mp4SegmentRecorder
+    from device_edge.media_memory import InMemoryMediaProviderCredentials
+    from device_edge.media_memory import LocalHotRing
+    from device_edge.media_memory import MediaMemoryActionExecutor
+    from device_edge.media_provider import OpenAICompatibleVideoAdapter
+
 
 DEFAULT_CONFIG_PATH = Path("/root/.openhalo-camera-edge/app-config.json")
 
@@ -46,7 +63,28 @@ def build_daemon(config: dict) -> CameraHealthDaemon:
         object_labels=config.get("object_labels", ()),
         regions=config.get("regions", {}),
     )
-    return CameraHealthDaemon(
+    media_enabled = bool(config.get("media_memory_enabled", False))
+    source_ref = f"{client.device_id}/camera.main/camera.capture/video"
+    identity_home.mkdir(parents=True, exist_ok=True)
+    hot_ring = LocalHotRing(
+        source_ref=source_ref,
+        directory=Path(config.get("hot_ring_path", str(identity_home / "hot-ring"))),
+        retention_seconds=int(config.get("hot_ring_retention_seconds", 300)),
+        max_bytes=int(config.get("hot_ring_max_bytes", 64 * 1024 * 1024)),
+    )
+    provider_credentials = InMemoryMediaProviderCredentials()
+    adapter = OpenAICompatibleVideoAdapter(
+        credentials=provider_credentials,
+        provider_name=config.get("media_provider_name", "camera_video_dashscope"),
+        model_name=config.get("media_model_name", "camera_video_qwen3_vl_flash"),
+    )
+    media_executor = MediaMemoryActionExecutor(
+        device_id=client.device_id,
+        hot_ring=hot_ring,
+        understanding_provider=adapter,
+        provider_configured=adapter.is_configured,
+    )
+    daemon = CameraHealthDaemon(
         client=client,
         status_store=LocalStatusStore(
             Path(config.get("status_path", str(identity_home / "status.json")))
@@ -57,7 +95,31 @@ def build_daemon(config: dict) -> CameraHealthDaemon:
         presence_confirm_samples=int(config.get("presence_confirm_samples", 2)),
         presence_interval_seconds=float(config.get("presence_interval_seconds", 1.0)),
         presence_freshness_seconds=float(config.get("presence_freshness_seconds", 30.0)),
+        media_memory_executor=media_executor if media_enabled else None,
+        provider_credentials=provider_credentials if media_enabled else None,
     )
+    width = int(config.get("capture_width", 640))
+    height = int(config.get("capture_height", 480))
+    fps = int(config.get("capture_fps", 10))
+    daemon.camera_edge_service = CameraEdgeService(
+        capture_owner=MaixCameraCaptureOwner(width=width, height=height, fps=fps),
+        segment_recorder=MaixH264Mp4SegmentRecorder(
+            directory=Path(config.get("recording_spool_path", str(identity_home / "recording-spool"))),
+            width=width,
+            height=height,
+            fps=fps,
+            bitrate=int(config.get("recording_bitrate", 1_000_000)),
+            segment_seconds=float(config.get("recording_segment_seconds", 2.0)),
+            enabled=media_enabled,
+        ),
+        hot_ring=hot_ring,
+        media_query_executor=media_executor,
+        feature_worker=daemon,
+        feature_interval_seconds=float(config.get("presence_interval_seconds", 1.0)),
+        capture_interval_seconds=0.0,
+        provider_credentials=provider_credentials,
+    )
+    return daemon
 
 
 def main() -> int:

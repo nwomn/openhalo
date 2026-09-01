@@ -88,6 +88,19 @@ def test_shared_visual_pipeline_derives_allowlisted_objects_and_regions() -> Non
     feature.close()
 
 
+def test_shared_visual_feature_can_consume_a_service_owned_frame() -> None:
+    feature = MaixPersonPresenceFeature(
+        model_path="/tmp/yolo11.mud",
+        confidence_threshold=0.6,
+        detector_factory=_Detector,
+        camera_factory=_Camera,
+    )
+
+    assert feature.sample_frame("private-frame") == PersonPresenceSample("present", 1, 0.91)
+    assert feature._pipeline._camera is None
+    feature.close()
+
+
 def test_visual_pipeline_keeps_camera_failure_distinct_from_empty_room() -> None:
     class EmptyCamera(_Camera):
         def read(self, **kwargs):

@@ -9,6 +9,7 @@ import urllib.error
 import urllib.request
 from base64 import b64encode
 from dataclasses import dataclass
+from dataclasses import field
 from pathlib import Path
 
 from personal_runtime.action_layer import build_notification_payload
@@ -107,6 +108,7 @@ class ProviderConfig:
     api_key: str
     timeout_seconds: int = 30
     default_headers: dict[str, str] | None = None
+    edge_direct_eligible: bool = False
 
 
 @dataclass(slots=True)
@@ -117,6 +119,7 @@ class ModelConfig:
     supports_structured_output: bool = False
     supports_tools: bool = False
     supports_vision: bool = False
+    supports_video: bool = False
 
 
 @dataclass(slots=True)
@@ -133,6 +136,7 @@ class RuntimeModelConfig:
     providers: dict[str, ProviderConfig]
     models: dict[str, ModelConfig]
     profiles: dict[str, ProfileConfig]
+    edge_media_profiles: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -172,6 +176,7 @@ def load_runtime_model_config(path: Path | None = None) -> RuntimeModelConfig:
             api_key=provider_payload.get("api_key", ""),
             timeout_seconds=provider_payload.get("timeout_seconds", 30),
             default_headers=provider_payload.get("default_headers"),
+            edge_direct_eligible=provider_payload.get("edge_direct_eligible", False),
         )
         for name, provider_payload in llm_payload.get("providers", {}).items()
     }
@@ -185,6 +190,7 @@ def load_runtime_model_config(path: Path | None = None) -> RuntimeModelConfig:
             ),
             supports_tools=model_payload.get("supports_tools", False),
             supports_vision=model_payload.get("supports_vision", False),
+            supports_video=model_payload.get("supports_video", False),
         )
         for name, model_payload in llm_payload.get("models", {}).items()
     }
@@ -201,10 +207,22 @@ def load_runtime_model_config(path: Path | None = None) -> RuntimeModelConfig:
         )
         for name, profile_payload in llm_payload.get("profiles", {}).items()
     }
+    edge_media_payload = llm_payload.get("edge_media", {})
+    if not isinstance(edge_media_payload, dict):
+        raise ValueError("llm.edge_media must be a mapping")
+    edge_media_profiles = {}
+    for device_id, device_payload in edge_media_payload.items():
+        if not isinstance(device_id, str) or not isinstance(device_payload, dict):
+            raise ValueError("llm.edge_media entries must be mappings")
+        model_ref = device_payload.get("model_ref")
+        if not isinstance(model_ref, str) or not model_ref:
+            raise ValueError("llm.edge_media entries require model_ref")
+        edge_media_profiles[device_id] = model_ref
     return RuntimeModelConfig(
         providers=providers,
         models=models,
         profiles=profiles,
+        edge_media_profiles=edge_media_profiles,
     )
 
 

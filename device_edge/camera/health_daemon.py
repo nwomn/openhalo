@@ -27,6 +27,17 @@ from pathlib import Path
 
 import websockets
 
+try:
+    from device_edge.media_memory import MEDIA_MEMORY_QUERY_CAPABILITY
+    from device_edge.media_memory import MEDIA_PROVIDER_CONFIGURE_CAPABILITY
+    from device_edge.media_memory import media_memory_query_capability
+    from device_edge.media_memory import media_provider_configure_capability
+except ImportError:  # pragma: no cover - copied MaixCAM files.
+    from media_memory import MEDIA_MEMORY_QUERY_CAPABILITY
+    from media_memory import MEDIA_PROVIDER_CONFIGURE_CAPABILITY
+    from media_memory import media_memory_query_capability
+    from media_memory import media_provider_configure_capability
+
 try:  # Support both ``python -m`` and the copied single-directory device form.
     from .openssl_session import API_VERSION
     from .openssl_session import OpenSslCameraSessionClient
@@ -654,6 +665,9 @@ class CameraHealthDaemon:
         presence_confirm_samples: int = 2,
         presence_interval_seconds: float = 1.0,
         presence_freshness_seconds: float = 30.0,
+        media_memory_executor=None,
+        provider_credentials=None,
+        camera_edge_service=None,
     ) -> None:
         if interval_seconds <= 0:
             raise ValueError("interval_seconds must be positive.")
@@ -686,6 +700,9 @@ class CameraHealthDaemon:
         self._region_confirm_samples = presence_confirm_samples
         self._region_candidates = {}
         self._confirmed_regions = {}
+        self.media_memory_executor = media_memory_executor
+        self.provider_credentials = provider_credentials
+        self.camera_edge_service = camera_edge_service
         if person_presence_feature is not None:
             try:
                 from .person_presence import PresenceDebouncer
@@ -695,12 +712,29 @@ class CameraHealthDaemon:
 
     @property
     def capabilities(self) -> list[dict]:
-        if self.person_presence_feature is None:
-            return DEFAULT_CAPABILITIES
-        capabilities = [*DEFAULT_CAPABILITIES, PERSON_PRESENCE_CAPABILITY]
-        if self.visual_features_enabled:
-            capabilities.extend(VISUAL_CAPABILITIES)
+        capabilities = [*DEFAULT_CAPABILITIES]
+        if self.person_presence_feature is not None:
+            capabilities.append(PERSON_PRESENCE_CAPABILITY)
+            if self.visual_features_enabled:
+                capabilities.extend(VISUAL_CAPABILITIES)
+        if self.media_memory_executor is not None:
+            capabilities.append(
+                media_memory_query_capability(self.media_memory_executor.hot_ring.source_ref)
+            )
+        if self.provider_credentials is not None:
+            capabilities.append(media_provider_configure_capability())
         return capabilities
+
+    def handle_action_request(self, frame: dict) -> dict | None:
+        """Handle source-local media queries without exposing their bytes to Runtime."""
+
+        action = frame.get("action", {})
+        capability = action.get("capability")
+        if capability == MEDIA_MEMORY_QUERY_CAPABILITY and self.media_memory_executor is not None:
+            return self.media_memory_executor.handle_action_request(frame)
+        if capability == MEDIA_PROVIDER_CONFIGURE_CAPABILITY and self.provider_credentials is not None:
+            return self.provider_credentials.handle_action_request(frame)
+        return None
 
     def _next_presence_frame(self, *, force: bool = False) -> dict | None:
         """Compatibility helper returning only the person frame, if any."""
@@ -714,6 +748,17 @@ class CameraHealthDaemon:
         if self.person_presence_feature is None or self._presence_debouncer is None:
             return []
         sample = self.person_presence_feature.sample()
+        return self._visual_frames_from_sample(sample, force=force)
+
+    def observe(self, captured) -> list[dict]:
+        """Consume one CameraEdgeService-owned frame for local Features."""
+
+        if self.person_presence_feature is None or self._presence_debouncer is None:
+            return []
+        sample = self.person_presence_feature.sample_frame(captured.frame)
+        return self._visual_frames_from_sample(sample)
+
+    def _visual_frames_from_sample(self, sample, *, force: bool = False) -> list[dict]:
         decision = self._presence_debouncer.observe(sample)
         now_monotonic = time.monotonic()
         confirmed = self._presence_debouncer.confirmed
@@ -873,23 +918,43 @@ class CameraHealthDaemon:
         self._record_status("reconnecting")
         next_health_at = 0.0
         next_presence_at = 0.0
+        capture_stop_event = None
+        capture_task = None
         try:
             async with websockets.connect(self.client.audience) as websocket:
                 await self.client.authenticate(websocket, self.capabilities)
+                if self.camera_edge_service is not None:
+                    async def send_observations(frames: list[dict]) -> None:
+                        for frame in frames:
+                            await websocket.send(json.dumps(frame))
+
+                    async def send_action_result(frame: dict) -> None:
+                        await websocket.send(json.dumps(frame))
+
+                    self.camera_edge_service.observation_sink = send_observations
+                    self.camera_edge_service.action_result_sink = send_action_result
+                    capture_stop_event = asyncio.Event()
+                    capture_task = asyncio.create_task(
+                        self.camera_edge_service.run(capture_stop_event)
+                    )
                 while True:
                     now_monotonic = time.monotonic()
                     if now_monotonic >= next_health_at:
                         status = self._record_status("connected")
                         await websocket.send(json.dumps(build_health_frame(self.client.device_id, status)))
                         next_health_at = now_monotonic + self.interval_seconds
-                    if self.person_presence_feature is not None and now_monotonic >= next_presence_at:
+                    if (
+                        self.camera_edge_service is None
+                        and self.person_presence_feature is not None
+                        and now_monotonic >= next_presence_at
+                    ):
                         for visual_frame in self._next_visual_frames(force=once):
                             await websocket.send(json.dumps(visual_frame))
                         next_presence_at = now_monotonic + self.presence_interval_seconds
                     if once:
                         return
                     next_due = [next_health_at]
-                    if self.person_presence_feature is not None:
+                    if self.camera_edge_service is None and self.person_presence_feature is not None:
                         next_due.append(next_presence_at)
                     wait_seconds = min(next_due) - time.monotonic()
                     wait_seconds = max(0.05, wait_seconds)
@@ -900,8 +965,19 @@ class CameraHealthDaemon:
                     reply = json.loads(raw_frame)
                     if reply.get("type") == "error":
                         raise RuntimeError(reply.get("message", "Runtime rejected a Camera Edge frame."))
+                    if reply.get("type") == "action_request":
+                        if self.camera_edge_service is not None:
+                            await self.camera_edge_service.submit_action_request(reply)
+                        else:
+                            action_result = self.handle_action_request(reply)
+                            if action_result is not None:
+                                await websocket.send(json.dumps(action_result))
         finally:
-            if self.person_presence_feature is not None:
+            if capture_stop_event is not None:
+                capture_stop_event.set()
+            if capture_task is not None:
+                await capture_task
+            elif self.person_presence_feature is not None:
                 self.person_presence_feature.close()
 
     async def run_once(self) -> None:

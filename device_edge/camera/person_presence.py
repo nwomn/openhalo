@@ -144,18 +144,27 @@ class MaixVisualFeaturePipeline:
         self._detector = None
         self._camera = None
 
-    def _start(self) -> None:
-        if self._camera is not None:
+    def _start_detector(self) -> None:
+        if self._detector is not None:
             return
-        if self._detector_factory is None or self._camera_factory is None:
-            from maix import camera, nn
+        if self._detector_factory is None:
+            from maix import nn
 
             detector_factory = nn.YOLO11
-            camera_factory = camera.Camera
         else:
             detector_factory = self._detector_factory
-            camera_factory = self._camera_factory
         self._detector = detector_factory(model=self.model_path, dual_buff=True)
+
+    def _start_camera(self) -> None:
+        if self._camera is not None:
+            return
+        if self._camera_factory is None:
+            from maix import camera
+
+            camera_factory = camera.Camera
+        else:
+            camera_factory = self._camera_factory
+        self._start_detector()
         self._camera = camera_factory(
             self._detector.input_width(),
             self._detector.input_height(),
@@ -223,14 +232,36 @@ class MaixVisualFeaturePipeline:
 
         frame = None
         try:
-            self._start()
-            width, height = self._dimensions()
+            self._start_camera()
             # MaixCAM may need a short ISP warm-up after this process becomes
             # the sensor owner.  A bounded blocking read avoids treating the
             # first non-blocking miss as a persistent Feature failure.
             frame = self._camera.read(block=True, block_ms=3000)
             if frame is None:
                 raise RuntimeError("MaixCAM returned no frame before the bounded timeout.")
+            return self.sample_frame(frame)
+        except Exception:
+            # An unavailable model or sensor must never be represented as an
+            # empty room.  The detailed exception stays local to the process.
+            self.close()
+            return self._unavailable_sample()
+        finally:
+            # ``frame`` is deliberately not retained, rendered, written, or
+            # sent.  Deleting the local reference also keeps the pipeline's
+            # memory behaviour bounded across long-running sessions.
+            del frame
+
+    def sample_frame(self, frame) -> VisualFeatureSample:
+        """Infer from a frame owned by ``CameraEdgeService``.
+
+        Unlike :meth:`sample`, this method never opens or reads a camera. It
+        makes the NPU a consumer of the one capture loop rather than a second
+        competing camera owner.
+        """
+
+        try:
+            self._start_detector()
+            width, height = self._dimensions()
             detected = self._detector.detect(
                 frame,
                 conf_th=self.confidence_threshold,
@@ -243,28 +274,17 @@ class MaixVisualFeaturePipeline:
             )
             person_detections = [item for item in detections if item.label == "person"]
             person_scores = [item.score for item in person_detections]
-            person_state = "present" if person_scores else "absent"
-
             configured_counts = Counter({label: 0 for label in self.object_labels})
             for item in detections:
                 if item.label in configured_counts:
                     configured_counts[item.label] += 1
-
-            region_values: dict[str, RegionOccupancy] = {}
+            region_values = {}
             for name, (x1, y1, x2, y2) in self.regions.items():
-                count = sum(
-                    1
-                    for item in person_detections
-                    if x1 <= item.center_x <= x2 and y1 <= item.center_y <= y2
-                )
-                region_values[name] = RegionOccupancy(
-                    occupied=count > 0,
-                    count=count,
-                )
-
+                count = sum(1 for item in person_detections if x1 <= item.center_x <= x2 and y1 <= item.center_y <= y2)
+                region_values[name] = RegionOccupancy(occupied=count > 0, count=count)
             return VisualFeatureSample(
                 state="ready",
-                person_state=person_state,
+                person_state="present" if person_scores else "absent",
                 person_count=len(person_scores),
                 person_confidence=max(person_scores, default=0.0),
                 object_counts=dict(configured_counts),
@@ -273,15 +293,10 @@ class MaixVisualFeaturePipeline:
                 height=height,
             )
         except Exception:
-            # An unavailable model or sensor must never be represented as an
-            # empty room.  The detailed exception stays local to the process.
-            self.close()
+            # A detector failure must not turn into an empty scene. Do not
+            # close a Camera here: this pipeline no longer owns it.
+            self._detector = None
             return self._unavailable_sample()
-        finally:
-            # ``frame`` is deliberately not retained, rendered, written, or
-            # sent.  Deleting the local reference also keeps the pipeline's
-            # memory behaviour bounded across long-running sessions.
-            del frame
 
     def close(self) -> None:
         if self._camera is not None:
@@ -324,6 +339,17 @@ class MaixPersonPresenceFeature:
 
     def sample(self) -> PersonPresenceSample:
         visual = self._pipeline.sample()
+        self._last_visual_sample = visual
+        return PersonPresenceSample(
+            state=visual.person_state,
+            count=visual.person_count,
+            confidence=visual.person_confidence,
+        )
+
+    def sample_frame(self, frame) -> PersonPresenceSample:
+        """Consume a shared service-owned frame without touching the camera."""
+
+        visual = self._pipeline.sample_frame(frame)
         self._last_visual_sample = visual
         return PersonPresenceSample(
             state=visual.person_state,

@@ -42,8 +42,12 @@ from personal_runtime.display_lifecycle import DisplayLifecycle
 from personal_runtime.execution_planning import ExecutionPlanner
 from personal_runtime.interaction_pool import InteractionPool
 from personal_runtime.main_session import MainSessionManager
+from personal_runtime.media_provider_delivery import (
+    build_configured_camera_media_provider_request,
+)
 from personal_runtime.mobile_liveness import record_mobile_session_state
 from personal_runtime.mobile_liveness import update_mobile_liveness_after_observations
+from personal_runtime.model_provider import load_runtime_model_config
 from personal_runtime.outcome_receipt import append_receipt_entry
 from personal_runtime.outcome_receipt import project_outcome_receipt
 from personal_runtime.pairing_store import PairingError
@@ -307,6 +311,42 @@ class RuntimeGateway:
 
     def _next_action_request_id(self) -> str:
         return f"action-{next(self._action_request_counter)}"
+
+    def _build_camera_media_provider_configure_reply(
+        self,
+        *,
+        device_id: str,
+    ) -> dict | None:
+        """Return the fixed direct-media profile for a newly ready Camera Edge.
+
+        This is deliberately a connection-time control action rather than
+        Runtime memory: the Edge keeps the projected provider profile only in
+        process memory and must be configured again after it restarts.
+        """
+
+        device = self.state.devices.get(device_id, {})
+        if "media.provider.configure" not in device.get("capabilities", set()):
+            return None
+        # An absent Runtime model configuration is normal for deployments that
+        # have no direct-media Edge. Do not turn capability registration into a
+        # failure in that case.
+        if self.llm_config_path is None:
+            return None
+        try:
+            config = load_runtime_model_config(self.llm_config_path)
+            reply = build_configured_camera_media_provider_request(
+                target_device_id=device_id,
+                request_id=self._next_action_request_id(),
+                config=config,
+            )
+        except (OSError, ValueError, KeyError):
+            return None
+        self._record_trace(
+            "GATEWAY",
+            "built direct media provider configure action",
+            device_id=device_id,
+        )
+        return reply
 
     def _next_interaction_turn_id(self) -> str:
         return self.state.allocate_interaction_turn_id()
@@ -1183,6 +1223,13 @@ class RuntimeGateway:
                     frame["capabilities"],
                 )
                 self._persist_state()
+                provider_configure_reply = (
+                    self._build_camera_media_provider_configure_reply(
+                        device_id=frame["device_id"],
+                    )
+                )
+                if provider_configure_reply is not None:
+                    replies.append(provider_configure_reply)
             elif frame["type"] == "event_push":
                 self._record_trace(
                     "GATEWAY",

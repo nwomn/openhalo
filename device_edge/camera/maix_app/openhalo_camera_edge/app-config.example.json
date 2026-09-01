@@ -8,5 +8,13 @@
   },
   "presence_confirm_samples": 2,
   "presence_interval_seconds": 1.0,
-  "presence_freshness_seconds": 30.0
+  "presence_freshness_seconds": 30.0,
+  "capture_width": 640,
+  "capture_height": 480,
+  "capture_fps": 10,
+  "media_memory_enabled": false,
+  "hot_ring_retention_seconds": 300,
+  "hot_ring_max_bytes": 67108864,
+  "recording_bitrate": 1000000,
+  "recording_segment_seconds": 2.0
 }

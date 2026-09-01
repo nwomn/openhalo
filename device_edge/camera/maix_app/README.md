@@ -21,6 +21,27 @@ The visual pass never sends camera frames, bounding boxes, or other detection
 geometry. Its `scene_quality.v1` result is deliberately limited to camera
 availability and detector dimensions; it is not a blur/exposure score.
 
+## Single-owner capture loop
+
+The App now constructs one `CameraEdgeService` event loop. Only its
+`MaixCameraCaptureOwner` opens the camera. Each captured NV21 frame is consumed
+locally by the H.264/MP4 segment recorder and (at its configured sampling
+interval) the YOLO Feature worker. The Gateway/session code receives only
+semantic observation frames and textual action results; it never receives a
+frame or video segment.
+
+Set `media_memory_enabled` to `true` only after the owner has opted into local
+continuous recording. It enables a local Hot Ring and the two registered
+actions: `media.provider.configure` and `media.memory.query`. Runtime supplies
+the configured provider profile in memory after connection; a recent query is
+understood locally against selected Hot Ring MP4 segments and returns Markdown
+only. The example uses a 2-second segment at 1 Mbps so a selected provider
+request stays bounded. The provider call remains asynchronous relative to the
+capture loop.
+
+This package path is tested for import and configuration construction, but has
+not yet passed real-MaixCAM MP4 segment sealing or provider-video acceptance.
+
 The initial App has no Display UI. It is manually launched from the Maix
 Launcher and remains the sole camera/NPU owner until the Launcher or MaixVision
 stops it. Do not configure boot auto-start until that manual lifecycle has

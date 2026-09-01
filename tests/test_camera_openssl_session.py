@@ -449,3 +449,37 @@ def test_maix_app_requires_private_runtime_configuration() -> None:
                 raise AssertionError("App accepted a missing Runtime endpoint.")
     finally:
         sys.path[:] = previous_path
+
+
+def test_maix_app_builds_one_camera_edge_service_without_opening_the_camera() -> None:
+    app_directory = Path(__file__).parents[1] / "device_edge" / "camera" / "maix_app" / "openhalo_camera_edge"
+    camera_directory = Path(__file__).parents[1] / "device_edge" / "camera"
+    previous_path = list(sys.path)
+    try:
+        sys.path.insert(0, str(camera_directory))
+        spec = importlib.util.spec_from_file_location("openhalo_camera_edge_service_app", app_directory / "main.py")
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with TemporaryDirectory() as directory:
+            identity_home = Path(directory) / "private"
+            daemon = module.build_daemon(
+                {
+                    "runtime_url": "ws://runtime.example.test:8765",
+                    "identity_home": str(identity_home),
+                    "media_memory_enabled": True,
+                    "hot_ring_path": str(identity_home / "hot-ring"),
+                    "recording_spool_path": str(identity_home / "recording-spool"),
+                }
+            )
+            assert daemon.camera_edge_service is not None
+            assert daemon.camera_edge_service.capture_owner._camera is None
+            assert daemon.camera_edge_service.segment_recorder.enabled is True
+            assert {item["name"] for item in daemon.capabilities} >= {
+                "camera.health",
+                "camera.person_presence",
+                "media.memory.query",
+                "media.provider.configure",
+            }
+    finally:
+        sys.path[:] = previous_path
