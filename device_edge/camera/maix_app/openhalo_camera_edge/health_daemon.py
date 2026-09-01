@@ -298,6 +298,37 @@ PRESENCE_TRANSITION_CAPABILITY = {
     ],
 }
 
+def _seal_camera_observation_contracts(*capabilities: dict) -> None:
+    """Make every Camera Edge fact explicit about meaning and uncertainty."""
+    for capability in capabilities:
+        for observation in capability["observations"]:
+            observation.update(
+                {
+                    "contract_version": 1,
+                    "machine_contract": {
+                        "value_schema": observation["schema"],
+                        "freshness_seconds": observation["freshness_seconds"],
+                    },
+                    "semantic_contract": {
+                        "meaning": f"Camera Edge reports the bounded {observation['name']} feature.",
+                        "permitted_inference": "May inform the registered feature's current state, freshness, and availability.",
+                        "must_not_infer": "Does not identify a person, expose raw media, establish intent, or prove events outside this feature's stated coverage.",
+                    },
+                }
+            )
+
+
+_seal_camera_observation_contracts(
+    *DEFAULT_CAPABILITIES,
+    PERSON_PRESENCE_CAPABILITY,
+    OBJECT_PRESENCE_CAPABILITY,
+    REGION_OCCUPANCY_CAPABILITY,
+    REGION_TRANSITION_CAPABILITY,
+    SCENE_QUALITY_CAPABILITY,
+    PRESENCE_TRANSITION_CAPABILITY,
+)
+
+
 VISUAL_CAPABILITIES = [
     OBJECT_PRESENCE_CAPABILITY,
     REGION_OCCUPANCY_CAPABILITY,
