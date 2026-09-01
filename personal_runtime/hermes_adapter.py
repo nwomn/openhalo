@@ -1695,6 +1695,8 @@ class HermesHarnessRunner:
             "online state, and action capabilities; do not default to the "
             "request source merely because it sent the request. Runtime will "
             "validate and govern your target choice without semantic rewrite. "
+            "For source-bound media actions, copy the exact source_ref exposed "
+            "by that capability; never invent or shorten it. "
             "The related_processes section is an authoritative, bounded "
             "InteractionPool projection for this request. Use its lifecycle "
             "status, phase, health, last_observation, and process_state_version "

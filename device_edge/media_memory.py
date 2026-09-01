@@ -40,6 +40,7 @@ def media_memory_query_capability(source_ref: str) -> dict:
     _validate_source_ref(source_ref)
     return {
         "name": MEDIA_MEMORY_QUERY_CAPABILITY,
+        "source_ref": source_ref,
         "direction": "runtime_to_edge",
         "kind": "action",
         "affordances": ["understand_local_media_interval"],

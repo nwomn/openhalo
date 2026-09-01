@@ -28,6 +28,12 @@ class _Client:
 
 
 class EdgeMediaMemoryTests(unittest.TestCase):
+    def test_query_contract_exposes_canonical_source_ref(self):
+        from device_edge.media_memory import media_memory_query_capability
+
+        contract = media_memory_query_capability(SOURCE_REF)
+        self.assertEqual(contract["source_ref"], SOURCE_REF)
+
     def _executor(self, directory: Path):
         ring = LocalHotRing(
             source_ref=SOURCE_REF,
