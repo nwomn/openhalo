@@ -31,6 +31,7 @@ MEDIA_PROVIDER_CONFIGURE_CAPABILITY = "media.provider.configure"
 _MAX_QUERY_CHARS = 2_000
 _MAX_UNDERSTANDING_CHARS = 8_000
 _MAX_LIMITATIONS = 16
+_MAX_PROVIDER_INLINE_BYTES = 7 * 1024 * 1024
 _SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$")
 
 
@@ -126,6 +127,8 @@ class InMemoryMediaProviderCredentials:
         headers = provider.get("default_headers", {})
         if not isinstance(headers, dict) or len(headers) > 16 or not all(_is_bounded_text(key, 128) and _is_bounded_text(value, 1_024) for key, value in headers.items()):
             raise ValueError("invalid_media_provider_profile")
+        if any(key.lower() in {"authorization", "content-length", "host"} for key in headers):
+            raise ValueError("invalid_media_provider_headers")
         if not _is_bounded_text(model.get("model_id"), 256) or not isinstance(model.get("supports_vision"), bool) or not isinstance(model.get("supports_video"), bool):
             raise ValueError("invalid_media_model_profile")
         provider_profile = {

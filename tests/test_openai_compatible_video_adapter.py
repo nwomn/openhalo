@@ -29,3 +29,21 @@ def test_adapter_sends_local_video_as_data_url_and_returns_markdown():
     assert "cHJpdmF0ZS1tcDQ=" in content[1]["video_url"]["url"]
     assert result["markdown"] == "## Understanding\nA person entered."
     assert "private-key" not in str(result)
+
+
+def test_adapter_rejects_total_inline_video_budget():
+    async def scenario():
+        with TemporaryDirectory() as directory:
+            ring = LocalHotRing(source_ref="camera-edge-1/camera.main/camera.capture/video", directory=Path(directory), retention_seconds=86_400, max_bytes=8 * 1024 * 1024)
+            ring.append_segment(start_at="2026-09-01T10:00:00Z", end_at="2026-09-01T10:00:02Z", body=b"x" * (4 * 1024 * 1024), mime_type="video/mp4")
+            ring.append_segment(start_at="2026-09-01T10:00:02Z", end_at="2026-09-01T10:00:04Z", body=b"y" * (4 * 1024 * 1024), mime_type="video/mp4")
+            selection = ring.select(start_at="2026-09-01T10:00:00Z", end_at="2026-09-01T10:00:04Z")
+            credentials = InMemoryMediaProviderCredentials()
+            credentials.configure(provider={"name": "dashscope_camera", "adapter_type": "openai_compatible", "base_url": "https://dashscope.example/v1", "wire_api": "chat_completions", "api_key": "private-key", "timeout_seconds": 30, "default_headers": {}}, model={"name": "qwen_video", "model_id": "qwen3-vl-flash", "supports_vision": True, "supports_video": True})
+            adapter = OpenAICompatibleVideoAdapter(credentials=credentials, provider_name="dashscope_camera", model_name="qwen_video", transport=lambda *_args: None)
+            try:
+                await adapter(selection, "What happened?", ring)
+            except ValueError as error:
+                return str(error)
+            return ""
+    assert asyncio.run(scenario()) == "video_query_exceeds_provider_inline_limit"

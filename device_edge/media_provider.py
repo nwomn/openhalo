@@ -13,6 +13,10 @@ import json
 from urllib.parse import urlparse
 
 
+_MAX_PROVIDER_INLINE_BYTES = 7 * 1024 * 1024
+_MAX_PROVIDER_RESPONSE_BYTES = 1 * 1024 * 1024
+
+
 class OpenAICompatibleVideoAdapter:
     """Call one configured Edge-local OpenAI-compatible video provider."""
 
@@ -34,8 +38,12 @@ class OpenAICompatibleVideoAdapter:
         if provider["adapter_type"] != "openai_compatible" or provider["wire_api"] != "chat_completions":
             raise ValueError("unsupported_video_provider_profile")
         videos = []
+        total_bytes = 0
         for segment in selection.segments:
             body = hot_ring.read_segment(segment)
+            total_bytes += len(body)
+            if total_bytes > _MAX_PROVIDER_INLINE_BYTES:
+                raise ValueError("video_query_exceeds_provider_inline_limit")
             encoded = base64.b64encode(body).decode("ascii")
             # DashScope OpenAI-compatible video data URLs are only suitable
             # for small clips. Keep the raw segment at or below 7 MiB so its
@@ -104,7 +112,9 @@ async def _post_json(url: str, payload: dict, headers: dict[str, str], timeout_s
         lines = [f"POST {target} HTTP/1.1", *(f"{name}: {value}" for name, value in request_headers.items()), "", ""]
         writer.write("\r\n".join(lines).encode("utf-8") + body)
         await asyncio.wait_for(writer.drain(), timeout=timeout_seconds)
-        raw = await asyncio.wait_for(reader.read(), timeout=timeout_seconds)
+        raw = await asyncio.wait_for(reader.read(_MAX_PROVIDER_RESPONSE_BYTES + 1), timeout=timeout_seconds)
+        if len(raw) > _MAX_PROVIDER_RESPONSE_BYTES:
+            raise ValueError("provider_response_exceeds_limit")
     finally:
         writer.close()
         await writer.wait_closed()
