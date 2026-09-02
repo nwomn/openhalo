@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import subprocess
 from datetime import UTC
 from datetime import datetime
 from pathlib import Path
@@ -213,6 +215,7 @@ def test_bound_encoder_reads_camera_once_and_exposes_encoded_and_feature_frames(
     def _ffmpeg(command, **kwargs) -> None:
         raw_path = Path(command[command.index("-i") + 1])
         mp4_path = Path(command[-1])
+        assert command[command.index("-framerate") + 1] == "1"
         raw_body = raw_path.read_bytes()
         assert raw_body.startswith(nal(7, b"sps") + nal(8, b"pps") + first_payload)
         assert raw_body.endswith(p_payload)
@@ -224,4 +227,38 @@ def test_bound_encoder_reads_camera_once_and_exposes_encoded_and_feature_frames(
     assert pending is not None
     segment = recorder.package_pending_segment(pending)
     assert segment.body == b"bound-encoder-mp4"
+    assert pending.timing == {"wall_clock_seconds": 2.0, "access_unit_packets": 2, "configured_fps": 5, "container_fps": 1.0}
     owner.close()
+
+
+def test_bound_encoder_segment_records_h264_and_ffmpeg_failure_diagnostics(monkeypatch, tmp_path: Path) -> None:
+    recorder = MaixBoundEncoderSegmentRecorder(directory=tmp_path, fps=5, segment_seconds=2)
+
+    def nal(nal_type: int, payload: bytes = b"x") -> bytes:
+        return b"\0\0\0\1" + bytes([nal_type]) + payload
+
+    recorder.consume(CapturedCameraFrame("2026-09-01T00:00:00Z", "frame", nal(7, b"sps") + nal(8, b"pps") + nal(5, b"idr-0")))
+    recorder.consume(CapturedCameraFrame("2026-09-01T00:00:01Z", "frame", nal(1, b"p")))
+    recorder.consume(CapturedCameraFrame("2026-09-01T00:00:02Z", "frame", nal(5, b"idr-1")))
+    pending = recorder.pop_pending_segment()
+    assert pending is not None
+
+    def _ffmpeg(command, **_kwargs) -> None:
+        raise subprocess.CalledProcessError(1, command, stderr="[h264] non-existing PPS 0 referenced")
+
+    monkeypatch.setattr("device_edge.camera.maix_media_pipeline.subprocess.run", _ffmpeg)
+    try:
+        recorder.package_pending_segment(pending)
+    except subprocess.CalledProcessError:
+        pass
+    else:  # pragma: no cover - guards the expected package failure.
+        raise AssertionError("ffmpeg packaging must fail in this test")
+
+    events = [json.loads(line) for line in (tmp_path / "media-diagnostics.jsonl").read_text(encoding="utf-8").splitlines()]
+    sealed = next(event for event in events if event["event"] == "h264_segment_sealed")
+    failed = next(event for event in events if event["event"] == "h264_segment_package" and event["status"] == "failed")
+    assert sealed["h264"] == {"access_unit_packets": 2, "idr_count": 1, "opening_idr": True, "pps_bytes": 8, "pps_cached": True, "sps_bytes": 8, "sps_cached": True}
+    assert sealed["timing"] == {"wall_clock_seconds": 2.0, "access_unit_packets": 2, "configured_fps": 5, "container_fps": 1.0}
+    assert failed["h264"]["idr_count"] == 1
+    assert failed["ffmpeg"]["stderr"] == "[h264] non-existing PPS 0 referenced"
+    assert failed["end_at"] == "2026-09-01T00:00:02Z"

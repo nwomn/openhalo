@@ -158,3 +158,70 @@ def test_service_returns_diagnostic_result_when_media_worker_raises():
 
     results = asyncio.run(scenario())
     assert results[0]["result"]["reason"] == "media_action_failed"
+
+
+def test_segment_package_failure_marks_media_unavailable_and_restarts_capture():
+    async def scenario():
+        with TemporaryDirectory() as directory:
+            results = []
+            diagnostics = []
+
+            class RecoverableCapture(_CaptureOwner):
+                def __init__(self):
+                    super().__init__()
+                    self.close_calls = 0
+
+                def close(self):
+                    self.close_calls += 1
+                    self.closed = True
+
+            class FailingPackageRecorder:
+                def __init__(self):
+                    self.pending = object()
+                    self.close_calls = 0
+
+                def consume(self, _captured):
+                    return []
+
+                def pop_pending_segment(self):
+                    pending, self.pending = self.pending, None
+                    return pending
+
+                def package_pending_segment(self, _pending):
+                    raise RuntimeError("ffmpeg rejected sealed stream")
+
+                def record_diagnostic(self, event):
+                    diagnostics.append(event)
+
+                def close(self):
+                    self.close_calls += 1
+
+            capture = RecoverableCapture()
+            recorder = FailingPackageRecorder()
+            ring = LocalHotRing(source_ref=SOURCE, directory=Path(directory), retention_seconds=86_400, max_bytes=1024)
+            service = CameraEdgeService(
+                capture_owner=capture, segment_recorder=recorder, hot_ring=ring,
+                media_query_executor=MediaMemoryActionExecutor(device_id="camera-edge-1", hot_ring=ring, understanding_provider=lambda *_args: {"markdown": "must not run", "model": "test", "limitations": []}),
+                action_result_sink=results.append,
+            )
+            await service.start()
+            for _ in range(20):
+                if service.media_status["state"] == "recovering":
+                    break
+                await asyncio.sleep(0.01)
+            await service.submit_action_request({"type": "action_request", "device_id": "camera-edge-1", "request_id": "q3", "action": {"capability": MEDIA_MEMORY_QUERY_CAPABILITY, "payload": {}}})
+            for _ in range(20):
+                if results:
+                    break
+                await asyncio.sleep(0.01)
+            status = service.media_status
+            await service.stop()
+            return status, capture, recorder, diagnostics, results
+
+    status, capture, recorder, diagnostics, results = asyncio.run(scenario())
+    assert status == {"state": "recovering", "last_error": "RuntimeError", "recovery_count": 1}
+    assert capture.close_calls >= 1
+    assert recorder.close_calls >= 1
+    assert diagnostics[0]["reason"] == "segment_package_failed"
+    assert results[0]["result"]["reason"] == "media_pipeline_unavailable"
+    assert results[0]["request_id"] == "q3"

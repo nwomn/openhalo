@@ -1,7 +1,7 @@
 id: openhalo_camera_edge
 name: OpenHalo Camera Edge
 name[zh]: OpenHalo 摄像头边缘节点
-version: 0.1.3
+version: 0.1.12
 icon: assets/openhalo-logo-primary.png
 author: OpenHalo
 desc: Local-only visual Feature Camera Edge for OpenHalo Personal Runtime
@@ -11,9 +11,9 @@ files:
   assets/openhalo-logo-primary.png: assets/openhalo-logo-primary.png
   main.py: main.py
   ../../camera_edge_service.py: camera_edge_service.py
-  health_daemon.py: health_daemon.py
+  ../../health_daemon.py: health_daemon.py
   ../../maix_media_pipeline.py: maix_media_pipeline.py
   ../../../media_memory.py: media_memory.py
   ../../../media_provider.py: media_provider.py
   openssl_session.py: openssl_session.py
-  person_presence.py: person_presence.py
+  ../../person_presence.py: person_presence.py

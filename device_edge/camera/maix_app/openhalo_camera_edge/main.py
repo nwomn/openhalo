@@ -8,6 +8,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import traceback
+from datetime import UTC
+from datetime import datetime
 from pathlib import Path
 
 from health_daemon import CameraHealthDaemon
@@ -34,6 +37,36 @@ except ImportError:  # Repository import used by desktop tests.
 
 
 DEFAULT_CONFIG_PATH = Path("/root/.openhalo-camera-edge/app-config.json")
+
+
+def _write_startup_diagnostic(phase: str, *, error: BaseException | None = None) -> None:
+    """Leave a private breadcrumb when Launcher discards App stdout/stderr."""
+
+    directory = DEFAULT_CONFIG_PATH.parent
+    directory.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "event": "app_startup",
+        "phase": phase,
+    }
+    if error is not None:
+        entry["error_type"] = type(error).__name__
+        entry["traceback"] = "".join(traceback.format_exception(error)).replace("\x00", "")[-8192:]
+    with (directory / "app-startup-diagnostics.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
+        handle.flush()
+
+
+def _write_provider_diagnostic(event: dict) -> None:
+    """Persist bounded Provider stages without credentials or media bytes."""
+
+    entry = dict(event)
+    entry.setdefault("timestamp", datetime.now(UTC).isoformat().replace("+00:00", "Z"))
+    directory = DEFAULT_CONFIG_PATH.parent
+    directory.mkdir(parents=True, exist_ok=True)
+    with (directory / "media-provider-diagnostics.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
+        handle.flush()
 
 
 def load_config(path: Path = DEFAULT_CONFIG_PATH) -> dict:
@@ -77,6 +110,7 @@ def build_daemon(config: dict) -> CameraHealthDaemon:
         credentials=provider_credentials,
         provider_name=config.get("media_provider_name", "camera_video_dashscope"),
         model_name=config.get("media_model_name", "camera_video_qwen3_vl_flash"),
+        diagnostic_sink=_write_provider_diagnostic,
     )
     media_executor = MediaMemoryActionExecutor(
         device_id=client.device_id,
@@ -117,6 +151,7 @@ def build_daemon(config: dict) -> CameraHealthDaemon:
             fps=fps,
             segment_seconds=float(config.get("recording_segment_seconds", 2.0)),
             enabled=media_enabled,
+            diagnostic_path=Path(config.get("media_diagnostic_path", str(identity_home / "media-diagnostics.jsonl"))),
         ),
         hot_ring=hot_ring,
         media_query_executor=media_executor,
@@ -129,8 +164,16 @@ def build_daemon(config: dict) -> CameraHealthDaemon:
 
 
 def main() -> int:
-    daemon = build_daemon(load_config())
-    asyncio.run(daemon.run_forever())
+    _write_startup_diagnostic("entered")
+    try:
+        config = load_config()
+        _write_startup_diagnostic("config_loaded")
+        daemon = build_daemon(config)
+        _write_startup_diagnostic("daemon_built")
+        asyncio.run(daemon.run_forever())
+    except BaseException as error:
+        _write_startup_diagnostic("uncaught_exception", error=error)
+        raise
     return 0
 
 

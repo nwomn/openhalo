@@ -9,6 +9,7 @@ need MaixPy installed.
 from __future__ import annotations
 
 import gc
+import json
 import subprocess
 from collections import deque
 from dataclasses import dataclass
@@ -452,6 +453,7 @@ class MaixBoundEncoderSegmentRecorder:
         fps: int,
         segment_seconds: float = 2.0,
         enabled: bool = True,
+        diagnostic_path: Path | None = None,
     ) -> None:
         if fps <= 0 or segment_seconds < 2:
             raise ValueError("invalid bound-encoder segment configuration")
@@ -464,6 +466,8 @@ class MaixBoundEncoderSegmentRecorder:
         self._segment_started_at: str | None = None
         self._parameter_sets: dict[int, bytes] = {}
         self._pending: deque[_PendingH264Segment] = deque()
+        self._segment_diagnostics: dict | None = None
+        self.diagnostic_path = Path(diagnostic_path) if diagnostic_path is not None else self.directory / "media-diagnostics.jsonl"
         self.directory.mkdir(parents=True, exist_ok=True)
 
     def consume(self, captured: CapturedCameraFrame) -> list[EncodedMediaSegment]:
@@ -481,8 +485,16 @@ class MaixBoundEncoderSegmentRecorder:
         # not create a misleading Hot Ring candidate from a P-frame stream.
         if self._encoded_file is None:
             if not has_idr or not self._has_parameter_sets():
+                if has_idr:
+                    self.record_diagnostic({
+                        "event": "h264_segment_admission",
+                        "timestamp": captured.captured_at,
+                        "status": "waiting_for_parameter_sets",
+                        "h264": self._h264_state(access_units, opening_idr=True),
+                    })
                 return []
             self._open_segment(captured.captured_at)
+            self._record_access_units(access_units)
             self._write_segment_start(captured.encoded_body)
             return []
 
@@ -491,9 +503,11 @@ class MaixBoundEncoderSegmentRecorder:
         if has_idr and (current - started).total_seconds() >= self.segment_seconds:
             self._queue_segment(captured.captured_at)
             self._open_segment(captured.captured_at)
+            self._record_access_units(access_units)
             self._write_segment_start(captured.encoded_body)
             return []
 
+        self._record_access_units(access_units)
         self._encoded_file.write(captured.encoded_body)
         return []
 
@@ -513,20 +527,50 @@ class MaixBoundEncoderSegmentRecorder:
         self._segment_path = self.directory / filename
         self._encoded_file = self._segment_path.open("wb")
         self._segment_started_at = captured_at
+        self._segment_diagnostics = {
+            "sps_cached": 7 in self._parameter_sets,
+            "pps_cached": 8 in self._parameter_sets,
+            "opening_idr": True,
+            "idr_count": 0,
+            "access_unit_packets": 0,
+            "sps_bytes": len(self._parameter_sets.get(7, b"")),
+            "pps_bytes": len(self._parameter_sets.get(8, b"")),
+        }
 
     def _queue_segment(self, ended_at: str) -> None:
         assert self._encoded_file is not None and self._segment_path is not None
         self._encoded_file.close()
+        h264 = dict(self._segment_diagnostics or {})
+        timing = _h264_segment_timing(
+            start_at=self._segment_started_at,
+            end_at=ended_at,
+            access_unit_packets=int(h264.get("access_unit_packets", 0)),
+            configured_fps=self.fps,
+        )
         self._pending.append(
             _PendingH264Segment(
                 start_at=self._segment_started_at,
                 end_at=ended_at,
                 raw_path=self._segment_path,
+                h264=h264,
+                timing=timing,
             )
         )
+        self.record_diagnostic({
+            "event": "h264_segment_sealed",
+            "timestamp": ended_at,
+            "status": "pending_package",
+            "start_at": self._segment_started_at,
+            "end_at": ended_at,
+            "raw_path": self._segment_path.name,
+            "raw_bytes": self._segment_path.stat().st_size,
+            "h264": h264,
+            "timing": timing,
+        })
         self._encoded_file = None
         self._segment_path = None
         self._segment_started_at = None
+        self._segment_diagnostics = None
 
     def pop_pending_segment(self):
         return self._pending.popleft() if self._pending else None
@@ -537,19 +581,84 @@ class MaixBoundEncoderSegmentRecorder:
         raw_path = pending.raw_path
         mp4_path = raw_path.with_suffix(".mp4")
         try:
-            subprocess.run(
+            completed = subprocess.run(
                 [
-                    "ffmpeg", "-y", "-loglevel", "error", "-framerate", str(self.fps),
+                    "ffmpeg", "-y", "-loglevel", "error", "-framerate", _ffmpeg_framerate(pending.timing["container_fps"]),
                     "-i", str(raw_path), "-c:v", "copy", "-movflags", "+faststart", str(mp4_path),
                 ],
                 check=True,
                 timeout=20,
+                capture_output=True,
+                text=True,
             )
             body = mp4_path.read_bytes()
+            self.record_diagnostic({
+                "event": "h264_segment_package",
+                "timestamp": _utc_timestamp(),
+                "status": "packaged",
+                "start_at": pending.start_at,
+                "end_at": pending.end_at,
+                "raw_path": raw_path.name,
+                "mp4_bytes": len(body),
+                "h264": pending.h264,
+                "timing": pending.timing,
+                "ffmpeg": {
+                    "returncode": getattr(completed, "returncode", 0),
+                    "stderr": getattr(completed, "stderr", "") or "",
+                },
+            })
+        except subprocess.CalledProcessError as exc:
+            self._record_package_failure(pending, exc.stderr, exc.returncode)
+            raise
+        except subprocess.TimeoutExpired as exc:
+            self._record_package_failure(pending, exc.stderr, None, timed_out=True)
+            raise
         finally:
             raw_path.unlink(missing_ok=True)
             mp4_path.unlink(missing_ok=True)
         return EncodedMediaSegment(start_at=pending.start_at, end_at=pending.end_at, body=body)
+
+    def record_diagnostic(self, event: dict) -> None:
+        """Append bounded structured media diagnostics without raw video bytes."""
+
+        event = dict(event)
+        event.setdefault("timestamp", _utc_timestamp())
+        self.diagnostic_path.parent.mkdir(parents=True, exist_ok=True)
+        with self.diagnostic_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
+            handle.flush()
+
+    def _record_package_failure(self, pending, stderr, returncode, *, timed_out: bool = False) -> None:
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode("utf-8", errors="replace")
+        self.record_diagnostic({
+            "event": "h264_segment_package",
+            "timestamp": _utc_timestamp(),
+            "status": "failed",
+            "start_at": pending.start_at,
+            "end_at": pending.end_at,
+            "raw_path": pending.raw_path.name,
+            "h264": pending.h264,
+            "ffmpeg": {
+                "returncode": returncode,
+                "timed_out": timed_out,
+                "stderr": (stderr or "")[:8192],
+            },
+        })
+
+    def _record_access_units(self, access_units: list[tuple[int, bytes]]) -> None:
+        if self._segment_diagnostics is None:
+            return
+        self._segment_diagnostics["access_unit_packets"] += 1
+        self._segment_diagnostics["idr_count"] += sum(nal_type == 5 for nal_type, _unit in access_units)
+
+    def _h264_state(self, access_units: list[tuple[int, bytes]], *, opening_idr: bool) -> dict:
+        return {
+            "sps_cached": 7 in self._parameter_sets,
+            "pps_cached": 8 in self._parameter_sets,
+            "opening_idr": opening_idr,
+            "packet_nal_types": sorted({nal_type for nal_type, _unit in access_units}),
+        }
 
     def close(self) -> None:
         if self._encoded_file is not None:
@@ -561,6 +670,7 @@ class MaixBoundEncoderSegmentRecorder:
         while self._pending:
             self._pending.popleft().raw_path.unlink(missing_ok=True)
         self._segment_started_at = None
+        self._segment_diagnostics = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -568,6 +678,32 @@ class _PendingH264Segment:
     start_at: str
     end_at: str
     raw_path: Path
+    h264: dict
+    timing: dict
+
+
+def _h264_segment_timing(*, start_at: str, end_at: str, access_unit_packets: int, configured_fps: int) -> dict:
+    """Map observed frame packets onto their wall-clock interval for ffmpeg."""
+
+    started = datetime.fromisoformat(start_at.replace("Z", "+00:00"))
+    ended = datetime.fromisoformat(end_at.replace("Z", "+00:00"))
+    wall_clock_seconds = max((ended - started).total_seconds(), 0.001)
+    # The single Camera Edge loop may spend significant time in local vision
+    # inference.  Preserve the actual time span rather than assigning every
+    # returned packet the configured capture rate and producing a sub-second
+    # MP4 that downstream video models reject.
+    observed_fps = access_unit_packets / wall_clock_seconds if access_unit_packets else float(configured_fps)
+    container_fps = min(float(configured_fps), max(0.1, observed_fps))
+    return {
+        "wall_clock_seconds": round(wall_clock_seconds, 6),
+        "access_unit_packets": access_unit_packets,
+        "configured_fps": configured_fps,
+        "container_fps": round(container_fps, 6),
+    }
+
+
+def _ffmpeg_framerate(value: float) -> str:
+    return f"{value:.6f}".rstrip("0").rstrip(".")
 
 
 def _h264_annex_b_units(body: bytes) -> list[tuple[int, bytes]]:

@@ -89,6 +89,20 @@ class CameraEdgeService:
         self._segment_worker_task: asyncio.Task | None = None
         self._next_feature_at = 0.0
         self._closed = False
+        # A package failure means the currently advertised Hot Ring cannot
+        # support evidence queries.  Keep that state explicit until a fresh
+        # independently sealed MP4 proves the restarted path is usable.
+        self._media_status = "available"
+        self._media_last_error: str | None = None
+        self._media_recovery_count = 0
+
+    @property
+    def media_status(self) -> dict:
+        return {
+            "state": self._media_status,
+            "last_error": self._media_last_error,
+            "recovery_count": self._media_recovery_count,
+        }
 
     async def start(self) -> None:
         if self._action_worker_task is None:
@@ -140,6 +154,7 @@ class CameraEdgeService:
                     body=segment.body,
                     mime_type=segment.mime_type,
                 )
+                self._mark_media_available()
             now = asyncio.get_running_loop().time()
             if self.feature_worker is not None and now >= self._next_feature_at:
                 observations = await _maybe_await(self.feature_worker.observe(captured))
@@ -186,9 +201,19 @@ class CameraEdgeService:
             if frame is None:
                 return
             action = frame.get("action", {})
+            capability = action.get("capability") if isinstance(action, dict) else "unknown"
+            if capability == "media.memory.query":
+                self._record_media_diagnostic({
+                    "event": "media_query_action",
+                    "state": "received",
+                    "request_id": frame.get("request_id"),
+                    "question_length": len(action.get("payload", {}).get("question", "")) if isinstance(action.get("payload"), dict) else 0,
+                })
             try:
-                if action.get("capability") == MEDIA_PROVIDER_CONFIGURE_CAPABILITY:
+                if capability == MEDIA_PROVIDER_CONFIGURE_CAPABILITY:
                     result = self.provider_credentials.handle_action_request(frame)
+                elif capability == "media.memory.query" and self._media_status != "available":
+                    result = self._media_unavailable_result(frame)
                 else:
                     result = await self.media_query_executor.handle_action_request_async(frame)
             except Exception:
@@ -202,8 +227,22 @@ class CameraEdgeService:
                         "reason": "media_action_failed",
                     },
                 }
+            if capability == "media.memory.query":
+                self._record_media_diagnostic({
+                    "event": "media_query_action",
+                    "state": "result_ready",
+                    "request_id": frame.get("request_id"),
+                    "result_status": result.get("result", {}).get("status"),
+                    "result_reason": result.get("result", {}).get("reason"),
+                })
             if self.action_result_sink is not None:
                 await _maybe_await(self.action_result_sink(result))
+            if capability == "media.memory.query":
+                self._record_media_diagnostic({
+                    "event": "media_query_action",
+                    "state": "result_sent",
+                    "request_id": frame.get("request_id"),
+                })
 
     async def _segment_worker(self) -> None:
         """Package closed H.264 chunks without stalling Camera capture."""
@@ -226,10 +265,63 @@ class CameraEdgeService:
                     body=segment.body,
                     mime_type=segment.mime_type,
                 )
-            except Exception:
-                # Segment loss must not crash Camera capture or its Gateway
-                # control link; the next IDR still starts a fresh candidate.
-                continue
+                self._mark_media_available()
+            except Exception as exc:
+                # A failed ffmpeg seal means the current Hot Ring cannot be
+                # trusted.  Drop it from query service immediately, record the
+                # transition, and reset the hardware encoder before capture
+                # resumes on a new SPS/PPS/IDR stream.
+                await self._recover_media_pipeline(exc)
+
+    def _mark_media_available(self) -> None:
+        if self._media_status != "available":
+            self._media_status = "available"
+            self._media_last_error = None
+            self._record_media_diagnostic({
+                "event": "media_pipeline_health",
+                "state": "available",
+            })
+
+    async def _recover_media_pipeline(self, exc: Exception) -> None:
+        self._media_status = "recovering"
+        self._media_last_error = type(exc).__name__
+        self._media_recovery_count += 1
+        self._record_media_diagnostic({
+            "event": "media_pipeline_health",
+            "state": "recovering",
+            "reason": "segment_package_failed",
+            "error_type": type(exc).__name__,
+            "recovery_count": self._media_recovery_count,
+        })
+        close_recorder = getattr(self.segment_recorder, "close", None)
+        if callable(close_recorder):
+            await _maybe_await(close_recorder())
+        close_capture = getattr(self.capture_owner, "close", None)
+        if callable(close_capture):
+            await _maybe_await(close_capture())
+
+    def _record_media_diagnostic(self, event: dict) -> None:
+        record = getattr(self.segment_recorder, "record_diagnostic", None)
+        if callable(record):
+            record(event)
+
+    def _media_unavailable_result(self, frame: dict) -> dict:
+        action = frame.get("action", {})
+        response = {
+            "api_version": "edge.runtime.v2",
+            "type": "action_result",
+            "device_id": frame.get("device_id"),
+            "result": {
+                "status": "error",
+                "capability": action.get("capability", "media.memory.query"),
+                "reason": "media_pipeline_unavailable",
+                "details": self.media_status,
+            },
+        }
+        for key in ("request_id", "interaction_id", "interaction_turn_id", "trace_id", "session_id", "turn_id", "event_id", "parent_event_id"):
+            if frame.get(key) is not None:
+                response[key] = frame[key]
+        return response
 
     async def _emit_observations(self, observations: list[dict]) -> None:
         if observations and self.observation_sink is not None:

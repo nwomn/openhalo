@@ -483,3 +483,11 @@ def test_maix_app_builds_one_camera_edge_service_without_opening_the_camera() ->
             }
     finally:
         sys.path[:] = previous_path
+
+
+def test_maix_app_manifest_packages_current_camera_runtime_modules() -> None:
+    app_directory = Path(__file__).parents[1] / "device_edge" / "camera" / "maix_app" / "openhalo_camera_edge"
+    manifest = (app_directory / "app.yaml").read_text(encoding="utf-8")
+
+    assert "../../health_daemon.py: health_daemon.py" in manifest
+    assert "../../person_presence.py: person_presence.py" in manifest
