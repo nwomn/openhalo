@@ -1,8 +1,11 @@
 # Distributed Edge Media Memory Design
 
-Status: first local Hot Ring/query contract slice implemented; Episode sync,
-real camera encoding, and provider adapters remain future work; not M17.10
-acceptance.  
+Status: Camera Edge short-term video memory is physically accepted: a local
+Hot Ring records independently decodable MP4 segments, and a normal Runtime
+chat can dispatch a source-bound query to the Edge for direct provider
+Understanding before Main Hermes gives the user-facing response. Archive Ring,
+Episode generation/persistence/sync/retrieval, audio memory, and full M17.10
+acceptance remain future work.
 Date: 2026-09-01  
 Scope: Camera Edge, Proxy Interaction Edge screen surfaces, future audio-capable
 Edge surfaces, and their normal `Edge Session Link <-> Gateway <-> Personal
