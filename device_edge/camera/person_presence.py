@@ -294,8 +294,11 @@ class MaixVisualFeaturePipeline:
             )
         except Exception:
             # A detector failure must not turn into an empty scene. Do not
-            # close a Camera here: this pipeline no longer owns it.
-            self._detector = None
+            # close a Camera here: this pipeline no longer owns it.  In
+            # particular, do not discard and recreate the native YOLO object
+            # for every sampled frame: a format/resource error would otherwise
+            # make the low-power Edge continuously reload the model and starve
+            # capture, recording, and its control connection.
             return self._unavailable_sample()
 
     def close(self) -> None:

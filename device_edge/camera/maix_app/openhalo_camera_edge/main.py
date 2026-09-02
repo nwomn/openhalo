@@ -98,9 +98,13 @@ def build_daemon(config: dict) -> CameraHealthDaemon:
         media_memory_executor=media_executor if media_enabled else None,
         provider_credentials=provider_credentials if media_enabled else None,
     )
-    width = int(config.get("capture_width", 640))
-    height = int(config.get("capture_height", 480))
-    fps = int(config.get("capture_fps", 10))
+    # MaixCAM runs the detector, ISP, and H.264 encoder from the same bounded
+    # multimedia pools.  Keep the default capture profile aligned with the
+    # bundled YOLO11 model (320x224) rather than assuming a desktop-class
+    # 640x480 pipeline will fit alongside both consumers.
+    width = int(config.get("capture_width", 320))
+    height = int(config.get("capture_height", 224))
+    fps = int(config.get("capture_fps", 5))
     daemon.camera_edge_service = CameraEdgeService(
         capture_owner=MaixCameraCaptureOwner(width=width, height=height, fps=fps),
         segment_recorder=MaixH264Mp4SegmentRecorder(
