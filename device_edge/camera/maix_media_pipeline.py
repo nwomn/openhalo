@@ -418,8 +418,9 @@ class MaixBoundEncoderCaptureOwner:
         return CapturedCameraFrame(
             captured_at=_utc_timestamp(),
             frame=frame,
-            # Include codec configuration at each sample so every independently
-            # sealed Hot Ring slice remains decodable.
+            # Copy native packet bytes before the next Encoder call may reuse
+            # its backing buffer.  Codec-parameter admission is handled by the
+            # segmenter, not by this Frame copy flag.
             encoded_body=encoded.to_bytes(True),
         )
 
