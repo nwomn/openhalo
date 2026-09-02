@@ -17,16 +17,16 @@ from person_presence import MaixPersonPresenceFeature
 
 try:  # Packaged Maix App: all new modules are sibling files.
     from camera_edge_service import CameraEdgeService
-    from maix_media_pipeline import MaixCameraCaptureOwner
-    from maix_media_pipeline import MaixH264Mp4SegmentRecorder
+    from maix_media_pipeline import MaixVideoRecorderCaptureOwner
+    from maix_media_pipeline import MaixVideoRecorderSegmentRecorder
     from media_memory import InMemoryMediaProviderCredentials
     from media_memory import LocalHotRing
     from media_memory import MediaMemoryActionExecutor
     from media_provider import OpenAICompatibleVideoAdapter
 except ImportError:  # Repository import used by desktop tests.
     from device_edge.camera.camera_edge_service import CameraEdgeService
-    from device_edge.camera.maix_media_pipeline import MaixCameraCaptureOwner
-    from device_edge.camera.maix_media_pipeline import MaixH264Mp4SegmentRecorder
+    from device_edge.camera.maix_media_pipeline import MaixVideoRecorderCaptureOwner
+    from device_edge.camera.maix_media_pipeline import MaixVideoRecorderSegmentRecorder
     from device_edge.media_memory import InMemoryMediaProviderCredentials
     from device_edge.media_memory import LocalHotRing
     from device_edge.media_memory import MediaMemoryActionExecutor
@@ -98,21 +98,26 @@ def build_daemon(config: dict) -> CameraHealthDaemon:
         media_memory_executor=media_executor if media_enabled else None,
         provider_credentials=provider_credentials if media_enabled else None,
     )
-    # MaixCAM runs the detector, ISP, and H.264 encoder from the same bounded
-    # multimedia pools.  Keep the default capture profile aligned with the
-    # bundled YOLO11 model (320x224) rather than assuming a desktop-class
-    # 640x480 pipeline will fit alongside both consumers.
-    width = int(config.get("capture_width", 320))
-    height = int(config.get("capture_height", 224))
+    # Recording keeps the MaixCAM video pipeline's supported resolution.  The
+    # local YOLO worker consumes a separately configured small RGB snapshot.
+    width = int(config.get("capture_width", 640))
+    height = int(config.get("capture_height", 480))
     fps = int(config.get("capture_fps", 5))
+    recording_directory = Path(config.get("recording_spool_path", str(identity_home / "recording-spool")))
+    capture_owner = MaixVideoRecorderCaptureOwner(
+        directory=recording_directory,
+        width=width,
+        height=height,
+        fps=fps,
+        bitrate=int(config.get("recording_bitrate", 1_000_000)),
+        recording_enabled=media_enabled,
+        snapshot_width=int(config.get("feature_snapshot_width", 320)),
+        snapshot_height=int(config.get("feature_snapshot_height", 224)),
+    )
     daemon.camera_edge_service = CameraEdgeService(
-        capture_owner=MaixCameraCaptureOwner(width=width, height=height, fps=fps),
-        segment_recorder=MaixH264Mp4SegmentRecorder(
-            directory=Path(config.get("recording_spool_path", str(identity_home / "recording-spool"))),
-            width=width,
-            height=height,
-            fps=fps,
-            bitrate=int(config.get("recording_bitrate", 1_000_000)),
+        capture_owner=capture_owner,
+        segment_recorder=MaixVideoRecorderSegmentRecorder(
+            capture_owner=capture_owner,
             segment_seconds=float(config.get("recording_segment_seconds", 2.0)),
             enabled=media_enabled,
         ),

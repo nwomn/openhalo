@@ -74,6 +74,173 @@ class MaixCameraCaptureOwner:
                 self._camera = None
 
 
+class MaixVideoRecorderCaptureOwner:
+    """Use Maix's bound ``VideoRecorder`` as the camera/encoder owner.
+
+    MaixCAM's media driver cannot reliably support an application calling
+    ``Camera.read()`` while also pushing that image through a separately
+    created encoder.  The vendor recorder instead owns the camera binding and
+    exposes ``snapshot()`` for the sampled local Feature worker.  This keeps
+    exactly one physical camera open in the Camera Edge process.
+    """
+
+    def __init__(
+        self,
+        *,
+        directory: Path,
+        width: int,
+        height: int,
+        fps: int,
+        bitrate: int,
+        recording_enabled: bool,
+        snapshot_width: int | None = None,
+        snapshot_height: int | None = None,
+        buffer_count: int = 2,
+    ) -> None:
+        if width <= 0 or height <= 0 or fps <= 0 or bitrate <= 0 or buffer_count < 1:
+            raise ValueError("invalid Maix VideoRecorder capture configuration")
+        self.directory = Path(directory)
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.bitrate = bitrate
+        self.recording_enabled = recording_enabled
+        self.snapshot_width = snapshot_width
+        self.snapshot_height = snapshot_height
+        self.buffer_count = buffer_count
+        self._camera = None
+        self._recorder = None
+        self._active_path = self.directory / "active-recording.mp4"
+
+    def _start_camera(self) -> None:
+        if self._camera is not None:
+            return
+        from maix import camera, image
+
+        self.directory.mkdir(parents=True, exist_ok=True)
+        self._camera = camera.Camera(
+            self.width,
+            self.height,
+            image.Format.FMT_YVU420SP,
+            fps=self.fps,
+            buff_num=self.buffer_count,
+        )
+        if self.recording_enabled:
+            self._open_recorder()
+
+    def _open_recorder(self) -> None:
+        """Create one vendor recorder, binding its Camera *before* config.
+
+        The MaixPy binding explicitly requires this order.  Keeping it here
+        prevents a harmless configuration typo from wedging the native media
+        stack before the Edge has connected to Runtime.
+        """
+
+        from maix import image, video
+
+        self._active_path.unlink(missing_ok=True)
+        recorder = video.VideoRecorder(open=False)
+        recorder.bind_camera(self._camera)
+        recorder.config_resolution([self.width, self.height])
+        recorder.config_fps(self.fps)
+        recorder.config_bitrate(self.bitrate)
+        recorder.config_path(str(self._active_path))
+        if self.snapshot_width is not None and self.snapshot_height is not None:
+            recorder.config_snapshot(
+                True,
+                [self.snapshot_width, self.snapshot_height],
+                image.Format.FMT_RGB888,
+            )
+        recorder.open()
+        recorder.record_start()
+        self._recorder = recorder
+
+    def read_frame(self) -> CapturedCameraFrame:
+        self._start_camera()
+        if self._recorder is not None:
+            frame = self._recorder.snapshot()
+        else:
+            frame = self._camera.read(block=True, block_ms=3000)
+        if frame is None:
+            raise RuntimeError("MaixCAM capture timed out")
+        return CapturedCameraFrame(captured_at=_utc_timestamp(), frame=frame)
+
+    def seal_recording(self, *, start_at: str, end_at: str) -> EncodedMediaSegment:
+        if self._recorder is None:
+            raise RuntimeError("Maix VideoRecorder is not enabled")
+        self._recorder.record_finish()
+        try:
+            body = self._active_path.read_bytes()
+        finally:
+            self._active_path.unlink(missing_ok=True)
+        # A fresh recorder keeps the already-bound Camera as the only sensor
+        # owner while giving every Hot Ring segment a finalized MP4 container.
+        self._recorder.close()
+        self._recorder = None
+        self._open_recorder()
+        return EncodedMediaSegment(
+            start_at=start_at,
+            end_at=end_at,
+            body=body,
+            mime_type="video/mp4",
+        )
+
+    def close(self) -> None:
+        if self._recorder is not None:
+            try:
+                self._recorder.record_finish()
+            except Exception:
+                pass
+            try:
+                self._recorder.close()
+            finally:
+                self._recorder = None
+        self._active_path.unlink(missing_ok=True)
+        if self._camera is not None:
+            try:
+                self._camera.close()
+            finally:
+                self._camera = None
+
+
+class MaixVideoRecorderSegmentRecorder:
+    """Seal bounded Hot Ring MP4s from a bound ``VideoRecorder``."""
+
+    def __init__(
+        self,
+        *,
+        capture_owner: MaixVideoRecorderCaptureOwner,
+        segment_seconds: float = 2.0,
+        enabled: bool = True,
+    ) -> None:
+        if segment_seconds < 2:
+            raise ValueError("segment_seconds must be at least two seconds")
+        self.capture_owner = capture_owner
+        self.segment_seconds = segment_seconds
+        self.enabled = enabled
+        self._segment_started_at: str | None = None
+
+    def consume(self, captured: CapturedCameraFrame) -> list[EncodedMediaSegment]:
+        if not self.enabled:
+            return []
+        if self._segment_started_at is None:
+            self._segment_started_at = captured.captured_at
+            return []
+        started = datetime.fromisoformat(self._segment_started_at.replace("Z", "+00:00"))
+        current = datetime.fromisoformat(captured.captured_at.replace("Z", "+00:00"))
+        if (current - started).total_seconds() < self.segment_seconds:
+            return []
+        segment = self.capture_owner.seal_recording(
+            start_at=self._segment_started_at,
+            end_at=captured.captured_at,
+        )
+        self._segment_started_at = captured.captured_at
+        return [segment]
+
+    def close(self) -> None:
+        self._segment_started_at = None
+
+
 class MaixH264Mp4SegmentRecorder:
     """Seal short H.264/MP4 files from shared Maix camera frames.
 
