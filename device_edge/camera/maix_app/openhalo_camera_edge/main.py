@@ -17,16 +17,16 @@ from person_presence import MaixPersonPresenceFeature
 
 try:  # Packaged Maix App: all new modules are sibling files.
     from camera_edge_service import CameraEdgeService
-    from maix_media_pipeline import MaixVideoRecorderCaptureOwner
-    from maix_media_pipeline import MaixVideoRecorderSegmentRecorder
+    from maix_media_pipeline import MaixBoundEncoderCaptureOwner
+    from maix_media_pipeline import MaixBoundEncoderSegmentRecorder
     from media_memory import InMemoryMediaProviderCredentials
     from media_memory import LocalHotRing
     from media_memory import MediaMemoryActionExecutor
     from media_provider import OpenAICompatibleVideoAdapter
 except ImportError:  # Repository import used by desktop tests.
     from device_edge.camera.camera_edge_service import CameraEdgeService
-    from device_edge.camera.maix_media_pipeline import MaixVideoRecorderCaptureOwner
-    from device_edge.camera.maix_media_pipeline import MaixVideoRecorderSegmentRecorder
+    from device_edge.camera.maix_media_pipeline import MaixBoundEncoderCaptureOwner
+    from device_edge.camera.maix_media_pipeline import MaixBoundEncoderSegmentRecorder
     from device_edge.media_memory import InMemoryMediaProviderCredentials
     from device_edge.media_memory import LocalHotRing
     from device_edge.media_memory import MediaMemoryActionExecutor
@@ -104,20 +104,17 @@ def build_daemon(config: dict) -> CameraHealthDaemon:
     height = int(config.get("capture_height", 480))
     fps = int(config.get("capture_fps", 5))
     recording_directory = Path(config.get("recording_spool_path", str(identity_home / "recording-spool")))
-    capture_owner = MaixVideoRecorderCaptureOwner(
-        directory=recording_directory,
+    capture_owner = MaixBoundEncoderCaptureOwner(
         width=width,
         height=height,
         fps=fps,
         bitrate=int(config.get("recording_bitrate", 1_000_000)),
-        recording_enabled=media_enabled,
-        snapshot_width=int(config.get("feature_snapshot_width", 320)),
-        snapshot_height=int(config.get("feature_snapshot_height", 224)),
     )
     daemon.camera_edge_service = CameraEdgeService(
         capture_owner=capture_owner,
-        segment_recorder=MaixVideoRecorderSegmentRecorder(
-            capture_owner=capture_owner,
+        segment_recorder=MaixBoundEncoderSegmentRecorder(
+            directory=recording_directory,
+            fps=fps,
             segment_seconds=float(config.get("recording_segment_seconds", 2.0)),
             enabled=media_enabled,
         ),

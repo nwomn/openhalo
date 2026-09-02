@@ -33,6 +33,7 @@ class CapturedCameraFrame:
 
     captured_at: str
     frame: object
+    encoded_body: bytes | None = None
 
 
 @dataclass(frozen=True, slots=True)

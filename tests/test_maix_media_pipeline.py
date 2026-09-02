@@ -7,6 +7,8 @@ from types import SimpleNamespace
 
 from device_edge.camera.camera_edge_service import CapturedCameraFrame
 from device_edge.camera.maix_media_pipeline import MaixH264Mp4SegmentRecorder
+from device_edge.camera.maix_media_pipeline import MaixBoundEncoderCaptureOwner
+from device_edge.camera.maix_media_pipeline import MaixBoundEncoderSegmentRecorder
 from device_edge.camera.maix_media_pipeline import MaixVideoRecorderCaptureOwner
 from device_edge.camera.maix_media_pipeline import MaixVideoRecorderSegmentRecorder
 
@@ -145,4 +147,68 @@ def test_video_recorder_binds_camera_before_config_and_seals_mp4(monkeypatch, tm
     assert segments[0].body == b"finalized-mp4"
     assert calls.index(next(item for item in calls if item[0] == "bind_camera")) < calls.index(("resolution", [320, 224]))
     assert ("snapshot_config", True, [160, 112], "rgb888") in calls
+    owner.close()
+
+
+def test_bound_encoder_reads_camera_once_and_exposes_encoded_and_feature_frames(monkeypatch, tmp_path: Path) -> None:
+    calls: list[tuple] = []
+
+    class _Camera:
+        def __init__(self, *args, **kwargs) -> None:
+            calls.append(("camera", args, kwargs))
+
+        def close(self) -> None:
+            calls.append(("camera.close",))
+
+    class _Encoded:
+        def to_bytes(self, include_config: bool) -> bytes:
+            assert include_config is True
+            return b"h264-with-config"
+
+    class _Encoder:
+        def __init__(self, **kwargs) -> None:
+            calls.append(("encoder", kwargs))
+
+        def bind_camera(self, camera) -> None:
+            calls.append(("bind_camera", camera))
+
+        def encode(self):
+            calls.append(("encode",))
+            return _Encoded()
+
+        def capture(self):
+            calls.append(("capture",))
+            return "yolo-image"
+
+    fake_maix = SimpleNamespace(
+        image=SimpleNamespace(Format=SimpleNamespace(FMT_YVU420SP="yvu420sp")),
+        camera=SimpleNamespace(Camera=_Camera),
+        video=SimpleNamespace(
+            Encoder=_Encoder,
+            VideoType=SimpleNamespace(VIDEO_H264_CBR="h264"),
+        ),
+    )
+    monkeypatch.setitem(__import__("sys").modules, "maix", fake_maix)
+    owner = MaixBoundEncoderCaptureOwner(width=640, height=480, fps=5, bitrate=500_000)
+    frame = owner.read_frame()
+
+    assert frame.frame == "yolo-image"
+    assert frame.encoded_body == b"h264-with-config"
+    assert calls.index(next(item for item in calls if item[0] == "bind_camera")) < calls.index(("encode",))
+    assert calls.index(("encode",)) < calls.index(("capture",))
+
+    recorder = MaixBoundEncoderSegmentRecorder(directory=tmp_path, fps=5, segment_seconds=2)
+    first = CapturedCameraFrame("2026-09-01T00:00:00Z", "yolo-image", b"h264-with-config")
+    second = CapturedCameraFrame("2026-09-01T00:00:02Z", "yolo-image", b"h264-with-config")
+    assert recorder.consume(first) == []
+
+    def _ffmpeg(command, **kwargs) -> None:
+        raw_path = Path(command[command.index("-i") + 1])
+        mp4_path = Path(command[-1])
+        assert raw_path.read_bytes() == b"h264-with-configh264-with-config"
+        mp4_path.write_bytes(b"bound-encoder-mp4")
+
+    monkeypatch.setattr("device_edge.camera.maix_media_pipeline.subprocess.run", _ffmpeg)
+    segments = recorder.consume(second)
+    assert segments[0].body == b"bound-encoder-mp4"
     owner.close()

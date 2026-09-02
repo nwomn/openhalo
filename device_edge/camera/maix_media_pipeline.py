@@ -355,3 +355,155 @@ class MaixH264Mp4SegmentRecorder:
             self._segment_path.unlink(missing_ok=True)
             self._segment_path = None
         self._segment_started_at = None
+
+
+class MaixBoundEncoderCaptureOwner:
+    """One Camera bound to Maix's hardware Encoder.
+
+    The Encoder becomes the only component that reads from the physical Camera:
+    ``encode()`` yields the H.264 stream and ``capture()`` yields the locally
+    consumed image.  This is the vendor-supported alternative to asking
+    ``Camera.read()`` and a separate Encoder to compete for the same buffers.
+    """
+
+    def __init__(
+        self,
+        *,
+        width: int = 640,
+        height: int = 480,
+        fps: int = 5,
+        bitrate: int = 1_000_000,
+        buffer_count: int = 2,
+    ) -> None:
+        if width <= 0 or height <= 0 or fps <= 0 or bitrate <= 0 or buffer_count < 1:
+            raise ValueError("invalid Maix bound-encoder capture configuration")
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.bitrate = bitrate
+        self.buffer_count = buffer_count
+        self._camera = None
+        self._encoder = None
+
+    def _start(self) -> None:
+        if self._encoder is not None:
+            return
+        from maix import camera, image, video
+
+        self._camera = camera.Camera(
+            self.width,
+            self.height,
+            image.Format.FMT_YVU420SP,
+            fps=self.fps,
+            buff_num=self.buffer_count,
+        )
+        self._encoder = video.Encoder(
+            width=self.width,
+            height=self.height,
+            format=image.Format.FMT_YVU420SP,
+            type=video.VideoType.VIDEO_H264_CBR,
+            framerate=self.fps,
+            gop=self.fps,
+            bitrate=self.bitrate,
+            capture=True,
+        )
+        self._encoder.bind_camera(self._camera)
+
+    def read_frame(self) -> CapturedCameraFrame:
+        self._start()
+        encoded = self._encoder.encode()
+        frame = self._encoder.capture()
+        if encoded is None or frame is None:
+            raise RuntimeError("Maix bound encoder produced no frame")
+        return CapturedCameraFrame(
+            captured_at=_utc_timestamp(),
+            frame=frame,
+            # Include codec configuration at each sample so every independently
+            # sealed Hot Ring slice remains decodable.
+            encoded_body=encoded.to_bytes(True),
+        )
+
+    def close(self) -> None:
+        self._encoder = None
+        gc.collect()
+        if self._camera is not None:
+            try:
+                self._camera.close()
+            finally:
+                self._camera = None
+
+
+class MaixBoundEncoderSegmentRecorder:
+    """Seal MP4 Hot Ring segments from a bound Encoder's H.264 output."""
+
+    def __init__(
+        self,
+        *,
+        directory: Path,
+        fps: int,
+        segment_seconds: float = 2.0,
+        enabled: bool = True,
+    ) -> None:
+        if fps <= 0 or segment_seconds < 2:
+            raise ValueError("invalid bound-encoder segment configuration")
+        self.directory = Path(directory)
+        self.fps = fps
+        self.segment_seconds = segment_seconds
+        self.enabled = enabled
+        self._encoded_file = None
+        self._segment_path: Path | None = None
+        self._segment_started_at: str | None = None
+        self.directory.mkdir(parents=True, exist_ok=True)
+
+    def consume(self, captured: CapturedCameraFrame) -> list[EncodedMediaSegment]:
+        if not self.enabled:
+            return []
+        if captured.encoded_body is None:
+            raise RuntimeError("bound encoder capture did not supply H.264 bytes")
+        if self._encoded_file is None:
+            self._open_segment(captured.captured_at)
+        self._encoded_file.write(captured.encoded_body)
+        started = datetime.fromisoformat(self._segment_started_at.replace("Z", "+00:00"))
+        current = datetime.fromisoformat(captured.captured_at.replace("Z", "+00:00"))
+        if (current - started).total_seconds() < self.segment_seconds:
+            return []
+        return [self._seal_segment(captured.captured_at)]
+
+    def _open_segment(self, captured_at: str) -> None:
+        filename = f"bound-{captured_at.replace(':', '').replace('+', '').replace('.', '')}.h264"
+        self._segment_path = self.directory / filename
+        self._encoded_file = self._segment_path.open("wb")
+        self._segment_started_at = captured_at
+
+    def _seal_segment(self, ended_at: str) -> EncodedMediaSegment:
+        assert self._encoded_file is not None and self._segment_path is not None
+        started_at = self._segment_started_at
+        raw_path = self._segment_path
+        self._encoded_file.close()
+        self._encoded_file = None
+        self._segment_path = None
+        self._segment_started_at = None
+        mp4_path = raw_path.with_suffix(".mp4")
+        try:
+            subprocess.run(
+                [
+                    "ffmpeg", "-y", "-loglevel", "error", "-framerate", str(self.fps),
+                    "-i", str(raw_path), "-c:v", "copy", "-movflags", "+faststart", str(mp4_path),
+                ],
+                check=True,
+                timeout=20,
+            )
+            body = mp4_path.read_bytes()
+        finally:
+            raw_path.unlink(missing_ok=True)
+            mp4_path.unlink(missing_ok=True)
+        return EncodedMediaSegment(start_at=started_at, end_at=ended_at, body=body)
+
+    def close(self) -> None:
+        if self._encoded_file is not None:
+            self._encoded_file.close()
+            self._encoded_file = None
+        if self._segment_path is not None:
+            self._segment_path.unlink(missing_ok=True)
+            self._segment_path = None
+        self._segment_started_at = None
