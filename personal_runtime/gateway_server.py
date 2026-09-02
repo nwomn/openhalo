@@ -2193,37 +2193,40 @@ class RuntimeGateway:
             )
         return None
 
-    def _bind_websocket_connect(self, frame: dict, websocket) -> tuple[str | None, dict | None]:
-        if frame.get("type") != "connect":
-            return None, None
-        device = frame.get("device")
-        if not isinstance(device, dict):
-            return None, None
-        device_id = device.get("device_id")
-        if not isinstance(device_id, str):
-            return None, None
-        availability_error = self._websocket_connect_availability_error(
-            device_id,
-            websocket,
-        )
-        if availability_error is not None:
-            return None, availability_error
-        self.live_connections[device_id] = websocket
-        return device_id, None
+    async def _bind_authenticated_websocket(self, device_id: str, websocket) -> None:
+        """Atomically admit a verified reconnect and retire its old transport.
 
-    def _websocket_connect_availability_error(
-        self,
-        device_id: str,
-        websocket,
-    ) -> dict | None:
-        existing_websocket = self.live_connections.get(device_id)
-        if existing_websocket is not None and existing_websocket is not websocket:
-            return self._build_public_error(
-                code="device_already_connected",
-                message="A live WebSocket session already owns this device_id.",
-                device_id=device_id,
+        A device reboot or network handoff can leave the former WebSocket alive
+        briefly.  Identity has already been verified when this runs, so the
+        newer session is authoritative.  Install it before closing the former
+        socket: that makes the former handler's ``finally`` identity-safe and
+        prevents it from taking the replacement offline.
+        """
+
+        previous_websocket = self.live_connections.get(device_id)
+        self.live_connections[device_id] = websocket
+        if previous_websocket is None or previous_websocket is websocket:
+            return
+        try:
+            await previous_websocket.close(
+                code=4001,
+                reason="Superseded by a newer authenticated device session.",
             )
-        return None
+        except (ConnectionClosedOK, ConnectionClosedError):
+            # It is already gone; the replacement above remains authoritative.
+            return
+        except Exception as exc:
+            # A close failure must not undo the newly admitted session.  The
+            # previous handler, if still alive, cannot clear the replacement.
+            self._record_diagnostic(
+                module="Gateway",
+                operation="websocket_session_takeover",
+                phase="output",
+                correlation={},
+                input_payload={"device_id": device_id},
+                output_payload={"error_class": type(exc).__name__},
+                summary="Could not actively close superseded websocket session.",
+            )
 
     def _release_closed_websocket_session(self, device_id: str | None, websocket) -> None:
         if device_id is None or not self._release_websocket_session(device_id, websocket):
@@ -2339,15 +2342,6 @@ class RuntimeGateway:
                                 ),
                             )
                             continue
-                        device = frame.get("device")
-                        device_id = device.get("device_id") if isinstance(device, dict) else None
-                        if isinstance(device_id, str):
-                            availability_error = self._websocket_connect_availability_error(
-                                device_id, websocket
-                            )
-                            if availability_error is not None:
-                                await self._send_frame(websocket, availability_error)
-                                continue
                         reply = self._begin_authentication(frame)
                         if reply.get("type") == "auth_challenge":
                             pending_session_id = reply["session_id"]
@@ -2367,14 +2361,10 @@ class RuntimeGateway:
                         reply, authenticated_device_id = self._complete_authentication(frame)
                         pending_session_id = None
                         if authenticated_device_id is not None:
-                            availability_error = self._websocket_connect_availability_error(
-                                authenticated_device_id, websocket
+                            await self._bind_authenticated_websocket(
+                                authenticated_device_id,
+                                websocket,
                             )
-                            if availability_error is not None:
-                                self.online_device_ids.discard(authenticated_device_id)
-                                await self._send_frame(websocket, availability_error)
-                                continue
-                            self.live_connections[authenticated_device_id] = websocket
                             registered_device_id = authenticated_device_id
                         await self._send_frame(websocket, reply)
                         continue

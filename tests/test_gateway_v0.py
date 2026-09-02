@@ -1682,7 +1682,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(paired["type"], "connect_ok")
 
-    async def test_duplicate_socket_rejection_does_not_consume_pairing_code(
+    async def test_untrusted_duplicate_pairing_cannot_take_over_or_consume_code(
         self,
     ) -> None:
         with TemporaryDirectory() as temporary_directory:
@@ -1737,11 +1737,16 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                                 )
                             )
                         )
+                        challenge = json.loads(await websocket.recv())
+                        self.assertEqual(challenge["type"], "auth_challenge")
+                        await websocket.send(
+                            json.dumps(_auth_proof(competing_private_key, challenge))
+                        )
                         rejected = json.loads(await websocket.recv())
 
             pairing_records = pairing_store.list_pairing_codes()
 
-        self.assertEqual(rejected["code"], "device_already_connected")
+        self.assertEqual(rejected["code"], "device_already_paired")
         self.assertEqual(len(pairing_records), 2)
         self.assertEqual(
             sum(record["consumed_at"] is None for record in pairing_records),
@@ -1917,7 +1922,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(error["code"], "device_mismatch")
         self.assertEqual(gateway.state.events, [])
 
-    async def test_websocket_rejects_duplicate_active_device_connection(self) -> None:
+    async def test_verified_duplicate_device_connection_takes_over_old_session(self) -> None:
         gateway = RuntimeGateway(
             shared_token="dev-token",
             persist_state=False,
@@ -1951,13 +1956,21 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
                 second_edge.client.identity = first_edge.identity
                 second_edge.client.session_link.identity = first_edge.identity
                 async with websockets.connect(server_info["url"]) as second_websocket:
-                    await second_websocket.send(
-                        json.dumps(second_edge.client.build_connect_frame())
+                    self.assertEqual(
+                        (
+                            await authenticate_websocket_edge(
+                                second_websocket,
+                                second_edge,
+                            )
+                        )["type"],
+                        "connect_ok",
                     )
-                    error = json.loads(await second_websocket.recv())
+                    with self.assertRaises(ConnectionClosedError) as closed:
+                        await first_websocket.recv()
+                    self.assertIn("desktop-dev-1", gateway.live_connections)
+                    self.assertIn("desktop-dev-1", gateway.online_device_ids)
 
-        self.assertEqual(error["type"], "error")
-        self.assertEqual(error["code"], "device_already_connected")
+        self.assertEqual(closed.exception.rcvd.code, 4001)
 
     async def test_websocket_server_surfaces_missing_runtime_config_without_closing_connection(
         self,
