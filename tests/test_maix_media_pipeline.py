@@ -198,17 +198,30 @@ def test_bound_encoder_reads_camera_once_and_exposes_encoded_and_feature_frames(
     assert calls.index(("encode",)) < calls.index(("capture",))
 
     recorder = MaixBoundEncoderSegmentRecorder(directory=tmp_path, fps=5, segment_seconds=2)
-    first = CapturedCameraFrame("2026-09-01T00:00:00Z", "yolo-image", b"h264-with-config")
-    second = CapturedCameraFrame("2026-09-01T00:00:02Z", "yolo-image", b"h264-with-config")
+    def nal(nal_type: int, payload: bytes = b"x") -> bytes:
+        return b"\0\0\0\1" + bytes([nal_type]) + payload
+
+    first_payload = nal(7, b"sps") + nal(8, b"pps") + nal(5, b"idr-0")
+    p_payload = nal(1, b"p-frame")
+    second_payload = nal(5, b"idr-1")
+    first = CapturedCameraFrame("2026-09-01T00:00:00Z", "yolo-image", first_payload)
+    middle = CapturedCameraFrame("2026-09-01T00:00:01Z", "yolo-image", p_payload)
+    second = CapturedCameraFrame("2026-09-01T00:00:02Z", "yolo-image", second_payload)
     assert recorder.consume(first) == []
+    assert recorder.consume(middle) == []
 
     def _ffmpeg(command, **kwargs) -> None:
         raw_path = Path(command[command.index("-i") + 1])
         mp4_path = Path(command[-1])
-        assert raw_path.read_bytes() == b"h264-with-configh264-with-config"
+        raw_body = raw_path.read_bytes()
+        assert raw_body.startswith(nal(7, b"sps") + nal(8, b"pps") + first_payload)
+        assert raw_body.endswith(p_payload)
         mp4_path.write_bytes(b"bound-encoder-mp4")
 
     monkeypatch.setattr("device_edge.camera.maix_media_pipeline.subprocess.run", _ffmpeg)
-    segments = recorder.consume(second)
-    assert segments[0].body == b"bound-encoder-mp4"
+    assert recorder.consume(second) == []
+    pending = recorder.pop_pending_segment()
+    assert pending is not None
+    segment = recorder.package_pending_segment(pending)
+    assert segment.body == b"bound-encoder-mp4"
     owner.close()

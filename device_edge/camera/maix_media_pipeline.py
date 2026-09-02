@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import gc
 import subprocess
+from collections import deque
+from dataclasses import dataclass
 from datetime import UTC
 from datetime import datetime
 from pathlib import Path
@@ -435,7 +437,13 @@ class MaixBoundEncoderCaptureOwner:
 
 
 class MaixBoundEncoderSegmentRecorder:
-    """Seal MP4 Hot Ring segments from a bound Encoder's H.264 output."""
+    """Seal independently decodable MP4s from bound-Encoder H.264 output.
+
+    A continuous H.264 stream may begin a time-based chunk on a P-frame.  The
+    segmenter therefore caches SPS/PPS and admits a new file only at an IDR;
+    it closes the prior file only when a later IDR arrives after the requested
+    duration.  Every file starts with the cached parameters plus an IDR.
+    """
 
     def __init__(
         self,
@@ -454,6 +462,8 @@ class MaixBoundEncoderSegmentRecorder:
         self._encoded_file = None
         self._segment_path: Path | None = None
         self._segment_started_at: str | None = None
+        self._parameter_sets: dict[int, bytes] = {}
+        self._pending: deque[_PendingH264Segment] = deque()
         self.directory.mkdir(parents=True, exist_ok=True)
 
     def consume(self, captured: CapturedCameraFrame) -> list[EncodedMediaSegment]:
@@ -461,14 +471,42 @@ class MaixBoundEncoderSegmentRecorder:
             return []
         if captured.encoded_body is None:
             raise RuntimeError("bound encoder capture did not supply H.264 bytes")
+        access_units = _h264_annex_b_units(captured.encoded_body)
+        for nal_type, unit in access_units:
+            if nal_type in (7, 8):  # SPS / PPS
+                self._parameter_sets[nal_type] = unit
+        has_idr = any(nal_type == 5 for nal_type, _unit in access_units)
+
+        # Without SPS/PPS an H.264 slice cannot be independently decoded. Do
+        # not create a misleading Hot Ring candidate from a P-frame stream.
         if self._encoded_file is None:
+            if not has_idr or not self._has_parameter_sets():
+                return []
             self._open_segment(captured.captured_at)
-        self._encoded_file.write(captured.encoded_body)
+            self._write_segment_start(captured.encoded_body)
+            return []
+
         started = datetime.fromisoformat(self._segment_started_at.replace("Z", "+00:00"))
         current = datetime.fromisoformat(captured.captured_at.replace("Z", "+00:00"))
-        if (current - started).total_seconds() < self.segment_seconds:
+        if has_idr and (current - started).total_seconds() >= self.segment_seconds:
+            self._queue_segment(captured.captured_at)
+            self._open_segment(captured.captured_at)
+            self._write_segment_start(captured.encoded_body)
             return []
-        return [self._seal_segment(captured.captured_at)]
+
+        self._encoded_file.write(captured.encoded_body)
+        return []
+
+    def _has_parameter_sets(self) -> bool:
+        return 7 in self._parameter_sets and 8 in self._parameter_sets
+
+    def _write_segment_start(self, body: bytes) -> None:
+        assert self._encoded_file is not None
+        # Keep deterministic SPS/PPS order ahead of the IDR.  The packet may
+        # also contain them; duplicate sequence parameters are valid Annex-B.
+        self._encoded_file.write(self._parameter_sets[7])
+        self._encoded_file.write(self._parameter_sets[8])
+        self._encoded_file.write(body)
 
     def _open_segment(self, captured_at: str) -> None:
         filename = f"bound-{captured_at.replace(':', '').replace('+', '').replace('.', '')}.h264"
@@ -476,14 +514,27 @@ class MaixBoundEncoderSegmentRecorder:
         self._encoded_file = self._segment_path.open("wb")
         self._segment_started_at = captured_at
 
-    def _seal_segment(self, ended_at: str) -> EncodedMediaSegment:
+    def _queue_segment(self, ended_at: str) -> None:
         assert self._encoded_file is not None and self._segment_path is not None
-        started_at = self._segment_started_at
-        raw_path = self._segment_path
         self._encoded_file.close()
+        self._pending.append(
+            _PendingH264Segment(
+                start_at=self._segment_started_at,
+                end_at=ended_at,
+                raw_path=self._segment_path,
+            )
+        )
         self._encoded_file = None
         self._segment_path = None
         self._segment_started_at = None
+
+    def pop_pending_segment(self):
+        return self._pending.popleft() if self._pending else None
+
+    def package_pending_segment(self, pending) -> EncodedMediaSegment:
+        """Run ffmpeg only on a previously closed raw segment."""
+
+        raw_path = pending.raw_path
         mp4_path = raw_path.with_suffix(".mp4")
         try:
             subprocess.run(
@@ -498,7 +549,7 @@ class MaixBoundEncoderSegmentRecorder:
         finally:
             raw_path.unlink(missing_ok=True)
             mp4_path.unlink(missing_ok=True)
-        return EncodedMediaSegment(start_at=started_at, end_at=ended_at, body=body)
+        return EncodedMediaSegment(start_at=pending.start_at, end_at=pending.end_at, body=body)
 
     def close(self) -> None:
         if self._encoded_file is not None:
@@ -507,4 +558,36 @@ class MaixBoundEncoderSegmentRecorder:
         if self._segment_path is not None:
             self._segment_path.unlink(missing_ok=True)
             self._segment_path = None
+        while self._pending:
+            self._pending.popleft().raw_path.unlink(missing_ok=True)
         self._segment_started_at = None
+
+
+@dataclass(frozen=True, slots=True)
+class _PendingH264Segment:
+    start_at: str
+    end_at: str
+    raw_path: Path
+
+
+def _h264_annex_b_units(body: bytes) -> list[tuple[int, bytes]]:
+    """Return ``(NAL type, complete Annex-B unit)`` entries from one packet."""
+
+    starts: list[tuple[int, int]] = []
+    index = 0
+    while index + 3 < len(body):
+        if body[index:index + 4] == b"\x00\x00\x00\x01":
+            starts.append((index, 4))
+            index += 4
+        elif body[index:index + 3] == b"\x00\x00\x01":
+            starts.append((index, 3))
+            index += 3
+        else:
+            index += 1
+    units: list[tuple[int, bytes]] = []
+    for position, (start, prefix_length) in enumerate(starts):
+        end = starts[position + 1][0] if position + 1 < len(starts) else len(body)
+        unit = body[start:end]
+        if len(unit) > prefix_length:
+            units.append((unit[prefix_length] & 0x1F, unit))
+    return units

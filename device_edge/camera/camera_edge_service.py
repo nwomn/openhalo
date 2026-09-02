@@ -86,12 +86,15 @@ class CameraEdgeService:
         self._action_queue: asyncio.Queue[dict | None] = asyncio.Queue(maxsize=action_queue_size)
         self.provider_credentials = provider_credentials or InMemoryMediaProviderCredentials()
         self._action_worker_task: asyncio.Task | None = None
+        self._segment_worker_task: asyncio.Task | None = None
         self._next_feature_at = 0.0
         self._closed = False
 
     async def start(self) -> None:
         if self._action_worker_task is None:
             self._action_worker_task = asyncio.create_task(self._action_worker())
+        if self._segment_worker_task is None and hasattr(self.segment_recorder, "pop_pending_segment"):
+            self._segment_worker_task = asyncio.create_task(self._segment_worker())
 
     async def stop(self) -> None:
         if self._closed:
@@ -101,6 +104,9 @@ class CameraEdgeService:
             await self._action_queue.put(None)
             await self._action_worker_task
             self._action_worker_task = None
+        if self._segment_worker_task is not None:
+            await self._segment_worker_task
+            self._segment_worker_task = None
         close = getattr(self.capture_owner, "close", None)
         if callable(close):
             await _maybe_await(close())
@@ -198,6 +204,32 @@ class CameraEdgeService:
                 }
             if self.action_result_sink is not None:
                 await _maybe_await(self.action_result_sink(result))
+
+    async def _segment_worker(self) -> None:
+        """Package closed H.264 chunks without stalling Camera capture."""
+
+        while True:
+            pending = self.segment_recorder.pop_pending_segment()
+            if pending is None:
+                if self._closed:
+                    return
+                await asyncio.sleep(0.02)
+                continue
+            try:
+                segment = await asyncio.to_thread(
+                    self.segment_recorder.package_pending_segment,
+                    pending,
+                )
+                self.hot_ring.append_segment(
+                    start_at=segment.start_at,
+                    end_at=segment.end_at,
+                    body=segment.body,
+                    mime_type=segment.mime_type,
+                )
+            except Exception:
+                # Segment loss must not crash Camera capture or its Gateway
+                # control link; the next IDR still starts a fresh candidate.
+                continue
 
     async def _emit_observations(self, observations: list[dict]) -> None:
         if observations and self.observation_sink is not None:
