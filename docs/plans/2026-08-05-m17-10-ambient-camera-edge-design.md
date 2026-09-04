@@ -8,7 +8,9 @@ Edge-session dependency probe, real-device P-256 proof verification, and one
 owner-Runtime pairing/authentication session. It has no sustained connection,
 Observation, evidence, or media-transfer validation yet.
 
-This document records the proposed first implementation shape for a fixed home/desk camera Edge. It is intentionally a bounded ambient-observation design, not a commitment to continuous raw camera or microphone streaming.
+This document records the Camera Edge v1 implementation shape: a fixed home/desk MaixCAM ambient-observation validation. It is intentionally a bounded ambient-observation design, not a commitment to continuous raw camera or microphone streaming.
+
+Camera Edge v1 has completed its narrow public-Edge contract and Feature validation, but MaixCAM's camera resolution and local-compute ceiling do not meet the room-scale perception requirement. The Jetson Orin Nano Super 8GB work is therefore **Camera Edge v2**, a separate high-resolution multimodal validation line. It must not be described as a MaixCAM upgrade, a v1 acceptance expansion, or a production-hardware decision. This document preserves v1 evidence and boundaries; v2's hardware-specific acceptance plan belongs in its own design document.
 
 The repeatable owner-development procedure is in [MaixCAM Camera Edge
 Development Runbook](../ops/maixcam-camera-edge-runbook.md). It stores no
@@ -183,7 +185,7 @@ Camera sensors
 - high-level video/audio understanding;
 - evidence correlation, Presence, and action decisions.
 
-The camera Edge is responsible for local capture, low-cost feature extraction, candidate-event detection, and bounded pre/post-event evidence buffering. Its MaixCAM validation unit may also use the board's built-in microphone, but each audio capability remains separately registered and independently diagnosable; this does not accept the later standalone Audio/Microphone Edge or a combined Multimodal Edge. A Runtime model may be local or a governed remote provider, but the camera Edge does not directly depend on a model provider.
+The Camera Edge v1 is responsible for local capture, low-cost feature extraction, candidate-event detection, and bounded pre/post-event evidence buffering. Its MaixCAM validation unit may also use the board's built-in microphone, but each audio capability remains separately registered and independently diagnosable; this does not accept the later standalone Audio/Microphone Edge or a combined Multimodal Edge. A Runtime model may be local or a governed remote provider, but the camera Edge does not directly depend on a model provider.
 
 ## 2. Core vocabulary
 
@@ -226,7 +228,7 @@ features:
   - known_person_candidate   # only with explicit enrollment and consent
 ```
 
-### 3.1 Camera Edge v2 development capability focus
+### 3.1 Camera Edge v1 development capability focus
 
 The next MaixCAM validation is intended to establish what Main Hermes can know
 about the most salient foreground information in front of the device. It is
