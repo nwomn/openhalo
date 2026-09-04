@@ -3,9 +3,10 @@
 Status: Camera Edge short-term video memory is physically accepted: a local
 Hot Ring records independently decodable MP4 segments, and a normal Runtime
 chat can dispatch a source-bound query to the Edge for direct provider
-Understanding before Main Hermes gives the user-facing response. Archive Ring,
-Episode generation/persistence/sync/retrieval, audio memory, and full M17.10
-acceptance remain future work.
+Understanding before Main Hermes gives the user-facing response. The approved
+next design is immediate asynchronous Episode generation while evidence is
+still in Hot Ring; Episode persistence/sync/retrieval, Archive Ring, audio
+memory, and full M17.10 acceptance remain future implementation work.
 Date: 2026-09-01  
 Scope: Camera Edge, Proxy Interaction Edge screen surfaces, future audio-capable
 Edge surfaces, and their normal `Edge Session Link <-> Gateway <-> Personal
@@ -26,8 +27,9 @@ The first functional version intentionally prefers a direct, inspectable
 closed loop over credential, audit, and adaptive-policy sophistication:
 
 - an owner-enabled Edge retains configured local media buffers;
-- that Edge directly calls the selected cloud video model to write a local
-  natural-language Episode note for sealed media;
+- an event- and sampling-driven Episode worker asynchronously selects bounded
+  already-closed local media while it is still in Hot Ring, then directly calls
+  the selected cloud model to write a local natural-language Episode note;
 - Runtime receives only the Episode envelope, Markdown note, sync state, and
   source metadata, not the continuous raw media;
 - detailed recent queries are sent as a normal source-bound `media.memory.query` action. The selected Edge extracts only the bounded local interval, calls its chosen video/audio model directly, and returns a textual `Understanding` plus small coverage/provenance metadata; clip bytes never enter Runtime.
@@ -76,24 +78,28 @@ Each source independently owns the following local lifecycle:
 ```text
 hardware encoder
   -> Hot Ring (high-detail, recent original media)
-  -> SealedChunk (closed local interval)
-  -> cloud-model episode generation
-  -> local Episode note + sync outbox
-  -> Runtime replicated index/note
+       -> Feature / transition candidate scheduler
+       -> low-frequency stable-scene sampler
+       -> bounded asynchronous Episode worker
+            -> local EpisodeRecord + Markdown EpisodeNote + sync outbox
+            -> Runtime replicated index/note
+  -> Archive Ring only when a pending/failed episode would otherwise lose raw
+     evidence as the relevant interval rotates out of Hot Ring
 ```
 
 `HotRing` is segmented rather than a monolithic rewritten movie so an Edge can
 locate and extract a bounded time interval, survive a partial write, and report
 which exact time range remains available.  It answers recent detailed questions.
 
-`SealedChunk` is a local chunk that has left the Hot Ring.  It stays in a
-separate fixed-length local archive ring until the configured raw-media policy
-permits deletion.  Episode generation failure, offline state, or a pending
-retry cannot be misreported as a successful memory; however, they do not extend
-that archive ring indefinitely.  When it rotates, the oldest sealed raw media
-is discarded and the next synchronized envelope records the resulting
-unsummarized coverage gap.  The configured Hot Ring remains independently
-protected.  Pinned user/incident evidence may extend this retention.
+`SealedChunk` is a closed, independently readable local interval. It is eligible
+for Episode work as soon as it enters Hot Ring; it does not wait for Hot Ring
+expiry. An Episode worker is bounded, deduplicates and merges adjacent candidate
+events, and never queues raw frames. It may retain only local segment handles
+until work starts. A pending/failed/offline interval moves into a separate
+fixed-length Archive Ring only when it would otherwise rotate out of Hot Ring.
+Archive rotation drops the oldest unsummarized media and writes a deterministic
+`coverage_gap`; it never pressures the independently configured Hot Ring.
+Pinned user/incident evidence may extend this retention.
 
 The first version uses Edge cold configuration, not Runtime adaptive policy:
 
@@ -313,23 +319,29 @@ class of historical signal through ordinary Presence governance.
 The first acceptance is deliberately a single source, not a full fleet:
 
 1. An owner-enabled Camera Edge captures segmented local media and maintains a
-   configured Hot Ring.
-2. A SealedChunk is selected by its cold configuration and sent directly from
-   the Edge to the configured model provider.
-3. The Edge persists a readable Markdown Episode note plus deterministic
-   envelope; failed/partial/retry states remain inspectable.
-4. The Edge synchronizes the small envelope/note through Gateway to Runtime.
-5. Runtime indexes the note and injects only a bounded relevant excerpt into a
-   normal Main Hermes `MemoryContext`.
-6. A recent detailed query is routed as a source-bound action; the Edge selects
-   its local bounded Hot Ring interval and calls the provider directly. Runtime
-   receives only the resulting textual Understanding and provenance/coverage
-   metadata, with an assertion that no media bytes are transported to or
-   persisted by Runtime. An expired detail query states the limitation.
-7. During Runtime disconnection, the Edge accumulates local Episodes; after
-   reconnection Runtime shows the prior sync gap before the outbox is drained.
+   configured Hot Ring without Episode work blocking capture or Feature output.
+2. A confirmed Feature/transition candidate or low-frequency stable-scene
+   sampler triggers one bounded Episode worker job while its closed media is
+   still in Hot Ring; adjacent work is merged rather than becoming one note per
+   segment.
+3. The Edge persists an `EpisodeRecord` (source/time/coverage/gap/state,
+   Feature references, raw-evidence availability and provenance) plus a readable
+   Markdown `EpisodeNote`; model output is never required to be strict JSON.
+4. The Edge synchronizes only that envelope/note through Gateway to Runtime;
+   Runtime stores/indexes no MP4, Base64 media, or raw frames.
+5. After the relevant raw media has left Hot Ring, an ordinary coarse recall
+   retrieves the Episode note; Context compilation injects only a bounded
+   source/time/coverage/limitation projection into Main Hermes.
+6. A fine-detail or temporal query can escalate to a source-bound
+   `media.memory.query` while raw evidence remains in Hot Ring/Archive Ring.
+   If the source declares the evidence expired or the Episode reports a gap,
+   the answer explicitly refuses to invent the detail.
+7. Provider failure or Runtime disconnection leaves pending source media only in
+   a bounded Archive Ring. Rotation records `coverage_gap`, preserves Hot Ring
+   liveness, and drains/synchronizes completed Episode notes after recovery.
 8. Key redaction, user disable/clear, visible recording state, raw retention,
-   and source-specific deletion are manually verified.
+   source-specific deletion, then multi-Edge source isolation and aligned-time
+   correlation are manually verified in that order.
 
 This acceptance does not claim full M17.10 acceptance, production credential
 security, audio understanding, cross-Edge composite reasoning, automatic

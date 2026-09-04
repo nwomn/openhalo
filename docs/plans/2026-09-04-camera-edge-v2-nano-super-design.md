@@ -87,7 +87,23 @@ Presence, privacy, permission, action validation, and result recording.
 - Continuous raw audio/video upload or Runtime persistence of raw media.
 - Reopening, changing, or reclassifying Camera Edge v1 acceptance evidence.
 
-## 7. Relationship to v1
+## 7. Open semantic cues are interaction candidates, never direct commands
+
+An unconfigured but apparently meaningful cue—such as waving, pointing,
+displaying an object, or a thumbs-up—may become a future registered
+`camera.semantic_cue_candidate.v1` Observation. Cheap local people, motion, and
+region-change facts nominate its deterministic source/interval/coverage/evidence
+envelope to Runtime; semantic understanding is not an ingress prerequisite.
+
+The cue permits only the inference that a clarification opportunity may exist.
+It must not infer owner identity, addressee, consent, a particular command, or
+external-action authorization. Presence may choose silence, a low-interruption
+clarification, or supporting evidence for an active interaction. Only an
+explicit reply, an existing interaction's confirmation semantics, or a later
+owner-confirmed revocable association may authorize action. This is a future v2
+capability, not part of the September five-second label acceptance.
+
+## 8. Relationship to v1
 
 Camera Edge v1 used the received MaixCAM to validate bounded Feature,
 authentication, and Edge-to-Runtime contract behavior. Its resolution and local
