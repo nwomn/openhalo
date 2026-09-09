@@ -41,3 +41,15 @@ Capture owns one latest frame; one worker performs inference; HTTP serves frames
 Three presets isolate caption+subtitles, grounded+boxes, grounded+subtitles. A grounded display-only change produces identical model requests. Model timings do not measure browser draw cost. Runs store configuration, model identity, image SHA256, prompt/schema and request timing/output/error records. New video is not recorded by default.
 
 Device directory: `/home/jetson/openhalo-vlm-demo`. During the experiment the LAN preview ran at `http://192.168.0.30:8765`; it is stopped at closeout to release the camera. Restart using the README commands when another experiment is wanted. No system service/autostart or fan/storage settings were changed. Camera Edge v2 room-scene quality, sustained thermals/cadence, full ablation and Runtime integration remain pending.
+
+## 2026-09-09 simplification review
+
+Removed the unused optional MJPEG endpoint and the configuration serialization wrapper. Annotations now appear only on their analyzed snapshot, removing the unsupported assumption that historical coordinates still describe the live scene and eliminating overlay TTL configuration. Snapshot requests must match the result ID; the browser loads that snapshot before painting its annotations. Capture/inference separation, task/display ablations and measurement logs remain necessary to the experiment. This local revision does not extend the prior physical acceptance.
+
+## 2026-09-09 deployment smoke check
+
+Deployed the simplified source through the new public-key SSH alias `jetson` to `/home/jetson/openhalo-vlm-demo`. Previous source is backed up at `/home/jetson/openhalo-vlm-demo-before-20260909-1108.tar.gz`. Local/remote SHA256 matches for app.py, config.py and index.html; served HTML matches the local file. All four existing tests and Python compilation pass on Jetson.
+
+Started `python3 app.py --config presets/boxes.json --host 0.0.0.0 --requests 1`. Run `runs/20260909-110833-642169` completed one real CSI grounded request: 48.192 s request, 48.212 s frame-to-result, 39.477 s first content, 4.534 s loading, 34.530 s prompt processing, 8.776 s generation, 115 output tokens. Capture was 29.888 FPS at completion, with no camera/model error. These single-request figures do not establish comparative performance or label/grounding accuracy.
+
+HTTP verification confirmed changing live JPEG bytes, a valid result-1 snapshot, rejection of a mismatched snapshot ID (404), and removal of MJPEG (404). In-app and Chrome browser automation timed out, so rendered annotation placement and visual quality remain unverified. Preview is left running at `http://192.168.0.30:8765`; model analysis automatically paused after the one request. The Continue button allows another single request. No system autostart was installed.

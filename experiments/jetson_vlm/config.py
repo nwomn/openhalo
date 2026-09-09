@@ -1,7 +1,7 @@
 """Experiment factors, independent of camera and presentation code."""
 import argparse
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -22,7 +22,6 @@ class Config:
     temperature: float = 0.0
     seed: int = 42
     interval: float = 1.0
-    overlay_ttl: float = 5.0
     requests: int = 0
     paused: bool = False
     host: str = "127.0.0.1"
@@ -49,10 +48,6 @@ def parse_config():
     if min(config.width, config.height, config.fps, config.input_width,
            config.max_tokens, config.context) <= 0 or config.requests < 0:
         parser.error("dimensions/rates/token budgets must be positive; requests >= 0")
-    if config.interval < 0 or config.overlay_ttl <= 0:
-        parser.error("interval >= 0 and overlay_ttl > 0 required")
+    if config.interval < 0:
+        parser.error("interval >= 0 required")
     return config
-
-
-def config_dict(config):
-    return asdict(config)

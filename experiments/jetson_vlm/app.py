@@ -6,6 +6,7 @@ import signal
 import threading
 import time
 import urllib.parse
+from dataclasses import asdict
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -13,7 +14,7 @@ from pathlib import Path
 import cv2
 
 from camera import Camera
-from config import config_dict, parse_config
+from config import parse_config
 from model import infer, parse_result, runtime_info, task_spec
 
 
@@ -30,7 +31,7 @@ class Experiment:
         self.snapshot = None
         self.run_dir = Path(config.output) / datetime.now().strftime("%Y%m%d-%H%M%S-%f")
         self.run_dir.mkdir(parents=True)
-        metadata = {"config": config_dict(config), "python": platform.python_version(),
+        metadata = {"config": asdict(config), "python": platform.python_version(),
                     "opencv": cv2.__version__, "prompt_and_schema": task_spec(config.task),
                     "ollama": runtime_info(config)}
         (self.run_dir / "config.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2))
@@ -42,7 +43,7 @@ class Experiment:
 
     def view(self):
         with self.lock:
-            return {**self.state, "config": config_dict(self.config),
+            return {**self.state, "config": asdict(self.config),
                     "enabled": self.enabled.is_set(), "capture_fps": self.camera.fps,
                     "camera_error": self.camera.error, "server_time": time.time(),
                     "run_dir": str(self.run_dir)}
@@ -113,28 +114,13 @@ def handler_for(experiment):
                 self.send(json.dumps(experiment.view(), ensure_ascii=False).encode(), "application/json")
             elif path == "/snapshot.jpg":
                 with experiment.lock:
-                    jpeg = experiment.snapshot
+                    result = experiment.state["result"]
+                    requested = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get("id")
+                    jpeg = experiment.snapshot if result and requested == [str(result["request"])] else None
                 self.send(jpeg or b"", "image/jpeg", 200 if jpeg else 404)
             elif path == "/frame.jpg":
                 frame = experiment.camera.get()
                 self.send(frame.jpeg if frame else b"", "image/jpeg", 200 if frame else 503)
-            elif path == "/stream.mjpg":
-                self.send_response(200)
-                self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
-                self.send_header("Cache-Control", "no-store")
-                self.end_headers()
-                sequence = -1
-                try:
-                    while not experiment.stop.is_set():
-                        frame = experiment.camera.get(sequence)
-                        if frame is None or frame.sequence == sequence:
-                            continue
-                        sequence = frame.sequence
-                        self.wfile.write(b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
-                            + str(len(frame.jpeg)).encode() + b"\r\n\r\n" + frame.jpeg + b"\r\n")
-                        self.wfile.flush()
-                except (BrokenPipeError, ConnectionResetError, RuntimeError):
-                    return
             else:
                 self.send(b"Not found", "text/plain", 404)
 
