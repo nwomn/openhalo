@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd"
+  schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>openhalo_isaac_ros_argus</name>
+  <version>0.1.0</version>
+  <description>OpenHalo's bounded IMX219 Argus configuration shim.</description>
+  <maintainer email="openhalo@users.noreply.github.com">OpenHalo</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake_auto</buildtool_depend>
+  <depend>isaac_ros_argus_camera</depend>
+  <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

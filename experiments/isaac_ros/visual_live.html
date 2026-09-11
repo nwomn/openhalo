@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OpenHalo · Isaac ROS 实时识别</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,"Microsoft YaHei",sans-serif;background:#10131b;color:#e5eafa}
+body{margin:0;padding:24px;max-width:1440px;margin:auto}
+header{display:flex;justify-content:space-between;align-items:center;gap:16px}
+h1{font-size:22px;margin:0}p{color:#9da9bd;font-size:14px;line-height:1.7}
+button{background:#252c3d;color:#fff;border:1px solid #47546e;padding:9px 14px;border-radius:7px;cursor:pointer}
+button:hover{background:#303a50}.layout{display:grid;grid-template-columns:minmax(0,3fr) minmax(260px,1fr);gap:20px;margin-top:18px}
+.video{position:relative;background:#050608;overflow:hidden;border-radius:10px;line-height:0}
+.video img{width:100%;display:block;min-height:180px;object-fit:contain}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
+.stat,aside{background:#1b2030;border:1px solid #2d3549;border-radius:10px;padding:14px}
+.stat b{display:block;font-size:21px;margin-top:6px}.stat span{color:#a9b5cd;font-size:12px}
+aside h2{font-size:16px;margin:4px 0 10px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;color:#b5c5e9}
+#error{color:#ffab9f;white-space:pre-wrap}.badge{font-size:12px;color:#9ee6d1;background:#21332f;padding:5px 10px;border-radius:15px}
+.hint{font-size:12px}.region{display:flex;justify-content:space-between;border-bottom:1px solid #2d3549;padding:7px 0;font-size:13px}
+.on{color:#83e8a8}.off{color:#a9b5cd}.muted{color:#9da9bd}
+@media(max-width:850px){body{padding:14px}.layout{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}header{align-items:flex-start}}
+</style>
+<header>
+  <div><h1>OpenHalo · Isaac ROS 实时识别</h1><p id="config">正在启动相机和模型…</p></div>
+  <button id="pause">暂停识别</button>
+</header>
+<div class="layout">
+  <main>
+    <div class="video"><img id="stream" src="/stream.mjpg" alt="Isaac ROS 实时识别画面"></div>
+    <div class="stats">
+      <div class="stat"><span>相机接收</span><b id="camera-fps">—</b></div>
+      <div class="stat"><span>识别处理</span><b id="inference-fps">—</b></div>
+      <div class="stat"><span>端到端推理</span><b id="latency">—</b></div>
+      <div class="stat"><span>当前人数</span><b id="people">—</b></div>
+    </div>
+    <span id="status" class="badge">等待画面</span>
+    <p id="freshness"></p><p id="error"></p>
+    <p class="hint">画面来自 Isaac ROS 的 /left/image_raw；检测线程只取最新帧，浏览器显示的是最近一次完成识别的叠加画面。</p>
+  </main>
+  <aside>
+    <h2>当前低层特征</h2>
+    <pre id="objects">等待识别…</pre>
+    <h2>区域占用</h2>
+    <div id="regions"><span class="muted">等待识别…</span></div>
+    <h2>姿态和可见度</h2>
+    <pre id="pose">等待识别…</pre>
+    <h2>运行状态</h2>
+    <pre id="runtime"></pre>
+  </aside>
+</div>
+<script>
+const $=id=>document.getElementById(id); let state=null;
+function fmt(value,suffix=''){return value==null?'—':value+suffix}
+function paint(s){
+  state=s; const c=s.configuration||{}, r=s.result;
+  $('config').textContent=`${c.image_topic||'/left/image_raw'} · mode ${c.sensor_mode||'—'} · ${c.target_framerate||'—'} FPS · detector ${c.detector||'—'}`;
+  $('camera-fps').textContent=fmt(s.camera_fps,' Hz');
+  $('inference-fps').textContent=fmt(s.inference_fps,' Hz');
+  $('pause').textContent=s.enabled?'暂停识别':'继续识别';
+  $('status').textContent=s.status==='warming_up'?'模型预热中':s.status==='error'?'识别错误':s.enabled?'实时识别中':'识别已暂停';
+  $('error').textContent=s.error||'';
+  if(!r){$('latency').textContent='—';$('people').textContent='—';$('freshness').textContent='';return;}
+  $('latency').textContent=fmt(r.latency_ms?.total,' ms'); $('people').textContent=String(r.person_count??0);
+  $('freshness').textContent=`识别帧 #${r.sequence} · 画面年龄 ${fmt(r.frame_age_ms,' ms')} · detector ${fmt(r.latency_ms?.detector,' ms')} · pose ${fmt(r.latency_ms?.pose,' ms')}`;
+  const objects=Object.entries(r.object_counts||{}).filter(([,count])=>count).map(([name,count])=>`${name}: ${count}`).join('\n');
+  $('objects').textContent=objects||'未检测到配置对象';
+  $('regions').replaceChildren();
+  for(const [name,value] of Object.entries(r.regions||{})){
+    const row=document.createElement('div'); row.className='region';
+    const label=document.createElement('span'); label.textContent=name;
+    const stateText=document.createElement('span'); stateText.className=value.occupied?'on':'off'; stateText.textContent=value.occupied?`占用 (${value.count})`:'空闲';
+    row.append(label,stateText); $('regions').append(row);
+  }
+  const pose=r.pose||{};
+  $('pose').textContent=`人数: ${pose.person_count??0}\n姿态: ${Object.entries(pose.postures||{}).map(([name,count])=>`${name}=${count}`).join(', ')||'none'}\n身体可见度: ${Object.entries(pose.body_coverage||{}).map(([name,count])=>`${name}=${count}`).join(', ')||'none'}\n关键点均值: ${pose.visible_keypoints_mean??0}`;
+  $('runtime').textContent=`相机帧: ${s.camera_frames??0}\n识别帧: ${s.processed_frames??0}\n原始 topic: ${c.image_topic||'—'}`;
+}
+async function poll(){try{const response=await fetch('/api/state',{cache:'no-store'});if(!response.ok)throw Error('状态连接失败');paint(await response.json());}catch(e){$('error').textContent='连接中断：'+e.message;}setTimeout(poll,300)}
+$('pause').onclick=async()=>{if(state)await fetch(state.enabled?'/api/pause':'/api/resume',{method:'POST'});};
+poll();
+</script>

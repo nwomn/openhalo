@@ -1,0 +1,29 @@
+%YAML 1.2
+---
+# OpenHalo Camera Edge experiment calibration contract.
+#
+# The dimensions and distortion-model shape are intentionally mode-matched to
+# IMX219 sensor mode 4.  The intrinsics below are a conservative pinhole
+# estimate with zero distortion, not a measured production calibration.  Run a
+# checkerboard calibration before using this file for depth, metric geometry,
+# or any user-state inference that depends on accurate image coordinates.
+camera_name: imx219_1280x720
+image_width: 1280
+image_height: 720
+distortion_model: rational_polynomial
+distortion_coefficients:
+  rows: 1
+  cols: 8
+  data: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [640.0, 0.0, 640.0, 0.0, 640.0, 360.0, 0.0, 0.0, 1.0]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [640.0, 0.0, 640.0, 0.0, 0.0, 640.0, 360.0, 0.0, 0.0, 0.0, 1.0, 0.0]
