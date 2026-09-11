@@ -228,7 +228,7 @@ features:
   - known_person_candidate   # only with explicit enrollment and consent
 ```
 
-### 3.1 Camera Edge v1 development capability focus
+### 3.1 Camera Edge v1 development capability focus`r`n`r`nHuman-centered review (2026-09-10): this capability family is being reprioritized around direct or indirect user-state inference. Health/presence, activity, addressing, coarse affect or arousal proxies, and user-linked transitions are primary. Generic object presence, OCR, broad scene salience, and environment inventory are supporting capabilities and should be implemented only when they explain user state or enable a user-serving action. They must not become standalone optimization targets.
 
 The next MaixCAM validation is intended to establish what Main Hermes can know
 about the most salient foreground information in front of the device. It is
@@ -585,3 +585,4 @@ status UI, and a deliberate App-level boot-auto-start decision remain separate
 work.
 
 The first slice does not require continuous cloud video, full open-vocabulary detection, unrestricted face recognition, a general-purpose Edge agent, or packaged ambient-home hardware. Packaging and provisioning remain later product work under M22.
+
