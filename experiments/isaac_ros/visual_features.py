@@ -314,9 +314,15 @@ class VisualFeatureEngine:
     def _detections(self, result: Any, width: int, height: int) -> dict[str, Any]:
         counts = {label: 0 for label in self.object_labels}
         persons: list[dict[str, float]] = []
+        items: list[dict[str, Any]] = []
         confidences: dict[str, list[float]] = {label: [] for label in self.object_labels}
         if result.boxes is None:
-            return {"counts": counts, "persons": persons, "confidence": confidences}
+            return {
+                "counts": counts,
+                "persons": persons,
+                "items": items,
+                "confidence": confidences,
+            }
         xyxy = result.boxes.xyxy.detach().cpu().numpy()
         scores = result.boxes.conf.detach().cpu().numpy()
         classes = result.boxes.cls.detach().cpu().numpy().astype(int)
@@ -326,8 +332,15 @@ class VisualFeatureEngine:
                 continue
             counts[label] += 1
             confidences[label].append(float(score))
+            x1, y1, x2, y2 = [float(value) for value in box]
+            items.append(
+                {
+                    "label": label,
+                    "bbox": [x1 / width, y1 / height, x2 / width, y2 / height],
+                    "confidence": float(score),
+                }
+            )
             if label == "person":
-                x1, y1, x2, y2 = [float(value) for value in box]
                 persons.append(
                     {
                         "center_x": ((x1 + x2) / 2.0) / width,
@@ -337,7 +350,12 @@ class VisualFeatureEngine:
                         "confidence": float(score),
                     }
                 )
-        return {"counts": counts, "persons": persons, "confidence": confidences}
+        return {
+            "counts": counts,
+            "persons": persons,
+            "items": items,
+            "confidence": confidences,
+        }
 
     def _regions(self, persons: list[dict[str, float]]) -> dict[str, dict[str, Any]]:
         result: dict[str, dict[str, Any]] = {}
@@ -411,6 +429,7 @@ class VisualFeatureEngine:
                 max(detections["confidence"].get("person", []), default=0.0), 5
             ),
             "object_counts": detections["counts"],
+            "detections": detections["items"],
             "regions": self._regions(detections["persons"]),
             "pose": pose,
             "latency_ms": {

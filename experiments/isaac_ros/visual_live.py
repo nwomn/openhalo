@@ -23,8 +23,10 @@ from visual_features import _parse_regions
 from visual_features import _terminate_process
 from visual_preview import _draw_detections
 from visual_preview import _draw_info
+from visual_preview import _draw_label
 from visual_preview import _draw_pose
 from visual_preview import _draw_regions
+from temporal_features import TemporalTracker
 
 
 def _infer_with_geometry(
@@ -90,6 +92,7 @@ def _infer_with_geometry(
             max(detections["confidence"].get("person", []), default=0.0), 5
         ),
         "object_counts": detections["counts"],
+        "detections": detections["items"],
         "regions": engine._regions(detections["persons"]),
         "pose": pose,
         "latency_ms": {
@@ -109,11 +112,39 @@ def _annotate(
     regions: dict[str, tuple[float, float, float, float]],
     allowed_objects: set[str],
     confidence: float,
+    temporal: dict[str, Any],
 ) -> np.ndarray:
     annotated = frame.copy()
     object_counts = _draw_detections(annotated, detection, allowed_objects, confidence)
     _draw_pose(annotated, keypoints)
     _draw_regions(annotated, regions, result["regions"])
+    height, width = annotated.shape[:2]
+    for track in temporal["tracks"]:
+        if track["status"] == "ended":
+            continue
+        trajectory = [
+            (round(point[0] * width), round(point[1] * height))
+            for point in track.get("trajectory", [])
+        ]
+        if len(trajectory) >= 2:
+            cv2.polylines(
+                annotated,
+                [np.asarray(trajectory, dtype=np.int32)],
+                False,
+                (220, 90, 220) if track["label"] == "person" else (90, 180, 255),
+                2,
+                cv2.LINE_AA,
+            )
+        center = (
+            round(track["center"][0] * width),
+            round(track["center"][1] * height),
+        )
+        _draw_label(
+            annotated,
+            f"T{track['track_id']} {track['motion']['state']} {track['dwell_s']:.1f}s",
+            (center[0] + 6, center[1] + 18),
+            (220, 90, 220) if track["label"] == "person" else (90, 180, 255),
+        )
     postures = [
         posture
         for posture, count in result["pose"]["postures"].items()
@@ -128,6 +159,12 @@ def _annotate(
         f"{name}={'on' if value['occupied'] else 'off'}"
         for name, value in result["regions"].items()
     )
+    person_tracks = [track for track in temporal["tracks"] if track["label"] == "person"]
+    tracking_text = ", ".join(
+        f"T{track['track_id']}:{track['motion']['state']}/{track['region']['current'] or 'none'}"
+        for track in person_tracks
+    ) or "none"
+    window = temporal["window"]
     _draw_info(
         annotated,
         [
@@ -142,6 +179,9 @@ def _annotate(
             + (", ".join(f"{name}={count}" for name, count in object_counts.items() if count) or "none"),
             "pose: %s | body: %s" % (",".join(postures) or "none", ",".join(coverage) or "none"),
             "regions: " + (region_text or "none"),
+            "tracking: " + tracking_text,
+            "window: people=%s stable=%s"
+            % (window["person_count_mode"], window["person_count_stability"]),
         ],
     )
     return annotated
@@ -160,6 +200,7 @@ class LivePreview:
         self.generation = 0
         self.node: LatestImageNode | None = None
         self.engine: VisualFeatureEngine | None = None
+        self.temporal: TemporalTracker | None = None
         self.launch_process: subprocess.Popen[str] | None = None
         self.launch_log_handle: Any = None
         self.rclpy_started = False
@@ -231,6 +272,12 @@ class LivePreview:
             object_labels=objects,
             use_pose=not args.no_pose,
         )
+        self.temporal = TemporalTracker(
+            regions=regions,
+            window_seconds=args.window_seconds,
+            max_distance=args.track_max_distance,
+            max_lost_seconds=args.max_lost_seconds,
+        )
         self.engine.warmup(frame)
         self.first_frame_monotonic = time.monotonic()
         self.worker = threading.Thread(target=self._work, name="isaac-live-inference", daemon=True)
@@ -239,6 +286,7 @@ class LivePreview:
     def _work(self) -> None:
         assert self.node is not None
         assert self.engine is not None
+        assert self.temporal is not None
         args = self.args
         regions = _parse_regions(args.regions)
         allowed_objects = set(value.strip() for value in args.objects.split(",") if value.strip())
@@ -253,6 +301,18 @@ class LivePreview:
             last_sequence = sequence
             try:
                 result, detection, keypoints = _infer_with_geometry(self.engine, frame)
+                pose_items = [
+                    {"keypoints": item, "posture": self.engine._posture(item)}
+                    for item in keypoints
+                ]
+                timestamp_s = stamp_ns / 1_000_000_000.0 if stamp_ns else time.time()
+                temporal = self.temporal.update(
+                    result["detections"],
+                    timestamp_s,
+                    pose_items=pose_items,
+                    frame_size=(int(frame.shape[1]), int(frame.shape[0])),
+                )
+                result["temporal"] = temporal
                 annotated = _annotate(
                     frame,
                     detection,
@@ -261,6 +321,7 @@ class LivePreview:
                     regions,
                     allowed_objects,
                     args.confidence,
+                    temporal,
                 )
                 ok, encoded = cv2.imencode(
                     ".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, args.jpeg_quality]
@@ -317,6 +378,9 @@ class LivePreview:
                 "image_size": self.args.image_size,
                 "objects": [value.strip() for value in self.args.objects.split(",") if value.strip()],
                 "regions": self.args.regions,
+                "window_seconds": self.args.window_seconds,
+                "track_max_distance": self.args.track_max_distance,
+                "max_lost_seconds": self.args.max_lost_seconds,
             }
             return state
 
@@ -455,6 +519,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--wait-seconds", type=float, default=12.0)
     parser.add_argument("--jpeg-quality", type=int, default=86)
+    parser.add_argument("--window-seconds", type=float, default=5.0)
+    parser.add_argument("--track-max-distance", type=float, default=0.18)
+    parser.add_argument("--max-lost-seconds", type=float, default=0.8)
     parser.add_argument(
         "--launch-log",
         type=Path,

@@ -126,6 +126,49 @@ one person. It is a model wiring sanity check, not a camera-domain mAP or
 posture-accuracy claim. Real accuracy acceptance still needs owner-labeled
 standing, sitting, multi-person, object, region, and physical-occlusion cases.
 
+## Tracking and temporal features
+
+`temporal_features.py` is a bounded Camera Edge state layer over normalized
+detections and pose keypoints. It keeps only numeric histories and derives:
+
+- short-lived person/object track IDs, continuity, misses, re-acquisition, and
+  long-gap termination;
+- smoothed trajectory, direction, motion trend, dwell time, and normalized
+  jitter;
+- pose visibility, posture transitions, and short-window pose-change state;
+- person-to-object `near`/`overlapping` relations and region dwell/transitions;
+- window-level person-count and region-occupancy stability.
+
+Run the real-camera temporal probe after the Argus package is available:
+
+```bash
+source /opt/ros/humble/setup.bash
+source /tmp/openhalo-isaac-ros/ros_package/install/setup.bash
+./run_visual_temporal.sh --duration 20 \
+  --output-dir /tmp/openhalo-isaac-ros/results-visual-temporal
+```
+
+The runner writes structured numeric state only. Its built-in dropout probe
+removes person detections for two samples and then applies a long gap so that
+short-loss re-acquisition and long-loss new-ID behavior are measured
+separately. A real-camera run with no visible person is reported as an empty
+baseline, not as successful person-tracking accuracy.
+
+For deterministic multi-person tracking and relation checks using the existing
+Ultralytics fixtures:
+
+```bash
+source /opt/ros/humble/setup.bash
+python3 /tmp/openhalo-isaac-ros/visual_temporal_fixture_eval.py \
+  --output /tmp/openhalo-isaac-ros/results-visual-temporal-fixtures.json
+```
+
+This fixture report passed for 4 people in `bus.jpg` and 2 people in
+`zidane.jpg`, including bounded jitter, short forced dropout, long-gap ID
+termination, pose/region state, and person-object relation output. It is
+tracker behavior evidence, not camera-domain tracking accuracy or physical
+occlusion acceptance.
+
 To see the current recognition result visually, generate one annotated frame:
 
 ```bash

@@ -45,6 +45,8 @@ aside h2{font-size:16px;margin:4px 0 10px}pre{white-space:pre-wrap;overflow-wrap
     <div id="regions"><span class="muted">等待识别…</span></div>
     <h2>姿态和可见度</h2>
     <pre id="pose">等待识别…</pre>
+    <h2>时序状态</h2>
+    <pre id="temporal">等待识别…</pre>
     <h2>运行状态</h2>
     <pre id="runtime"></pre>
   </aside>
@@ -74,6 +76,11 @@ function paint(s){
   }
   const pose=r.pose||{};
   $('pose').textContent=`人数: ${pose.person_count??0}\n姿态: ${Object.entries(pose.postures||{}).map(([name,count])=>`${name}=${count}`).join(', ')||'none'}\n身体可见度: ${Object.entries(pose.body_coverage||{}).map(([name,count])=>`${name}=${count}`).join(', ')||'none'}\n关键点均值: ${pose.visible_keypoints_mean??0}`;
+  const temporal=r.temporal||{}, tracks=(temporal.tracks||[]).filter(track=>track.label==='person');
+  $('temporal').textContent=(tracks.map(track=>{
+    const relations=(track.relationships||[]).map(item=>`${item.label}:${item.relation}`).join(', ')||'none';
+    return `T${track.track_id}: ${track.motion?.state||'unknown'} ${track.motion?.direction||'none'}\n停留: ${track.dwell_s??0}s · 抖动: ${track.motion?.jitter_rms??0}\n区域: ${track.region?.current||'none'} (${track.region?.dwell_s??0}s)\n姿态变化: ${track.pose?.change_state||'unknown'} · 关系: ${relations}`;
+  }).join('\n\n')||'暂无 person track')+`\n\n窗口人数: ${temporal.window?.person_count_mode??'—'} · 稳定度: ${temporal.window?.person_count_stability??'—'}`;
   $('runtime').textContent=`相机帧: ${s.camera_frames??0}\n识别帧: ${s.processed_frames??0}\n原始 topic: ${c.image_topic||'—'}`;
 }
 async function poll(){try{const response=await fetch('/api/state',{cache:'no-store'});if(!response.ok)throw Error('状态连接失败');paint(await response.json());}catch(e){$('error').textContent='连接中断：'+e.message;}setTimeout(poll,300)}
