@@ -169,6 +169,33 @@ termination, pose/region state, and person-object relation output. It is
 tracker behavior evidence, not camera-domain tracking accuracy or physical
 occlusion acceptance.
 
+## Structured semantic interpretation
+
+`structured_semantics.py` is a local-only experiment for the next layer. It
+reads the `/api/state` output of the live feature page, removes raw boxes and
+trajectories, and sends only the bounded temporal feature window to an Ollama
+text model. The model returns candidate user states and interruptibility with
+confidence, evidence references, uncertainty, and a short validity period.
+It does not receive images, publish observations, or connect to Personal
+Runtime.
+
+Run it on the Jetson while the live feature page is available:
+
+```bash
+python3 /tmp/openhalo-isaac-ros/structured_semantics.py \
+  --input-url http://127.0.0.1:8876/api/state \
+  --model qwen3:1.7b \
+  --requests 3 \
+  --output-dir /tmp/openhalo-isaac-ros/results-structured-semantics-v1
+```
+
+The report stores the structured input, the bounded model result, the
+deterministically gated result, gate reasons, and model timing. The gate
+blocks claims such as `possible_object_interaction` when the low-level window
+contains no person-object relationship, caps uncertain `likely_busy` claims,
+and limits validity to the current five-second feature window. Model results
+are evaluation evidence only; they are not accepted Runtime context.
+
 To see the current recognition result visually, generate one annotated frame:
 
 ```bash
