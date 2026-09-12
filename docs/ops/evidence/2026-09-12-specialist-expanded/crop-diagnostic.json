@@ -1,0 +1,229 @@
+{
+  "boundary": "manual oracle ROI, JPEG frames at 4/39.5/45.5/52 seconds; not autonomous ROI accuracy",
+  "cases": [
+    {
+      "name": "phone-front",
+      "bbox": [
+        0.285,
+        0.19,
+        0.435,
+        0.71
+      ],
+      "source_sha256": "987784806e284a97eb92cb2af55c82624f57c3d5666b4afae0c8c79a96728553",
+      "variants": {
+        "default_center_crop": [
+          {
+            "label": "prison",
+            "score": 0.21900628507137299
+          },
+          {
+            "label": "Windsor_tie",
+            "score": 0.12157956510782242
+          },
+          {
+            "label": "projectile",
+            "score": 0.10414852946996689
+          },
+          {
+            "label": "bulletproof_vest",
+            "score": 0.09456651657819748
+          },
+          {
+            "label": "submarine",
+            "score": 0.06783793121576309
+          }
+        ],
+        "square_padded": [
+          {
+            "label": "knee_pad",
+            "score": 0.4251338243484497
+          },
+          {
+            "label": "holster",
+            "score": 0.08763114362955093
+          },
+          {
+            "label": "switch",
+            "score": 0.05246090888977051
+          },
+          {
+            "label": "iPod",
+            "score": 0.048362310975790024
+          },
+          {
+            "label": "pill_bottle",
+            "score": 0.036646708846092224
+          }
+        ]
+      }
+    },
+    {
+      "name": "phone-back",
+      "bbox": [
+        0.375,
+        0.09,
+        0.6,
+        0.66
+      ],
+      "source_sha256": "80522d6f77b0982ef97f0bbac5e18f132773a183849c59d4e3ab7af23caacfed",
+      "variants": {
+        "default_center_crop": [
+          {
+            "label": "oxygen_mask",
+            "score": 0.15046687424182892
+          },
+          {
+            "label": "Petri_dish",
+            "score": 0.10805811733007431
+          },
+          {
+            "label": "Band_Aid",
+            "score": 0.04196051508188248
+          },
+          {
+            "label": "barn_spider",
+            "score": 0.03250248730182648
+          },
+          {
+            "label": "plunger",
+            "score": 0.03223800286650658
+          }
+        ],
+        "square_padded": [
+          {
+            "label": "iPod",
+            "score": 0.14156384766101837
+          },
+          {
+            "label": "cellular_telephone",
+            "score": 0.09926284104585648
+          },
+          {
+            "label": "knee_pad",
+            "score": 0.04970663785934448
+          },
+          {
+            "label": "breastplate",
+            "score": 0.047592051327228546
+          },
+          {
+            "label": "Band_Aid",
+            "score": 0.04291922599077225
+          }
+        ]
+      }
+    },
+    {
+      "name": "screwdriver",
+      "bbox": [
+        0.38,
+        0.14,
+        0.52,
+        0.58
+      ],
+      "source_sha256": "2a104bc3b38de3a8856e1cd683b63ad043c726e04f77515bac2e3bacbb518678",
+      "variants": {
+        "default_center_crop": [
+          {
+            "label": "quill",
+            "score": 0.10502797365188599
+          },
+          {
+            "label": "projectile",
+            "score": 0.09005434811115265
+          },
+          {
+            "label": "matchstick",
+            "score": 0.07506169378757477
+          },
+          {
+            "label": "safety_pin",
+            "score": 0.06479860842227936
+          },
+          {
+            "label": "spindle",
+            "score": 0.04810154438018799
+          }
+        ],
+        "square_padded": [
+          {
+            "label": "syringe",
+            "score": 0.2435627281665802
+          },
+          {
+            "label": "bow",
+            "score": 0.085088349878788
+          },
+          {
+            "label": "Band_Aid",
+            "score": 0.07852001488208771
+          },
+          {
+            "label": "paintbrush",
+            "score": 0.05960956960916519
+          },
+          {
+            "label": "lipstick",
+            "score": 0.056209832429885864
+          }
+        ]
+      }
+    },
+    {
+      "name": "empty-palm",
+      "bbox": [
+        0.25,
+        0.14,
+        0.56,
+        0.81
+      ],
+      "source_sha256": "27a4d312fc7d337deae08e5876a4f836b6803ff0a452c88a0d14cacbd2d089e2",
+      "variants": {
+        "default_center_crop": [
+          {
+            "label": "Band_Aid",
+            "score": 0.34904950857162476
+          },
+          {
+            "label": "sunscreen",
+            "score": 0.20216624438762665
+          },
+          {
+            "label": "swimming_trunks",
+            "score": 0.12464678287506104
+          },
+          {
+            "label": "ocarina",
+            "score": 0.03936086967587471
+          },
+          {
+            "label": "brassiere",
+            "score": 0.03704571723937988
+          }
+        ],
+        "square_padded": [
+          {
+            "label": "Band_Aid",
+            "score": 0.5129062533378601
+          },
+          {
+            "label": "brassiere",
+            "score": 0.07978459447622299
+          },
+          {
+            "label": "swimming_trunks",
+            "score": 0.05896112322807312
+          },
+          {
+            "label": "sunscreen",
+            "score": 0.056267429143190384
+          },
+          {
+            "label": "bathing_cap",
+            "score": 0.029807355254888535
+          }
+        ]
+      }
+    }
+  ]
+}

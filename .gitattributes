@@ -5,3 +5,5 @@ docs/ops/evidence/2026-09-12-tinyllava-*/** -text whitespace=cr-at-eol
 experiments/mobilevlm_grounding/*.py -text whitespace=cr-at-eol
 experiments/mobilevlm_v2/*.py -text whitespace=cr-at-eol
 experiments/tinyllava_video/*.py -text whitespace=cr-at-eol
+docs/ops/evidence/2026-09-12-specialist-*/** -text whitespace=cr-at-eol
+experiments/specialist_temporal/*.py -text whitespace=cr-at-eol

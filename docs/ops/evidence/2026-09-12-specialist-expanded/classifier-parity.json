@@ -1,0 +1,34 @@
+{
+  "boundary": "adjacent local PyTorch checkpoint versus TensorRT engine on the same four manual crops; not full validation",
+  "checkpoint_sha256": "0dd6f8dbc448870ac98a3cbb7156f923f7ce21fed3755d4019169ffffd279e81",
+  "rows": [
+    {
+      "name": "phone-front",
+      "engine_top1": "prison",
+      "pt_top1": "prison",
+      "max_probability_error": 0.0014606267213821411,
+      "same_label_map": true
+    },
+    {
+      "name": "phone-back",
+      "engine_top1": "oxygen_mask",
+      "pt_top1": "oxygen_mask",
+      "max_probability_error": 0.0015929937362670898,
+      "same_label_map": true
+    },
+    {
+      "name": "screwdriver",
+      "engine_top1": "quill",
+      "pt_top1": "quill",
+      "max_probability_error": 0.0008293688297271729,
+      "same_label_map": true
+    },
+    {
+      "name": "empty-palm",
+      "engine_top1": "Band_Aid",
+      "pt_top1": "Band_Aid",
+      "max_probability_error": 0.001798778772354126,
+      "same_label_map": true
+    }
+  ]
+}

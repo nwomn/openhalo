@@ -1,0 +1,31 @@
+{
+  "gesture_classes": [
+    "Open_Palm",
+    "Closed_Fist",
+    "Thumb_Up",
+    "Victory"
+  ],
+  "objects": [
+    "cell phone",
+    "screwdriver"
+  ],
+  "reference": "manual visible stable windows from fresh recording, selected before reading its predictions",
+  "frozen": "same expanded.py and model assets as run-v1, no threshold tuning after seeing controls",
+  "reporting": [
+    "raw class distribution including None/misses",
+    "0.7 score plus 0.4 s persistence result",
+    "full-frame object class detections",
+    "hand ROI top1/top5 labels",
+    "empty hand classifications",
+    "stage onset/offset gaps",
+    "resident processing and resource measurements"
+  ],
+  "boundaries": [
+    "ROI overlap is not holding",
+    "ImageNet lacks empty-hand class",
+    "closed-set labels do not cover all objects",
+    "no face identity implementation",
+    "not live end-to-end P95"
+  ],
+  "source_sha256": "5b4bc5a838e63aab54539ad5ac3060c6be6f1521752e570e7bac6ab5647ea26f"
+}

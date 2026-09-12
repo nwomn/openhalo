@@ -8,12 +8,16 @@ Personal Runtime until it passes the existing Observation and evidence gates.
 
 The owner explicitly corrected the next-route order after the direct-JSON
 supplement. The earlier suggestion to advance the specialist-plus-MobileVLM
-combination first is superseded. Both routes below are unvalidated and queued;
-this scheduling update starts no new device experiment.
+combination first is superseded. Route 1 now has a completed bounded specialist/temporal probe: a new one-minute
+owner recording yielded three wave detections, while old-clip misses/fragmentation
+and missing raise/lower and daily semantics still fail full Camera Edge usefulness.
+Live P95 and Runtime remain unaccepted. The later [trained specialist expansion](../ops/jetson-specialist-expanded-validation.md) adds useful bounded static gesture categories, while the tested hand-ROI object classifier fails phone/screwdriver/empty-hand checks. These are concrete component results; the wider multi-specialist route remains incompletely tested. See the [initial geometric result](../ops/jetson-specialist-temporal-validation.md).
+Route 2 remains queued, unstarted and unvalidated. The initial scheduling update
+started no device experiment; the subsequent explicit request authorized route 1.
 
 | Order | Route | Independent question | Evaluation boundary |
 | --- | --- | --- | --- |
-| 1 — next | Multiple task-specific small models + temporal fusion | Can specialist observations independently support continuous state and action-change understanding? | No MobileVLM or other VLM semantic stage in this experiment |
+| 1 — bounded probe complete, not accepted | Multiple task-specific small models + temporal fusion | Can specialist observations independently support continuous state and action-change understanding? | No MobileVLM or other VLM semantic stage in this experiment |
 | 2 — afterwards | Multiple task-specific small models + MobileVLM V2 | Do specialist observations improve image-based semantic understanding over the image-only baseline? | Begin after route 1 has its own recorded result; retain original image input and compare added value separately |
 
 ### Route 1: independent specialist and temporal validation

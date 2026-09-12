@@ -1,0 +1,31 @@
+[
+  {
+    "name": "greeting-a",
+    "video": "/home/jetson/openhalo-tinyllava-greeting-20260912-1930/greeting-a.mp4",
+    "reference": "Rest, raise, wave, lower, rest; owner-confirmed"
+  },
+  {
+    "name": "greeting-b",
+    "video": "/home/jetson/openhalo-tinyllava-greeting-20260912-1930/greeting-b.mp4",
+    "reference": "Independent greeting bout: rest, raise, wave, lower, rest; owner-confirmed"
+  },
+  {
+    "name": "eating",
+    "video": "/home/jetson/openhalo-tinyllava-video/clips/owner-eating-screen-20260912.mp4",
+    "reference": "Eating context; hand near mouth possible; no wave expected; eating is not an output label"
+  },
+  {
+    "name": "head-down",
+    "video": "/home/jetson/openhalo-mobilevlm-v2/fresh/capture.mp4",
+    "end_s": 10,
+    "reference": "Head/torso forward and down, no wave observed; no screen-gaze label"
+  },
+  {
+    "name": "static-raised",
+    "video": "/home/jetson/openhalo-tinyllava-greeting-20260912-1930/greeting-a.mp4",
+    "start_s": 3.5,
+    "end_s": 7.5,
+    "freeze_frame": true,
+    "reference": "Synthetic repeated raised-hand pixels, expect zero motion events; not a real static-hold trial"
+  }
+]

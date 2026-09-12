@@ -1,0 +1,61 @@
+{
+  "boundary": "manual conservative visible windows from 1-second contact sheet before reading predictions; approximate, no frame-exact action onset",
+  "windows": [
+    {
+      "name": "phone-front",
+      "start": 3,
+      "end": 5.5,
+      "target": "cell phone",
+      "kind": "object"
+    },
+    {
+      "name": "screwdriver-a",
+      "start": 10,
+      "end": 14.5,
+      "target": "screwdriver",
+      "kind": "object"
+    },
+    {
+      "name": "fist",
+      "start": 29,
+      "end": 31.2,
+      "target": "Closed_Fist",
+      "kind": "gesture"
+    },
+    {
+      "name": "thumb-up",
+      "start": 32,
+      "end": 33.4,
+      "target": "Thumb_Up",
+      "kind": "gesture"
+    },
+    {
+      "name": "victory",
+      "start": 34,
+      "end": 35.4,
+      "target": "Victory",
+      "kind": "gesture"
+    },
+    {
+      "name": "phone-back",
+      "start": 39,
+      "end": 40.5,
+      "target": "cell phone",
+      "kind": "object"
+    },
+    {
+      "name": "screwdriver-b",
+      "start": 44,
+      "end": 48.5,
+      "target": "screwdriver",
+      "kind": "object"
+    },
+    {
+      "name": "open-palm-empty",
+      "start": 51,
+      "end": 53,
+      "target": "Open_Palm",
+      "kind": "gesture"
+    }
+  ]
+}

@@ -1,0 +1,440 @@
+{
+  "reference": {
+    "boundary": "manual conservative visible windows from 1-second contact sheet before reading predictions; approximate, no frame-exact action onset",
+    "windows": [
+      {
+        "name": "phone-front",
+        "start": 3,
+        "end": 5.5,
+        "target": "cell phone",
+        "kind": "object"
+      },
+      {
+        "name": "screwdriver-a",
+        "start": 10,
+        "end": 14.5,
+        "target": "screwdriver",
+        "kind": "object"
+      },
+      {
+        "name": "fist",
+        "start": 29,
+        "end": 31.2,
+        "target": "Closed_Fist",
+        "kind": "gesture"
+      },
+      {
+        "name": "thumb-up",
+        "start": 32,
+        "end": 33.4,
+        "target": "Thumb_Up",
+        "kind": "gesture"
+      },
+      {
+        "name": "victory",
+        "start": 34,
+        "end": 35.4,
+        "target": "Victory",
+        "kind": "gesture"
+      },
+      {
+        "name": "phone-back",
+        "start": 39,
+        "end": 40.5,
+        "target": "cell phone",
+        "kind": "object"
+      },
+      {
+        "name": "screwdriver-b",
+        "start": 44,
+        "end": 48.5,
+        "target": "screwdriver",
+        "kind": "object"
+      },
+      {
+        "name": "open-palm-empty",
+        "start": 51,
+        "end": 53,
+        "target": "Open_Palm",
+        "kind": "gesture"
+      }
+    ]
+  },
+  "windows": [
+    {
+      "name": "phone-front",
+      "start": 3,
+      "end": 5.5,
+      "target": "cell phone",
+      "kind": "object",
+      "n": 12,
+      "hand_frames": 12,
+      "raw": {
+        "unknown": 12
+      },
+      "stable": {
+        "unknown": 12
+      },
+      "gesture_top1": {
+        "None": 14,
+        "Open_Palm": 9
+      },
+      "detector_labels": {
+        "person": 12,
+        "cell phone": 12,
+        "tv": 10
+      },
+      "crop_top1": {
+        "knee_pad": 6,
+        "iPod": 8,
+        "plunger": 1,
+        "bearskin": 1,
+        "hand-held_computer": 1,
+        "holster": 2,
+        "bulletproof_vest": 1,
+        "ski_mask": 1,
+        "muzzle": 1,
+        "punching_bag": 1
+      },
+      "overlap": {
+        "cell phone": 23,
+        "tv": 19
+      },
+      "crop_top5_targets": {
+        "cellular_telephone": 3,
+        "screwdriver": 0,
+        "remote_control": 0,
+        "hand-held_computer": 10
+      }
+    },
+    {
+      "name": "screwdriver-a",
+      "start": 10,
+      "end": 14.5,
+      "target": "screwdriver",
+      "kind": "object",
+      "n": 20,
+      "hand_frames": 19,
+      "raw": {
+        "unknown": 20
+      },
+      "stable": {
+        "unknown": 20
+      },
+      "gesture_top1": {
+        "None": 19
+      },
+      "detector_labels": {
+        "person": 22,
+        "tv": 11,
+        "toothbrush": 1
+      },
+      "crop_top1": {
+        "syringe": 11,
+        "bow": 5,
+        "cellular_telephone": 1,
+        "sunglass": 1,
+        "Band_Aid": 1
+      },
+      "overlap": {
+        "tv": 9,
+        "toothbrush": 1
+      },
+      "crop_top5_targets": {
+        "cellular_telephone": 6,
+        "screwdriver": 0,
+        "remote_control": 0,
+        "hand-held_computer": 12
+      }
+    },
+    {
+      "name": "fist",
+      "start": 29,
+      "end": 31.2,
+      "target": "Closed_Fist",
+      "kind": "gesture",
+      "n": 11,
+      "hand_frames": 11,
+      "raw": {
+        "Closed_Fist": 10,
+        "unknown": 1
+      },
+      "stable": {
+        "unknown": 2,
+        "Closed_Fist": 9
+      },
+      "gesture_top1": {
+        "Closed_Fist": 11
+      },
+      "detector_labels": {
+        "person": 11,
+        "tv": 7,
+        "donut": 4
+      },
+      "crop_top1": {
+        "Band_Aid": 11
+      },
+      "overlap": {
+        "tv": 5,
+        "donut": 4
+      },
+      "crop_top5_targets": {
+        "cellular_telephone": 0,
+        "screwdriver": 0,
+        "remote_control": 0,
+        "hand-held_computer": 9
+      }
+    },
+    {
+      "name": "thumb-up",
+      "start": 32,
+      "end": 33.4,
+      "target": "Thumb_Up",
+      "kind": "gesture",
+      "n": 7,
+      "hand_frames": 7,
+      "raw": {
+        "unknown": 2,
+        "Thumb_Up": 5
+      },
+      "stable": {
+        "unknown": 3,
+        "Thumb_Up": 4
+      },
+      "gesture_top1": {
+        "Thumb_Up": 7
+      },
+      "detector_labels": {
+        "person": 7,
+        "tv": 5
+      },
+      "crop_top1": {
+        "Band_Aid": 4,
+        "Windsor_tie": 2,
+        "brassiere": 1
+      },
+      "overlap": {
+        "tv": 5
+      },
+      "crop_top5_targets": {
+        "cellular_telephone": 0,
+        "screwdriver": 0,
+        "remote_control": 0,
+        "hand-held_computer": 1
+      }
+    },
+    {
+      "name": "victory",
+      "start": 34,
+      "end": 35.4,
+      "target": "Victory",
+      "kind": "gesture",
+      "n": 6,
+      "hand_frames": 6,
+      "raw": {
+        "Victory": 5,
+        "unknown": 1
+      },
+      "stable": {
+        "Victory": 6
+      },
+      "gesture_top1": {
+        "Victory": 6,
+        "None": 1
+      },
+      "detector_labels": {
+        "person": 6,
+        "tv": 2
+      },
+      "crop_top1": {
+        "ice_lolly": 5,
+        "Band_Aid": 2
+      },
+      "overlap": {
+        "tv": 2
+      },
+      "crop_top5_targets": {
+        "cellular_telephone": 0,
+        "screwdriver": 0,
+        "remote_control": 0,
+        "hand-held_computer": 0
+      }
+    },
+    {
+      "name": "phone-back",
+      "start": 39,
+      "end": 40.5,
+      "target": "cell phone",
+      "kind": "object",
+      "n": 7,
+      "hand_frames": 7,
+      "raw": {
+        "unknown": 7
+      },
+      "stable": {
+        "unknown": 7
+      },
+      "gesture_top1": {
+        "None": 7
+      },
+      "detector_labels": {
+        "person": 7,
+        "tv": 6
+      },
+      "crop_top1": {
+        "oxygen_mask": 2,
+        "bikini": 5
+      },
+      "overlap": {
+        "tv": 6
+      },
+      "crop_top5_targets": {
+        "cellular_telephone": 4,
+        "screwdriver": 0,
+        "remote_control": 0,
+        "hand-held_computer": 0
+      }
+    },
+    {
+      "name": "screwdriver-b",
+      "start": 44,
+      "end": 48.5,
+      "target": "screwdriver",
+      "kind": "object",
+      "n": 21,
+      "hand_frames": 21,
+      "raw": {
+        "unknown": 21
+      },
+      "stable": {
+        "unknown": 21
+      },
+      "gesture_top1": {
+        "None": 21
+      },
+      "detector_labels": {
+        "person": 21,
+        "tv": 15,
+        "toothbrush": 7
+      },
+      "crop_top1": {
+        "bow": 9,
+        "syringe": 12
+      },
+      "overlap": {
+        "tv": 13,
+        "toothbrush": 7
+      },
+      "crop_top5_targets": {
+        "cellular_telephone": 0,
+        "screwdriver": 1,
+        "remote_control": 0,
+        "hand-held_computer": 1
+      }
+    },
+    {
+      "name": "open-palm-empty",
+      "start": 51,
+      "end": 53,
+      "target": "Open_Palm",
+      "kind": "gesture",
+      "n": 9,
+      "hand_frames": 9,
+      "raw": {
+        "unknown": 9
+      },
+      "stable": {
+        "unknown": 9
+      },
+      "gesture_top1": {
+        "Open_Palm": 9
+      },
+      "detector_labels": {
+        "person": 9,
+        "tv": 4,
+        "bowl": 1
+      },
+      "crop_top1": {
+        "Band_Aid": 9
+      },
+      "overlap": {
+        "tv": 3
+      },
+      "crop_top5_targets": {
+        "cellular_telephone": 0,
+        "screwdriver": 0,
+        "remote_control": 0,
+        "hand-held_computer": 0
+      }
+    }
+  ],
+  "events": [
+    {
+      "type": "gesture_state_changed",
+      "previous": "unknown",
+      "current": "Open_Palm",
+      "t": 20.564960802469134,
+      "evidence_start": 20.132014259259257
+    },
+    {
+      "type": "gesture_state_changed",
+      "previous": "Open_Palm",
+      "current": "unknown",
+      "t": 21.430853888888887,
+      "evidence_start": 20.99790734567901
+    },
+    {
+      "type": "gesture_state_changed",
+      "previous": "unknown",
+      "current": "Closed_Fist",
+      "t": 29.440364938271603,
+      "evidence_start": 29.007418395061727
+    },
+    {
+      "type": "gesture_state_changed",
+      "previous": "Closed_Fist",
+      "current": "unknown",
+      "t": 31.605097654320986,
+      "evidence_start": 31.17215111111111
+    },
+    {
+      "type": "gesture_state_changed",
+      "previous": "unknown",
+      "current": "Thumb_Up",
+      "t": 32.68746401234568,
+      "evidence_start": 32.2545174691358
+    },
+    {
+      "type": "gesture_state_changed",
+      "previous": "Thumb_Up",
+      "current": "Victory",
+      "t": 34.202776913580244,
+      "evidence_start": 33.76983037037037
+    },
+    {
+      "type": "gesture_state_changed",
+      "previous": "Victory",
+      "current": "unknown",
+      "t": 36.36750962962963,
+      "evidence_start": 35.93456308641975
+    }
+  ],
+  "resources": {
+    "ram_mb": {
+      "min": 3206.0,
+      "max": 4206.0
+    },
+    "swap_mb": {
+      "min": 808.0,
+      "max": 808.0
+    },
+    "gpu_pct": {
+      "min": 0.0,
+      "max": 99.0
+    },
+    "cpu_temp": {
+      "min": 53.156,
+      "max": 55.406
+    }
+  }
+}
