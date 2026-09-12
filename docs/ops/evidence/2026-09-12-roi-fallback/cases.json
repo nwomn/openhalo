@@ -1,0 +1,318 @@
+{
+  "config": {
+    "threshold": 0.7,
+    "route": "ROI classifier top1 score < 0.7 triggers VLM; no hand means no ROI; detector/gesture scores do not control this isolated ablation"
+  },
+  "previous_report_sha256": "8bd10fa6b39c23ec5c8151c29fa60d6b8f0c7b15178ed1932049c951d5c67813",
+  "source_video_sha256": "c5b1e31ee2cad15472fc20996adc3f2ff898ff018eb1b2b5c0af063195d97728",
+  "cases": [
+    {
+      "id": 0,
+      "name": "phone-front",
+      "selection": "nearest midpoint, largest hand box; reused reference windows",
+      "t": 4.3294654320987656,
+      "frame_index": 260,
+      "roi_bbox_pixels": [
+        239,
+        223,
+        706,
+        690
+      ],
+      "classifier_top1": {
+        "label": "ski_mask",
+        "score": 0.1427047997713089
+      },
+      "trigger_vlm": true,
+      "frame": "/home/jetson/openhalo-roi-fallback/media/00-full.png",
+      "roi": "/home/jetson/openhalo-roi-fallback/media/00-roi.png",
+      "frame_sha256": "9bda30de81485b11c465565370a5d94512a6f182695614851cd9abd9021bb72f",
+      "roi_sha256": "018e0d85ff2d0dd729621253f9377da057d577c9100060a26e174919c245a34c",
+      "frozen_specialist_ms": {
+        "gesture": 187.20277899410576,
+        "detector": 32.376317016314715,
+        "roi_classification": 31.587237957865,
+        "total": 251.16633396828547
+      }
+    },
+    {
+      "id": 1,
+      "name": "phone-front-high-score",
+      "selection": "maximum classifier confidence stress case; deliberately selected, not accuracy sample",
+      "t": 5.1953585185185185,
+      "frame_index": 312,
+      "roi_bbox_pixels": [
+        145,
+        118,
+        756,
+        720
+      ],
+      "classifier_top1": {
+        "label": "iPod",
+        "score": 0.8144514560699463
+      },
+      "trigger_vlm": false,
+      "frame": "/home/jetson/openhalo-roi-fallback/media/01-full.png",
+      "roi": "/home/jetson/openhalo-roi-fallback/media/01-roi.png",
+      "frame_sha256": "20988d06648a1f00dd2910ba2fd18d6b938f23b46b06c5ae437c6c7965fdc808",
+      "roi_sha256": "30ab0b2812756add6626887a37522f0961262f6b9b91d46da57ea4265653ac44",
+      "frozen_specialist_ms": {
+        "gesture": 142.0135410153307,
+        "detector": 32.402109005488455,
+        "roi_classification": 33.87523797573522,
+        "total": 208.29088799655437
+      }
+    },
+    {
+      "id": 2,
+      "name": "screwdriver-a",
+      "selection": "nearest midpoint, largest hand box; reused reference windows",
+      "t": 12.338976481481481,
+      "frame_index": 741,
+      "roi_bbox_pixels": [
+        87,
+        19,
+        809,
+        720
+      ],
+      "classifier_top1": {
+        "label": "syringe",
+        "score": 0.20297379791736603
+      },
+      "trigger_vlm": true,
+      "frame": "/home/jetson/openhalo-roi-fallback/media/02-full.png",
+      "roi": "/home/jetson/openhalo-roi-fallback/media/02-roi.png",
+      "frame_sha256": "c5d34248d087667b3808d2ced83a6710462202706d2813a1c2ca88b9a53ca560",
+      "roi_sha256": "743e1df1e63c4b3885fea394aa93a499b9bb8b0cf12ae0126b61b7d4dbb4c73b",
+      "frozen_specialist_ms": {
+        "gesture": 149.27412901306525,
+        "detector": 30.2506479783915,
+        "roi_classification": 21.53467299649492,
+        "total": 201.05944998795167
+      }
+    },
+    {
+      "id": 3,
+      "name": "screwdriver-a-high-score",
+      "selection": "maximum classifier confidence stress case; deliberately selected, not accuracy sample",
+      "t": 13.854289382716049,
+      "frame_index": 832,
+      "roi_bbox_pixels": [
+        144,
+        155,
+        698,
+        710
+      ],
+      "classifier_top1": {
+        "label": "bow",
+        "score": 0.7501729726791382
+      },
+      "trigger_vlm": false,
+      "frame": "/home/jetson/openhalo-roi-fallback/media/03-full.png",
+      "roi": "/home/jetson/openhalo-roi-fallback/media/03-roi.png",
+      "frame_sha256": "0940c930db830f8f01f4ee99889428d3980db8695eb2450225289921a52b4664",
+      "roi_sha256": "6fc4c905fa886ff8fef3e3d8c2b050da9fa9ec0350e340385dc3ed7d73879986",
+      "frozen_specialist_ms": {
+        "gesture": 120.80541800241917,
+        "detector": 30.566924018785357,
+        "roi_classification": 17.996469978243113,
+        "total": 169.36881199944764
+      }
+    },
+    {
+      "id": 4,
+      "name": "fist",
+      "selection": "nearest midpoint, largest hand box; reused reference windows",
+      "t": 30.08978475308642,
+      "frame_index": 1807,
+      "roi_bbox_pixels": [
+        276,
+        251,
+        703,
+        678
+      ],
+      "classifier_top1": {
+        "label": "Band_Aid",
+        "score": 0.22721871733665466
+      },
+      "trigger_vlm": true,
+      "frame": "/home/jetson/openhalo-roi-fallback/media/04-full.png",
+      "roi": "/home/jetson/openhalo-roi-fallback/media/04-roi.png",
+      "frame_sha256": "ad12dbab727b16b6872ac53e39fa27813ef90aadecae0163c209abe05cb94211",
+      "roi_sha256": "2378bb36f0a3151c2524407358bf68065a535bdb957e59ee48c5d78a315b315f",
+      "frozen_specialist_ms": {
+        "gesture": 85.92839899938554,
+        "detector": 29.55428702989593,
+        "roi_classification": 13.897354016080499,
+        "total": 129.38004004536197
+      }
+    },
+    {
+      "id": 5,
+      "name": "thumb-up",
+      "selection": "nearest midpoint, largest hand box; reused reference windows",
+      "t": 32.68746401234568,
+      "frame_index": 1963,
+      "roi_bbox_pixels": [
+        168,
+        103,
+        859,
+        720
+      ],
+      "classifier_top1": {
+        "label": "Band_Aid",
+        "score": 0.14623989164829254
+      },
+      "trigger_vlm": true,
+      "frame": "/home/jetson/openhalo-roi-fallback/media/05-full.png",
+      "roi": "/home/jetson/openhalo-roi-fallback/media/05-roi.png",
+      "frame_sha256": "5f756e72c896ee2de43e52fe8bfc092649910f78af931cfb8b56caf2f2a5d86f",
+      "roi_sha256": "9b96ed645ec08143f99823977aded154ddc033666351dfa3c3efae6f6459e7d1",
+      "frozen_specialist_ms": {
+        "gesture": 90.24977701483294,
+        "detector": 29.89958698162809,
+        "roi_classification": 16.93337201140821,
+        "total": 137.08273600786924
+      }
+    },
+    {
+      "id": 6,
+      "name": "victory",
+      "selection": "nearest midpoint, largest hand box; reused reference windows",
+      "t": 34.635723456790124,
+      "frame_index": 2080,
+      "roi_bbox_pixels": [
+        86,
+        18,
+        980,
+        720
+      ],
+      "classifier_top1": {
+        "label": "Band_Aid",
+        "score": 0.2784772217273712
+      },
+      "trigger_vlm": true,
+      "frame": "/home/jetson/openhalo-roi-fallback/media/06-full.png",
+      "roi": "/home/jetson/openhalo-roi-fallback/media/06-roi.png",
+      "frame_sha256": "7ed269451d33d50670d9c93ad8a4c7dae6c6fca300f3a3f199fe93d35ef3b4a9",
+      "roi_sha256": "a95d559666058b1ea4ff86f170ab86ff899b925df81c889a2ac0f28b2330255c",
+      "frozen_specialist_ms": {
+        "gesture": 189.07974299509078,
+        "detector": 30.90723801869899,
+        "roi_classification": 23.395130992867053,
+        "total": 243.38211200665683
+      }
+    },
+    {
+      "id": 7,
+      "name": "phone-back",
+      "selection": "nearest midpoint, largest hand box; reused reference windows",
+      "t": 39.83108197530864,
+      "frame_index": 2392,
+      "roi_bbox_pixels": [
+        194,
+        28,
+        950,
+        720
+      ],
+      "classifier_top1": {
+        "label": "bikini",
+        "score": 0.10403022915124893
+      },
+      "trigger_vlm": true,
+      "frame": "/home/jetson/openhalo-roi-fallback/media/07-full.png",
+      "roi": "/home/jetson/openhalo-roi-fallback/media/07-roi.png",
+      "frame_sha256": "cb55888ee6fad4e8e6a919dd1eb34b277ed296c09c1671d02925bcf16ef1ba07",
+      "roi_sha256": "c2e1c4b74853f436f17beed0508070d1652ed2ad6ec9feb320c85e5f468a656a",
+      "frozen_specialist_ms": {
+        "gesture": 111.60055798245594,
+        "detector": 31.417887017596513,
+        "roi_classification": 22.303848003502935,
+        "total": 165.3222930035554
+      }
+    },
+    {
+      "id": 8,
+      "name": "screwdriver-b",
+      "selection": "nearest midpoint, largest hand box; reused reference windows",
+      "t": 46.325280123456785,
+      "frame_index": 2782,
+      "roi_bbox_pixels": [
+        82,
+        1,
+        781,
+        699
+      ],
+      "classifier_top1": {
+        "label": "syringe",
+        "score": 0.6128782629966736
+      },
+      "trigger_vlm": true,
+      "frame": "/home/jetson/openhalo-roi-fallback/media/08-full.png",
+      "roi": "/home/jetson/openhalo-roi-fallback/media/08-roi.png",
+      "frame_sha256": "9e77d2e8c0671ae418d77c689630fde2b40f5cc043e0a7a519873f304aac1b47",
+      "roi_sha256": "06618215e9f04f9edadea51d374291e5ef983cc6fdd4e772916056098fd7da7e",
+      "frozen_specialist_ms": {
+        "gesture": 131.664048996754,
+        "detector": 32.18375297728926,
+        "roi_classification": 22.205531015060842,
+        "total": 186.0533329891041
+      }
+    },
+    {
+      "id": 9,
+      "name": "screwdriver-b-high-score",
+      "selection": "maximum classifier confidence stress case; deliberately selected, not accuracy sample",
+      "t": 46.10880685185185,
+      "frame_index": 2769,
+      "roi_bbox_pixels": [
+        98,
+        13,
+        768,
+        683
+      ],
+      "classifier_top1": {
+        "label": "syringe",
+        "score": 0.7781925797462463
+      },
+      "trigger_vlm": false,
+      "frame": "/home/jetson/openhalo-roi-fallback/media/09-full.png",
+      "roi": "/home/jetson/openhalo-roi-fallback/media/09-roi.png",
+      "frame_sha256": "d239840e4438c8b6c6c6a831d2a2333e30af4de832ad9fd2b27707009133469d",
+      "roi_sha256": "4537852a5286cfa7dc0701b6a9627897292845f5c2baeb1e92ae769e2803aca9",
+      "frozen_specialist_ms": {
+        "gesture": 134.1933110379614,
+        "detector": 32.12362097110599,
+        "roi_classification": 20.673489023465663,
+        "total": 186.99042103253305
+      }
+    },
+    {
+      "id": 10,
+      "name": "open-palm-empty",
+      "selection": "nearest midpoint, largest hand box; reused reference windows",
+      "t": 51.95358518518518,
+      "frame_index": 3120,
+      "roi_bbox_pixels": [
+        112,
+        0,
+        922,
+        720
+      ],
+      "classifier_top1": {
+        "label": "Band_Aid",
+        "score": 0.24728664755821228
+      },
+      "trigger_vlm": true,
+      "frame": "/home/jetson/openhalo-roi-fallback/media/10-full.png",
+      "roi": "/home/jetson/openhalo-roi-fallback/media/10-roi.png",
+      "frame_sha256": "581ff53285d10b61c928a4c5e20d03afd4738926ef155c96cf656d2ebeafe9b7",
+      "roi_sha256": "53c7a723cc4ccc8a3715dcd2cd4ea1fc6e34609174c28e03dda56842e377d15d",
+      "frozen_specialist_ms": {
+        "gesture": 116.79280997486785,
+        "detector": 32.12841198546812,
+        "roi_classification": 22.041576041374356,
+        "total": 170.96279800171033
+      }
+    }
+  ]
+}

@@ -50,3 +50,11 @@ hand/face/body probe. See [expanded results and reproduction](../../docs/ops/jet
 The extension adds trained static gesture and image classifiers; it contains no
 biometric identity or learned hand-object-contact model. Object predictions and
 2D overlap are recorded as unverified, with empty-hand controls preserved.
+
+## Conditional MobileVLM ROI fallback
+
+`prepare_roi_fallback.py` freezes the previously recorded classifier outputs and
+automatic hand crops. `roi_fallback.py` evaluates score-below-0.7 routing to an
+image-only MobileVLM answer, with full-frame controls. Run separately under
+`/home/jetson/openhalo-roi-fallback/`; no live service is installed. See
+[results, limitations and commands](../../docs/ops/jetson-mobilevlm-roi-fallback-validation.md).

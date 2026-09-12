@@ -12,13 +12,13 @@ combination first is superseded. Route 1 now has a completed bounded specialist/
 owner recording yielded three wave detections, while old-clip misses/fragmentation
 and missing raise/lower and daily semantics still fail full Camera Edge usefulness.
 Live P95 and Runtime remain unaccepted. The later [trained specialist expansion](../ops/jetson-specialist-expanded-validation.md) adds useful bounded static gesture categories, while the tested hand-ROI object classifier fails phone/screwdriver/empty-hand checks. These are concrete component results; the wider multi-specialist route remains incompletely tested. See the [initial geometric result](../ops/jetson-specialist-temporal-validation.md).
-Route 2 remains queued, unstarted and unvalidated. The initial scheduling update
+Route 2 now has a first [conditional ROI fallback replay](../ops/jetson-mobilevlm-roi-fallback-validation.md), following the owner's explicit unknown-trigger clarification. Neutral-prompt phone ROI results are useful in selected frames, but screwdriver errors, high-score bypass and continuous scheduling remain unresolved; the route is not accepted. The initial scheduling update
 started no device experiment; the subsequent explicit request authorized route 1.
 
 | Order | Route | Independent question | Evaluation boundary |
 | --- | --- | --- | --- |
 | 1 — bounded probe complete, not accepted | Multiple task-specific small models + temporal fusion | Can specialist observations independently support continuous state and action-change understanding? | No MobileVLM or other VLM semantic stage in this experiment |
-| 2 — afterwards | Multiple task-specific small models + MobileVLM V2 | Do specialist observations improve image-based semantic understanding over the image-only baseline? | Begin after route 1 has its own recorded result; retain original image input and compare added value separately |
+| 2 — bounded ROI fallback replay complete, not accepted | Multiple task-specific small models + MobileVLM V2 | Do specialist observations improve image-based semantic understanding over the image-only baseline? | Begin after route 1 has its own recorded result; retain original image input and compare added value separately |
 
 ### Route 1: independent specialist and temporal validation
 
@@ -40,6 +40,11 @@ that P95 or sustained live reliability. Model choices and scheduling budgets
 remain to be verified, not newly accepted by this order update.
 
 ### Route 2: later specialist-plus-image-VLM comparison
+
+Owner disposition after the first conditional ROI replay: retain this combination
+as valuable for further validation. The positive bounded phone/hand-description
+results do not resolve screwdriver recognition, high-score bypass, structured
+empty-hand output or continuous scheduling/live latency; no route acceptance.
 
 Use the independently characterized specialist observations from route 1
 without upgrading uncertain outputs into truth. Retain MobileVLM's image input.
