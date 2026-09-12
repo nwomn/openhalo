@@ -1,5 +1,11 @@
 # Jetson VLM demo — bounded implementation validation
 
+Current disposition (2026-09-12): the owner classifies the tested Qwen2.5-VL
+3B direct-image implementation as a failed Camera Edge technology route
+against minimum usability, owing to latency and insufficient output quality.
+The execution and demo checks below are retained as historical component
+evidence, not evidence of a usable route awaiting routine acceptance.
+
 The owner requested a clean camera-window example with asynchronous Qwen2.5-VL annotations and startup-configured ablations. Implementation: `experiments/jetson_vlm/`. This supersedes the earlier request to stop before model validation, within this standalone demo only.
 
 Final status: initial check closed at owner direction. Basic model executability is established; interactive semantic quality, accurate localization, sustained performance and Runtime integration are not accepted. No continued optimization is scheduled.

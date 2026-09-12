@@ -1,0 +1,113 @@
+{
+  "status": "completed",
+  "precision": "NF4 language linear / FP16 vision-projector-head",
+  "cases": [
+    {
+      "image": "eating.jpg",
+      "replays": 2,
+      "outputs": [
+        "The person is holding a piece of food in their hands."
+      ],
+      "warmed_total_seconds": [
+        1.7890610640170053
+      ],
+      "warmed_median_seconds": 1.7890610640170053,
+      "truncated": false
+    },
+    {
+      "image": "raised.jpg",
+      "replays": 2,
+      "outputs": [
+        "The person is waving at the camera."
+      ],
+      "warmed_total_seconds": [
+        1.4200687179691158,
+        1.425011050014291
+      ],
+      "warmed_median_seconds": 1.4225398839917034,
+      "truncated": false
+    },
+    {
+      "image": "rest.jpg",
+      "replays": 2,
+      "outputs": [
+        "The person is sitting down and smiling."
+      ],
+      "warmed_total_seconds": [
+        1.4235299170250073,
+        1.4224464030121453
+      ],
+      "warmed_median_seconds": 1.4229881600185763,
+      "truncated": false
+    },
+    {
+      "image": "lowered.jpg",
+      "replays": 2,
+      "outputs": [
+        "The person is smiling and looking at the camera."
+      ],
+      "warmed_total_seconds": [
+        1.6485842489637434,
+        1.6621039640158415
+      ],
+      "warmed_median_seconds": 1.6553441064897925,
+      "truncated": false
+    },
+    {
+      "image": "eating-crop.jpg",
+      "replays": 2,
+      "outputs": [
+        "The person is eating a piece of food."
+      ],
+      "warmed_total_seconds": [
+        1.5304114670143463,
+        1.5356780050205998
+      ],
+      "warmed_median_seconds": 1.533044736017473,
+      "truncated": false
+    },
+    {
+      "image": "raised-crop.jpg",
+      "replays": 2,
+      "outputs": [
+        "The person is waving at the camera."
+      ],
+      "warmed_total_seconds": [
+        1.4128583670244552,
+        1.3986828929628246
+      ],
+      "warmed_median_seconds": 1.4057706299936399,
+      "truncated": false
+    },
+    {
+      "image": "rest-crop.jpg",
+      "replays": 2,
+      "outputs": [
+        "The person is sitting down and looking at the camera."
+      ],
+      "warmed_total_seconds": [
+        1.641813636990264,
+        1.646583255031146
+      ],
+      "warmed_median_seconds": 1.644198446010705,
+      "truncated": false
+    },
+    {
+      "image": "lowered-crop.jpg",
+      "replays": 2,
+      "outputs": [
+        "The person is sitting down and smiling."
+      ],
+      "warmed_total_seconds": [
+        1.4143116810009815,
+        1.4339065569802187
+      ],
+      "warmed_median_seconds": 1.4241091189906,
+      "truncated": false
+    }
+  ],
+  "peak_ram_used_mb": 6298.0,
+  "peak_swap_used_mb": 942.0,
+  "peak_temperature_c": 59.031,
+  "boundary": "image disk decode/preprocess through generation; excludes capture/event/Runtime; repeats are not accuracy samples or robust P95; token-limited outputs are not complete answers"
+}

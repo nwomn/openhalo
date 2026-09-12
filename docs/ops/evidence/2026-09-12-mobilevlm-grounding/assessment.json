@@ -1,0 +1,107 @@
+{
+  "method": "Manual review of exact images, pre-inference references and outputs; each frame counted once; repeated outputs identical.",
+  "critical_metric": "Unseen held objects or unestablished computer-related gaze/spatial claims. Not an exhaustive accuracy score: weaker expression/gaze details are not all adjudicated.",
+  "useful_action_metric": "Coarse food or raised-hand information on four food/hand frames; not complete event/temporal correctness. Static captions are not counted as corroborated truth.",
+  "cases": [
+    {
+      "case": "challenge-food",
+      "A_critical": [],
+      "B_critical": [],
+      "A_food_hand_retained": true,
+      "B_food_hand_retained": true,
+      "C_diagnostic_food_hand_retained": false
+    },
+    {
+      "case": "challenge-raised",
+      "A_critical": [],
+      "B_critical": [],
+      "A_food_hand_retained": true,
+      "B_food_hand_retained": true,
+      "C_diagnostic_food_hand_retained": true
+    },
+    {
+      "case": "challenge-remote",
+      "A_critical": [],
+      "B_critical": [
+        "unseen held remote"
+      ],
+      "A_food_hand_retained": null,
+      "B_food_hand_retained": null,
+      "C_diagnostic_food_hand_retained": null
+    },
+    {
+      "case": "challenge-screen",
+      "A_critical": [
+        "unestablished computer-screen gaze"
+      ],
+      "B_critical": [
+        "unestablished computer spatial relation"
+      ],
+      "A_food_hand_retained": null,
+      "B_food_hand_retained": null,
+      "C_diagnostic_food_hand_retained": null
+    },
+    {
+      "case": "heldout-b-rest",
+      "A_critical": [],
+      "B_critical": [
+        "unseen held remote"
+      ],
+      "A_food_hand_retained": null,
+      "B_food_hand_retained": null,
+      "C_diagnostic_food_hand_retained": null
+    },
+    {
+      "case": "heldout-b-raised",
+      "A_critical": [],
+      "B_critical": [],
+      "A_food_hand_retained": true,
+      "B_food_hand_retained": false,
+      "C_diagnostic_food_hand_retained": false
+    },
+    {
+      "case": "heldout-b-down",
+      "A_critical": [],
+      "B_critical": [
+        "unseen held remote"
+      ],
+      "A_food_hand_retained": null,
+      "B_food_hand_retained": null,
+      "C_diagnostic_food_hand_retained": null
+    },
+    {
+      "case": "heldout-food",
+      "A_critical": [],
+      "B_critical": [
+        "food mislabeled held phone"
+      ],
+      "A_food_hand_retained": true,
+      "B_food_hand_retained": false,
+      "C_diagnostic_food_hand_retained": false
+    }
+  ],
+  "notes": [
+    "heldout-b-raised B holding a hand is ambiguous and fails useful raised-hand description; not counted as a definite nonexistent-object error.",
+    "C diagnostic retained hands-up only as image_only_unverified.",
+    "A rest/camera-facing descriptions are not accepted gaze measurements.",
+    "Heldout frames share source sessions and environment; small-case counts cannot establish general accuracy."
+  ],
+  "counts": {
+    "challenge_critical_A": 1,
+    "challenge_critical_B": 2,
+    "heldout_critical_A": 0,
+    "heldout_critical_B": 3,
+    "all_critical_A": 1,
+    "all_critical_B": 5,
+    "all_critical_C": 0,
+    "food_hand_A": 4,
+    "food_hand_B": 2,
+    "food_hand_C_diagnostic": 1,
+    "food_hand_denominator": 4,
+    "raw_A_B_explicit_abstention": 0,
+    "C_v1_all_withdrawn": 8,
+    "C_diagnostic_all_withdrawn": 7,
+    "frame_denominator": 8,
+    "verified_C_claims": 0
+  }
+}

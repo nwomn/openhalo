@@ -1,0 +1,18 @@
+[
+  {
+    "name": "greeting-a",
+    "source_start_seconds": 27,
+    "duration_seconds": 8,
+    "extract_seconds": 1.5007756859995425,
+    "sha256": "1b4e681dae40b509b6809acd41ce806837939d532b7c70f0fb7f21193fb9a027",
+    "visual_reference": "hands down, raise hand, wave, lower hand, hands down"
+  },
+  {
+    "name": "greeting-b",
+    "source_start_seconds": 37,
+    "duration_seconds": 8,
+    "extract_seconds": 1.50250333402073,
+    "sha256": "e8e31922d13903aad496272d808c2229849e7b9eeaf51c862539c70072694529",
+    "visual_reference": "hands down, raise hand, wave, lower hand, hands down"
+  }
+]

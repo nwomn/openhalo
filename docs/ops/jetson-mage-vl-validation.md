@@ -1,5 +1,14 @@
 # Jetson Mage-VL 4-bit validation
 
+Current disposition (2026-09-12): the owner classifies the tested
+Mage-VL/StreamMind implementation as a failed Camera Edge technology route
+against minimum usability. The later continuous CSI demo ran with roughly
+14-16 seconds of live delay and did not meet the intended experience. Build,
+image, JSON, and streaming execution results remain historical component
+evidence; they do not make this a usable route awaiting routine acceptance.
+The dated validation notes below must be read under this closeout and the
+current `Project.md` baseline.
+
 Status: 2026-09-10, native compilation and synthetic IQ4_NL/F16 plus target
 Q4_K_M/Q8 image checks passed. Real-image quality, sustained latency/memory,
 camera and Runtime acceptance remain pending.

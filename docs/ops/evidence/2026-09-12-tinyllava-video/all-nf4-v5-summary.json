@@ -1,0 +1,46 @@
+{
+  "status": "completed",
+  "load_seconds": 22.55844190303469,
+  "error": null,
+  "case_count": 1,
+  "accuracy_acceptance": "not established by repeated inference on one clip",
+  "timing_boundary": "local clip decode/preprocessing through completed model output; excludes capture and Runtime",
+  "peak_ram_mb": 7498.0,
+  "peak_swap_mb": 3312.0,
+  "peak_gpu_percent": 99.0,
+  "peak_temperature_c": 62.375,
+  "peak_input_power_mw": 22186.0,
+  "outputs": [
+    "The person is eating a snack, and the background remains unchanged throughout the video.",
+    "The person is eating a snack, and the background remains unchanged throughout the video.",
+    "The person is eating a snack, and the background remains unchanged throughout the video."
+  ],
+  "measured_runs": 3,
+  "warmed_runs": 2,
+  "total_seconds": {
+    "min": 8.969731968012638,
+    "median": 9.088877727015642,
+    "max": 9.208023486018647
+  },
+  "preprocessing_seconds": {
+    "min": 1.6687701510381885,
+    "median": 1.828448042011587,
+    "max": 1.9881259329849854
+  },
+  "vision_seconds": {
+    "min": 3.218916743993759,
+    "median": 3.2202662834897637,
+    "max": 3.2216158229857683
+  },
+  "connector_seconds": {
+    "min": 0.2291728209820576,
+    "median": 0.23118667749804445,
+    "max": 0.2332005340140313
+  },
+  "language_seconds": {
+    "min": 3.7677802750258707,
+    "median": 3.8089767240162473,
+    "max": 3.850173173006624
+  },
+  "all_warmed_runs_exceed_5s": true
+}

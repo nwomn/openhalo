@@ -1,0 +1,83 @@
+{
+  "method": "Manual review against the same saved visual references and original targeted-error/coarse-action rubric; per-frame not per-replay counts; no C.",
+  "cases": [
+    {
+      "case": "challenge-food",
+      "J_targeted_unsupported": [],
+      "J_clear_food_hand_retained": true,
+      "note": "clear food/eating"
+    },
+    {
+      "case": "challenge-raised",
+      "J_targeted_unsupported": [],
+      "J_clear_food_hand_retained": true,
+      "note": "clear raised-hand/wave information"
+    },
+    {
+      "case": "challenge-remote",
+      "J_targeted_unsupported": [],
+      "J_clear_food_hand_retained": null,
+      "note": "seated/smiling; no remote claim"
+    },
+    {
+      "case": "challenge-screen",
+      "J_targeted_unsupported": [
+        "unestablished computer-screen gaze"
+      ],
+      "J_clear_food_hand_retained": null,
+      "note": "same screen-target overclaim as A"
+    },
+    {
+      "case": "heldout-b-rest",
+      "J_targeted_unsupported": [],
+      "J_clear_food_hand_retained": null,
+      "note": "seated caption; gaze not accepted as independent measurement"
+    },
+    {
+      "case": "heldout-b-raised",
+      "J_targeted_unsupported": [],
+      "J_clear_food_hand_retained": false,
+      "note": "hand in front of face is partial position information, not explicit raised-hand/wave; count separately"
+    },
+    {
+      "case": "heldout-b-down",
+      "J_targeted_unsupported": [],
+      "J_clear_food_hand_retained": null,
+      "note": "seated/smiling; no remote claim"
+    },
+    {
+      "case": "heldout-food",
+      "J_targeted_unsupported": [
+        "food mislabeled held remote"
+      ],
+      "J_clear_food_hand_retained": false,
+      "note": "correct food information lost"
+    }
+  ],
+  "counts": {
+    "frames": 8,
+    "action_frames": 4,
+    "A_targeted_unsupported": 1,
+    "J_targeted_unsupported": 2,
+    "B_targeted_unsupported": 5,
+    "A_clear_food_hand": 4,
+    "J_clear_food_hand": 2,
+    "J_partial_hand_position": 1,
+    "B_clear_food_hand": 2,
+    "A_abstentions": 0,
+    "J_abstentions": 0,
+    "B_abstentions": 0,
+    "prior_challenge_A_errors": 1,
+    "prior_challenge_J_errors": 1,
+    "prior_challenge_B_errors": 2,
+    "prior_heldout_A_errors": 0,
+    "prior_heldout_J_errors": 1,
+    "prior_heldout_B_errors": 3
+  },
+  "limits": [
+    "No new heldout validation; same eight already-exposed frames.",
+    "Targeted critical count is not exhaustive accuracy; minor expression/gaze wording is not all adjudicated.",
+    "The partial hand-position description gets separate credit, not a silently broadened pass criterion.",
+    "Removing all 64-token surrounding explanatory text is a joint wording/length change, not a test of the single word Fallible."
+  ]
+}

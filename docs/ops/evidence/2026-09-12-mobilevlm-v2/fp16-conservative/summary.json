@@ -1,0 +1,113 @@
+{
+  "status": "completed",
+  "precision": "FP16",
+  "cases": [
+    {
+      "image": "eating.jpg",
+      "replays": 2,
+      "outputs": [
+        "The person is holding a piece of food in their hands."
+      ],
+      "warmed_total_seconds": [
+        1.1505015409784392
+      ],
+      "warmed_median_seconds": 1.1505015409784392,
+      "truncated": false
+    },
+    {
+      "image": "raised.jpg",
+      "replays": 2,
+      "outputs": [
+        "The person is waving at the camera."
+      ],
+      "warmed_total_seconds": [
+        0.8260281970142387,
+        0.8098800790030509
+      ],
+      "warmed_median_seconds": 0.8179541380086448,
+      "truncated": false
+    },
+    {
+      "image": "rest.jpg",
+      "replays": 2,
+      "outputs": [
+        "The person is sitting down and smiling."
+      ],
+      "warmed_total_seconds": [
+        0.8136383949895389,
+        0.8149412689963356
+      ],
+      "warmed_median_seconds": 0.8142898319929373,
+      "truncated": false
+    },
+    {
+      "image": "lowered.jpg",
+      "replays": 2,
+      "outputs": [
+        "The person is holding a remote control."
+      ],
+      "warmed_total_seconds": [
+        0.7572774519794621,
+        0.756640522973612
+      ],
+      "warmed_median_seconds": 0.756958987476537,
+      "truncated": false
+    },
+    {
+      "image": "eating-crop.jpg",
+      "replays": 2,
+      "outputs": [
+        "The person is holding a piece of food in their hands."
+      ],
+      "warmed_total_seconds": [
+        0.9987860040273517,
+        0.987227731035091
+      ],
+      "warmed_median_seconds": 0.9930068675312214,
+      "truncated": false
+    },
+    {
+      "image": "raised-crop.jpg",
+      "replays": 2,
+      "outputs": [
+        "The person is waving at the camera."
+      ],
+      "warmed_total_seconds": [
+        0.8026915899827145,
+        0.7993581509799697
+      ],
+      "warmed_median_seconds": 0.8010248704813421,
+      "truncated": false
+    },
+    {
+      "image": "rest-crop.jpg",
+      "replays": 2,
+      "outputs": [
+        "The person is sitting down and looking at the camera."
+      ],
+      "warmed_total_seconds": [
+        0.9282363870297559,
+        0.9247769259964116
+      ],
+      "warmed_median_seconds": 0.9265066565130837,
+      "truncated": false
+    },
+    {
+      "image": "lowered-crop.jpg",
+      "replays": 2,
+      "outputs": [
+        "The person is sitting down and smiling."
+      ],
+      "warmed_total_seconds": [
+        0.8044150799978524,
+        0.8031884590163827
+      ],
+      "warmed_median_seconds": 0.8038017695071176,
+      "truncated": false
+    }
+  ],
+  "peak_ram_used_mb": 7474.0,
+  "peak_swap_used_mb": 2886.0,
+  "peak_temperature_c": 61.343,
+  "boundary": "image disk decode/preprocess through generation; excludes capture/event/Runtime; repeats are not accuracy samples or robust P95; token-limited outputs are not complete answers"
+}

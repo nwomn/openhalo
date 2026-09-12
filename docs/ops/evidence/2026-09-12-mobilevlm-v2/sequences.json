@@ -1,0 +1,25 @@
+[
+  {
+    "name": "complete-greeting",
+    "images": [
+      "/home/jetson/openhalo-mobilevlm-v2/media/rest.jpg",
+      "/home/jetson/openhalo-mobilevlm-v2/media/raised.jpg",
+      "/home/jetson/openhalo-mobilevlm-v2/media/raised-moved.jpg",
+      "/home/jetson/openhalo-mobilevlm-v2/media/lowered.jpg"
+    ]
+  },
+  {
+    "name": "raising-only",
+    "images": [
+      "/home/jetson/openhalo-mobilevlm-v2/media/rest.jpg",
+      "/home/jetson/openhalo-mobilevlm-v2/media/raised.jpg"
+    ]
+  },
+  {
+    "name": "lowering-only",
+    "images": [
+      "/home/jetson/openhalo-mobilevlm-v2/media/raised.jpg",
+      "/home/jetson/openhalo-mobilevlm-v2/media/lowered.jpg"
+    ]
+  }
+]

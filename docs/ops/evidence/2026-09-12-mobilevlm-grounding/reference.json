@@ -1,0 +1,15 @@
+{
+  "frozen_before_inference": true,
+  "source": "Exact image inspection plus previous owner eating/greeting confirmation; no gaze/intent reference",
+  "cases": {
+    "challenge-food": "Food in hand below mouth; eating context",
+    "challenge-raised": "Raised open hand; greeting context",
+    "challenge-remote": "Seated hands below frame; no visible held remote",
+    "challenge-screen": "Seated leaning forward, head/gaze down; target unseen",
+    "heldout-b-rest": "Seated head slightly down; hands outside frame",
+    "heldout-b-raised": "Open hand raised; wave context",
+    "heldout-b-down": "Seated facing approximately forward; hands outside frame",
+    "heldout-food": "Food in raised hand; eating context"
+  },
+  "grading": "Count useful task-state categories and unsupported specific claims per unique frame, not repeated executions. Screen attention/held remote/tie claims require visible support. Static posture alone does not count as food or raised-hand recognition."
+}

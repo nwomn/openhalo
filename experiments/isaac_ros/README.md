@@ -1,5 +1,16 @@
 # OpenHalo Isaac ROS Argus input experiment
 
+Current disposition (2026-09-12): the tested detection/pose/region route and
+its temporal-feature-to-small-LLM extension failed the owner's minimum Camera
+Edge usability requirements. The owner reports that the previously requested
+real-scene cases were already tested and their relevant state/semantic outputs
+were all `unknown`; per-case logs and numerical accuracy were not supplied in
+this correction. Input FPS, detection output, fixture tracking, and JSON/gating
+checks below remain component evidence, not usable perception acceptance.
+The commands below are historical/reproduction procedures, not a recommendation
+to repeat the same scene tests on the unchanged implementation. New work needs
+a concrete change addressing the failure. See `Project.md` for current status.
+
 This directory owns the first OpenHalo-specific Camera Edge input wrapper for
 the Jetson IMX219 CSI camera. It is deliberately a data-plane experiment: it
 does not register a Device Edge, write ContextFact, invoke Personal Runtime,

@@ -1,0 +1,27 @@
+{
+  "status": "failed",
+  "torch": "2.5.0a0+872d972e41.nv24.08",
+  "transformers": "4.33.1",
+  "cuda": "12.6",
+  "precision": "FP16",
+  "prompt": "Describe the person's visible action and any object they are handling in one short sentence. Do not guess intent or identity.",
+  "max_new_tokens": 48,
+  "last_token_logits": false,
+  "runtime": {
+    "source_revision": "688fdec914810485c8766da96c63d9d2ce15f750",
+    "changes": [
+      "Construct dummy vision tower from config; require complete outer checkpoint key match"
+    ],
+    "model_math": "unchanged upstream FP16 inference"
+  },
+  "conversion": {
+    "method": "torch.load weights_only mmap; lossless safetensors sharding",
+    "tensor_count": 616,
+    "total_bytes": 3348242432,
+    "vision_key_count": 391,
+    "source_sha256": "cd16648451c84831f317dbcc59e9c8d323235bde2dd2ecdaadb67808a25132e9"
+  },
+  "cases": [],
+  "acceptance": "not accepted; bounded single-image check",
+  "error": "AttributeError: module 'torch.distributed' has no attribute 'is_initialized'"
+}

@@ -1,0 +1,121 @@
+{
+  "status": "completed",
+  "torch": "2.5.0a0+872d972e41.nv24.08",
+  "cuda": "12.6",
+  "transformers": "4.40.1",
+  "bitsandbytes": "0.48.2",
+  "prompt": "Describe the person's visible action and what changes from the beginning to the end of this video in one short sentence. If no action change is visible, describe the visible state. Do not guess intention or identity.",
+  "frame_count": 16,
+  "max_new_tokens": 48,
+  "vision_batch": 1,
+  "quantization": "all supported linear layers NF4 double-quant; embeddings/LM head/SigLIP pooling head/norms FP16",
+  "cuda_memory_fraction": 0.55,
+  "inductor_compile_threads": 1,
+  "runtime": {
+    "source_revision": "44e162fa0ce6ea5f166cbfc6c1130465f82fd81a",
+    "changes": [
+      "omit eager training/dataset imports"
+    ],
+    "model_math": "upstream; optional frame microbatching occurs in benchmark wrapper"
+  },
+  "cases": [
+    {
+      "path": "/home/jetson/openhalo-tinyllava-video/clips/owner-eating-screen-20260912.mp4",
+      "sha256": "50fd596d9d98ddd604633bc639c5cf3f2fd237cbcfc72d9067fa6cf8ee72b121",
+      "metadata": {
+        "programs": [],
+        "streams": [
+          {
+            "width": 1280,
+            "height": 720,
+            "nb_read_frames": "360"
+          }
+        ],
+        "format": {
+          "duration": "5.992833"
+        }
+      },
+      "indices": [
+        0,
+        23,
+        47,
+        71,
+        95,
+        119,
+        143,
+        167,
+        191,
+        215,
+        239,
+        263,
+        287,
+        311,
+        335,
+        359
+      ],
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": true,
+          "preprocessing_seconds": 1.2425765289808623,
+          "generation_seconds": 12.650525467004627,
+          "total_seconds": 13.89310199598549,
+          "vision_seconds": 4.741265186981764,
+          "connector_seconds": 0.7938259600196034,
+          "visual_tokens": 512,
+          "output_tokens": 17,
+          "output": "The person is eating a snack, and the background remains unchanged throughout the video.",
+          "cuda_peak_allocated_bytes": 3540791296,
+          "cuda_peak_reserved_bytes": 4034920448,
+          "language_seconds": 7.11543432000326
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocessing_seconds": 1.8943140729679726,
+          "generation_seconds": 7.689072813023813,
+          "total_seconds": 9.583386885991786,
+          "vision_seconds": 3.718484051991254,
+          "connector_seconds": 0.22388775902800262,
+          "visual_tokens": 512,
+          "output_tokens": 17,
+          "output": "The person is eating a snack, and the background remains unchanged throughout the video.",
+          "cuda_peak_allocated_bytes": 3540791296,
+          "cuda_peak_reserved_bytes": 4034920448,
+          "language_seconds": 3.7467010020045564
+        },
+        {
+          "repeat": 2,
+          "first_inference": false,
+          "preprocessing_seconds": 1.6915741759585217,
+          "generation_seconds": 7.705937451042701,
+          "total_seconds": 9.397511627001222,
+          "vision_seconds": 3.7269047800218686,
+          "connector_seconds": 0.22395036596572027,
+          "visual_tokens": 512,
+          "output_tokens": 17,
+          "output": "The person is eating a snack, and the background remains unchanged throughout the video.",
+          "cuda_peak_allocated_bytes": 3540791296,
+          "cuda_peak_reserved_bytes": 4034920448,
+          "language_seconds": 3.7550823050551116
+        }
+      ]
+    }
+  ],
+  "acceptance": "not accepted; output requires ground-truth assessment",
+  "load_seconds": 22.39738064800622,
+  "loading_info": {
+    "missing_keys": [],
+    "unexpected_keys": [],
+    "mismatched_keys": [],
+    "error_msgs": []
+  },
+  "quantized_linear_count": 430,
+  "loaded_cuda_allocated_bytes": 2967405568,
+  "loaded_cuda_reserved_bytes": 3267362816,
+  "last_completed_stage": {
+    "vision_seconds": 3.7269047800218686,
+    "connector_seconds": 0.22395036596572027,
+    "visual_tokens": 512
+  }
+}

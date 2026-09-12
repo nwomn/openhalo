@@ -1,0 +1,7 @@
+{
+  "source_revision": "688fdec914810485c8766da96c63d9d2ce15f750",
+  "changes": [
+    "Construct dummy vision tower from config; require complete outer checkpoint key match"
+  ],
+  "model_math": "unchanged upstream FP16 inference"
+}

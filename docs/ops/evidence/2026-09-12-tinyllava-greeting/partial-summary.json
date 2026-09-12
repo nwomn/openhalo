@@ -1,0 +1,47 @@
+{
+  "status": "completed",
+  "load_seconds": 22.164544477011077,
+  "error": null,
+  "case_count": 2,
+  "accuracy_acceptance": "not established by repeated inference on one clip",
+  "timing_boundary": "local clip decode/preprocessing through completed model output; excludes capture and Runtime",
+  "peak_ram_mb": 7494.0,
+  "peak_swap_mb": 3648.0,
+  "peak_gpu_percent": 99.0,
+  "peak_temperature_c": 63.968,
+  "peak_input_power_mw": 20904.0,
+  "outputs": [
+    "The person starts by looking forward, then looks to the side, and finally looks forward again.",
+    "The person starts by looking forward, then looks to the side, and finally looks forward again.",
+    "The person starts by waving their hand, then lowers it, and finally sits still.",
+    "The person starts by waving their hand, then lowers it, and finally sits still."
+  ],
+  "measured_runs": 4,
+  "warmed_runs": 3,
+  "total_seconds": {
+    "min": 8.95133223402081,
+    "median": 9.435338007984683,
+    "max": 10.311357747006696
+  },
+  "preprocessing_seconds": {
+    "min": 1.6145720640197396,
+    "median": 2.0040266099967994,
+    "max": 2.5162384239956737
+  },
+  "vision_seconds": {
+    "min": 3.1762813119567,
+    "median": 3.220590587996412,
+    "max": 3.226857575995382
+  },
+  "connector_seconds": {
+    "min": 0.22924638801487163,
+    "median": 0.23929744900669903,
+    "max": 0.2401920419652015
+  },
+  "language_seconds": {
+    "min": 3.9202868160791695,
+    "median": 3.9651563729858026,
+    "max": 4.345282346999738
+  },
+  "all_warmed_runs_exceed_5s": true
+}

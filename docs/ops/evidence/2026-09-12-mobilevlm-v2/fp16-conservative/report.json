@@ -1,0 +1,372 @@
+{
+  "status": "completed",
+  "torch": "2.5.0a0+872d972e41.nv24.08",
+  "transformers": "4.33.1",
+  "cuda": "12.6",
+  "precision": "FP16",
+  "prompt": "What is the person visibly doing? Answer in one short sentence using only clear visual evidence. Do not invent objects, actions, or intentions. If hands are not visible, do not describe what they are holding.",
+  "max_new_tokens": 48,
+  "last_token_logits": false,
+  "distributed_unavailable_fsdp_probe_disabled": true,
+  "runtime": {
+    "source_revision": "688fdec914810485c8766da96c63d9d2ce15f750",
+    "changes": [
+      "Construct dummy vision tower from config; require complete outer checkpoint key match"
+    ],
+    "model_math": "unchanged upstream FP16 inference"
+  },
+  "conversion": {
+    "method": "torch.load weights_only mmap; lossless safetensors sharding",
+    "tensor_count": 616,
+    "total_bytes": 3348242432,
+    "vision_key_count": 391,
+    "source_sha256": "cd16648451c84831f317dbcc59e9c8d323235bde2dd2ecdaadb67808a25132e9"
+  },
+  "cases": [
+    {
+      "path": "/home/jetson/openhalo-mobilevlm-v2/media/eating.jpg",
+      "sha256": "38e1efc1d25a5d0ed67b5f8ec99a5811e4e43449e46d0096f7f3c4c7f946fb5c",
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": true,
+          "preprocess_seconds": 0.11398149002343416,
+          "generation_seconds": 4.417490760970395,
+          "total_seconds": 4.531472250993829,
+          "vision_seconds": 0.971038713993039,
+          "projector_seconds": 0.06589559296844527,
+          "visual_tokens": 144,
+          "output_tokens": 13,
+          "output": "The person is holding a piece of food in their hands.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3490152448,
+          "cuda_peak_reserved_bytes": 3632267264,
+          "language_seconds": 3.380556454008911
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.12767975899623707,
+          "generation_seconds": 1.022821781982202,
+          "total_seconds": 1.1505015409784392,
+          "vision_seconds": 0.13115438498789445,
+          "projector_seconds": 0.006387146015185863,
+          "visual_tokens": 144,
+          "output_tokens": 13,
+          "output": "The person is holding a piece of food in their hands.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3490152448,
+          "cuda_peak_reserved_bytes": 3632267264,
+          "language_seconds": 0.8852802509791218
+        }
+      ],
+      "image_size": [
+        1280,
+        720
+      ]
+    },
+    {
+      "path": "/home/jetson/openhalo-mobilevlm-v2/media/raised.jpg",
+      "sha256": "772ea1a829615c4594658cb3e10739236f7ca34c9f4522d7bdfa68b202ecfdae",
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": false,
+          "preprocess_seconds": 0.04722588701406494,
+          "generation_seconds": 0.7788023100001737,
+          "total_seconds": 0.8260281970142387,
+          "vision_seconds": 0.10056988301221281,
+          "projector_seconds": 0.0020613130182027817,
+          "visual_tokens": 144,
+          "output_tokens": 10,
+          "output": "The person is waving at the camera.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3490152448,
+          "cuda_peak_reserved_bytes": 3632267264,
+          "language_seconds": 0.6761711139697582
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.04169423604616895,
+          "generation_seconds": 0.768185842956882,
+          "total_seconds": 0.8098800790030509,
+          "vision_seconds": 0.09508533903863281,
+          "projector_seconds": 0.0020917460205964744,
+          "visual_tokens": 144,
+          "output_tokens": 10,
+          "output": "The person is waving at the camera.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3490152448,
+          "cuda_peak_reserved_bytes": 3632267264,
+          "language_seconds": 0.6710087578976527
+        }
+      ],
+      "image_size": [
+        1280,
+        720
+      ]
+    },
+    {
+      "path": "/home/jetson/openhalo-mobilevlm-v2/media/rest.jpg",
+      "sha256": "94f0893a1b0c5dfe99b55fef9ea52aab898af1e59b1f558ce0f1342551180833",
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": false,
+          "preprocess_seconds": 0.04154062794987112,
+          "generation_seconds": 0.7720977670396678,
+          "total_seconds": 0.8136383949895389,
+          "vision_seconds": 0.09543645899975672,
+          "projector_seconds": 0.00169486302183941,
+          "visual_tokens": 144,
+          "output_tokens": 10,
+          "output": "The person is sitting down and smiling.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3490152448,
+          "cuda_peak_reserved_bytes": 3632267264,
+          "language_seconds": 0.6749664450180717
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.041951880033593625,
+          "generation_seconds": 0.7729893889627419,
+          "total_seconds": 0.8149412689963356,
+          "vision_seconds": 0.09653270099079236,
+          "projector_seconds": 0.002080578007735312,
+          "visual_tokens": 144,
+          "output_tokens": 10,
+          "output": "The person is sitting down and smiling.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3490152448,
+          "cuda_peak_reserved_bytes": 3632267264,
+          "language_seconds": 0.6743761099642143
+        }
+      ],
+      "image_size": [
+        1280,
+        720
+      ]
+    },
+    {
+      "path": "/home/jetson/openhalo-mobilevlm-v2/media/lowered.jpg",
+      "sha256": "262091220adf2e90f9dd7ffa937fdfb57c11604094924492f4949c915cd24270",
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": false,
+          "preprocess_seconds": 0.041295240982435644,
+          "generation_seconds": 0.7159822109970264,
+          "total_seconds": 0.7572774519794621,
+          "vision_seconds": 0.09537424700101838,
+          "projector_seconds": 0.0016843019984662533,
+          "visual_tokens": 144,
+          "output_tokens": 9,
+          "output": "The person is holding a remote control.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3490152448,
+          "cuda_peak_reserved_bytes": 3632267264,
+          "language_seconds": 0.6189236619975418
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.0415843750233762,
+          "generation_seconds": 0.7150561479502358,
+          "total_seconds": 0.756640522973612,
+          "vision_seconds": 0.09522214403841645,
+          "projector_seconds": 0.0021967749926261604,
+          "visual_tokens": 144,
+          "output_tokens": 9,
+          "output": "The person is holding a remote control.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3490152448,
+          "cuda_peak_reserved_bytes": 3632267264,
+          "language_seconds": 0.6176372289191931
+        }
+      ],
+      "image_size": [
+        1280,
+        720
+      ]
+    },
+    {
+      "path": "/home/jetson/openhalo-mobilevlm-v2/media/eating-crop.jpg",
+      "sha256": "711dc9ea72a70dd59e8f0e8fcfd19e6903da3f12918d4325f3ba79e2d376a944",
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": false,
+          "preprocess_seconds": 0.04032258701045066,
+          "generation_seconds": 0.9584634170169011,
+          "total_seconds": 0.9987860040273517,
+          "vision_seconds": 0.09654665301786736,
+          "projector_seconds": 0.0020712330006062984,
+          "visual_tokens": 144,
+          "output_tokens": 13,
+          "output": "The person is holding a piece of food in their hands.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3490152448,
+          "cuda_peak_reserved_bytes": 3632267264,
+          "language_seconds": 0.8598455309984274
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.032548240036703646,
+          "generation_seconds": 0.9546794909983873,
+          "total_seconds": 0.987227731035091,
+          "vision_seconds": 0.09472829499281943,
+          "projector_seconds": 0.0016798860160633922,
+          "visual_tokens": 144,
+          "output_tokens": 13,
+          "output": "The person is holding a piece of food in their hands.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3490152448,
+          "cuda_peak_reserved_bytes": 3632267264,
+          "language_seconds": 0.8582713099895045
+        }
+      ],
+      "image_size": [
+        980,
+        680
+      ]
+    },
+    {
+      "path": "/home/jetson/openhalo-mobilevlm-v2/media/raised-crop.jpg",
+      "sha256": "50ceb4f2a96bc2ca42edb9c8e0813812776aaa2675a7ae2908853672fcd9078e",
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": false,
+          "preprocess_seconds": 0.032293540018144995,
+          "generation_seconds": 0.7703980499645695,
+          "total_seconds": 0.8026915899827145,
+          "vision_seconds": 0.09512709703994915,
+          "projector_seconds": 0.001674798026215285,
+          "visual_tokens": 144,
+          "output_tokens": 10,
+          "output": "The person is waving at the camera.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3490152448,
+          "cuda_peak_reserved_bytes": 3632267264,
+          "language_seconds": 0.6735961548984051
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.03221100801602006,
+          "generation_seconds": 0.7671471429639496,
+          "total_seconds": 0.7993581509799697,
+          "vision_seconds": 0.09264531801454723,
+          "projector_seconds": 0.0016820619930513203,
+          "visual_tokens": 144,
+          "output_tokens": 10,
+          "output": "The person is waving at the camera.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3490152448,
+          "cuda_peak_reserved_bytes": 3632267264,
+          "language_seconds": 0.672819762956351
+        }
+      ],
+      "image_size": [
+        980,
+        680
+      ]
+    },
+    {
+      "path": "/home/jetson/openhalo-mobilevlm-v2/media/rest-crop.jpg",
+      "sha256": "05fe5fe44237c8a1a77d33c5279d0c4127bdc19014e75a64c3c09404f37d78b6",
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": false,
+          "preprocess_seconds": 0.032775834028143436,
+          "generation_seconds": 0.8954605530016124,
+          "total_seconds": 0.9282363870297559,
+          "vision_seconds": 0.09656578802969307,
+          "projector_seconds": 0.002049919974524528,
+          "visual_tokens": 144,
+          "output_tokens": 12,
+          "output": "The person is sitting down and looking at the camera.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3490152448,
+          "cuda_peak_reserved_bytes": 3632267264,
+          "language_seconds": 0.7968448449973948
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.032339686003979295,
+          "generation_seconds": 0.8924372399924323,
+          "total_seconds": 0.9247769259964116,
+          "vision_seconds": 0.09468525100965053,
+          "projector_seconds": 0.0020347830140963197,
+          "visual_tokens": 144,
+          "output_tokens": 12,
+          "output": "The person is sitting down and looking at the camera.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3490152448,
+          "cuda_peak_reserved_bytes": 3632267264,
+          "language_seconds": 0.7957172059686854
+        }
+      ],
+      "image_size": [
+        980,
+        680
+      ]
+    },
+    {
+      "path": "/home/jetson/openhalo-mobilevlm-v2/media/lowered-crop.jpg",
+      "sha256": "7069f5b0d2eac7b2d6b98ecb5ea85588b429a9417843a71e98d06505d33d645c",
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": false,
+          "preprocess_seconds": 0.03236359002767131,
+          "generation_seconds": 0.7720514899701811,
+          "total_seconds": 0.8044150799978524,
+          "vision_seconds": 0.09573109197663143,
+          "projector_seconds": 0.00203404703643173,
+          "visual_tokens": 144,
+          "output_tokens": 10,
+          "output": "The person is sitting down and smiling.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3490152448,
+          "cuda_peak_reserved_bytes": 3632267264,
+          "language_seconds": 0.674286350957118
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.03231424401747063,
+          "generation_seconds": 0.7708742149989121,
+          "total_seconds": 0.8031884590163827,
+          "vision_seconds": 0.09695245994953439,
+          "projector_seconds": 0.002089952991809696,
+          "visual_tokens": 144,
+          "output_tokens": 10,
+          "output": "The person is sitting down and smiling.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3490152448,
+          "cuda_peak_reserved_bytes": 3632267264,
+          "language_seconds": 0.671831802057568
+        }
+      ],
+      "image_size": [
+        980,
+        680
+      ]
+    }
+  ],
+  "acceptance": "not accepted; bounded single-image check",
+  "load_seconds": 10.700767520989757,
+  "loading_info": {
+    "missing_keys": [],
+    "unexpected_keys": [],
+    "mismatched_keys": [],
+    "error_msgs": []
+  },
+  "loaded_cuda_allocated_bytes": 3375522816
+}

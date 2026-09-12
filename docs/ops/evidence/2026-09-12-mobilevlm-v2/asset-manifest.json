@@ -1,0 +1,74 @@
+[
+  {
+    "repo": "mtgv/MobileVLM_V2-1.7B",
+    "revision": "9a5b623a83feae6a6b2ecad7a843334ccc119ce1",
+    "name": "config.json",
+    "folder": "model",
+    "size": 1155,
+    "expected_sha256": null,
+    "sha256": "0b397a9a0b36595846c1b8bcb84c733d8dd4aa505b2fee68f70451f553ca120e"
+  },
+  {
+    "repo": "mtgv/MobileVLM_V2-1.7B",
+    "revision": "9a5b623a83feae6a6b2ecad7a843334ccc119ce1",
+    "name": "generation_config.json",
+    "folder": "model",
+    "size": 132,
+    "expected_sha256": null,
+    "sha256": "1b101765543b19146592c08b945bea6a35471d178a55a1a503f73cde7501553c"
+  },
+  {
+    "repo": "mtgv/MobileVLM_V2-1.7B",
+    "revision": "9a5b623a83feae6a6b2ecad7a843334ccc119ce1",
+    "name": "pytorch_model.bin",
+    "folder": "model",
+    "size": 3348457261,
+    "expected_sha256": "cd16648451c84831f317dbcc59e9c8d323235bde2dd2ecdaadb67808a25132e9",
+    "sha256": "cd16648451c84831f317dbcc59e9c8d323235bde2dd2ecdaadb67808a25132e9"
+  },
+  {
+    "repo": "mtgv/MobileVLM_V2-1.7B",
+    "revision": "9a5b623a83feae6a6b2ecad7a843334ccc119ce1",
+    "name": "special_tokens_map.json",
+    "folder": "model",
+    "size": 435,
+    "expected_sha256": null,
+    "sha256": "2ea88203b955648951a454e73a73967ff77ba4e79ae8ceb4400d4ab2cb040777"
+  },
+  {
+    "repo": "mtgv/MobileVLM_V2-1.7B",
+    "revision": "9a5b623a83feae6a6b2ecad7a843334ccc119ce1",
+    "name": "tokenizer.model",
+    "folder": "model",
+    "size": 499723,
+    "expected_sha256": "9e556afd44213b6bd1be2b850ebbbd98f5481437a8021afaf58ee7fb1818d347",
+    "sha256": "9e556afd44213b6bd1be2b850ebbbd98f5481437a8021afaf58ee7fb1818d347"
+  },
+  {
+    "repo": "mtgv/MobileVLM_V2-1.7B",
+    "revision": "9a5b623a83feae6a6b2ecad7a843334ccc119ce1",
+    "name": "tokenizer_config.json",
+    "folder": "model",
+    "size": 824,
+    "expected_sha256": null,
+    "sha256": "373ed81eba194be15bda319c057aedc917bb4d091a582490c04adc70da350ee9"
+  },
+  {
+    "repo": "openai/clip-vit-large-patch14-336",
+    "revision": "ce19dc912ca5cd21c8a653c79e251e808ccabcd1",
+    "name": "config.json",
+    "folder": "clip",
+    "size": 4757,
+    "expected_sha256": null,
+    "sha256": "51b1c14aabcdf639c4a0370eeda1010b773bbe1df78319c7d0f5882c22ac0ac0"
+  },
+  {
+    "repo": "openai/clip-vit-large-patch14-336",
+    "revision": "ce19dc912ca5cd21c8a653c79e251e808ccabcd1",
+    "name": "preprocessor_config.json",
+    "folder": "clip",
+    "size": 316,
+    "expected_sha256": null,
+    "sha256": "d253881f65322dc546df59cf925a408e5538b8ecb5a1b496cdd36af9992686d4"
+  }
+]

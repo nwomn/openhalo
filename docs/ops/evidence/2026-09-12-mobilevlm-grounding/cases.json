@@ -1,0 +1,62 @@
+[
+  {
+    "name": "challenge-food",
+    "image": "/home/jetson/openhalo-mobilevlm-v2/media/eating.jpg",
+    "source_pts_seconds": 3,
+    "split": "challenge",
+    "sha256": "38e1efc1d25a5d0ed67b5f8ec99a5811e4e43449e46d0096f7f3c4c7f946fb5c"
+  },
+  {
+    "name": "challenge-raised",
+    "image": "/home/jetson/openhalo-mobilevlm-v2/media/raised.jpg",
+    "source_pts_seconds": 3.5,
+    "split": "challenge",
+    "sha256": "772ea1a829615c4594658cb3e10739236f7ca34c9f4522d7bdfa68b202ecfdae"
+  },
+  {
+    "name": "challenge-remote",
+    "image": "/home/jetson/openhalo-mobilevlm-v2/media/lowered.jpg",
+    "source_pts_seconds": 7.5,
+    "split": "challenge",
+    "sha256": "262091220adf2e90f9dd7ffa937fdfb57c11604094924492f4949c915cd24270"
+  },
+  {
+    "name": "challenge-screen",
+    "image": "/home/jetson/openhalo-mobilevlm-v2/fresh/frame-20.jpg",
+    "source_pts_seconds": 20,
+    "split": "challenge",
+    "sha256": "b4e5ce6e82fc32baaf543b38363304ba62329e4e293dea22686fdbc5b48cd6b1"
+  },
+  {
+    "name": "heldout-b-rest",
+    "image": "/home/jetson/openhalo-mobilevlm-grounding/media/heldout-b-rest.jpg",
+    "source_video": "/home/jetson/openhalo-tinyllava-greeting-20260912-1930/greeting-b.mp4",
+    "source_pts_seconds": 0,
+    "split": "heldout",
+    "sha256": "738175944990572364def38c7bd5095423c4939c8093ac1e2fae367e9bf183e1"
+  },
+  {
+    "name": "heldout-b-raised",
+    "image": "/home/jetson/openhalo-mobilevlm-grounding/media/heldout-b-raised.jpg",
+    "source_video": "/home/jetson/openhalo-tinyllava-greeting-20260912-1930/greeting-b.mp4",
+    "source_pts_seconds": 3.5,
+    "split": "heldout",
+    "sha256": "00363c60eab9f7b795740ca45890670475dbaea9d71df11bc312ad0f4cff32fe"
+  },
+  {
+    "name": "heldout-b-down",
+    "image": "/home/jetson/openhalo-mobilevlm-grounding/media/heldout-b-down.jpg",
+    "source_video": "/home/jetson/openhalo-tinyllava-greeting-20260912-1930/greeting-b.mp4",
+    "source_pts_seconds": 7.5,
+    "split": "heldout",
+    "sha256": "326e7252ddfa3d1b25f24f1193851d72d08b9653a032081f71fae5f25dc0040a"
+  },
+  {
+    "name": "heldout-food",
+    "image": "/home/jetson/openhalo-mobilevlm-grounding/media/heldout-food.jpg",
+    "source_video": "/home/jetson/openhalo-tinyllava-video/clips/owner-eating-screen-20260912.mp4",
+    "source_pts_seconds": 1.5,
+    "split": "heldout",
+    "sha256": "c073c4cddca6e15ce133fcaad78b713ef917a583fd2bb69ee4edc704921261aa"
+  }
+]

@@ -1,0 +1,234 @@
+{
+  "status": "completed",
+  "torch": "2.5.0a0+872d972e41.nv24.08",
+  "transformers": "4.33.1",
+  "cuda": "12.6",
+  "precision": "NF4 language linear / FP16 vision-projector-head",
+  "prompt": "What is the person visibly doing? Answer in one short sentence using only clear visual evidence. Do not invent objects, actions, or intentions. If hands are not visible, do not describe what they are holding.",
+  "max_new_tokens": 48,
+  "last_token_logits": false,
+  "distributed_unavailable_fsdp_probe_disabled": true,
+  "input_mode": "single image",
+  "runtime": {
+    "source_revision": "688fdec914810485c8766da96c63d9d2ce15f750",
+    "changes": [
+      "Construct dummy vision tower from config; require complete outer checkpoint key match"
+    ],
+    "model_math": "unchanged upstream FP16 inference"
+  },
+  "conversion": {
+    "method": "torch.load weights_only mmap; lossless safetensors sharding",
+    "tensor_count": 616,
+    "total_bytes": 3348242432,
+    "vision_key_count": 391,
+    "source_sha256": "cd16648451c84831f317dbcc59e9c8d323235bde2dd2ecdaadb67808a25132e9"
+  },
+  "cases": [
+    {
+      "path": "frame-5.jpg",
+      "images": [
+        {
+          "path": "/home/jetson/openhalo-mobilevlm-v2/fresh/frame-5.jpg",
+          "sha256": "961efab1d112b7427ae9f303ca05657cb97e51e1159e284ceb1ace26495c4906"
+        }
+      ],
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": true,
+          "preprocess_seconds": 0.0738610330154188,
+          "generation_seconds": 2.9766631730017252,
+          "total_seconds": 3.050524206017144,
+          "vision_seconds": 0.5962091109831817,
+          "projector_seconds": 0.02765673800604418,
+          "visual_tokens": 144,
+          "output_tokens": 16,
+          "output": "The person is sitting at a desk and looking at a computer screen.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 1683005952,
+          "cuda_peak_reserved_bytes": 1776287744,
+          "language_seconds": 2.3527973240124993
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.04418887599604204,
+          "generation_seconds": 2.214358194032684,
+          "total_seconds": 2.258547070028726,
+          "vision_seconds": 0.14099948899820447,
+          "projector_seconds": 0.0021221120259724557,
+          "visual_tokens": 144,
+          "output_tokens": 16,
+          "output": "The person is sitting at a desk and looking at a computer screen.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 1683005952,
+          "cuda_peak_reserved_bytes": 1776287744,
+          "language_seconds": 2.071236593008507
+        }
+      ],
+      "image_sizes": [
+        [
+          1280,
+          720
+        ]
+      ]
+    },
+    {
+      "path": "frame-20.jpg",
+      "images": [
+        {
+          "path": "/home/jetson/openhalo-mobilevlm-v2/fresh/frame-20.jpg",
+          "sha256": "b4e5ce6e82fc32baaf543b38363304ba62329e4e293dea22686fdbc5b48cd6b1"
+        }
+      ],
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": false,
+          "preprocess_seconds": 0.04409143200609833,
+          "generation_seconds": 2.218433694972191,
+          "total_seconds": 2.2625251269782893,
+          "vision_seconds": 0.13719966798089445,
+          "projector_seconds": 0.0020540119730867445,
+          "visual_tokens": 144,
+          "output_tokens": 16,
+          "output": "The person is sitting at a desk and looking at a computer screen.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 1683005952,
+          "cuda_peak_reserved_bytes": 1776287744,
+          "language_seconds": 2.07918001501821
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.043850941001437604,
+          "generation_seconds": 2.25896114500938,
+          "total_seconds": 2.3028120860108174,
+          "vision_seconds": 0.1321893940330483,
+          "projector_seconds": 0.002219652000349015,
+          "visual_tokens": 144,
+          "output_tokens": 16,
+          "output": "The person is sitting at a desk and looking at a computer screen.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 1683005952,
+          "cuda_peak_reserved_bytes": 1776287744,
+          "language_seconds": 2.1245520989759825
+        }
+      ],
+      "image_sizes": [
+        [
+          1280,
+          720
+        ]
+      ]
+    },
+    {
+      "path": "frame-35.jpg",
+      "images": [
+        {
+          "path": "/home/jetson/openhalo-mobilevlm-v2/fresh/frame-35.jpg",
+          "sha256": "2d6382cd0972e5509fa405fb9f1251b1a94aa9c38c81754e79aa4ae7f59071c8"
+        }
+      ],
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": false,
+          "preprocess_seconds": 0.05054993001976982,
+          "generation_seconds": 1.855559688003268,
+          "total_seconds": 1.906109618023038,
+          "vision_seconds": 0.12902678595855832,
+          "projector_seconds": 0.0022527420078404248,
+          "visual_tokens": 144,
+          "output_tokens": 13,
+          "output": "The person is sitting down and looking at a computer screen.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 1683005952,
+          "cuda_peak_reserved_bytes": 1776287744,
+          "language_seconds": 1.7242801600368693
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.04473513999255374,
+          "generation_seconds": 1.8538945160107687,
+          "total_seconds": 1.8986296560033225,
+          "vision_seconds": 0.14319420902756974,
+          "projector_seconds": 0.002234852989204228,
+          "visual_tokens": 144,
+          "output_tokens": 13,
+          "output": "The person is sitting down and looking at a computer screen.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 1683005952,
+          "cuda_peak_reserved_bytes": 1776287744,
+          "language_seconds": 1.7084654539939947
+        }
+      ],
+      "image_sizes": [
+        [
+          1280,
+          720
+        ]
+      ]
+    },
+    {
+      "path": "frame-50.jpg",
+      "images": [
+        {
+          "path": "/home/jetson/openhalo-mobilevlm-v2/fresh/frame-50.jpg",
+          "sha256": "fe72a92e70752415d45819f8f0d49cfd1f00c440ba12fe0edcab451166dde76d"
+        }
+      ],
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": false,
+          "preprocess_seconds": 0.044633343000896275,
+          "generation_seconds": 1.8458340800134465,
+          "total_seconds": 1.8904674230143428,
+          "vision_seconds": 0.12851869798032567,
+          "projector_seconds": 0.0021647700341418386,
+          "visual_tokens": 144,
+          "output_tokens": 13,
+          "output": "The person is sitting down and looking at a computer screen.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 1683005952,
+          "cuda_peak_reserved_bytes": 1776287744,
+          "language_seconds": 1.715150611998979
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.04453215398825705,
+          "generation_seconds": 1.8481323199812323,
+          "total_seconds": 1.8926644739694893,
+          "vision_seconds": 0.12831484799971804,
+          "projector_seconds": 0.00235828198492527,
+          "visual_tokens": 144,
+          "output_tokens": 13,
+          "output": "The person is sitting down and looking at a computer screen.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 1683005952,
+          "cuda_peak_reserved_bytes": 1776287744,
+          "language_seconds": 1.717459189996589
+        }
+      ],
+      "image_sizes": [
+        [
+          1280,
+          720
+        ]
+      ]
+    }
+  ],
+  "acceptance": "not accepted; bounded single-image check",
+  "load_seconds": 11.893137363018468,
+  "loading_info": {
+    "missing_keys": [],
+    "unexpected_keys": [],
+    "mismatched_keys": [],
+    "error_msgs": []
+  },
+  "quantized_linear_count": 168,
+  "loaded_cuda_allocated_bytes": 1566973952
+}

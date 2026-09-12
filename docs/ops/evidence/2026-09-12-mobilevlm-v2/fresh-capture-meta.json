@@ -1,0 +1,30 @@
+{
+  "started_utc": "2026-09-12T12:10:29.020588+00:00",
+  "command": [
+    "gst-launch-1.0",
+    "-e",
+    "nvarguscamerasrc",
+    "sensor-id=0",
+    "sensor-mode=4",
+    "num-buffers=3600",
+    "!",
+    "video/x-raw(memory:NVMM),width=1280,height=720,framerate=60/1",
+    "!",
+    "nvvidconv",
+    "!",
+    "video/x-raw,format=I420",
+    "!",
+    "x264enc",
+    "tune=zerolatency",
+    "speed-preset=ultrafast",
+    "bitrate=3000",
+    "key-int-max=120",
+    "!",
+    "h264parse",
+    "!",
+    "mp4mux",
+    "!",
+    "filesink",
+    "location=/home/jetson/openhalo-mobilevlm-v2/fresh/capture.mp4"
+  ]
+}

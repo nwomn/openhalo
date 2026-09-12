@@ -1,0 +1,62 @@
+{
+  "prompt_blinded": true,
+  "selection": "selected by source video/contact sheet before MobileVLM output",
+  "cases": [
+    {
+      "file": "eating.jpg",
+      "timestamp_seconds": 3,
+      "reference": "Owner eating; frame shows food in hand below mouth",
+      "sha256": "38e1efc1d25a5d0ed67b5f8ec99a5811e4e43449e46d0096f7f3c4c7f946fb5c",
+      "crop_box": [
+        160,
+        40,
+        1140,
+        720
+      ],
+      "crop_file": "eating-crop.jpg",
+      "crop_sha256": "711dc9ea72a70dd59e8f0e8fcfd19e6903da3f12918d4325f3ba79e2d376a944"
+    },
+    {
+      "file": "rest.jpg",
+      "timestamp_seconds": 0,
+      "reference": "Seated; no raised hand visible",
+      "sha256": "94f0893a1b0c5dfe99b55fef9ea52aab898af1e59b1f558ce0f1342551180833",
+      "crop_box": [
+        160,
+        40,
+        1140,
+        720
+      ],
+      "crop_file": "rest-crop.jpg",
+      "crop_sha256": "05fe5fe44237c8a1a77d33c5279d0c4127bdc19014e75a64c3c09404f37d78b6"
+    },
+    {
+      "file": "raised.jpg",
+      "timestamp_seconds": 3.5,
+      "reference": "Raised open hand during owner-confirmed wave",
+      "sha256": "772ea1a829615c4594658cb3e10739236f7ca34c9f4522d7bdfa68b202ecfdae",
+      "crop_box": [
+        160,
+        40,
+        1140,
+        720
+      ],
+      "crop_file": "raised-crop.jpg",
+      "crop_sha256": "50ceb4f2a96bc2ca42edb9c8e0813812776aaa2675a7ae2908853672fcd9078e"
+    },
+    {
+      "file": "lowered.jpg",
+      "timestamp_seconds": 7.5,
+      "reference": "Hand no longer raised; hands outside frame; looking roughly forward. Corrected after inspecting this exact frame.",
+      "sha256": "262091220adf2e90f9dd7ffa937fdfb57c11604094924492f4949c915cd24270",
+      "crop_box": [
+        160,
+        40,
+        1140,
+        720
+      ],
+      "crop_file": "lowered-crop.jpg",
+      "crop_sha256": "7069f5b0d2eac7b2d6b98ecb5ea85588b429a9417843a71e98d06505d33d645c"
+    }
+  ]
+}

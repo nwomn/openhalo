@@ -1,0 +1,49 @@
+{
+  "status": "completed",
+  "load_seconds": 23.687103675038088,
+  "error": null,
+  "case_count": 3,
+  "accuracy_acceptance": "not established by repeated inference on one clip",
+  "timing_boundary": "local clip decode/preprocessing through completed model output; excludes capture and Runtime",
+  "peak_ram_mb": 7464.0,
+  "peak_swap_mb": 3566.0,
+  "peak_gpu_percent": 99.0,
+  "peak_temperature_c": 62.562,
+  "peak_input_power_mw": 21482.0,
+  "outputs": [
+    "The person starts by eating a snack, then looks to the side, and finally looks forward.",
+    "The person starts by eating a snack, then looks to the side, and finally looks forward.",
+    "The person starts by looking forward, then raises their right hand to wave, and finally lowers their hand and looks forward again.",
+    "The person starts by looking forward, then raises their right hand to wave, and finally lowers their hand and looks forward again.",
+    "The person starts by looking forward, then raises their right hand, and finally lowers their hand and looks forward again.",
+    "The person starts by looking forward, then raises their right hand, and finally lowers their hand and looks forward again."
+  ],
+  "measured_runs": 6,
+  "warmed_runs": 5,
+  "total_seconds": {
+    "min": 10.114786778984126,
+    "median": 10.417972301016562,
+    "max": 11.458622959966306
+  },
+  "preprocessing_seconds": {
+    "min": 1.834299075009767,
+    "median": 2.1323584530036896,
+    "max": 2.4631683329935186
+  },
+  "vision_seconds": {
+    "min": 3.158092944009695,
+    "median": 3.216090720030479,
+    "max": 3.3089063559891656
+  },
+  "connector_seconds": {
+    "min": 0.22962623601779342,
+    "median": 0.23195547400973737,
+    "max": 0.23685197602026165
+  },
+  "language_seconds": {
+    "min": 4.398474861984141,
+    "median": 5.1399823319516145,
+    "max": 5.5547397949849255
+  },
+  "all_warmed_runs_exceed_5s": true
+}

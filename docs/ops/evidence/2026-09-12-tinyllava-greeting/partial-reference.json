@@ -1,0 +1,18 @@
+[
+  {
+    "name": "opening-only",
+    "parent": "greeting-a.mp4",
+    "start_seconds": 0,
+    "duration_seconds": 5.5,
+    "visual_reference": "hands down then raise and wave; ends with raised waving hand, no lowering",
+    "sha256": "59de94fbc0964f72d28c615a0b04fe99818194687aee90171b3ff30994a0c279"
+  },
+  {
+    "name": "closing-only",
+    "parent": "greeting-a.mp4",
+    "start_seconds": 3.5,
+    "duration_seconds": 4.5,
+    "visual_reference": "starts with raised waving hand, then lowers; no initial raising from rest",
+    "sha256": "2e345180eb929a56fcaa4025692632a1e2670b4995e6e06723a587c72d3410c8"
+  }
+]

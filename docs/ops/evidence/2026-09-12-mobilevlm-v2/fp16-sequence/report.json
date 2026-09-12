@@ -1,0 +1,224 @@
+{
+  "status": "completed",
+  "torch": "2.5.0a0+872d972e41.nv24.08",
+  "transformers": "4.33.1",
+  "cuda": "12.6",
+  "precision": "FP16",
+  "prompt": "These frames are ordered from earliest to latest. Describe how the person's hand action changes from the first frame to the last in one short sentence. Mention only visible evidence, without inventing objects or intentions.",
+  "max_new_tokens": 48,
+  "last_token_logits": false,
+  "distributed_unavailable_fsdp_probe_disabled": true,
+  "input_mode": "experimental ordered images, vision microbatch 1",
+  "runtime": {
+    "source_revision": "688fdec914810485c8766da96c63d9d2ce15f750",
+    "changes": [
+      "Construct dummy vision tower from config; require complete outer checkpoint key match"
+    ],
+    "model_math": "unchanged upstream FP16 inference"
+  },
+  "conversion": {
+    "method": "torch.load weights_only mmap; lossless safetensors sharding",
+    "tensor_count": 616,
+    "total_bytes": 3348242432,
+    "vision_key_count": 391,
+    "source_sha256": "cd16648451c84831f317dbcc59e9c8d323235bde2dd2ecdaadb67808a25132e9"
+  },
+  "cases": [
+    {
+      "path": "complete-greeting",
+      "images": [
+        {
+          "path": "/home/jetson/openhalo-mobilevlm-v2/media/rest.jpg",
+          "sha256": "94f0893a1b0c5dfe99b55fef9ea52aab898af1e59b1f558ce0f1342551180833"
+        },
+        {
+          "path": "/home/jetson/openhalo-mobilevlm-v2/media/raised.jpg",
+          "sha256": "772ea1a829615c4594658cb3e10739236f7ca34c9f4522d7bdfa68b202ecfdae"
+        },
+        {
+          "path": "/home/jetson/openhalo-mobilevlm-v2/media/raised-moved.jpg",
+          "sha256": "deb52d51bc28675ca661387749758f256b9a9c62fa2c232c3449656c60d6deb6"
+        },
+        {
+          "path": "/home/jetson/openhalo-mobilevlm-v2/media/lowered.jpg",
+          "sha256": "262091220adf2e90f9dd7ffa937fdfb57c11604094924492f4949c915cd24270"
+        }
+      ],
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": true,
+          "preprocess_seconds": 0.28173875203356147,
+          "generation_seconds": 7.664041689014994,
+          "total_seconds": 7.945780441048555,
+          "vision_seconds": 2.2001414349651895,
+          "projector_seconds": 0.33825356094166636,
+          "visual_tokens": 576,
+          "output_tokens": 48,
+          "output": "The hand of the man in the first frame is raised in the air, waving. In the second frame, the hand is lowered, and the waving motion is not visible. In the third frame, the hand is raised again",
+          "hit_token_limit": true,
+          "cuda_peak_allocated_bytes": 3703622144,
+          "cuda_peak_reserved_bytes": 3781165056,
+          "language_seconds": 5.125646693108138
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.24628518702229485,
+          "generation_seconds": 3.9043439920060337,
+          "total_seconds": 4.1506291790283285,
+          "vision_seconds": 0.414459441031795,
+          "projector_seconds": 0.013534091995097697,
+          "visual_tokens": 576,
+          "output_tokens": 48,
+          "output": "The hand of the man in the first frame is raised in the air, waving. In the second frame, the hand is lowered, and the waving motion is not visible. In the third frame, the hand is raised again",
+          "hit_token_limit": true,
+          "cuda_peak_allocated_bytes": 3703196160,
+          "cuda_peak_reserved_bytes": 3781165056,
+          "language_seconds": 3.476350458979141
+        }
+      ],
+      "image_sizes": [
+        [
+          1280,
+          720
+        ],
+        [
+          1280,
+          720
+        ],
+        [
+          1280,
+          720
+        ],
+        [
+          1280,
+          720
+        ]
+      ]
+    },
+    {
+      "path": "raising-only",
+      "images": [
+        {
+          "path": "/home/jetson/openhalo-mobilevlm-v2/media/rest.jpg",
+          "sha256": "94f0893a1b0c5dfe99b55fef9ea52aab898af1e59b1f558ce0f1342551180833"
+        },
+        {
+          "path": "/home/jetson/openhalo-mobilevlm-v2/media/raised.jpg",
+          "sha256": "772ea1a829615c4594658cb3e10739236f7ca34c9f4522d7bdfa68b202ecfdae"
+        }
+      ],
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": false,
+          "preprocess_seconds": 0.08184188598534092,
+          "generation_seconds": 1.4033922419766895,
+          "total_seconds": 1.4852341279620305,
+          "vision_seconds": 0.1890079079894349,
+          "projector_seconds": 0.003812204988207668,
+          "visual_tokens": 288,
+          "output_tokens": 16,
+          "output": "The hand of the man in the image is waving at the camera.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3588898304,
+          "cuda_peak_reserved_bytes": 3781165056,
+          "language_seconds": 1.210572128999047
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.08128368499455974,
+          "generation_seconds": 1.4011142100207508,
+          "total_seconds": 1.4823978950153105,
+          "vision_seconds": 0.18966563296271488,
+          "projector_seconds": 0.0038809459074400365,
+          "visual_tokens": 288,
+          "output_tokens": 16,
+          "output": "The hand of the man in the image is waving at the camera.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3588898304,
+          "cuda_peak_reserved_bytes": 3781165056,
+          "language_seconds": 1.2075676311505958
+        }
+      ],
+      "image_sizes": [
+        [
+          1280,
+          720
+        ],
+        [
+          1280,
+          720
+        ]
+      ]
+    },
+    {
+      "path": "lowering-only",
+      "images": [
+        {
+          "path": "/home/jetson/openhalo-mobilevlm-v2/media/raised.jpg",
+          "sha256": "772ea1a829615c4594658cb3e10739236f7ca34c9f4522d7bdfa68b202ecfdae"
+        },
+        {
+          "path": "/home/jetson/openhalo-mobilevlm-v2/media/lowered.jpg",
+          "sha256": "262091220adf2e90f9dd7ffa937fdfb57c11604094924492f4949c915cd24270"
+        }
+      ],
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": false,
+          "preprocess_seconds": 0.08103970601223409,
+          "generation_seconds": 3.4571991079719737,
+          "total_seconds": 3.538238813984208,
+          "vision_seconds": 0.19651960994815454,
+          "projector_seconds": 0.004188543010968715,
+          "visual_tokens": 288,
+          "output_tokens": 48,
+          "output": "The hand of the man in the first frame is raised, waving. In the second frame, the hand is lowered, and the waving motion is not visible. In the third frame, the hand is raised again, and the",
+          "hit_token_limit": true,
+          "cuda_peak_allocated_bytes": 3588898304,
+          "cuda_peak_reserved_bytes": 3781165056,
+          "language_seconds": 3.2564909550128505
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.08303733204957098,
+          "generation_seconds": 3.461191823997069,
+          "total_seconds": 3.54422915604664,
+          "vision_seconds": 0.2066980559611693,
+          "projector_seconds": 0.00388331402791664,
+          "visual_tokens": 288,
+          "output_tokens": 48,
+          "output": "The hand of the man in the first frame is raised, waving. In the second frame, the hand is lowered, and the waving motion is not visible. In the third frame, the hand is raised again, and the",
+          "hit_token_limit": true,
+          "cuda_peak_allocated_bytes": 3588898304,
+          "cuda_peak_reserved_bytes": 3781165056,
+          "language_seconds": 3.250610454007983
+        }
+      ],
+      "image_sizes": [
+        [
+          1280,
+          720
+        ],
+        [
+          1280,
+          720
+        ]
+      ]
+    }
+  ],
+  "acceptance": "not accepted; bounded single-image check",
+  "load_seconds": 11.923664710018784,
+  "loading_info": {
+    "missing_keys": [],
+    "unexpected_keys": [],
+    "mismatched_keys": [],
+    "error_msgs": []
+  },
+  "loaded_cuda_allocated_bytes": 3375522816
+}

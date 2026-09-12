@@ -1,0 +1,48 @@
+{
+  "status": "completed",
+  "precision": "FP16",
+  "cases": [
+    {
+      "image": "complete-greeting",
+      "replays": 2,
+      "outputs": [
+        "The hand of the man in the first frame is raised in the air, waving. In the second frame, the hand is lowered, and the waving motion is not visible. In the third frame, the hand is raised again"
+      ],
+      "warmed_total_seconds": [
+        4.1506291790283285
+      ],
+      "warmed_median_seconds": 4.1506291790283285,
+      "truncated": true
+    },
+    {
+      "image": "raising-only",
+      "replays": 2,
+      "outputs": [
+        "The hand of the man in the image is waving at the camera."
+      ],
+      "warmed_total_seconds": [
+        1.4852341279620305,
+        1.4823978950153105
+      ],
+      "warmed_median_seconds": 1.4838160114886705,
+      "truncated": false
+    },
+    {
+      "image": "lowering-only",
+      "replays": 2,
+      "outputs": [
+        "The hand of the man in the first frame is raised, waving. In the second frame, the hand is lowered, and the waving motion is not visible. In the third frame, the hand is raised again, and the"
+      ],
+      "warmed_total_seconds": [
+        3.538238813984208,
+        3.54422915604664
+      ],
+      "warmed_median_seconds": 3.541233985015424,
+      "truncated": true
+    }
+  ],
+  "peak_ram_used_mb": 7463.0,
+  "peak_swap_used_mb": 3134.0,
+  "peak_temperature_c": 61.593,
+  "boundary": "image disk decode/preprocess through generation; excludes capture/event/Runtime; repeats are not accuracy samples or robust P95; token-limited outputs are not complete answers"
+}

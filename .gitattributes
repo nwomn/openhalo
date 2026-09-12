@@ -1,0 +1,7 @@
+# Experiment records reference SHA256 of report and runner bytes. Preserve
+# their original line endings across checkouts; ordinary text diffs still work.
+docs/ops/evidence/2026-09-12-mobilevlm-*/** -text
+docs/ops/evidence/2026-09-12-tinyllava-*/** -text
+experiments/mobilevlm_grounding/*.py -text
+experiments/mobilevlm_v2/*.py -text
+experiments/tinyllava_video/*.py -text

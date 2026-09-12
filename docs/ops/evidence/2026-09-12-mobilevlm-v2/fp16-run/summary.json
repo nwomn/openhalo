@@ -1,0 +1,121 @@
+{
+  "status": "completed",
+  "precision": "FP16",
+  "cases": [
+    {
+      "image": "eating.jpg",
+      "replays": 3,
+      "outputs": [
+        "The person is holding a piece of food in their hand and appears to be eating it."
+      ],
+      "warmed_total_seconds": [
+        1.5685877130017616,
+        1.4170417059795
+      ],
+      "warmed_median_seconds": 1.4928147094906308,
+      "truncated": false
+    },
+    {
+      "image": "raised.jpg",
+      "replays": 3,
+      "outputs": [
+        "The person in the image is waving at the camera, and they are holding a cell phone in one hand."
+      ],
+      "warmed_total_seconds": [
+        1.6585539560182951,
+        1.6584928769734688,
+        1.6498962620389648
+      ],
+      "warmed_median_seconds": 1.6584928769734688,
+      "truncated": false
+    },
+    {
+      "image": "rest.jpg",
+      "replays": 3,
+      "outputs": [
+        "The person in the image is sitting down and appears to be smiling. They are holding a remote control in their hand."
+      ],
+      "warmed_total_seconds": [
+        1.7667607149924152,
+        1.7692560440045781,
+        1.7658949689939618
+      ],
+      "warmed_median_seconds": 1.7667607149924152,
+      "truncated": false
+    },
+    {
+      "image": "lowered.jpg",
+      "replays": 3,
+      "outputs": [
+        "The person is holding a remote control in one hand and a cell phone in the other."
+      ],
+      "warmed_total_seconds": [
+        1.341386119951494,
+        1.3506542249815539,
+        1.3448112499900162
+      ],
+      "warmed_median_seconds": 1.3448112499900162,
+      "truncated": false
+    },
+    {
+      "image": "eating-crop.jpg",
+      "replays": 3,
+      "outputs": [
+        "The person in the image is holding a piece of food in their hand and appears to be eating it."
+      ],
+      "warmed_total_seconds": [
+        1.5821081430185586,
+        1.581302296021022,
+        1.5819864730001427
+      ],
+      "warmed_median_seconds": 1.5819864730001427,
+      "truncated": false
+    },
+    {
+      "image": "raised-crop.jpg",
+      "replays": 3,
+      "outputs": [
+        "The person in the image is waving at the camera, and they are holding a remote control in one hand."
+      ],
+      "warmed_total_seconds": [
+        1.6419732249923982,
+        1.6347830119775608,
+        1.6388191219884902
+      ],
+      "warmed_median_seconds": 1.6388191219884902,
+      "truncated": false
+    },
+    {
+      "image": "rest-crop.jpg",
+      "replays": 3,
+      "outputs": [
+        "The person in the image is sitting down and appears to be looking at something off-camera. They are holding a white object in their hand, which is not clearly visible in the image."
+      ],
+      "warmed_total_seconds": [
+        2.565074859012384,
+        2.588658649008721,
+        2.564078792987857
+      ],
+      "warmed_median_seconds": 2.565074859012384,
+      "truncated": false
+    },
+    {
+      "image": "lowered-crop.jpg",
+      "replays": 3,
+      "outputs": [
+        "The person in the image is holding a white object in their hand."
+      ],
+      "warmed_total_seconds": [
+        1.0932050260016695,
+        1.1014475509873591,
+        1.1014786809682846
+      ],
+      "warmed_median_seconds": 1.1014475509873591,
+      "truncated": false
+    }
+  ],
+  "peak_ram_used_mb": 7397.0,
+  "peak_swap_used_mb": 2998.0,
+  "peak_temperature_c": 61.062,
+  "boundary": "image disk decode/preprocess through generation; excludes capture/event/Runtime; repeats are not accuracy samples or robust P95; token-limited outputs are not complete answers"
+}

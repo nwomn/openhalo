@@ -1,0 +1,3260 @@
+{
+  "status": "completed",
+  "prompt": "What is the person visibly doing? Answer in one short sentence using only clear visual evidence. Do not invent objects, actions, or intentions. If hands are not visible, do not describe what they are holding.",
+  "prompt_version": "conservative-v1+fallible-measurements-v1",
+  "gate_version": "grounding-claims-v1",
+  "precision": "language NF4 double quant / FP16 vision projector head",
+  "max_new_tokens": 48,
+  "torch": "2.5.0a0+872d972e41.nv24.08",
+  "transformers": "4.33.1",
+  "bitsandbytes": "0.48.2",
+  "controls": "A=image+fixed prompt; B=identical image/prompt plus evidence; C=exact B text deterministically checked",
+  "timing": "saved-frame decode through text reply/check; co-resident serial backends; excludes live capture/ROS/Runtime",
+  "source_hashes": {
+    "test_claims.py": "e1ed0ae2918b6b860cad232f8ed6b783126ddd6ac39b2c8f1acceb837689b37e",
+    "benchmark.py": "7fa394fe19c512d2bd7735c3c1de97b98513234678fc992f2793297453961cde",
+    "evidence.py": "c396f203c0c772e2b69cb2fb0ae61123ccb94960b9151136c61fe720297a52d6",
+    "claims.py": "3d68c7898f9816937a3bd028c5332cb1f79cd1c4addd71c5e04d25df14e1bea9"
+  },
+  "cases": [
+    {
+      "name": "challenge-food",
+      "image": "/home/jetson/openhalo-mobilevlm-v2/media/eating.jpg",
+      "source_pts_seconds": 3,
+      "split": "challenge",
+      "sha256": "38e1efc1d25a5d0ed67b5f8ec99a5811e4e43449e46d0096f7f3c4c7f946fb5c",
+      "runs": [
+        {
+          "arm": "A",
+          "repeat": 0,
+          "output": "The person is holding a piece of food in their hands.",
+          "output_tokens": 13,
+          "input_tokens": 87,
+          "generation_seconds": 2.004469593986869,
+          "hit_token_limit": false,
+          "total_seconds": 2.053444970981218,
+          "evidence": null,
+          "evidence_prompt": "",
+          "cuda_peak_allocated_bytes": 1717948416
+        },
+        {
+          "arm": "B",
+          "repeat": 0,
+          "output": "The person is holding a piece of food.",
+          "output_tokens": 10,
+          "input_tokens": 533,
+          "generation_seconds": 1.9501377289998345,
+          "hit_token_limit": false,
+          "total_seconds": 2.0483453269698657,
+          "evidence": {
+            "frame_id": "38e1efc1d25a5d0ed67b5f8ec99a5811e4e43449e46d0096f7f3c4c7f946fb5c",
+            "source_pts_seconds": 3,
+            "pair_skew_ms": 0,
+            "alignment": "exact same decoded saved-frame pixels, not live timestamp synchronization",
+            "detections": [
+              {
+                "id": "d0",
+                "label": "person",
+                "confidence": 0.8822,
+                "bbox": [
+                  0.1278,
+                  0.2231,
+                  0.7103,
+                  0.994
+                ]
+              },
+              {
+                "id": "d1",
+                "label": "tv",
+                "confidence": 0.3759,
+                "bbox": [
+                  0.0002,
+                  0.0033,
+                  0.2983,
+                  0.4898
+                ]
+              }
+            ],
+            "poses": [
+              {
+                "id": "p0",
+                "keypoints": {
+                  "nose": {
+                    "x": 0.6049,
+                    "y": 0.5289,
+                    "confidence": 0.9992,
+                    "usable": true
+                  },
+                  "left_eye": {
+                    "x": 0.614,
+                    "y": 0.4421,
+                    "confidence": 0.9287,
+                    "usable": true
+                  },
+                  "right_eye": {
+                    "x": 0.5619,
+                    "y": 0.4463,
+                    "confidence": 0.9996,
+                    "usable": true
+                  },
+                  "left_ear": {
+                    "x": 0.6051,
+                    "y": 0.4256,
+                    "confidence": 0.0003,
+                    "usable": false
+                  },
+                  "right_ear": {
+                    "x": 0.4358,
+                    "y": 0.4367,
+                    "confidence": 0.9979,
+                    "usable": true
+                  },
+                  "left_shoulder": {
+                    "x": 0.5914,
+                    "y": 0.708,
+                    "confidence": 0.9908,
+                    "usable": true
+                  },
+                  "right_shoulder": {
+                    "x": 0.2348,
+                    "y": 0.8154,
+                    "confidence": 0.978,
+                    "usable": true
+                  },
+                  "left_elbow": {
+                    "x": 0.654,
+                    "y": 0.9416,
+                    "confidence": 0.4744,
+                    "usable": false
+                  },
+                  "right_elbow": {
+                    "x": 0.1815,
+                    "y": 1.0,
+                    "confidence": 0.0021,
+                    "usable": false
+                  },
+                  "left_wrist": {
+                    "x": 0.7464,
+                    "y": 0.9714,
+                    "confidence": 0.1927,
+                    "usable": false
+                  },
+                  "right_wrist": {
+                    "x": 0.4242,
+                    "y": 0.922,
+                    "confidence": 0.019,
+                    "usable": false
+                  },
+                  "left_hip": {
+                    "x": 0.5637,
+                    "y": 0.9904,
+                    "confidence": 0.0003,
+                    "usable": false
+                  },
+                  "right_hip": {
+                    "x": 0.3459,
+                    "y": 1.0,
+                    "confidence": 0.0001,
+                    "usable": false
+                  },
+                  "left_knee": {
+                    "x": 0.6414,
+                    "y": 0.9829,
+                    "confidence": 0.0014,
+                    "usable": false
+                  },
+                  "right_knee": {
+                    "x": 0.4436,
+                    "y": 0.9453,
+                    "confidence": 0.0009,
+                    "usable": false
+                  },
+                  "left_ankle": {
+                    "x": 0.6444,
+                    "y": 1.0,
+                    "confidence": 0.0002,
+                    "usable": false
+                  },
+                  "right_ankle": {
+                    "x": 0.4494,
+                    "y": 1.0,
+                    "confidence": 0.0002,
+                    "usable": false
+                  }
+                }
+              }
+            ],
+            "detector_seconds": 0.022402566042728722,
+            "pose_seconds": 0.023958095000125468,
+            "measurement_seconds": 0.0473634609952569,
+            "missing_detection_means": "unobserved by this detector, not absent",
+            "unmeasured": [
+              "grip/contact",
+              "gaze target",
+              "temporal action",
+              "intent"
+            ]
+          },
+          "evidence_prompt": "Fallible measurements of this exact image (normalized coordinates; low-confidence points are uncertain): {\"detections\":[{\"id\":\"d0\",\"label\":\"person\",\"confidence\":0.8822,\"bbox\":[0.1278,0.2231,0.7103,0.994]},{\"id\":\"d1\",\"label\":\"tv\",\"confidence\":0.3759,\"bbox\":[0.0002,0.0033,0.2983,0.4898]}],\"poses\":[{\"id\":\"p0\",\"keypoints\":{\"nose\":{\"x\":0.6049,\"y\":0.5289,\"confidence\":0.9992,\"usable\":true},\"left_shoulder\":{\"x\":0.5914,\"y\":0.708,\"confidence\":0.9908,\"usable\":true},\"right_shoulder\":{\"x\":0.2348,\"y\":0.8154,\"confidence\":0.978,\"usable\":true},\"left_elbow\":{\"x\":0.654,\"y\":0.9416,\"confidence\":0.4744,\"usable\":false},\"right_elbow\":{\"x\":0.1815,\"y\":1.0,\"confidence\":0.0021,\"usable\":false},\"left_wrist\":{\"x\":0.7464,\"y\":0.9714,\"confidence\":0.1927,\"usable\":false},\"right_wrist\":{\"x\":0.4242,\"y\":0.922,\"confidence\":0.019,\"usable\":false}}}]}\nA missed detection does not prove absence. Boxes or nearby wrists do not prove holding. These measurements do not establish gaze, intent, or temporal actions. Use the image as primary evidence.\n",
+          "cuda_peak_allocated_bytes": 1924492800,
+          "C": {
+            "version": "grounding-claims-v1",
+            "aligned": true,
+            "claims": [
+              {
+                "claim": "The person is holding a piece of food",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "retained_claims": [],
+            "withdrawn_claims": [
+              {
+                "claim": "The person is holding a piece of food",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "all_withdrawn": true,
+            "verified_claim_count": 0,
+            "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+            "gate_seconds": 0.0009643659577704966,
+            "total_seconds": 2.049309692927636
+          }
+        },
+        {
+          "arm": "B",
+          "repeat": 1,
+          "output": "The person is holding a piece of food.",
+          "output_tokens": 10,
+          "input_tokens": 533,
+          "generation_seconds": 1.8039342800038867,
+          "hit_token_limit": false,
+          "total_seconds": 1.8979934889939614,
+          "evidence": {
+            "frame_id": "38e1efc1d25a5d0ed67b5f8ec99a5811e4e43449e46d0096f7f3c4c7f946fb5c",
+            "source_pts_seconds": 3,
+            "pair_skew_ms": 0,
+            "alignment": "exact same decoded saved-frame pixels, not live timestamp synchronization",
+            "detections": [
+              {
+                "id": "d0",
+                "label": "person",
+                "confidence": 0.8822,
+                "bbox": [
+                  0.1278,
+                  0.2231,
+                  0.7103,
+                  0.994
+                ]
+              },
+              {
+                "id": "d1",
+                "label": "tv",
+                "confidence": 0.3759,
+                "bbox": [
+                  0.0002,
+                  0.0033,
+                  0.2983,
+                  0.4898
+                ]
+              }
+            ],
+            "poses": [
+              {
+                "id": "p0",
+                "keypoints": {
+                  "nose": {
+                    "x": 0.6049,
+                    "y": 0.5289,
+                    "confidence": 0.9992,
+                    "usable": true
+                  },
+                  "left_eye": {
+                    "x": 0.614,
+                    "y": 0.4421,
+                    "confidence": 0.9287,
+                    "usable": true
+                  },
+                  "right_eye": {
+                    "x": 0.5619,
+                    "y": 0.4463,
+                    "confidence": 0.9996,
+                    "usable": true
+                  },
+                  "left_ear": {
+                    "x": 0.6051,
+                    "y": 0.4256,
+                    "confidence": 0.0003,
+                    "usable": false
+                  },
+                  "right_ear": {
+                    "x": 0.4358,
+                    "y": 0.4367,
+                    "confidence": 0.9979,
+                    "usable": true
+                  },
+                  "left_shoulder": {
+                    "x": 0.5914,
+                    "y": 0.708,
+                    "confidence": 0.9908,
+                    "usable": true
+                  },
+                  "right_shoulder": {
+                    "x": 0.2348,
+                    "y": 0.8154,
+                    "confidence": 0.978,
+                    "usable": true
+                  },
+                  "left_elbow": {
+                    "x": 0.654,
+                    "y": 0.9416,
+                    "confidence": 0.4744,
+                    "usable": false
+                  },
+                  "right_elbow": {
+                    "x": 0.1815,
+                    "y": 1.0,
+                    "confidence": 0.0021,
+                    "usable": false
+                  },
+                  "left_wrist": {
+                    "x": 0.7464,
+                    "y": 0.9714,
+                    "confidence": 0.1927,
+                    "usable": false
+                  },
+                  "right_wrist": {
+                    "x": 0.4242,
+                    "y": 0.922,
+                    "confidence": 0.019,
+                    "usable": false
+                  },
+                  "left_hip": {
+                    "x": 0.5637,
+                    "y": 0.9904,
+                    "confidence": 0.0003,
+                    "usable": false
+                  },
+                  "right_hip": {
+                    "x": 0.3459,
+                    "y": 1.0,
+                    "confidence": 0.0001,
+                    "usable": false
+                  },
+                  "left_knee": {
+                    "x": 0.6414,
+                    "y": 0.9829,
+                    "confidence": 0.0014,
+                    "usable": false
+                  },
+                  "right_knee": {
+                    "x": 0.4436,
+                    "y": 0.9453,
+                    "confidence": 0.0009,
+                    "usable": false
+                  },
+                  "left_ankle": {
+                    "x": 0.6444,
+                    "y": 1.0,
+                    "confidence": 0.0002,
+                    "usable": false
+                  },
+                  "right_ankle": {
+                    "x": 0.4494,
+                    "y": 1.0,
+                    "confidence": 0.0002,
+                    "usable": false
+                  }
+                }
+              }
+            ],
+            "detector_seconds": 0.019793994026258588,
+            "pose_seconds": 0.021178314986173064,
+            "measurement_seconds": 0.04210295499069616,
+            "missing_detection_means": "unobserved by this detector, not absent",
+            "unmeasured": [
+              "grip/contact",
+              "gaze target",
+              "temporal action",
+              "intent"
+            ]
+          },
+          "evidence_prompt": "Fallible measurements of this exact image (normalized coordinates; low-confidence points are uncertain): {\"detections\":[{\"id\":\"d0\",\"label\":\"person\",\"confidence\":0.8822,\"bbox\":[0.1278,0.2231,0.7103,0.994]},{\"id\":\"d1\",\"label\":\"tv\",\"confidence\":0.3759,\"bbox\":[0.0002,0.0033,0.2983,0.4898]}],\"poses\":[{\"id\":\"p0\",\"keypoints\":{\"nose\":{\"x\":0.6049,\"y\":0.5289,\"confidence\":0.9992,\"usable\":true},\"left_shoulder\":{\"x\":0.5914,\"y\":0.708,\"confidence\":0.9908,\"usable\":true},\"right_shoulder\":{\"x\":0.2348,\"y\":0.8154,\"confidence\":0.978,\"usable\":true},\"left_elbow\":{\"x\":0.654,\"y\":0.9416,\"confidence\":0.4744,\"usable\":false},\"right_elbow\":{\"x\":0.1815,\"y\":1.0,\"confidence\":0.0021,\"usable\":false},\"left_wrist\":{\"x\":0.7464,\"y\":0.9714,\"confidence\":0.1927,\"usable\":false},\"right_wrist\":{\"x\":0.4242,\"y\":0.922,\"confidence\":0.019,\"usable\":false}}}]}\nA missed detection does not prove absence. Boxes or nearby wrists do not prove holding. These measurements do not establish gaze, intent, or temporal actions. Use the image as primary evidence.\n",
+          "cuda_peak_allocated_bytes": 1924496896,
+          "C": {
+            "version": "grounding-claims-v1",
+            "aligned": true,
+            "claims": [
+              {
+                "claim": "The person is holding a piece of food",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "retained_claims": [],
+            "withdrawn_claims": [
+              {
+                "claim": "The person is holding a piece of food",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "all_withdrawn": true,
+            "verified_claim_count": 0,
+            "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+            "gate_seconds": 7.872399874031544e-05,
+            "total_seconds": 1.8980722129927017
+          }
+        },
+        {
+          "arm": "A",
+          "repeat": 1,
+          "output": "The person is holding a piece of food in their hands.",
+          "output_tokens": 13,
+          "input_tokens": 87,
+          "generation_seconds": 1.9674698599847034,
+          "hit_token_limit": false,
+          "total_seconds": 2.01608131499961,
+          "evidence": null,
+          "evidence_prompt": "",
+          "cuda_peak_allocated_bytes": 1717948416
+        }
+      ]
+    },
+    {
+      "name": "challenge-raised",
+      "image": "/home/jetson/openhalo-mobilevlm-v2/media/raised.jpg",
+      "source_pts_seconds": 3.5,
+      "split": "challenge",
+      "sha256": "772ea1a829615c4594658cb3e10739236f7ca34c9f4522d7bdfa68b202ecfdae",
+      "runs": [
+        {
+          "arm": "B",
+          "repeat": 0,
+          "output": "The person is holding their hands up.",
+          "output_tokens": 9,
+          "input_tokens": 480,
+          "generation_seconds": 1.6627587110269815,
+          "hit_token_limit": false,
+          "total_seconds": 1.7614406669745222,
+          "evidence": {
+            "frame_id": "772ea1a829615c4594658cb3e10739236f7ca34c9f4522d7bdfa68b202ecfdae",
+            "source_pts_seconds": 3.5,
+            "pair_skew_ms": 0,
+            "alignment": "exact same decoded saved-frame pixels, not live timestamp synchronization",
+            "detections": [
+              {
+                "id": "d0",
+                "label": "person",
+                "confidence": 0.7927,
+                "bbox": [
+                  0.1177,
+                  0.1289,
+                  0.6547,
+                  0.9955
+                ]
+              }
+            ],
+            "poses": [
+              {
+                "id": "p0",
+                "keypoints": {
+                  "nose": {
+                    "x": 0.5209,
+                    "y": 0.4267,
+                    "confidence": 0.9976,
+                    "usable": true
+                  },
+                  "left_eye": {
+                    "x": 0.5558,
+                    "y": 0.3656,
+                    "confidence": 0.995,
+                    "usable": true
+                  },
+                  "right_eye": {
+                    "x": 0.4788,
+                    "y": 0.3545,
+                    "confidence": 0.9986,
+                    "usable": true
+                  },
+                  "left_ear": {
+                    "x": 0.5935,
+                    "y": 0.4333,
+                    "confidence": 0.6976,
+                    "usable": true
+                  },
+                  "right_ear": {
+                    "x": 0.4151,
+                    "y": 0.4096,
+                    "confidence": 0.9725,
+                    "usable": true
+                  },
+                  "left_shoulder": {
+                    "x": 0.6099,
+                    "y": 0.8078,
+                    "confidence": 0.9131,
+                    "usable": true
+                  },
+                  "right_shoulder": {
+                    "x": 0.2877,
+                    "y": 0.7402,
+                    "confidence": 0.995,
+                    "usable": true
+                  },
+                  "left_elbow": {
+                    "x": 0.6213,
+                    "y": 1.0,
+                    "confidence": 0.0083,
+                    "usable": false
+                  },
+                  "right_elbow": {
+                    "x": 0.1605,
+                    "y": 1.0,
+                    "confidence": 0.082,
+                    "usable": false
+                  },
+                  "left_wrist": {
+                    "x": 0.5977,
+                    "y": 0.8768,
+                    "confidence": 0.0457,
+                    "usable": false
+                  },
+                  "right_wrist": {
+                    "x": 0.2173,
+                    "y": 0.8618,
+                    "confidence": 0.164,
+                    "usable": false
+                  },
+                  "left_hip": {
+                    "x": 0.4968,
+                    "y": 1.0,
+                    "confidence": 0.0003,
+                    "usable": false
+                  },
+                  "right_hip": {
+                    "x": 0.3027,
+                    "y": 0.9927,
+                    "confidence": 0.0005,
+                    "usable": false
+                  },
+                  "left_knee": {
+                    "x": 0.4968,
+                    "y": 0.9498,
+                    "confidence": 0.0003,
+                    "usable": false
+                  },
+                  "right_knee": {
+                    "x": 0.3139,
+                    "y": 0.9066,
+                    "confidence": 0.0012,
+                    "usable": false
+                  },
+                  "left_ankle": {
+                    "x": 0.4643,
+                    "y": 0.9894,
+                    "confidence": 0.0003,
+                    "usable": false
+                  },
+                  "right_ankle": {
+                    "x": 0.2803,
+                    "y": 0.9554,
+                    "confidence": 0.0006,
+                    "usable": false
+                  }
+                }
+              }
+            ],
+            "detector_seconds": 0.022339170973282307,
+            "pose_seconds": 0.024304671038407832,
+            "measurement_seconds": 0.04734147497219965,
+            "missing_detection_means": "unobserved by this detector, not absent",
+            "unmeasured": [
+              "grip/contact",
+              "gaze target",
+              "temporal action",
+              "intent"
+            ]
+          },
+          "evidence_prompt": "Fallible measurements of this exact image (normalized coordinates; low-confidence points are uncertain): {\"detections\":[{\"id\":\"d0\",\"label\":\"person\",\"confidence\":0.7927,\"bbox\":[0.1177,0.1289,0.6547,0.9955]}],\"poses\":[{\"id\":\"p0\",\"keypoints\":{\"nose\":{\"x\":0.5209,\"y\":0.4267,\"confidence\":0.9976,\"usable\":true},\"left_shoulder\":{\"x\":0.6099,\"y\":0.8078,\"confidence\":0.9131,\"usable\":true},\"right_shoulder\":{\"x\":0.2877,\"y\":0.7402,\"confidence\":0.995,\"usable\":true},\"left_elbow\":{\"x\":0.6213,\"y\":1.0,\"confidence\":0.0083,\"usable\":false},\"right_elbow\":{\"x\":0.1605,\"y\":1.0,\"confidence\":0.082,\"usable\":false},\"left_wrist\":{\"x\":0.5977,\"y\":0.8768,\"confidence\":0.0457,\"usable\":false},\"right_wrist\":{\"x\":0.2173,\"y\":0.8618,\"confidence\":0.164,\"usable\":false}}}]}\nA missed detection does not prove absence. Boxes or nearby wrists do not prove holding. These measurements do not establish gaze, intent, or temporal actions. Use the image as primary evidence.\n",
+          "cuda_peak_allocated_bytes": 1900149248,
+          "C": {
+            "version": "grounding-claims-v1",
+            "aligned": true,
+            "claims": [
+              {
+                "claim": "The person is holding their hands up",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "retained_claims": [],
+            "withdrawn_claims": [
+              {
+                "claim": "The person is holding their hands up",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "all_withdrawn": true,
+            "verified_claim_count": 0,
+            "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+            "gate_seconds": 7.901096250861883e-05,
+            "total_seconds": 1.7615196779370308
+          }
+        },
+        {
+          "arm": "A",
+          "repeat": 0,
+          "output": "The person is waving at the camera.",
+          "output_tokens": 10,
+          "input_tokens": 87,
+          "generation_seconds": 1.5565871790167876,
+          "hit_token_limit": false,
+          "total_seconds": 1.6047284030355513,
+          "evidence": null,
+          "evidence_prompt": "",
+          "cuda_peak_allocated_bytes": 1717948416
+        },
+        {
+          "arm": "A",
+          "repeat": 1,
+          "output": "The person is waving at the camera.",
+          "output_tokens": 10,
+          "input_tokens": 87,
+          "generation_seconds": 1.5732801880221814,
+          "hit_token_limit": false,
+          "total_seconds": 1.6218315760488622,
+          "evidence": null,
+          "evidence_prompt": "",
+          "cuda_peak_allocated_bytes": 1717948416
+        },
+        {
+          "arm": "B",
+          "repeat": 1,
+          "output": "The person is holding their hands up.",
+          "output_tokens": 9,
+          "input_tokens": 480,
+          "generation_seconds": 1.6680085720145144,
+          "hit_token_limit": false,
+          "total_seconds": 1.7660148470313288,
+          "evidence": {
+            "frame_id": "772ea1a829615c4594658cb3e10739236f7ca34c9f4522d7bdfa68b202ecfdae",
+            "source_pts_seconds": 3.5,
+            "pair_skew_ms": 0,
+            "alignment": "exact same decoded saved-frame pixels, not live timestamp synchronization",
+            "detections": [
+              {
+                "id": "d0",
+                "label": "person",
+                "confidence": 0.7927,
+                "bbox": [
+                  0.1177,
+                  0.1289,
+                  0.6547,
+                  0.9955
+                ]
+              }
+            ],
+            "poses": [
+              {
+                "id": "p0",
+                "keypoints": {
+                  "nose": {
+                    "x": 0.5209,
+                    "y": 0.4267,
+                    "confidence": 0.9976,
+                    "usable": true
+                  },
+                  "left_eye": {
+                    "x": 0.5558,
+                    "y": 0.3656,
+                    "confidence": 0.995,
+                    "usable": true
+                  },
+                  "right_eye": {
+                    "x": 0.4788,
+                    "y": 0.3545,
+                    "confidence": 0.9986,
+                    "usable": true
+                  },
+                  "left_ear": {
+                    "x": 0.5935,
+                    "y": 0.4333,
+                    "confidence": 0.6976,
+                    "usable": true
+                  },
+                  "right_ear": {
+                    "x": 0.4151,
+                    "y": 0.4096,
+                    "confidence": 0.9725,
+                    "usable": true
+                  },
+                  "left_shoulder": {
+                    "x": 0.6099,
+                    "y": 0.8078,
+                    "confidence": 0.9131,
+                    "usable": true
+                  },
+                  "right_shoulder": {
+                    "x": 0.2877,
+                    "y": 0.7402,
+                    "confidence": 0.995,
+                    "usable": true
+                  },
+                  "left_elbow": {
+                    "x": 0.6213,
+                    "y": 1.0,
+                    "confidence": 0.0083,
+                    "usable": false
+                  },
+                  "right_elbow": {
+                    "x": 0.1605,
+                    "y": 1.0,
+                    "confidence": 0.082,
+                    "usable": false
+                  },
+                  "left_wrist": {
+                    "x": 0.5977,
+                    "y": 0.8768,
+                    "confidence": 0.0457,
+                    "usable": false
+                  },
+                  "right_wrist": {
+                    "x": 0.2173,
+                    "y": 0.8618,
+                    "confidence": 0.164,
+                    "usable": false
+                  },
+                  "left_hip": {
+                    "x": 0.4968,
+                    "y": 1.0,
+                    "confidence": 0.0003,
+                    "usable": false
+                  },
+                  "right_hip": {
+                    "x": 0.3027,
+                    "y": 0.9927,
+                    "confidence": 0.0005,
+                    "usable": false
+                  },
+                  "left_knee": {
+                    "x": 0.4968,
+                    "y": 0.9498,
+                    "confidence": 0.0003,
+                    "usable": false
+                  },
+                  "right_knee": {
+                    "x": 0.3139,
+                    "y": 0.9066,
+                    "confidence": 0.0012,
+                    "usable": false
+                  },
+                  "left_ankle": {
+                    "x": 0.4643,
+                    "y": 0.9894,
+                    "confidence": 0.0003,
+                    "usable": false
+                  },
+                  "right_ankle": {
+                    "x": 0.2803,
+                    "y": 0.9554,
+                    "confidence": 0.0006,
+                    "usable": false
+                  }
+                }
+              }
+            ],
+            "detector_seconds": 0.022473416000138968,
+            "pose_seconds": 0.02400638599647209,
+            "measurement_seconds": 0.047144280979409814,
+            "missing_detection_means": "unobserved by this detector, not absent",
+            "unmeasured": [
+              "grip/contact",
+              "gaze target",
+              "temporal action",
+              "intent"
+            ]
+          },
+          "evidence_prompt": "Fallible measurements of this exact image (normalized coordinates; low-confidence points are uncertain): {\"detections\":[{\"id\":\"d0\",\"label\":\"person\",\"confidence\":0.7927,\"bbox\":[0.1177,0.1289,0.6547,0.9955]}],\"poses\":[{\"id\":\"p0\",\"keypoints\":{\"nose\":{\"x\":0.5209,\"y\":0.4267,\"confidence\":0.9976,\"usable\":true},\"left_shoulder\":{\"x\":0.6099,\"y\":0.8078,\"confidence\":0.9131,\"usable\":true},\"right_shoulder\":{\"x\":0.2877,\"y\":0.7402,\"confidence\":0.995,\"usable\":true},\"left_elbow\":{\"x\":0.6213,\"y\":1.0,\"confidence\":0.0083,\"usable\":false},\"right_elbow\":{\"x\":0.1605,\"y\":1.0,\"confidence\":0.082,\"usable\":false},\"left_wrist\":{\"x\":0.5977,\"y\":0.8768,\"confidence\":0.0457,\"usable\":false},\"right_wrist\":{\"x\":0.2173,\"y\":0.8618,\"confidence\":0.164,\"usable\":false}}}]}\nA missed detection does not prove absence. Boxes or nearby wrists do not prove holding. These measurements do not establish gaze, intent, or temporal actions. Use the image as primary evidence.\n",
+          "cuda_peak_allocated_bytes": 1900149248,
+          "C": {
+            "version": "grounding-claims-v1",
+            "aligned": true,
+            "claims": [
+              {
+                "claim": "The person is holding their hands up",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "retained_claims": [],
+            "withdrawn_claims": [
+              {
+                "claim": "The person is holding their hands up",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "all_withdrawn": true,
+            "verified_claim_count": 0,
+            "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+            "gate_seconds": 7.901102071627975e-05,
+            "total_seconds": 1.766093858052045
+          }
+        }
+      ]
+    },
+    {
+      "name": "challenge-remote",
+      "image": "/home/jetson/openhalo-mobilevlm-v2/media/lowered.jpg",
+      "source_pts_seconds": 7.5,
+      "split": "challenge",
+      "sha256": "262091220adf2e90f9dd7ffa937fdfb57c11604094924492f4949c915cd24270",
+      "runs": [
+        {
+          "arm": "A",
+          "repeat": 0,
+          "output": "The person is smiling and looking at the camera.",
+          "output_tokens": 12,
+          "input_tokens": 87,
+          "generation_seconds": 1.847356354992371,
+          "hit_token_limit": false,
+          "total_seconds": 1.895276832045056,
+          "evidence": null,
+          "evidence_prompt": "",
+          "cuda_peak_allocated_bytes": 1717948416
+        },
+        {
+          "arm": "B",
+          "repeat": 0,
+          "output": "The person is holding a remote control.",
+          "output_tokens": 9,
+          "input_tokens": 529,
+          "generation_seconds": 1.7008846109965816,
+          "hit_token_limit": false,
+          "total_seconds": 1.7994615989737213,
+          "evidence": {
+            "frame_id": "262091220adf2e90f9dd7ffa937fdfb57c11604094924492f4949c915cd24270",
+            "source_pts_seconds": 7.5,
+            "pair_skew_ms": 0,
+            "alignment": "exact same decoded saved-frame pixels, not live timestamp synchronization",
+            "detections": [
+              {
+                "id": "d0",
+                "label": "person",
+                "confidence": 0.924,
+                "bbox": [
+                  0.1461,
+                  0.1845,
+                  0.6469,
+                  0.9938
+                ]
+              },
+              {
+                "id": "d1",
+                "label": "tie",
+                "confidence": 0.4144,
+                "bbox": [
+                  0.4163,
+                  0.8025,
+                  0.524,
+                  1.0
+                ]
+              }
+            ],
+            "poses": [
+              {
+                "id": "p0",
+                "keypoints": {
+                  "nose": {
+                    "x": 0.533,
+                    "y": 0.4658,
+                    "confidence": 0.9976,
+                    "usable": true
+                  },
+                  "left_eye": {
+                    "x": 0.5646,
+                    "y": 0.3951,
+                    "confidence": 0.996,
+                    "usable": true
+                  },
+                  "right_eye": {
+                    "x": 0.4879,
+                    "y": 0.3918,
+                    "confidence": 0.9991,
+                    "usable": true
+                  },
+                  "left_ear": {
+                    "x": 0.6012,
+                    "y": 0.4345,
+                    "confidence": 0.53,
+                    "usable": true
+                  },
+                  "right_ear": {
+                    "x": 0.4203,
+                    "y": 0.4259,
+                    "confidence": 0.9893,
+                    "usable": true
+                  },
+                  "left_shoulder": {
+                    "x": 0.6099,
+                    "y": 0.8397,
+                    "confidence": 0.9158,
+                    "usable": true
+                  },
+                  "right_shoulder": {
+                    "x": 0.2797,
+                    "y": 0.7683,
+                    "confidence": 0.993,
+                    "usable": true
+                  },
+                  "left_elbow": {
+                    "x": 0.6198,
+                    "y": 1.0,
+                    "confidence": 0.0045,
+                    "usable": false
+                  },
+                  "right_elbow": {
+                    "x": 0.1874,
+                    "y": 1.0,
+                    "confidence": 0.0234,
+                    "usable": false
+                  },
+                  "left_wrist": {
+                    "x": 0.6101,
+                    "y": 0.9374,
+                    "confidence": 0.007,
+                    "usable": false
+                  },
+                  "right_wrist": {
+                    "x": 0.3059,
+                    "y": 0.9007,
+                    "confidence": 0.0301,
+                    "usable": false
+                  },
+                  "left_hip": {
+                    "x": 0.4918,
+                    "y": 1.0,
+                    "confidence": 0.0002,
+                    "usable": false
+                  },
+                  "right_hip": {
+                    "x": 0.3067,
+                    "y": 0.9904,
+                    "confidence": 0.0004,
+                    "usable": false
+                  },
+                  "left_knee": {
+                    "x": 0.5046,
+                    "y": 0.9267,
+                    "confidence": 0.0004,
+                    "usable": false
+                  },
+                  "right_knee": {
+                    "x": 0.3404,
+                    "y": 0.8858,
+                    "confidence": 0.0016,
+                    "usable": false
+                  },
+                  "left_ankle": {
+                    "x": 0.4823,
+                    "y": 1.0,
+                    "confidence": 0.0004,
+                    "usable": false
+                  },
+                  "right_ankle": {
+                    "x": 0.3254,
+                    "y": 0.9939,
+                    "confidence": 0.0005,
+                    "usable": false
+                  }
+                }
+              }
+            ],
+            "detector_seconds": 0.0223601310281083,
+            "pose_seconds": 0.023959951009601355,
+            "measurement_seconds": 0.04731644899584353,
+            "missing_detection_means": "unobserved by this detector, not absent",
+            "unmeasured": [
+              "grip/contact",
+              "gaze target",
+              "temporal action",
+              "intent"
+            ]
+          },
+          "evidence_prompt": "Fallible measurements of this exact image (normalized coordinates; low-confidence points are uncertain): {\"detections\":[{\"id\":\"d0\",\"label\":\"person\",\"confidence\":0.924,\"bbox\":[0.1461,0.1845,0.6469,0.9938]},{\"id\":\"d1\",\"label\":\"tie\",\"confidence\":0.4144,\"bbox\":[0.4163,0.8025,0.524,1.0]}],\"poses\":[{\"id\":\"p0\",\"keypoints\":{\"nose\":{\"x\":0.533,\"y\":0.4658,\"confidence\":0.9976,\"usable\":true},\"left_shoulder\":{\"x\":0.6099,\"y\":0.8397,\"confidence\":0.9158,\"usable\":true},\"right_shoulder\":{\"x\":0.2797,\"y\":0.7683,\"confidence\":0.993,\"usable\":true},\"left_elbow\":{\"x\":0.6198,\"y\":1.0,\"confidence\":0.0045,\"usable\":false},\"right_elbow\":{\"x\":0.1874,\"y\":1.0,\"confidence\":0.0234,\"usable\":false},\"left_wrist\":{\"x\":0.6101,\"y\":0.9374,\"confidence\":0.007,\"usable\":false},\"right_wrist\":{\"x\":0.3059,\"y\":0.9007,\"confidence\":0.0301,\"usable\":false}}}]}\nA missed detection does not prove absence. Boxes or nearby wrists do not prove holding. These measurements do not establish gaze, intent, or temporal actions. Use the image as primary evidence.\n",
+          "cuda_peak_allocated_bytes": 1923186176,
+          "C": {
+            "version": "grounding-claims-v1",
+            "aligned": true,
+            "claims": [
+              {
+                "claim": "The person is holding a remote control",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "retained_claims": [],
+            "withdrawn_claims": [
+              {
+                "claim": "The person is holding a remote control",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "all_withdrawn": true,
+            "verified_claim_count": 0,
+            "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+            "gate_seconds": 7.798703154549003e-05,
+            "total_seconds": 1.7995395860052668
+          }
+        },
+        {
+          "arm": "B",
+          "repeat": 1,
+          "output": "The person is holding a remote control.",
+          "output_tokens": 9,
+          "input_tokens": 529,
+          "generation_seconds": 1.6505299949785694,
+          "hit_token_limit": false,
+          "total_seconds": 1.7389914639643393,
+          "evidence": {
+            "frame_id": "262091220adf2e90f9dd7ffa937fdfb57c11604094924492f4949c915cd24270",
+            "source_pts_seconds": 7.5,
+            "pair_skew_ms": 0,
+            "alignment": "exact same decoded saved-frame pixels, not live timestamp synchronization",
+            "detections": [
+              {
+                "id": "d0",
+                "label": "person",
+                "confidence": 0.924,
+                "bbox": [
+                  0.1461,
+                  0.1845,
+                  0.6469,
+                  0.9938
+                ]
+              },
+              {
+                "id": "d1",
+                "label": "tie",
+                "confidence": 0.4144,
+                "bbox": [
+                  0.4163,
+                  0.8025,
+                  0.524,
+                  1.0
+                ]
+              }
+            ],
+            "poses": [
+              {
+                "id": "p0",
+                "keypoints": {
+                  "nose": {
+                    "x": 0.533,
+                    "y": 0.4658,
+                    "confidence": 0.9976,
+                    "usable": true
+                  },
+                  "left_eye": {
+                    "x": 0.5646,
+                    "y": 0.3951,
+                    "confidence": 0.996,
+                    "usable": true
+                  },
+                  "right_eye": {
+                    "x": 0.4879,
+                    "y": 0.3918,
+                    "confidence": 0.9991,
+                    "usable": true
+                  },
+                  "left_ear": {
+                    "x": 0.6012,
+                    "y": 0.4345,
+                    "confidence": 0.53,
+                    "usable": true
+                  },
+                  "right_ear": {
+                    "x": 0.4203,
+                    "y": 0.4259,
+                    "confidence": 0.9893,
+                    "usable": true
+                  },
+                  "left_shoulder": {
+                    "x": 0.6099,
+                    "y": 0.8397,
+                    "confidence": 0.9158,
+                    "usable": true
+                  },
+                  "right_shoulder": {
+                    "x": 0.2797,
+                    "y": 0.7683,
+                    "confidence": 0.993,
+                    "usable": true
+                  },
+                  "left_elbow": {
+                    "x": 0.6198,
+                    "y": 1.0,
+                    "confidence": 0.0045,
+                    "usable": false
+                  },
+                  "right_elbow": {
+                    "x": 0.1874,
+                    "y": 1.0,
+                    "confidence": 0.0234,
+                    "usable": false
+                  },
+                  "left_wrist": {
+                    "x": 0.6101,
+                    "y": 0.9374,
+                    "confidence": 0.007,
+                    "usable": false
+                  },
+                  "right_wrist": {
+                    "x": 0.3059,
+                    "y": 0.9007,
+                    "confidence": 0.0301,
+                    "usable": false
+                  },
+                  "left_hip": {
+                    "x": 0.4918,
+                    "y": 1.0,
+                    "confidence": 0.0002,
+                    "usable": false
+                  },
+                  "right_hip": {
+                    "x": 0.3067,
+                    "y": 0.9904,
+                    "confidence": 0.0004,
+                    "usable": false
+                  },
+                  "left_knee": {
+                    "x": 0.5046,
+                    "y": 0.9267,
+                    "confidence": 0.0004,
+                    "usable": false
+                  },
+                  "right_knee": {
+                    "x": 0.3404,
+                    "y": 0.8858,
+                    "confidence": 0.0016,
+                    "usable": false
+                  },
+                  "left_ankle": {
+                    "x": 0.4823,
+                    "y": 1.0,
+                    "confidence": 0.0004,
+                    "usable": false
+                  },
+                  "right_ankle": {
+                    "x": 0.3254,
+                    "y": 0.9939,
+                    "confidence": 0.0005,
+                    "usable": false
+                  }
+                }
+              }
+            ],
+            "detector_seconds": 0.017273330013267696,
+            "pose_seconds": 0.01937214902136475,
+            "measurement_seconds": 0.03768300003139302,
+            "missing_detection_means": "unobserved by this detector, not absent",
+            "unmeasured": [
+              "grip/contact",
+              "gaze target",
+              "temporal action",
+              "intent"
+            ]
+          },
+          "evidence_prompt": "Fallible measurements of this exact image (normalized coordinates; low-confidence points are uncertain): {\"detections\":[{\"id\":\"d0\",\"label\":\"person\",\"confidence\":0.924,\"bbox\":[0.1461,0.1845,0.6469,0.9938]},{\"id\":\"d1\",\"label\":\"tie\",\"confidence\":0.4144,\"bbox\":[0.4163,0.8025,0.524,1.0]}],\"poses\":[{\"id\":\"p0\",\"keypoints\":{\"nose\":{\"x\":0.533,\"y\":0.4658,\"confidence\":0.9976,\"usable\":true},\"left_shoulder\":{\"x\":0.6099,\"y\":0.8397,\"confidence\":0.9158,\"usable\":true},\"right_shoulder\":{\"x\":0.2797,\"y\":0.7683,\"confidence\":0.993,\"usable\":true},\"left_elbow\":{\"x\":0.6198,\"y\":1.0,\"confidence\":0.0045,\"usable\":false},\"right_elbow\":{\"x\":0.1874,\"y\":1.0,\"confidence\":0.0234,\"usable\":false},\"left_wrist\":{\"x\":0.6101,\"y\":0.9374,\"confidence\":0.007,\"usable\":false},\"right_wrist\":{\"x\":0.3059,\"y\":0.9007,\"confidence\":0.0301,\"usable\":false}}}]}\nA missed detection does not prove absence. Boxes or nearby wrists do not prove holding. These measurements do not establish gaze, intent, or temporal actions. Use the image as primary evidence.\n",
+          "cuda_peak_allocated_bytes": 1923186176,
+          "C": {
+            "version": "grounding-claims-v1",
+            "aligned": true,
+            "claims": [
+              {
+                "claim": "The person is holding a remote control",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "retained_claims": [],
+            "withdrawn_claims": [
+              {
+                "claim": "The person is holding a remote control",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "all_withdrawn": true,
+            "verified_claim_count": 0,
+            "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+            "gate_seconds": 7.552397437393665e-05,
+            "total_seconds": 1.7390669879387133
+          }
+        },
+        {
+          "arm": "A",
+          "repeat": 1,
+          "output": "The person is smiling and looking at the camera.",
+          "output_tokens": 12,
+          "input_tokens": 87,
+          "generation_seconds": 1.8144402130274102,
+          "hit_token_limit": false,
+          "total_seconds": 1.8630462269647978,
+          "evidence": null,
+          "evidence_prompt": "",
+          "cuda_peak_allocated_bytes": 1717948416
+        }
+      ]
+    },
+    {
+      "name": "challenge-screen",
+      "image": "/home/jetson/openhalo-mobilevlm-v2/fresh/frame-20.jpg",
+      "source_pts_seconds": 20,
+      "split": "challenge",
+      "sha256": "b4e5ce6e82fc32baaf543b38363304ba62329e4e293dea22686fdbc5b48cd6b1",
+      "runs": [
+        {
+          "arm": "B",
+          "repeat": 0,
+          "output": "The person is sitting in front of a computer.",
+          "output_tokens": 11,
+          "input_tokens": 265,
+          "generation_seconds": 1.8170579300494865,
+          "hit_token_limit": false,
+          "total_seconds": 1.914104827970732,
+          "evidence": {
+            "frame_id": "b4e5ce6e82fc32baaf543b38363304ba62329e4e293dea22686fdbc5b48cd6b1",
+            "source_pts_seconds": 20,
+            "pair_skew_ms": 0,
+            "alignment": "exact same decoded saved-frame pixels, not live timestamp synchronization",
+            "detections": [
+              {
+                "id": "d0",
+                "label": "tv",
+                "confidence": 0.6066,
+                "bbox": [
+                  0.0,
+                  0.0016,
+                  0.2592,
+                  0.4821
+                ]
+              },
+              {
+                "id": "d1",
+                "label": "person",
+                "confidence": 0.3821,
+                "bbox": [
+                  0.5876,
+                  0.732,
+                  0.9036,
+                  0.9961
+                ]
+              }
+            ],
+            "poses": [],
+            "detector_seconds": 0.02243610197911039,
+            "pose_seconds": 0.02358658902812749,
+            "measurement_seconds": 0.04712287097936496,
+            "missing_detection_means": "unobserved by this detector, not absent",
+            "unmeasured": [
+              "grip/contact",
+              "gaze target",
+              "temporal action",
+              "intent"
+            ]
+          },
+          "evidence_prompt": "Fallible measurements of this exact image (normalized coordinates; low-confidence points are uncertain): {\"detections\":[{\"id\":\"d0\",\"label\":\"tv\",\"confidence\":0.6066,\"bbox\":[0.0,0.0016,0.2592,0.4821]},{\"id\":\"d1\",\"label\":\"person\",\"confidence\":0.3821,\"bbox\":[0.5876,0.732,0.9036,0.9961]}],\"poses\":[]}\nA missed detection does not prove absence. Boxes or nearby wrists do not prove holding. These measurements do not establish gaze, intent, or temporal actions. Use the image as primary evidence.\n",
+          "cuda_peak_allocated_bytes": 1805808128,
+          "C": {
+            "version": "grounding-claims-v1",
+            "aligned": true,
+            "claims": [
+              {
+                "claim": "The person is sitting in front of a computer",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "retained_claims": [],
+            "withdrawn_claims": [
+              {
+                "claim": "The person is sitting in front of a computer",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "all_withdrawn": true,
+            "verified_claim_count": 0,
+            "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+            "gate_seconds": 7.664394797757268e-05,
+            "total_seconds": 1.9141814719187096
+          }
+        },
+        {
+          "arm": "A",
+          "repeat": 0,
+          "output": "The person is sitting at a desk and looking at a computer screen.",
+          "output_tokens": 16,
+          "input_tokens": 87,
+          "generation_seconds": 2.4026802990119904,
+          "hit_token_limit": false,
+          "total_seconds": 2.4517826880328357,
+          "evidence": null,
+          "evidence_prompt": "",
+          "cuda_peak_allocated_bytes": 1717947904
+        },
+        {
+          "arm": "A",
+          "repeat": 1,
+          "output": "The person is sitting at a desk and looking at a computer screen.",
+          "output_tokens": 16,
+          "input_tokens": 87,
+          "generation_seconds": 2.385673208045773,
+          "hit_token_limit": false,
+          "total_seconds": 2.43496447004145,
+          "evidence": null,
+          "evidence_prompt": "",
+          "cuda_peak_allocated_bytes": 1717947904
+        },
+        {
+          "arm": "B",
+          "repeat": 1,
+          "output": "The person is sitting in front of a computer.",
+          "output_tokens": 11,
+          "input_tokens": 265,
+          "generation_seconds": 1.8306298709940165,
+          "hit_token_limit": false,
+          "total_seconds": 1.9294522770214826,
+          "evidence": {
+            "frame_id": "b4e5ce6e82fc32baaf543b38363304ba62329e4e293dea22686fdbc5b48cd6b1",
+            "source_pts_seconds": 20,
+            "pair_skew_ms": 0,
+            "alignment": "exact same decoded saved-frame pixels, not live timestamp synchronization",
+            "detections": [
+              {
+                "id": "d0",
+                "label": "tv",
+                "confidence": 0.6066,
+                "bbox": [
+                  0.0,
+                  0.0016,
+                  0.2592,
+                  0.4821
+                ]
+              },
+              {
+                "id": "d1",
+                "label": "person",
+                "confidence": 0.3821,
+                "bbox": [
+                  0.5876,
+                  0.732,
+                  0.9036,
+                  0.9961
+                ]
+              }
+            ],
+            "poses": [],
+            "detector_seconds": 0.023813926964066923,
+            "pose_seconds": 0.02376048400765285,
+            "measurement_seconds": 0.04865503899054602,
+            "missing_detection_means": "unobserved by this detector, not absent",
+            "unmeasured": [
+              "grip/contact",
+              "gaze target",
+              "temporal action",
+              "intent"
+            ]
+          },
+          "evidence_prompt": "Fallible measurements of this exact image (normalized coordinates; low-confidence points are uncertain): {\"detections\":[{\"id\":\"d0\",\"label\":\"tv\",\"confidence\":0.6066,\"bbox\":[0.0,0.0016,0.2592,0.4821]},{\"id\":\"d1\",\"label\":\"person\",\"confidence\":0.3821,\"bbox\":[0.5876,0.732,0.9036,0.9961]}],\"poses\":[]}\nA missed detection does not prove absence. Boxes or nearby wrists do not prove holding. These measurements do not establish gaze, intent, or temporal actions. Use the image as primary evidence.\n",
+          "cuda_peak_allocated_bytes": 1805808128,
+          "C": {
+            "version": "grounding-claims-v1",
+            "aligned": true,
+            "claims": [
+              {
+                "claim": "The person is sitting in front of a computer",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "retained_claims": [],
+            "withdrawn_claims": [
+              {
+                "claim": "The person is sitting in front of a computer",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "all_withdrawn": true,
+            "verified_claim_count": 0,
+            "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+            "gate_seconds": 7.961899973452091e-05,
+            "total_seconds": 1.929531896021217
+          }
+        }
+      ]
+    },
+    {
+      "name": "heldout-b-rest",
+      "image": "/home/jetson/openhalo-mobilevlm-grounding/media/heldout-b-rest.jpg",
+      "source_video": "/home/jetson/openhalo-tinyllava-greeting-20260912-1930/greeting-b.mp4",
+      "source_pts_seconds": 0,
+      "split": "heldout",
+      "sha256": "738175944990572364def38c7bd5095423c4939c8093ac1e2fae367e9bf183e1",
+      "runs": [
+        {
+          "arm": "A",
+          "repeat": 0,
+          "output": "The person is sitting down and looking at the camera.",
+          "output_tokens": 12,
+          "input_tokens": 87,
+          "generation_seconds": 1.838970547018107,
+          "hit_token_limit": false,
+          "total_seconds": 1.8879853140097111,
+          "evidence": null,
+          "evidence_prompt": "",
+          "cuda_peak_allocated_bytes": 1717947904
+        },
+        {
+          "arm": "B",
+          "repeat": 0,
+          "output": "The person is holding a remote control.",
+          "output_tokens": 9,
+          "input_tokens": 537,
+          "generation_seconds": 1.6999734329874627,
+          "hit_token_limit": false,
+          "total_seconds": 1.7989450289751403,
+          "evidence": {
+            "frame_id": "738175944990572364def38c7bd5095423c4939c8093ac1e2fae367e9bf183e1",
+            "source_pts_seconds": 0,
+            "pair_skew_ms": 0,
+            "alignment": "exact same decoded saved-frame pixels, not live timestamp synchronization",
+            "detections": [
+              {
+                "id": "d0",
+                "label": "person",
+                "confidence": 0.7834,
+                "bbox": [
+                  0.1706,
+                  0.1676,
+                  0.7794,
+                  0.9914
+                ]
+              },
+              {
+                "id": "d1",
+                "label": "tv",
+                "confidence": 0.3985,
+                "bbox": [
+                  0.0001,
+                  0.0019,
+                  0.2912,
+                  0.4784
+                ]
+              }
+            ],
+            "poses": [
+              {
+                "id": "p0",
+                "keypoints": {
+                  "nose": {
+                    "x": 0.5568,
+                    "y": 0.5587,
+                    "confidence": 0.9987,
+                    "usable": true
+                  },
+                  "left_eye": {
+                    "x": 0.5933,
+                    "y": 0.4688,
+                    "confidence": 0.9952,
+                    "usable": true
+                  },
+                  "right_eye": {
+                    "x": 0.5108,
+                    "y": 0.4643,
+                    "confidence": 0.9985,
+                    "usable": true
+                  },
+                  "left_ear": {
+                    "x": 0.6333,
+                    "y": 0.4815,
+                    "confidence": 0.3137,
+                    "usable": false
+                  },
+                  "right_ear": {
+                    "x": 0.4424,
+                    "y": 0.4685,
+                    "confidence": 0.9831,
+                    "usable": true
+                  },
+                  "left_shoulder": {
+                    "x": 0.6273,
+                    "y": 0.8211,
+                    "confidence": 0.8945,
+                    "usable": true
+                  },
+                  "right_shoulder": {
+                    "x": 0.2672,
+                    "y": 0.8124,
+                    "confidence": 0.9865,
+                    "usable": true
+                  },
+                  "left_elbow": {
+                    "x": 0.644,
+                    "y": 0.9913,
+                    "confidence": 0.0212,
+                    "usable": false
+                  },
+                  "right_elbow": {
+                    "x": 0.2123,
+                    "y": 1.0,
+                    "confidence": 0.0057,
+                    "usable": false
+                  },
+                  "left_wrist": {
+                    "x": 0.689,
+                    "y": 0.8625,
+                    "confidence": 0.1207,
+                    "usable": false
+                  },
+                  "right_wrist": {
+                    "x": 0.4086,
+                    "y": 0.9586,
+                    "confidence": 0.0376,
+                    "usable": false
+                  },
+                  "left_hip": {
+                    "x": 0.523,
+                    "y": 0.9732,
+                    "confidence": 0.0004,
+                    "usable": false
+                  },
+                  "right_hip": {
+                    "x": 0.3158,
+                    "y": 0.9902,
+                    "confidence": 0.0003,
+                    "usable": false
+                  },
+                  "left_knee": {
+                    "x": 0.5634,
+                    "y": 0.9585,
+                    "confidence": 0.0008,
+                    "usable": false
+                  },
+                  "right_knee": {
+                    "x": 0.4168,
+                    "y": 0.9229,
+                    "confidence": 0.0008,
+                    "usable": false
+                  },
+                  "left_ankle": {
+                    "x": 0.5423,
+                    "y": 1.0,
+                    "confidence": 0.0004,
+                    "usable": false
+                  },
+                  "right_ankle": {
+                    "x": 0.3961,
+                    "y": 0.9827,
+                    "confidence": 0.0002,
+                    "usable": false
+                  }
+                }
+              }
+            ],
+            "detector_seconds": 0.022343361983075738,
+            "pose_seconds": 0.024428868026006967,
+            "measurement_seconds": 0.04803542501758784,
+            "missing_detection_means": "unobserved by this detector, not absent",
+            "unmeasured": [
+              "grip/contact",
+              "gaze target",
+              "temporal action",
+              "intent"
+            ]
+          },
+          "evidence_prompt": "Fallible measurements of this exact image (normalized coordinates; low-confidence points are uncertain): {\"detections\":[{\"id\":\"d0\",\"label\":\"person\",\"confidence\":0.7834,\"bbox\":[0.1706,0.1676,0.7794,0.9914]},{\"id\":\"d1\",\"label\":\"tv\",\"confidence\":0.3985,\"bbox\":[0.0001,0.0019,0.2912,0.4784]}],\"poses\":[{\"id\":\"p0\",\"keypoints\":{\"nose\":{\"x\":0.5568,\"y\":0.5587,\"confidence\":0.9987,\"usable\":true},\"left_shoulder\":{\"x\":0.6273,\"y\":0.8211,\"confidence\":0.8945,\"usable\":true},\"right_shoulder\":{\"x\":0.2672,\"y\":0.8124,\"confidence\":0.9865,\"usable\":true},\"left_elbow\":{\"x\":0.644,\"y\":0.9913,\"confidence\":0.0212,\"usable\":false},\"right_elbow\":{\"x\":0.2123,\"y\":1.0,\"confidence\":0.0057,\"usable\":false},\"left_wrist\":{\"x\":0.689,\"y\":0.8625,\"confidence\":0.1207,\"usable\":false},\"right_wrist\":{\"x\":0.4086,\"y\":0.9586,\"confidence\":0.0376,\"usable\":false}}}]}\nA missed detection does not prove absence. Boxes or nearby wrists do not prove holding. These measurements do not establish gaze, intent, or temporal actions. Use the image as primary evidence.\n",
+          "cuda_peak_allocated_bytes": 1925807616,
+          "C": {
+            "version": "grounding-claims-v1",
+            "aligned": true,
+            "claims": [
+              {
+                "claim": "The person is holding a remote control",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "retained_claims": [],
+            "withdrawn_claims": [
+              {
+                "claim": "The person is holding a remote control",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "all_withdrawn": true,
+            "verified_claim_count": 0,
+            "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+            "gate_seconds": 7.987598655745387e-05,
+            "total_seconds": 1.7990249049616978
+          }
+        },
+        {
+          "arm": "B",
+          "repeat": 1,
+          "output": "The person is holding a remote control.",
+          "output_tokens": 9,
+          "input_tokens": 537,
+          "generation_seconds": 1.657948973996099,
+          "hit_token_limit": false,
+          "total_seconds": 1.7495550370076671,
+          "evidence": {
+            "frame_id": "738175944990572364def38c7bd5095423c4939c8093ac1e2fae367e9bf183e1",
+            "source_pts_seconds": 0,
+            "pair_skew_ms": 0,
+            "alignment": "exact same decoded saved-frame pixels, not live timestamp synchronization",
+            "detections": [
+              {
+                "id": "d0",
+                "label": "person",
+                "confidence": 0.7834,
+                "bbox": [
+                  0.1706,
+                  0.1676,
+                  0.7794,
+                  0.9914
+                ]
+              },
+              {
+                "id": "d1",
+                "label": "tv",
+                "confidence": 0.3985,
+                "bbox": [
+                  0.0001,
+                  0.0019,
+                  0.2912,
+                  0.4784
+                ]
+              }
+            ],
+            "poses": [
+              {
+                "id": "p0",
+                "keypoints": {
+                  "nose": {
+                    "x": 0.5568,
+                    "y": 0.5587,
+                    "confidence": 0.9987,
+                    "usable": true
+                  },
+                  "left_eye": {
+                    "x": 0.5933,
+                    "y": 0.4688,
+                    "confidence": 0.9952,
+                    "usable": true
+                  },
+                  "right_eye": {
+                    "x": 0.5108,
+                    "y": 0.4643,
+                    "confidence": 0.9985,
+                    "usable": true
+                  },
+                  "left_ear": {
+                    "x": 0.6333,
+                    "y": 0.4815,
+                    "confidence": 0.3137,
+                    "usable": false
+                  },
+                  "right_ear": {
+                    "x": 0.4424,
+                    "y": 0.4685,
+                    "confidence": 0.9831,
+                    "usable": true
+                  },
+                  "left_shoulder": {
+                    "x": 0.6273,
+                    "y": 0.8211,
+                    "confidence": 0.8945,
+                    "usable": true
+                  },
+                  "right_shoulder": {
+                    "x": 0.2672,
+                    "y": 0.8124,
+                    "confidence": 0.9865,
+                    "usable": true
+                  },
+                  "left_elbow": {
+                    "x": 0.644,
+                    "y": 0.9913,
+                    "confidence": 0.0212,
+                    "usable": false
+                  },
+                  "right_elbow": {
+                    "x": 0.2123,
+                    "y": 1.0,
+                    "confidence": 0.0057,
+                    "usable": false
+                  },
+                  "left_wrist": {
+                    "x": 0.689,
+                    "y": 0.8625,
+                    "confidence": 0.1207,
+                    "usable": false
+                  },
+                  "right_wrist": {
+                    "x": 0.4086,
+                    "y": 0.9586,
+                    "confidence": 0.0376,
+                    "usable": false
+                  },
+                  "left_hip": {
+                    "x": 0.523,
+                    "y": 0.9732,
+                    "confidence": 0.0004,
+                    "usable": false
+                  },
+                  "right_hip": {
+                    "x": 0.3158,
+                    "y": 0.9902,
+                    "confidence": 0.0003,
+                    "usable": false
+                  },
+                  "left_knee": {
+                    "x": 0.5634,
+                    "y": 0.9585,
+                    "confidence": 0.0008,
+                    "usable": false
+                  },
+                  "right_knee": {
+                    "x": 0.4168,
+                    "y": 0.9229,
+                    "confidence": 0.0008,
+                    "usable": false
+                  },
+                  "left_ankle": {
+                    "x": 0.5423,
+                    "y": 1.0,
+                    "confidence": 0.0004,
+                    "usable": false
+                  },
+                  "right_ankle": {
+                    "x": 0.3961,
+                    "y": 0.9827,
+                    "confidence": 0.0002,
+                    "usable": false
+                  }
+                }
+              }
+            ],
+            "detector_seconds": 0.01882869895780459,
+            "pose_seconds": 0.020577102026436478,
+            "measurement_seconds": 0.04049241199390963,
+            "missing_detection_means": "unobserved by this detector, not absent",
+            "unmeasured": [
+              "grip/contact",
+              "gaze target",
+              "temporal action",
+              "intent"
+            ]
+          },
+          "evidence_prompt": "Fallible measurements of this exact image (normalized coordinates; low-confidence points are uncertain): {\"detections\":[{\"id\":\"d0\",\"label\":\"person\",\"confidence\":0.7834,\"bbox\":[0.1706,0.1676,0.7794,0.9914]},{\"id\":\"d1\",\"label\":\"tv\",\"confidence\":0.3985,\"bbox\":[0.0001,0.0019,0.2912,0.4784]}],\"poses\":[{\"id\":\"p0\",\"keypoints\":{\"nose\":{\"x\":0.5568,\"y\":0.5587,\"confidence\":0.9987,\"usable\":true},\"left_shoulder\":{\"x\":0.6273,\"y\":0.8211,\"confidence\":0.8945,\"usable\":true},\"right_shoulder\":{\"x\":0.2672,\"y\":0.8124,\"confidence\":0.9865,\"usable\":true},\"left_elbow\":{\"x\":0.644,\"y\":0.9913,\"confidence\":0.0212,\"usable\":false},\"right_elbow\":{\"x\":0.2123,\"y\":1.0,\"confidence\":0.0057,\"usable\":false},\"left_wrist\":{\"x\":0.689,\"y\":0.8625,\"confidence\":0.1207,\"usable\":false},\"right_wrist\":{\"x\":0.4086,\"y\":0.9586,\"confidence\":0.0376,\"usable\":false}}}]}\nA missed detection does not prove absence. Boxes or nearby wrists do not prove holding. These measurements do not establish gaze, intent, or temporal actions. Use the image as primary evidence.\n",
+          "cuda_peak_allocated_bytes": 1925807616,
+          "C": {
+            "version": "grounding-claims-v1",
+            "aligned": true,
+            "claims": [
+              {
+                "claim": "The person is holding a remote control",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "retained_claims": [],
+            "withdrawn_claims": [
+              {
+                "claim": "The person is holding a remote control",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "all_withdrawn": true,
+            "verified_claim_count": 0,
+            "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+            "gate_seconds": 7.741100853309035e-05,
+            "total_seconds": 1.7496324480162002
+          }
+        },
+        {
+          "arm": "A",
+          "repeat": 1,
+          "output": "The person is sitting down and looking at the camera.",
+          "output_tokens": 12,
+          "input_tokens": 87,
+          "generation_seconds": 1.830189917003736,
+          "hit_token_limit": false,
+          "total_seconds": 1.8784510160330683,
+          "evidence": null,
+          "evidence_prompt": "",
+          "cuda_peak_allocated_bytes": 1717948416
+        }
+      ]
+    },
+    {
+      "name": "heldout-b-raised",
+      "image": "/home/jetson/openhalo-mobilevlm-grounding/media/heldout-b-raised.jpg",
+      "source_video": "/home/jetson/openhalo-tinyllava-greeting-20260912-1930/greeting-b.mp4",
+      "source_pts_seconds": 3.5,
+      "split": "heldout",
+      "sha256": "00363c60eab9f7b795740ca45890670475dbaea9d71df11bc312ad0f4cff32fe",
+      "runs": [
+        {
+          "arm": "B",
+          "repeat": 0,
+          "output": "The person is holding a hand.",
+          "output_tokens": 8,
+          "input_tokens": 532,
+          "generation_seconds": 1.5846179410000332,
+          "hit_token_limit": false,
+          "total_seconds": 1.683981042006053,
+          "evidence": {
+            "frame_id": "00363c60eab9f7b795740ca45890670475dbaea9d71df11bc312ad0f4cff32fe",
+            "source_pts_seconds": 3.5,
+            "pair_skew_ms": 0,
+            "alignment": "exact same decoded saved-frame pixels, not live timestamp synchronization",
+            "detections": [
+              {
+                "id": "d0",
+                "label": "person",
+                "confidence": 0.7349,
+                "bbox": [
+                  0.0817,
+                  0.0741,
+                  0.6637,
+                  0.9937
+                ]
+              },
+              {
+                "id": "d1",
+                "label": "tv",
+                "confidence": 0.4805,
+                "bbox": [
+                  0.0,
+                  0.0037,
+                  0.2981,
+                  0.4828
+                ]
+              }
+            ],
+            "poses": [
+              {
+                "id": "p0",
+                "keypoints": {
+                  "nose": {
+                    "x": 0.4959,
+                    "y": 0.4108,
+                    "confidence": 0.9968,
+                    "usable": true
+                  },
+                  "left_eye": {
+                    "x": 0.5369,
+                    "y": 0.35,
+                    "confidence": 0.999,
+                    "usable": true
+                  },
+                  "right_eye": {
+                    "x": 0.4575,
+                    "y": 0.3409,
+                    "confidence": 0.9983,
+                    "usable": true
+                  },
+                  "left_ear": {
+                    "x": 0.5853,
+                    "y": 0.4254,
+                    "confidence": 0.9494,
+                    "usable": true
+                  },
+                  "right_ear": {
+                    "x": 0.404,
+                    "y": 0.4032,
+                    "confidence": 0.947,
+                    "usable": true
+                  },
+                  "left_shoulder": {
+                    "x": 0.6174,
+                    "y": 0.8355,
+                    "confidence": 0.8909,
+                    "usable": true
+                  },
+                  "right_shoulder": {
+                    "x": 0.3065,
+                    "y": 0.8084,
+                    "confidence": 0.9505,
+                    "usable": true
+                  },
+                  "left_elbow": {
+                    "x": 0.6431,
+                    "y": 1.0,
+                    "confidence": 0.0049,
+                    "usable": false
+                  },
+                  "right_elbow": {
+                    "x": 0.2606,
+                    "y": 1.0,
+                    "confidence": 0.0065,
+                    "usable": false
+                  },
+                  "left_wrist": {
+                    "x": 0.6263,
+                    "y": 0.9159,
+                    "confidence": 0.019,
+                    "usable": false
+                  },
+                  "right_wrist": {
+                    "x": 0.2717,
+                    "y": 0.9136,
+                    "confidence": 0.0394,
+                    "usable": false
+                  },
+                  "left_hip": {
+                    "x": 0.5367,
+                    "y": 1.0,
+                    "confidence": 0.0,
+                    "usable": false
+                  },
+                  "right_hip": {
+                    "x": 0.3634,
+                    "y": 1.0,
+                    "confidence": 0.0,
+                    "usable": false
+                  },
+                  "left_knee": {
+                    "x": 0.5359,
+                    "y": 0.946,
+                    "confidence": 0.0002,
+                    "usable": false
+                  },
+                  "right_knee": {
+                    "x": 0.407,
+                    "y": 0.9105,
+                    "confidence": 0.0009,
+                    "usable": false
+                  },
+                  "left_ankle": {
+                    "x": 0.5202,
+                    "y": 1.0,
+                    "confidence": 0.0003,
+                    "usable": false
+                  },
+                  "right_ankle": {
+                    "x": 0.3957,
+                    "y": 0.9804,
+                    "confidence": 0.0009,
+                    "usable": false
+                  }
+                }
+              }
+            ],
+            "detector_seconds": 0.022900122974533588,
+            "pose_seconds": 0.024544810003135353,
+            "measurement_seconds": 0.04858876299113035,
+            "missing_detection_means": "unobserved by this detector, not absent",
+            "unmeasured": [
+              "grip/contact",
+              "gaze target",
+              "temporal action",
+              "intent"
+            ]
+          },
+          "evidence_prompt": "Fallible measurements of this exact image (normalized coordinates; low-confidence points are uncertain): {\"detections\":[{\"id\":\"d0\",\"label\":\"person\",\"confidence\":0.7349,\"bbox\":[0.0817,0.0741,0.6637,0.9937]},{\"id\":\"d1\",\"label\":\"tv\",\"confidence\":0.4805,\"bbox\":[0.0,0.0037,0.2981,0.4828]}],\"poses\":[{\"id\":\"p0\",\"keypoints\":{\"nose\":{\"x\":0.4959,\"y\":0.4108,\"confidence\":0.9968,\"usable\":true},\"left_shoulder\":{\"x\":0.6174,\"y\":0.8355,\"confidence\":0.8909,\"usable\":true},\"right_shoulder\":{\"x\":0.3065,\"y\":0.8084,\"confidence\":0.9505,\"usable\":true},\"left_elbow\":{\"x\":0.6431,\"y\":1.0,\"confidence\":0.0049,\"usable\":false},\"right_elbow\":{\"x\":0.2606,\"y\":1.0,\"confidence\":0.0065,\"usable\":false},\"left_wrist\":{\"x\":0.6263,\"y\":0.9159,\"confidence\":0.019,\"usable\":false},\"right_wrist\":{\"x\":0.2717,\"y\":0.9136,\"confidence\":0.0394,\"usable\":false}}}]}\nA missed detection does not prove absence. Boxes or nearby wrists do not prove holding. These measurements do not establish gaze, intent, or temporal actions. Use the image as primary evidence.\n",
+          "cuda_peak_allocated_bytes": 1924169216,
+          "C": {
+            "version": "grounding-claims-v1",
+            "aligned": true,
+            "claims": [
+              {
+                "claim": "The person is holding a hand",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "retained_claims": [],
+            "withdrawn_claims": [
+              {
+                "claim": "The person is holding a hand",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "all_withdrawn": true,
+            "verified_claim_count": 0,
+            "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+            "gate_seconds": 7.52030173316598e-05,
+            "total_seconds": 1.6840562450233847
+          }
+        },
+        {
+          "arm": "A",
+          "repeat": 0,
+          "output": "The person is holding his hands up in the air.",
+          "output_tokens": 12,
+          "input_tokens": 87,
+          "generation_seconds": 1.8261107010184787,
+          "hit_token_limit": false,
+          "total_seconds": 1.874300405033864,
+          "evidence": null,
+          "evidence_prompt": "",
+          "cuda_peak_allocated_bytes": 1717948416
+        },
+        {
+          "arm": "A",
+          "repeat": 1,
+          "output": "The person is holding his hands up in the air.",
+          "output_tokens": 12,
+          "input_tokens": 87,
+          "generation_seconds": 1.8373324729618616,
+          "hit_token_limit": false,
+          "total_seconds": 1.8864164580008946,
+          "evidence": null,
+          "evidence_prompt": "",
+          "cuda_peak_allocated_bytes": 1717948416
+        },
+        {
+          "arm": "B",
+          "repeat": 1,
+          "output": "The person is holding a hand.",
+          "output_tokens": 8,
+          "input_tokens": 532,
+          "generation_seconds": 1.592433970014099,
+          "hit_token_limit": false,
+          "total_seconds": 1.6919081480009481,
+          "evidence": {
+            "frame_id": "00363c60eab9f7b795740ca45890670475dbaea9d71df11bc312ad0f4cff32fe",
+            "source_pts_seconds": 3.5,
+            "pair_skew_ms": 0,
+            "alignment": "exact same decoded saved-frame pixels, not live timestamp synchronization",
+            "detections": [
+              {
+                "id": "d0",
+                "label": "person",
+                "confidence": 0.7349,
+                "bbox": [
+                  0.0817,
+                  0.0741,
+                  0.6637,
+                  0.9937
+                ]
+              },
+              {
+                "id": "d1",
+                "label": "tv",
+                "confidence": 0.4805,
+                "bbox": [
+                  0.0,
+                  0.0037,
+                  0.2981,
+                  0.4828
+                ]
+              }
+            ],
+            "poses": [
+              {
+                "id": "p0",
+                "keypoints": {
+                  "nose": {
+                    "x": 0.4959,
+                    "y": 0.4108,
+                    "confidence": 0.9968,
+                    "usable": true
+                  },
+                  "left_eye": {
+                    "x": 0.5369,
+                    "y": 0.35,
+                    "confidence": 0.999,
+                    "usable": true
+                  },
+                  "right_eye": {
+                    "x": 0.4575,
+                    "y": 0.3409,
+                    "confidence": 0.9983,
+                    "usable": true
+                  },
+                  "left_ear": {
+                    "x": 0.5853,
+                    "y": 0.4254,
+                    "confidence": 0.9494,
+                    "usable": true
+                  },
+                  "right_ear": {
+                    "x": 0.404,
+                    "y": 0.4032,
+                    "confidence": 0.947,
+                    "usable": true
+                  },
+                  "left_shoulder": {
+                    "x": 0.6174,
+                    "y": 0.8355,
+                    "confidence": 0.8909,
+                    "usable": true
+                  },
+                  "right_shoulder": {
+                    "x": 0.3065,
+                    "y": 0.8084,
+                    "confidence": 0.9505,
+                    "usable": true
+                  },
+                  "left_elbow": {
+                    "x": 0.6431,
+                    "y": 1.0,
+                    "confidence": 0.0049,
+                    "usable": false
+                  },
+                  "right_elbow": {
+                    "x": 0.2606,
+                    "y": 1.0,
+                    "confidence": 0.0065,
+                    "usable": false
+                  },
+                  "left_wrist": {
+                    "x": 0.6263,
+                    "y": 0.9159,
+                    "confidence": 0.019,
+                    "usable": false
+                  },
+                  "right_wrist": {
+                    "x": 0.2717,
+                    "y": 0.9136,
+                    "confidence": 0.0394,
+                    "usable": false
+                  },
+                  "left_hip": {
+                    "x": 0.5367,
+                    "y": 1.0,
+                    "confidence": 0.0,
+                    "usable": false
+                  },
+                  "right_hip": {
+                    "x": 0.3634,
+                    "y": 1.0,
+                    "confidence": 0.0,
+                    "usable": false
+                  },
+                  "left_knee": {
+                    "x": 0.5359,
+                    "y": 0.946,
+                    "confidence": 0.0002,
+                    "usable": false
+                  },
+                  "right_knee": {
+                    "x": 0.407,
+                    "y": 0.9105,
+                    "confidence": 0.0009,
+                    "usable": false
+                  },
+                  "left_ankle": {
+                    "x": 0.5202,
+                    "y": 1.0,
+                    "confidence": 0.0003,
+                    "usable": false
+                  },
+                  "right_ankle": {
+                    "x": 0.3957,
+                    "y": 0.9804,
+                    "confidence": 0.0009,
+                    "usable": false
+                  }
+                }
+              }
+            ],
+            "detector_seconds": 0.02288153098197654,
+            "pose_seconds": 0.024355808040127158,
+            "measurement_seconds": 0.04845816397573799,
+            "missing_detection_means": "unobserved by this detector, not absent",
+            "unmeasured": [
+              "grip/contact",
+              "gaze target",
+              "temporal action",
+              "intent"
+            ]
+          },
+          "evidence_prompt": "Fallible measurements of this exact image (normalized coordinates; low-confidence points are uncertain): {\"detections\":[{\"id\":\"d0\",\"label\":\"person\",\"confidence\":0.7349,\"bbox\":[0.0817,0.0741,0.6637,0.9937]},{\"id\":\"d1\",\"label\":\"tv\",\"confidence\":0.4805,\"bbox\":[0.0,0.0037,0.2981,0.4828]}],\"poses\":[{\"id\":\"p0\",\"keypoints\":{\"nose\":{\"x\":0.4959,\"y\":0.4108,\"confidence\":0.9968,\"usable\":true},\"left_shoulder\":{\"x\":0.6174,\"y\":0.8355,\"confidence\":0.8909,\"usable\":true},\"right_shoulder\":{\"x\":0.3065,\"y\":0.8084,\"confidence\":0.9505,\"usable\":true},\"left_elbow\":{\"x\":0.6431,\"y\":1.0,\"confidence\":0.0049,\"usable\":false},\"right_elbow\":{\"x\":0.2606,\"y\":1.0,\"confidence\":0.0065,\"usable\":false},\"left_wrist\":{\"x\":0.6263,\"y\":0.9159,\"confidence\":0.019,\"usable\":false},\"right_wrist\":{\"x\":0.2717,\"y\":0.9136,\"confidence\":0.0394,\"usable\":false}}}]}\nA missed detection does not prove absence. Boxes or nearby wrists do not prove holding. These measurements do not establish gaze, intent, or temporal actions. Use the image as primary evidence.\n",
+          "cuda_peak_allocated_bytes": 1924169216,
+          "C": {
+            "version": "grounding-claims-v1",
+            "aligned": true,
+            "claims": [
+              {
+                "claim": "The person is holding a hand",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "retained_claims": [],
+            "withdrawn_claims": [
+              {
+                "claim": "The person is holding a hand",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "all_withdrawn": true,
+            "verified_claim_count": 0,
+            "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+            "gate_seconds": 7.603602716699243e-05,
+            "total_seconds": 1.6919841840281151
+          }
+        }
+      ]
+    },
+    {
+      "name": "heldout-b-down",
+      "image": "/home/jetson/openhalo-mobilevlm-grounding/media/heldout-b-down.jpg",
+      "source_video": "/home/jetson/openhalo-tinyllava-greeting-20260912-1930/greeting-b.mp4",
+      "source_pts_seconds": 7.5,
+      "split": "heldout",
+      "sha256": "326e7252ddfa3d1b25f24f1193851d72d08b9653a032081f71fae5f25dc0040a",
+      "runs": [
+        {
+          "arm": "A",
+          "repeat": 0,
+          "output": "The person is sitting down and smiling.",
+          "output_tokens": 10,
+          "input_tokens": 87,
+          "generation_seconds": 1.5570011860108934,
+          "hit_token_limit": false,
+          "total_seconds": 1.6053274710429832,
+          "evidence": null,
+          "evidence_prompt": "",
+          "cuda_peak_allocated_bytes": 1717948416
+        },
+        {
+          "arm": "B",
+          "repeat": 0,
+          "output": "The person is holding a remote control.",
+          "output_tokens": 9,
+          "input_tokens": 797,
+          "generation_seconds": 1.9259165449766442,
+          "hit_token_limit": false,
+          "total_seconds": 2.0259619469870813,
+          "evidence": {
+            "frame_id": "326e7252ddfa3d1b25f24f1193851d72d08b9653a032081f71fae5f25dc0040a",
+            "source_pts_seconds": 7.5,
+            "pair_skew_ms": 0,
+            "alignment": "exact same decoded saved-frame pixels, not live timestamp synchronization",
+            "detections": [
+              {
+                "id": "d0",
+                "label": "person",
+                "confidence": 0.9247,
+                "bbox": [
+                  0.1399,
+                  0.0762,
+                  0.6416,
+                  0.9931
+                ]
+              },
+              {
+                "id": "d1",
+                "label": "tv",
+                "confidence": 0.3583,
+                "bbox": [
+                  0.0,
+                  0.0031,
+                  0.295,
+                  0.4769
+                ]
+              }
+            ],
+            "poses": [
+              {
+                "id": "p0",
+                "keypoints": {
+                  "nose": {
+                    "x": 0.4861,
+                    "y": 0.4442,
+                    "confidence": 0.9974,
+                    "usable": true
+                  },
+                  "left_eye": {
+                    "x": 0.5296,
+                    "y": 0.374,
+                    "confidence": 0.9984,
+                    "usable": true
+                  },
+                  "right_eye": {
+                    "x": 0.447,
+                    "y": 0.3665,
+                    "confidence": 0.9978,
+                    "usable": true
+                  },
+                  "left_ear": {
+                    "x": 0.5832,
+                    "y": 0.4348,
+                    "confidence": 0.9174,
+                    "usable": true
+                  },
+                  "right_ear": {
+                    "x": 0.3937,
+                    "y": 0.4136,
+                    "confidence": 0.939,
+                    "usable": true
+                  },
+                  "left_shoulder": {
+                    "x": 0.602,
+                    "y": 0.8156,
+                    "confidence": 0.9247,
+                    "usable": true
+                  },
+                  "right_shoulder": {
+                    "x": 0.2616,
+                    "y": 0.7839,
+                    "confidence": 0.9925,
+                    "usable": true
+                  },
+                  "left_elbow": {
+                    "x": 0.6149,
+                    "y": 1.0,
+                    "confidence": 0.0092,
+                    "usable": false
+                  },
+                  "right_elbow": {
+                    "x": 0.1895,
+                    "y": 1.0,
+                    "confidence": 0.0145,
+                    "usable": false
+                  },
+                  "left_wrist": {
+                    "x": 0.5756,
+                    "y": 0.9156,
+                    "confidence": 0.0081,
+                    "usable": false
+                  },
+                  "right_wrist": {
+                    "x": 0.2937,
+                    "y": 0.9107,
+                    "confidence": 0.0126,
+                    "usable": false
+                  },
+                  "left_hip": {
+                    "x": 0.5017,
+                    "y": 1.0,
+                    "confidence": 0.0001,
+                    "usable": false
+                  },
+                  "right_hip": {
+                    "x": 0.3057,
+                    "y": 1.0,
+                    "confidence": 0.0002,
+                    "usable": false
+                  },
+                  "left_knee": {
+                    "x": 0.473,
+                    "y": 0.9482,
+                    "confidence": 0.0002,
+                    "usable": false
+                  },
+                  "right_knee": {
+                    "x": 0.3317,
+                    "y": 0.9022,
+                    "confidence": 0.0007,
+                    "usable": false
+                  },
+                  "left_ankle": {
+                    "x": 0.4566,
+                    "y": 1.0,
+                    "confidence": 0.0002,
+                    "usable": false
+                  },
+                  "right_ankle": {
+                    "x": 0.3169,
+                    "y": 1.0,
+                    "confidence": 0.0005,
+                    "usable": false
+                  }
+                }
+              },
+              {
+                "id": "p1",
+                "keypoints": {
+                  "nose": {
+                    "x": 0.4873,
+                    "y": 0.4456,
+                    "confidence": 0.9971,
+                    "usable": true
+                  },
+                  "left_eye": {
+                    "x": 0.5299,
+                    "y": 0.3749,
+                    "confidence": 0.9987,
+                    "usable": true
+                  },
+                  "right_eye": {
+                    "x": 0.4468,
+                    "y": 0.3678,
+                    "confidence": 0.9979,
+                    "usable": true
+                  },
+                  "left_ear": {
+                    "x": 0.5812,
+                    "y": 0.4357,
+                    "confidence": 0.9242,
+                    "usable": true
+                  },
+                  "right_ear": {
+                    "x": 0.3922,
+                    "y": 0.4145,
+                    "confidence": 0.9631,
+                    "usable": true
+                  },
+                  "left_shoulder": {
+                    "x": 0.5996,
+                    "y": 0.8154,
+                    "confidence": 0.9344,
+                    "usable": true
+                  },
+                  "right_shoulder": {
+                    "x": 0.2613,
+                    "y": 0.7776,
+                    "confidence": 0.991,
+                    "usable": true
+                  },
+                  "left_elbow": {
+                    "x": 0.6205,
+                    "y": 1.0,
+                    "confidence": 0.0111,
+                    "usable": false
+                  },
+                  "right_elbow": {
+                    "x": 0.1888,
+                    "y": 1.0,
+                    "confidence": 0.0192,
+                    "usable": false
+                  },
+                  "left_wrist": {
+                    "x": 0.6014,
+                    "y": 0.9281,
+                    "confidence": 0.0111,
+                    "usable": false
+                  },
+                  "right_wrist": {
+                    "x": 0.2978,
+                    "y": 0.9106,
+                    "confidence": 0.0267,
+                    "usable": false
+                  },
+                  "left_hip": {
+                    "x": 0.5052,
+                    "y": 1.0,
+                    "confidence": 0.0001,
+                    "usable": false
+                  },
+                  "right_hip": {
+                    "x": 0.3124,
+                    "y": 1.0,
+                    "confidence": 0.0002,
+                    "usable": false
+                  },
+                  "left_knee": {
+                    "x": 0.5042,
+                    "y": 0.9523,
+                    "confidence": 0.0002,
+                    "usable": false
+                  },
+                  "right_knee": {
+                    "x": 0.3476,
+                    "y": 0.912,
+                    "confidence": 0.001,
+                    "usable": false
+                  },
+                  "left_ankle": {
+                    "x": 0.4916,
+                    "y": 1.0,
+                    "confidence": 0.0003,
+                    "usable": false
+                  },
+                  "right_ankle": {
+                    "x": 0.3367,
+                    "y": 1.0,
+                    "confidence": 0.0007,
+                    "usable": false
+                  }
+                }
+              }
+            ],
+            "detector_seconds": 0.02304048096993938,
+            "pose_seconds": 0.024060946016106755,
+            "measurement_seconds": 0.04826519399648532,
+            "missing_detection_means": "unobserved by this detector, not absent",
+            "unmeasured": [
+              "grip/contact",
+              "gaze target",
+              "temporal action",
+              "intent"
+            ]
+          },
+          "evidence_prompt": "Fallible measurements of this exact image (normalized coordinates; low-confidence points are uncertain): {\"detections\":[{\"id\":\"d0\",\"label\":\"person\",\"confidence\":0.9247,\"bbox\":[0.1399,0.0762,0.6416,0.9931]},{\"id\":\"d1\",\"label\":\"tv\",\"confidence\":0.3583,\"bbox\":[0.0,0.0031,0.295,0.4769]}],\"poses\":[{\"id\":\"p0\",\"keypoints\":{\"nose\":{\"x\":0.4861,\"y\":0.4442,\"confidence\":0.9974,\"usable\":true},\"left_shoulder\":{\"x\":0.602,\"y\":0.8156,\"confidence\":0.9247,\"usable\":true},\"right_shoulder\":{\"x\":0.2616,\"y\":0.7839,\"confidence\":0.9925,\"usable\":true},\"left_elbow\":{\"x\":0.6149,\"y\":1.0,\"confidence\":0.0092,\"usable\":false},\"right_elbow\":{\"x\":0.1895,\"y\":1.0,\"confidence\":0.0145,\"usable\":false},\"left_wrist\":{\"x\":0.5756,\"y\":0.9156,\"confidence\":0.0081,\"usable\":false},\"right_wrist\":{\"x\":0.2937,\"y\":0.9107,\"confidence\":0.0126,\"usable\":false}}},{\"id\":\"p1\",\"keypoints\":{\"nose\":{\"x\":0.4873,\"y\":0.4456,\"confidence\":0.9971,\"usable\":true},\"left_shoulder\":{\"x\":0.5996,\"y\":0.8154,\"confidence\":0.9344,\"usable\":true},\"right_shoulder\":{\"x\":0.2613,\"y\":0.7776,\"confidence\":0.991,\"usable\":true},\"left_elbow\":{\"x\":0.6205,\"y\":1.0,\"confidence\":0.0111,\"usable\":false},\"right_elbow\":{\"x\":0.1888,\"y\":1.0,\"confidence\":0.0192,\"usable\":false},\"left_wrist\":{\"x\":0.6014,\"y\":0.9281,\"confidence\":0.0111,\"usable\":false},\"right_wrist\":{\"x\":0.2978,\"y\":0.9106,\"confidence\":0.0267,\"usable\":false}}}]}\nA missed detection does not prove absence. Boxes or nearby wrists do not prove holding. These measurements do not establish gaze, intent, or temporal actions. Use the image as primary evidence.\n",
+          "cuda_peak_allocated_bytes": 2046343168,
+          "C": {
+            "version": "grounding-claims-v1",
+            "aligned": true,
+            "claims": [
+              {
+                "claim": "The person is holding a remote control",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "retained_claims": [],
+            "withdrawn_claims": [
+              {
+                "claim": "The person is holding a remote control",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "all_withdrawn": true,
+            "verified_claim_count": 0,
+            "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+            "gate_seconds": 7.664301665499806e-05,
+            "total_seconds": 2.0260385900037363
+          }
+        },
+        {
+          "arm": "B",
+          "repeat": 1,
+          "output": "The person is holding a remote control.",
+          "output_tokens": 9,
+          "input_tokens": 797,
+          "generation_seconds": 1.8413962839986198,
+          "hit_token_limit": false,
+          "total_seconds": 1.9304720800137147,
+          "evidence": {
+            "frame_id": "326e7252ddfa3d1b25f24f1193851d72d08b9653a032081f71fae5f25dc0040a",
+            "source_pts_seconds": 7.5,
+            "pair_skew_ms": 0,
+            "alignment": "exact same decoded saved-frame pixels, not live timestamp synchronization",
+            "detections": [
+              {
+                "id": "d0",
+                "label": "person",
+                "confidence": 0.9247,
+                "bbox": [
+                  0.1399,
+                  0.0762,
+                  0.6416,
+                  0.9931
+                ]
+              },
+              {
+                "id": "d1",
+                "label": "tv",
+                "confidence": 0.3583,
+                "bbox": [
+                  0.0,
+                  0.0031,
+                  0.295,
+                  0.4769
+                ]
+              }
+            ],
+            "poses": [
+              {
+                "id": "p0",
+                "keypoints": {
+                  "nose": {
+                    "x": 0.4861,
+                    "y": 0.4442,
+                    "confidence": 0.9974,
+                    "usable": true
+                  },
+                  "left_eye": {
+                    "x": 0.5296,
+                    "y": 0.374,
+                    "confidence": 0.9984,
+                    "usable": true
+                  },
+                  "right_eye": {
+                    "x": 0.447,
+                    "y": 0.3665,
+                    "confidence": 0.9978,
+                    "usable": true
+                  },
+                  "left_ear": {
+                    "x": 0.5832,
+                    "y": 0.4348,
+                    "confidence": 0.9174,
+                    "usable": true
+                  },
+                  "right_ear": {
+                    "x": 0.3937,
+                    "y": 0.4136,
+                    "confidence": 0.939,
+                    "usable": true
+                  },
+                  "left_shoulder": {
+                    "x": 0.602,
+                    "y": 0.8156,
+                    "confidence": 0.9247,
+                    "usable": true
+                  },
+                  "right_shoulder": {
+                    "x": 0.2616,
+                    "y": 0.7839,
+                    "confidence": 0.9925,
+                    "usable": true
+                  },
+                  "left_elbow": {
+                    "x": 0.6149,
+                    "y": 1.0,
+                    "confidence": 0.0092,
+                    "usable": false
+                  },
+                  "right_elbow": {
+                    "x": 0.1895,
+                    "y": 1.0,
+                    "confidence": 0.0145,
+                    "usable": false
+                  },
+                  "left_wrist": {
+                    "x": 0.5756,
+                    "y": 0.9156,
+                    "confidence": 0.0081,
+                    "usable": false
+                  },
+                  "right_wrist": {
+                    "x": 0.2937,
+                    "y": 0.9107,
+                    "confidence": 0.0126,
+                    "usable": false
+                  },
+                  "left_hip": {
+                    "x": 0.5017,
+                    "y": 1.0,
+                    "confidence": 0.0001,
+                    "usable": false
+                  },
+                  "right_hip": {
+                    "x": 0.3057,
+                    "y": 1.0,
+                    "confidence": 0.0002,
+                    "usable": false
+                  },
+                  "left_knee": {
+                    "x": 0.473,
+                    "y": 0.9482,
+                    "confidence": 0.0002,
+                    "usable": false
+                  },
+                  "right_knee": {
+                    "x": 0.3317,
+                    "y": 0.9022,
+                    "confidence": 0.0007,
+                    "usable": false
+                  },
+                  "left_ankle": {
+                    "x": 0.4566,
+                    "y": 1.0,
+                    "confidence": 0.0002,
+                    "usable": false
+                  },
+                  "right_ankle": {
+                    "x": 0.3169,
+                    "y": 1.0,
+                    "confidence": 0.0005,
+                    "usable": false
+                  }
+                }
+              },
+              {
+                "id": "p1",
+                "keypoints": {
+                  "nose": {
+                    "x": 0.4873,
+                    "y": 0.4456,
+                    "confidence": 0.9971,
+                    "usable": true
+                  },
+                  "left_eye": {
+                    "x": 0.5299,
+                    "y": 0.3749,
+                    "confidence": 0.9987,
+                    "usable": true
+                  },
+                  "right_eye": {
+                    "x": 0.4468,
+                    "y": 0.3678,
+                    "confidence": 0.9979,
+                    "usable": true
+                  },
+                  "left_ear": {
+                    "x": 0.5812,
+                    "y": 0.4357,
+                    "confidence": 0.9242,
+                    "usable": true
+                  },
+                  "right_ear": {
+                    "x": 0.3922,
+                    "y": 0.4145,
+                    "confidence": 0.9631,
+                    "usable": true
+                  },
+                  "left_shoulder": {
+                    "x": 0.5996,
+                    "y": 0.8154,
+                    "confidence": 0.9344,
+                    "usable": true
+                  },
+                  "right_shoulder": {
+                    "x": 0.2613,
+                    "y": 0.7776,
+                    "confidence": 0.991,
+                    "usable": true
+                  },
+                  "left_elbow": {
+                    "x": 0.6205,
+                    "y": 1.0,
+                    "confidence": 0.0111,
+                    "usable": false
+                  },
+                  "right_elbow": {
+                    "x": 0.1888,
+                    "y": 1.0,
+                    "confidence": 0.0192,
+                    "usable": false
+                  },
+                  "left_wrist": {
+                    "x": 0.6014,
+                    "y": 0.9281,
+                    "confidence": 0.0111,
+                    "usable": false
+                  },
+                  "right_wrist": {
+                    "x": 0.2978,
+                    "y": 0.9106,
+                    "confidence": 0.0267,
+                    "usable": false
+                  },
+                  "left_hip": {
+                    "x": 0.5052,
+                    "y": 1.0,
+                    "confidence": 0.0001,
+                    "usable": false
+                  },
+                  "right_hip": {
+                    "x": 0.3124,
+                    "y": 1.0,
+                    "confidence": 0.0002,
+                    "usable": false
+                  },
+                  "left_knee": {
+                    "x": 0.5042,
+                    "y": 0.9523,
+                    "confidence": 0.0002,
+                    "usable": false
+                  },
+                  "right_knee": {
+                    "x": 0.3476,
+                    "y": 0.912,
+                    "confidence": 0.001,
+                    "usable": false
+                  },
+                  "left_ankle": {
+                    "x": 0.4916,
+                    "y": 1.0,
+                    "confidence": 0.0003,
+                    "usable": false
+                  },
+                  "right_ankle": {
+                    "x": 0.3367,
+                    "y": 1.0,
+                    "confidence": 0.0007,
+                    "usable": false
+                  }
+                }
+              }
+            ],
+            "detector_seconds": 0.017639137979131192,
+            "pose_seconds": 0.018335363012738526,
+            "measurement_seconds": 0.03711967496201396,
+            "missing_detection_means": "unobserved by this detector, not absent",
+            "unmeasured": [
+              "grip/contact",
+              "gaze target",
+              "temporal action",
+              "intent"
+            ]
+          },
+          "evidence_prompt": "Fallible measurements of this exact image (normalized coordinates; low-confidence points are uncertain): {\"detections\":[{\"id\":\"d0\",\"label\":\"person\",\"confidence\":0.9247,\"bbox\":[0.1399,0.0762,0.6416,0.9931]},{\"id\":\"d1\",\"label\":\"tv\",\"confidence\":0.3583,\"bbox\":[0.0,0.0031,0.295,0.4769]}],\"poses\":[{\"id\":\"p0\",\"keypoints\":{\"nose\":{\"x\":0.4861,\"y\":0.4442,\"confidence\":0.9974,\"usable\":true},\"left_shoulder\":{\"x\":0.602,\"y\":0.8156,\"confidence\":0.9247,\"usable\":true},\"right_shoulder\":{\"x\":0.2616,\"y\":0.7839,\"confidence\":0.9925,\"usable\":true},\"left_elbow\":{\"x\":0.6149,\"y\":1.0,\"confidence\":0.0092,\"usable\":false},\"right_elbow\":{\"x\":0.1895,\"y\":1.0,\"confidence\":0.0145,\"usable\":false},\"left_wrist\":{\"x\":0.5756,\"y\":0.9156,\"confidence\":0.0081,\"usable\":false},\"right_wrist\":{\"x\":0.2937,\"y\":0.9107,\"confidence\":0.0126,\"usable\":false}}},{\"id\":\"p1\",\"keypoints\":{\"nose\":{\"x\":0.4873,\"y\":0.4456,\"confidence\":0.9971,\"usable\":true},\"left_shoulder\":{\"x\":0.5996,\"y\":0.8154,\"confidence\":0.9344,\"usable\":true},\"right_shoulder\":{\"x\":0.2613,\"y\":0.7776,\"confidence\":0.991,\"usable\":true},\"left_elbow\":{\"x\":0.6205,\"y\":1.0,\"confidence\":0.0111,\"usable\":false},\"right_elbow\":{\"x\":0.1888,\"y\":1.0,\"confidence\":0.0192,\"usable\":false},\"left_wrist\":{\"x\":0.6014,\"y\":0.9281,\"confidence\":0.0111,\"usable\":false},\"right_wrist\":{\"x\":0.2978,\"y\":0.9106,\"confidence\":0.0267,\"usable\":false}}}]}\nA missed detection does not prove absence. Boxes or nearby wrists do not prove holding. These measurements do not establish gaze, intent, or temporal actions. Use the image as primary evidence.\n",
+          "cuda_peak_allocated_bytes": 2046343168,
+          "C": {
+            "version": "grounding-claims-v1",
+            "aligned": true,
+            "claims": [
+              {
+                "claim": "The person is holding a remote control",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "retained_claims": [],
+            "withdrawn_claims": [
+              {
+                "claim": "The person is holding a remote control",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "all_withdrawn": true,
+            "verified_claim_count": 0,
+            "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+            "gate_seconds": 6.249902071431279e-05,
+            "total_seconds": 1.930534579034429
+          }
+        },
+        {
+          "arm": "A",
+          "repeat": 1,
+          "output": "The person is sitting down and smiling.",
+          "output_tokens": 10,
+          "input_tokens": 87,
+          "generation_seconds": 1.540963608014863,
+          "hit_token_limit": false,
+          "total_seconds": 1.5862735580303706,
+          "evidence": null,
+          "evidence_prompt": "",
+          "cuda_peak_allocated_bytes": 1717948416
+        }
+      ]
+    },
+    {
+      "name": "heldout-food",
+      "image": "/home/jetson/openhalo-mobilevlm-grounding/media/heldout-food.jpg",
+      "source_video": "/home/jetson/openhalo-tinyllava-video/clips/owner-eating-screen-20260912.mp4",
+      "source_pts_seconds": 1.5,
+      "split": "heldout",
+      "sha256": "c073c4cddca6e15ce133fcaad78b713ef917a583fd2bb69ee4edc704921261aa",
+      "runs": [
+        {
+          "arm": "B",
+          "repeat": 0,
+          "output": "The person is holding a cell phone.",
+          "output_tokens": 9,
+          "input_tokens": 532,
+          "generation_seconds": 1.6980027700192295,
+          "hit_token_limit": false,
+          "total_seconds": 1.7967554720235057,
+          "evidence": {
+            "frame_id": "c073c4cddca6e15ce133fcaad78b713ef917a583fd2bb69ee4edc704921261aa",
+            "source_pts_seconds": 1.5,
+            "pair_skew_ms": 0,
+            "alignment": "exact same decoded saved-frame pixels, not live timestamp synchronization",
+            "detections": [
+              {
+                "id": "d0",
+                "label": "person",
+                "confidence": 0.9012,
+                "bbox": [
+                  0.1394,
+                  0.1813,
+                  0.8824,
+                  0.9955
+                ]
+              },
+              {
+                "id": "d1",
+                "label": "tv",
+                "confidence": 0.626,
+                "bbox": [
+                  0.0,
+                  0.0037,
+                  0.3007,
+                  0.4938
+                ]
+              }
+            ],
+            "poses": [
+              {
+                "id": "p0",
+                "keypoints": {
+                  "nose": {
+                    "x": 0.5927,
+                    "y": 0.517,
+                    "confidence": 0.9994,
+                    "usable": true
+                  },
+                  "left_eye": {
+                    "x": 0.6011,
+                    "y": 0.4241,
+                    "confidence": 0.9673,
+                    "usable": true
+                  },
+                  "right_eye": {
+                    "x": 0.5412,
+                    "y": 0.4376,
+                    "confidence": 0.9998,
+                    "usable": true
+                  },
+                  "left_ear": {
+                    "x": 0.5994,
+                    "y": 0.4147,
+                    "confidence": 0.0004,
+                    "usable": false
+                  },
+                  "right_ear": {
+                    "x": 0.4131,
+                    "y": 0.452,
+                    "confidence": 0.9981,
+                    "usable": true
+                  },
+                  "left_shoulder": {
+                    "x": 0.5949,
+                    "y": 0.6894,
+                    "confidence": 0.9918,
+                    "usable": true
+                  },
+                  "right_shoulder": {
+                    "x": 0.2389,
+                    "y": 0.8233,
+                    "confidence": 0.9806,
+                    "usable": true
+                  },
+                  "left_elbow": {
+                    "x": 0.6592,
+                    "y": 0.9319,
+                    "confidence": 0.441,
+                    "usable": false
+                  },
+                  "right_elbow": {
+                    "x": 0.1828,
+                    "y": 1.0,
+                    "confidence": 0.0033,
+                    "usable": false
+                  },
+                  "left_wrist": {
+                    "x": 0.7311,
+                    "y": 0.9485,
+                    "confidence": 0.1089,
+                    "usable": false
+                  },
+                  "right_wrist": {
+                    "x": 0.4115,
+                    "y": 0.9162,
+                    "confidence": 0.018,
+                    "usable": false
+                  },
+                  "left_hip": {
+                    "x": 0.5735,
+                    "y": 0.9791,
+                    "confidence": 0.0004,
+                    "usable": false
+                  },
+                  "right_hip": {
+                    "x": 0.3575,
+                    "y": 1.0,
+                    "confidence": 0.0001,
+                    "usable": false
+                  },
+                  "left_knee": {
+                    "x": 0.6487,
+                    "y": 0.9722,
+                    "confidence": 0.0012,
+                    "usable": false
+                  },
+                  "right_knee": {
+                    "x": 0.4693,
+                    "y": 0.9464,
+                    "confidence": 0.0008,
+                    "usable": false
+                  },
+                  "left_ankle": {
+                    "x": 0.6468,
+                    "y": 1.0,
+                    "confidence": 0.0003,
+                    "usable": false
+                  },
+                  "right_ankle": {
+                    "x": 0.4732,
+                    "y": 1.0,
+                    "confidence": 0.0003,
+                    "usable": false
+                  }
+                }
+              }
+            ],
+            "detector_seconds": 0.02285637694876641,
+            "pose_seconds": 0.02380947704659775,
+            "measurement_seconds": 0.047671949956566095,
+            "missing_detection_means": "unobserved by this detector, not absent",
+            "unmeasured": [
+              "grip/contact",
+              "gaze target",
+              "temporal action",
+              "intent"
+            ]
+          },
+          "evidence_prompt": "Fallible measurements of this exact image (normalized coordinates; low-confidence points are uncertain): {\"detections\":[{\"id\":\"d0\",\"label\":\"person\",\"confidence\":0.9012,\"bbox\":[0.1394,0.1813,0.8824,0.9955]},{\"id\":\"d1\",\"label\":\"tv\",\"confidence\":0.626,\"bbox\":[0.0,0.0037,0.3007,0.4938]}],\"poses\":[{\"id\":\"p0\",\"keypoints\":{\"nose\":{\"x\":0.5927,\"y\":0.517,\"confidence\":0.9994,\"usable\":true},\"left_shoulder\":{\"x\":0.5949,\"y\":0.6894,\"confidence\":0.9918,\"usable\":true},\"right_shoulder\":{\"x\":0.2389,\"y\":0.8233,\"confidence\":0.9806,\"usable\":true},\"left_elbow\":{\"x\":0.6592,\"y\":0.9319,\"confidence\":0.441,\"usable\":false},\"right_elbow\":{\"x\":0.1828,\"y\":1.0,\"confidence\":0.0033,\"usable\":false},\"left_wrist\":{\"x\":0.7311,\"y\":0.9485,\"confidence\":0.1089,\"usable\":false},\"right_wrist\":{\"x\":0.4115,\"y\":0.9162,\"confidence\":0.018,\"usable\":false}}}]}\nA missed detection does not prove absence. Boxes or nearby wrists do not prove holding. These measurements do not establish gaze, intent, or temporal actions. Use the image as primary evidence.\n",
+          "cuda_peak_allocated_bytes": 1924152832,
+          "C": {
+            "version": "grounding-claims-v1",
+            "aligned": true,
+            "claims": [
+              {
+                "claim": "The person is holding a cell phone",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "retained_claims": [],
+            "withdrawn_claims": [
+              {
+                "claim": "The person is holding a cell phone",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "all_withdrawn": true,
+            "verified_claim_count": 0,
+            "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+            "gate_seconds": 7.776403799653053e-05,
+            "total_seconds": 1.7968332360615022
+          }
+        },
+        {
+          "arm": "A",
+          "repeat": 0,
+          "output": "The person is holding a piece of food in their hands.",
+          "output_tokens": 13,
+          "input_tokens": 87,
+          "generation_seconds": 1.9642266129958443,
+          "hit_token_limit": false,
+          "total_seconds": 2.0128218709724024,
+          "evidence": null,
+          "evidence_prompt": "",
+          "cuda_peak_allocated_bytes": 1717948416
+        },
+        {
+          "arm": "A",
+          "repeat": 1,
+          "output": "The person is holding a piece of food in their hands.",
+          "output_tokens": 13,
+          "input_tokens": 87,
+          "generation_seconds": 1.9801245080307126,
+          "hit_token_limit": false,
+          "total_seconds": 2.0289885129895993,
+          "evidence": null,
+          "evidence_prompt": "",
+          "cuda_peak_allocated_bytes": 1717948416
+        },
+        {
+          "arm": "B",
+          "repeat": 1,
+          "output": "The person is holding a cell phone.",
+          "output_tokens": 9,
+          "input_tokens": 532,
+          "generation_seconds": 1.7499091060017236,
+          "hit_token_limit": false,
+          "total_seconds": 1.8488250779919326,
+          "evidence": {
+            "frame_id": "c073c4cddca6e15ce133fcaad78b713ef917a583fd2bb69ee4edc704921261aa",
+            "source_pts_seconds": 1.5,
+            "pair_skew_ms": 0,
+            "alignment": "exact same decoded saved-frame pixels, not live timestamp synchronization",
+            "detections": [
+              {
+                "id": "d0",
+                "label": "person",
+                "confidence": 0.9012,
+                "bbox": [
+                  0.1394,
+                  0.1813,
+                  0.8824,
+                  0.9955
+                ]
+              },
+              {
+                "id": "d1",
+                "label": "tv",
+                "confidence": 0.626,
+                "bbox": [
+                  0.0,
+                  0.0037,
+                  0.3007,
+                  0.4938
+                ]
+              }
+            ],
+            "poses": [
+              {
+                "id": "p0",
+                "keypoints": {
+                  "nose": {
+                    "x": 0.5927,
+                    "y": 0.517,
+                    "confidence": 0.9994,
+                    "usable": true
+                  },
+                  "left_eye": {
+                    "x": 0.6011,
+                    "y": 0.4241,
+                    "confidence": 0.9673,
+                    "usable": true
+                  },
+                  "right_eye": {
+                    "x": 0.5412,
+                    "y": 0.4376,
+                    "confidence": 0.9998,
+                    "usable": true
+                  },
+                  "left_ear": {
+                    "x": 0.5994,
+                    "y": 0.4147,
+                    "confidence": 0.0004,
+                    "usable": false
+                  },
+                  "right_ear": {
+                    "x": 0.4131,
+                    "y": 0.452,
+                    "confidence": 0.9981,
+                    "usable": true
+                  },
+                  "left_shoulder": {
+                    "x": 0.5949,
+                    "y": 0.6894,
+                    "confidence": 0.9918,
+                    "usable": true
+                  },
+                  "right_shoulder": {
+                    "x": 0.2389,
+                    "y": 0.8233,
+                    "confidence": 0.9806,
+                    "usable": true
+                  },
+                  "left_elbow": {
+                    "x": 0.6592,
+                    "y": 0.9319,
+                    "confidence": 0.441,
+                    "usable": false
+                  },
+                  "right_elbow": {
+                    "x": 0.1828,
+                    "y": 1.0,
+                    "confidence": 0.0033,
+                    "usable": false
+                  },
+                  "left_wrist": {
+                    "x": 0.7311,
+                    "y": 0.9485,
+                    "confidence": 0.1089,
+                    "usable": false
+                  },
+                  "right_wrist": {
+                    "x": 0.4115,
+                    "y": 0.9162,
+                    "confidence": 0.018,
+                    "usable": false
+                  },
+                  "left_hip": {
+                    "x": 0.5735,
+                    "y": 0.9791,
+                    "confidence": 0.0004,
+                    "usable": false
+                  },
+                  "right_hip": {
+                    "x": 0.3575,
+                    "y": 1.0,
+                    "confidence": 0.0001,
+                    "usable": false
+                  },
+                  "left_knee": {
+                    "x": 0.6487,
+                    "y": 0.9722,
+                    "confidence": 0.0012,
+                    "usable": false
+                  },
+                  "right_knee": {
+                    "x": 0.4693,
+                    "y": 0.9464,
+                    "confidence": 0.0008,
+                    "usable": false
+                  },
+                  "left_ankle": {
+                    "x": 0.6468,
+                    "y": 1.0,
+                    "confidence": 0.0003,
+                    "usable": false
+                  },
+                  "right_ankle": {
+                    "x": 0.4732,
+                    "y": 1.0,
+                    "confidence": 0.0003,
+                    "usable": false
+                  }
+                }
+              }
+            ],
+            "detector_seconds": 0.022968125995248556,
+            "pose_seconds": 0.023865320021286607,
+            "measurement_seconds": 0.04781931696925312,
+            "missing_detection_means": "unobserved by this detector, not absent",
+            "unmeasured": [
+              "grip/contact",
+              "gaze target",
+              "temporal action",
+              "intent"
+            ]
+          },
+          "evidence_prompt": "Fallible measurements of this exact image (normalized coordinates; low-confidence points are uncertain): {\"detections\":[{\"id\":\"d0\",\"label\":\"person\",\"confidence\":0.9012,\"bbox\":[0.1394,0.1813,0.8824,0.9955]},{\"id\":\"d1\",\"label\":\"tv\",\"confidence\":0.626,\"bbox\":[0.0,0.0037,0.3007,0.4938]}],\"poses\":[{\"id\":\"p0\",\"keypoints\":{\"nose\":{\"x\":0.5927,\"y\":0.517,\"confidence\":0.9994,\"usable\":true},\"left_shoulder\":{\"x\":0.5949,\"y\":0.6894,\"confidence\":0.9918,\"usable\":true},\"right_shoulder\":{\"x\":0.2389,\"y\":0.8233,\"confidence\":0.9806,\"usable\":true},\"left_elbow\":{\"x\":0.6592,\"y\":0.9319,\"confidence\":0.441,\"usable\":false},\"right_elbow\":{\"x\":0.1828,\"y\":1.0,\"confidence\":0.0033,\"usable\":false},\"left_wrist\":{\"x\":0.7311,\"y\":0.9485,\"confidence\":0.1089,\"usable\":false},\"right_wrist\":{\"x\":0.4115,\"y\":0.9162,\"confidence\":0.018,\"usable\":false}}}]}\nA missed detection does not prove absence. Boxes or nearby wrists do not prove holding. These measurements do not establish gaze, intent, or temporal actions. Use the image as primary evidence.\n",
+          "cuda_peak_allocated_bytes": 1924152832,
+          "C": {
+            "version": "grounding-claims-v1",
+            "aligned": true,
+            "claims": [
+              {
+                "claim": "The person is holding a cell phone",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "retained_claims": [],
+            "withdrawn_claims": [
+              {
+                "claim": "The person is holding a cell phone",
+                "status": "withdrawn",
+                "reason": "specific_relation_or_temporal_action_not_independently_measured"
+              }
+            ],
+            "all_withdrawn": true,
+            "verified_claim_count": 0,
+            "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+            "gate_seconds": 7.545901462435722e-05,
+            "total_seconds": 1.848900537006557
+          }
+        }
+      ]
+    }
+  ],
+  "loading_info": {
+    "missing_keys": [],
+    "unexpected_keys": [],
+    "mismatched_keys": [],
+    "error_msgs": []
+  },
+  "nf4_linears": 168,
+  "engine_sha256": {
+    "/home/jetson/ultralytics/yolo26n.engine": "a75b0e8ac07cbdfce08ed3a7b2875ee861bd2b017c7cb174a6f93049c31807d4",
+    "/home/jetson/ultralytics/yolo26n-pose.engine": "dcf2c61a1c5200479503959a6d025d8ada96722e5580dd082e0a15a064cf1422"
+  },
+  "load_seconds": 11.986920928990003,
+  "warmup": {
+    "output": "The person is holding a piece of food in their hands.",
+    "output_tokens": 13,
+    "input_tokens": 87,
+    "generation_seconds": 2.6889276160509326,
+    "hit_token_limit": false
+  }
+}

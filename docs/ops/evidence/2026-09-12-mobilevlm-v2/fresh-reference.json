@@ -1,0 +1,12 @@
+{
+  "owner_action_reference": null,
+  "reference_source": "Assistant inspected exact selected images before model output",
+  "visible_reference": "Seated, leaning forward with head/gaze lowered. Hands and manipulated objects not clearly visible; do not infer phone, food, work or intent.",
+  "selection_seconds": [
+    5,
+    20,
+    35,
+    50
+  ],
+  "capture_sha256": "21a7772fc964552a9ff831a8f3a951f510feea89a17b144cef0ce7d62d9486f0"
+}

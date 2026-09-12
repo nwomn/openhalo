@@ -1,0 +1,7 @@
+{
+  "method": "torch.load weights_only mmap; lossless safetensors sharding",
+  "tensor_count": 616,
+  "total_bytes": 3348242432,
+  "vision_key_count": 391,
+  "source_sha256": "cd16648451c84831f317dbcc59e9c8d323235bde2dd2ecdaadb67808a25132e9"
+}

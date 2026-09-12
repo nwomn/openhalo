@@ -1,0 +1,259 @@
+{
+  "status": "completed",
+  "nf4_linears": 168,
+  "load_seconds": 11.986920928990003,
+  "arms": {
+    "A": {
+      "executions": 16,
+      "min_seconds": 1.5862735580303706,
+      "median_seconds": 1.887200886005303,
+      "max_seconds": 2.4517826880328357,
+      "token_range": [
+        10,
+        16
+      ],
+      "input_token_range": [
+        87,
+        87
+      ],
+      "truncated_count": 0
+    },
+    "B": {
+      "executions": 16,
+      "min_seconds": 1.683981042006053,
+      "median_seconds": 1.7992033139744308,
+      "max_seconds": 2.0483453269698657,
+      "token_range": [
+        8,
+        11
+      ],
+      "input_token_range": [
+        265,
+        797
+      ],
+      "truncated_count": 0
+    }
+  },
+  "cases": [
+    {
+      "name": "challenge-food",
+      "split": "challenge",
+      "A": {
+        "outputs": [
+          "The person is holding a piece of food in their hands."
+        ],
+        "seconds": [
+          2.053444970981218,
+          2.01608131499961
+        ]
+      },
+      "B": {
+        "outputs": [
+          "The person is holding a piece of food."
+        ],
+        "seconds": [
+          2.0483453269698657,
+          1.8979934889939614
+        ]
+      },
+      "C_v1_all_withdrawn": true,
+      "C_v1_1_all_withdrawn": true,
+      "C_v1_1_retained": []
+    },
+    {
+      "name": "challenge-raised",
+      "split": "challenge",
+      "A": {
+        "outputs": [
+          "The person is waving at the camera."
+        ],
+        "seconds": [
+          1.6047284030355513,
+          1.6218315760488622
+        ]
+      },
+      "B": {
+        "outputs": [
+          "The person is holding their hands up."
+        ],
+        "seconds": [
+          1.7614406669745222,
+          1.7660148470313288
+        ]
+      },
+      "C_v1_all_withdrawn": true,
+      "C_v1_1_all_withdrawn": false,
+      "C_v1_1_retained": [
+        {
+          "claim": "The person is holding their hands up",
+          "status": "image_only_unverified",
+          "reason": "static_hand_position_not_object_holding; keypoints_do_not_establish_motion"
+        }
+      ]
+    },
+    {
+      "name": "challenge-remote",
+      "split": "challenge",
+      "A": {
+        "outputs": [
+          "The person is smiling and looking at the camera."
+        ],
+        "seconds": [
+          1.895276832045056,
+          1.8630462269647978
+        ]
+      },
+      "B": {
+        "outputs": [
+          "The person is holding a remote control."
+        ],
+        "seconds": [
+          1.7994615989737213,
+          1.7389914639643393
+        ]
+      },
+      "C_v1_all_withdrawn": true,
+      "C_v1_1_all_withdrawn": true,
+      "C_v1_1_retained": []
+    },
+    {
+      "name": "challenge-screen",
+      "split": "challenge",
+      "A": {
+        "outputs": [
+          "The person is sitting at a desk and looking at a computer screen."
+        ],
+        "seconds": [
+          2.4517826880328357,
+          2.43496447004145
+        ]
+      },
+      "B": {
+        "outputs": [
+          "The person is sitting in front of a computer."
+        ],
+        "seconds": [
+          1.914104827970732,
+          1.9294522770214826
+        ]
+      },
+      "C_v1_all_withdrawn": true,
+      "C_v1_1_all_withdrawn": true,
+      "C_v1_1_retained": []
+    },
+    {
+      "name": "heldout-b-rest",
+      "split": "heldout",
+      "A": {
+        "outputs": [
+          "The person is sitting down and looking at the camera."
+        ],
+        "seconds": [
+          1.8879853140097111,
+          1.8784510160330683
+        ]
+      },
+      "B": {
+        "outputs": [
+          "The person is holding a remote control."
+        ],
+        "seconds": [
+          1.7989450289751403,
+          1.7495550370076671
+        ]
+      },
+      "C_v1_all_withdrawn": true,
+      "C_v1_1_all_withdrawn": true,
+      "C_v1_1_retained": []
+    },
+    {
+      "name": "heldout-b-raised",
+      "split": "heldout",
+      "A": {
+        "outputs": [
+          "The person is holding his hands up in the air."
+        ],
+        "seconds": [
+          1.874300405033864,
+          1.8864164580008946
+        ]
+      },
+      "B": {
+        "outputs": [
+          "The person is holding a hand."
+        ],
+        "seconds": [
+          1.683981042006053,
+          1.6919081480009481
+        ]
+      },
+      "C_v1_all_withdrawn": true,
+      "C_v1_1_all_withdrawn": true,
+      "C_v1_1_retained": []
+    },
+    {
+      "name": "heldout-b-down",
+      "split": "heldout",
+      "A": {
+        "outputs": [
+          "The person is sitting down and smiling."
+        ],
+        "seconds": [
+          1.6053274710429832,
+          1.5862735580303706
+        ]
+      },
+      "B": {
+        "outputs": [
+          "The person is holding a remote control."
+        ],
+        "seconds": [
+          2.0259619469870813,
+          1.9304720800137147
+        ]
+      },
+      "C_v1_all_withdrawn": true,
+      "C_v1_1_all_withdrawn": true,
+      "C_v1_1_retained": []
+    },
+    {
+      "name": "heldout-food",
+      "split": "heldout",
+      "A": {
+        "outputs": [
+          "The person is holding a piece of food in their hands."
+        ],
+        "seconds": [
+          2.0128218709724024,
+          2.0289885129895993
+        ]
+      },
+      "B": {
+        "outputs": [
+          "The person is holding a cell phone."
+        ],
+        "seconds": [
+          1.7967554720235057,
+          1.8488250779919326
+        ]
+      },
+      "C_v1_all_withdrawn": true,
+      "C_v1_1_all_withdrawn": true,
+      "C_v1_1_retained": []
+    }
+  ],
+  "diagnostic_gate": "grounding-claims-v1.1-diagnostic",
+  "diagnostic_gate_sha256": "6e815ea772971eadb58ee84bdaf04e0bc6fbd9912109da3c24f7eb86dae0b0c3",
+  "boundary": "v1 raw outputs untouched; v1.1 is a post-result parser repair, not independent held-out validation; no accuracy statistic inferred",
+  "measurement_seconds": {
+    "min": 0.03711967496201396,
+    "median": 0.047352467983728275,
+    "max": 0.04865503899054602
+  },
+  "C_v1_all_withdrawn_frames": 8,
+  "C_v1_1_all_withdrawn_frames": 7,
+  "C_v1_1_verified_claim_count": 0,
+  "peak_ram_mb": 6593.0,
+  "peak_swap_mb": 1075.0,
+  "peak_temperature_c": 58.75
+}

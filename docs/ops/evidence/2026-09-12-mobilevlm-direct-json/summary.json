@@ -1,0 +1,530 @@
+{
+  "status": "completed",
+  "arms": {
+    "A": {
+      "executions": 16,
+      "min_seconds": 1.4932055409881286,
+      "median_seconds": 1.7830124089960009,
+      "max_seconds": 2.3347010449506342,
+      "input_token_range": [
+        87,
+        87
+      ],
+      "output_token_range": [
+        10,
+        16
+      ],
+      "truncated": 0
+    },
+    "J": {
+      "executions": 16,
+      "min_seconds": 1.6046911689918488,
+      "median_seconds": 1.9200078739668243,
+      "max_seconds": 2.3998597209574655,
+      "input_token_range": [
+        201,
+        733
+      ],
+      "output_token_range": [
+        9,
+        16
+      ],
+      "truncated": 0
+    },
+    "B": {
+      "executions": 16,
+      "min_seconds": 1.5502377839875408,
+      "median_seconds": 1.677707819500938,
+      "max_seconds": 1.8617785329697654,
+      "input_token_range": [
+        265,
+        797
+      ],
+      "output_token_range": [
+        8,
+        11
+      ],
+      "truncated": 0
+    }
+  },
+  "cases": [
+    {
+      "name": "challenge-food",
+      "prior_split": "challenge",
+      "arms": {
+        "A": {
+          "outputs": [
+            "The person is holding a piece of food in their hands."
+          ],
+          "seconds": [
+            1.9319275509915315,
+            1.9160428570467047
+          ],
+          "input_tokens": [
+            87,
+            87
+          ],
+          "output_tokens": [
+            13,
+            13
+          ],
+          "matches_original_outputs": true
+        },
+        "J": {
+          "outputs": [
+            "The person is eating a piece of food."
+          ],
+          "seconds": [
+            1.9490406609838828,
+            1.861808019981254
+          ],
+          "input_tokens": [
+            469,
+            469
+          ],
+          "output_tokens": [
+            11,
+            11
+          ]
+        },
+        "B": {
+          "outputs": [
+            "The person is holding a piece of food."
+          ],
+          "seconds": [
+            1.8101903150090948,
+            1.8251983319642022
+          ],
+          "input_tokens": [
+            533,
+            533
+          ],
+          "output_tokens": [
+            10,
+            10
+          ],
+          "matches_original_outputs": true
+        }
+      }
+    },
+    {
+      "name": "challenge-raised",
+      "prior_split": "challenge",
+      "arms": {
+        "A": {
+          "outputs": [
+            "The person is waving at the camera."
+          ],
+          "seconds": [
+            1.5326820940244943,
+            1.5217104419716634
+          ],
+          "input_tokens": [
+            87,
+            87
+          ],
+          "output_tokens": [
+            10,
+            10
+          ],
+          "matches_original_outputs": true
+        },
+        "J": {
+          "outputs": [
+            "The person is waving at the camera."
+          ],
+          "seconds": [
+            1.722746361978352,
+            1.745439042977523
+          ],
+          "input_tokens": [
+            416,
+            416
+          ],
+          "output_tokens": [
+            10,
+            10
+          ]
+        },
+        "B": {
+          "outputs": [
+            "The person is holding their hands up."
+          ],
+          "seconds": [
+            1.6198187349946238,
+            1.6423593920189887
+          ],
+          "input_tokens": [
+            480,
+            480
+          ],
+          "output_tokens": [
+            9,
+            9
+          ],
+          "matches_original_outputs": true
+        }
+      }
+    },
+    {
+      "name": "challenge-remote",
+      "prior_split": "challenge",
+      "arms": {
+        "A": {
+          "outputs": [
+            "The person is smiling and looking at the camera."
+          ],
+          "seconds": [
+            1.7762255379930139,
+            1.7777771860128269
+          ],
+          "input_tokens": [
+            87,
+            87
+          ],
+          "output_tokens": [
+            12,
+            12
+          ],
+          "matches_original_outputs": true
+        },
+        "J": {
+          "outputs": [
+            "The person is sitting down and smiling."
+          ],
+          "seconds": [
+            1.7453176700510085,
+            1.7085395189933479
+          ],
+          "input_tokens": [
+            465,
+            465
+          ],
+          "output_tokens": [
+            10,
+            10
+          ]
+        },
+        "B": {
+          "outputs": [
+            "The person is holding a remote control."
+          ],
+          "seconds": [
+            1.6476019900292158,
+            1.6418047440238297
+          ],
+          "input_tokens": [
+            529,
+            529
+          ],
+          "output_tokens": [
+            9,
+            9
+          ],
+          "matches_original_outputs": true
+        }
+      }
+    },
+    {
+      "name": "challenge-screen",
+      "prior_split": "challenge",
+      "arms": {
+        "A": {
+          "outputs": [
+            "The person is sitting at a desk and looking at a computer screen."
+          ],
+          "seconds": [
+            2.3347010449506342,
+            2.31036846304778
+          ],
+          "input_tokens": [
+            87,
+            87
+          ],
+          "output_tokens": [
+            16,
+            16
+          ],
+          "matches_original_outputs": true
+        },
+        "J": {
+          "outputs": [
+            "The person is sitting at a desk and looking at a computer screen."
+          ],
+          "seconds": [
+            2.3998597209574655,
+            2.367586523992941
+          ],
+          "input_tokens": [
+            201,
+            201
+          ],
+          "output_tokens": [
+            16,
+            16
+          ]
+        },
+        "B": {
+          "outputs": [
+            "The person is sitting in front of a computer."
+          ],
+          "seconds": [
+            1.804943135008216,
+            1.815364309004508
+          ],
+          "input_tokens": [
+            265,
+            265
+          ],
+          "output_tokens": [
+            11,
+            11
+          ],
+          "matches_original_outputs": true
+        }
+      }
+    },
+    {
+      "name": "heldout-b-rest",
+      "prior_split": "heldout",
+      "arms": {
+        "A": {
+          "outputs": [
+            "The person is sitting down and looking at the camera."
+          ],
+          "seconds": [
+            1.792353449971415,
+            1.7835507559939288
+          ],
+          "input_tokens": [
+            87,
+            87
+          ],
+          "output_tokens": [
+            12,
+            12
+          ],
+          "matches_original_outputs": true
+        },
+        "J": {
+          "outputs": [
+            "The person is sitting down and looking at the camera."
+          ],
+          "seconds": [
+            2.020543527964037,
+            2.0376740359934047
+          ],
+          "input_tokens": [
+            473,
+            473
+          ],
+          "output_tokens": [
+            12,
+            12
+          ]
+        },
+        "B": {
+          "outputs": [
+            "The person is holding a remote control."
+          ],
+          "seconds": [
+            1.6650866839918308,
+            1.6903289550100453
+          ],
+          "input_tokens": [
+            537,
+            537
+          ],
+          "output_tokens": [
+            9,
+            9
+          ],
+          "matches_original_outputs": true
+        }
+      }
+    },
+    {
+      "name": "heldout-b-raised",
+      "prior_split": "heldout",
+      "arms": {
+        "A": {
+          "outputs": [
+            "The person is holding his hands up in the air."
+          ],
+          "seconds": [
+            1.756961151957512,
+            1.782474061998073
+          ],
+          "input_tokens": [
+            87,
+            87
+          ],
+          "output_tokens": [
+            12,
+            12
+          ],
+          "matches_original_outputs": true
+        },
+        "J": {
+          "outputs": [
+            "The person is holding a hand in front of their face."
+          ],
+          "seconds": [
+            2.162318888993468,
+            2.117235896002967
+          ],
+          "input_tokens": [
+            468,
+            468
+          ],
+          "output_tokens": [
+            13,
+            13
+          ]
+        },
+        "B": {
+          "outputs": [
+            "The person is holding a hand."
+          ],
+          "seconds": [
+            1.5502377839875408,
+            1.5587254269630648
+          ],
+          "input_tokens": [
+            532,
+            532
+          ],
+          "output_tokens": [
+            8,
+            8
+          ],
+          "matches_original_outputs": true
+        }
+      }
+    },
+    {
+      "name": "heldout-b-down",
+      "prior_split": "heldout",
+      "arms": {
+        "A": {
+          "outputs": [
+            "The person is sitting down and smiling."
+          ],
+          "seconds": [
+            1.549617587996181,
+            1.4932055409881286
+          ],
+          "input_tokens": [
+            87,
+            87
+          ],
+          "output_tokens": [
+            10,
+            10
+          ],
+          "matches_original_outputs": true
+        },
+        "J": {
+          "outputs": [
+            "The person is sitting down and smiling."
+          ],
+          "seconds": [
+            1.9685949819977395,
+            1.8909750869497657
+          ],
+          "input_tokens": [
+            733,
+            733
+          ],
+          "output_tokens": [
+            10,
+            10
+          ]
+        },
+        "B": {
+          "outputs": [
+            "The person is holding a remote control."
+          ],
+          "seconds": [
+            1.842680536035914,
+            1.8617785329697654
+          ],
+          "input_tokens": [
+            797,
+            797
+          ],
+          "output_tokens": [
+            9,
+            9
+          ],
+          "matches_original_outputs": true
+        }
+      }
+    },
+    {
+      "name": "heldout-food",
+      "prior_split": "heldout",
+      "arms": {
+        "A": {
+          "outputs": [
+            "The person is holding a piece of food in their hands."
+          ],
+          "seconds": [
+            1.916958354995586,
+            1.9184355300385505
+          ],
+          "input_tokens": [
+            87,
+            87
+          ],
+          "output_tokens": [
+            13,
+            13
+          ],
+          "matches_original_outputs": true
+        },
+        "J": {
+          "outputs": [
+            "The person is holding a remote control."
+          ],
+          "seconds": [
+            1.6046911689918488,
+            1.6496247230097651
+          ],
+          "input_tokens": [
+            468,
+            468
+          ],
+          "output_tokens": [
+            9,
+            9
+          ]
+        },
+        "B": {
+          "outputs": [
+            "The person is holding a cell phone."
+          ],
+          "seconds": [
+            1.656136627017986,
+            1.7277575610205531
+          ],
+          "input_tokens": [
+            532,
+            532
+          ],
+          "output_tokens": [
+            9,
+            9
+          ],
+          "matches_original_outputs": true
+        }
+      }
+    }
+  ],
+  "prompt_audit": "48 complete prompts checked: only expected evidence insertion differs from unchanged A",
+  "model_load_seconds": 12.09569174097851,
+  "boundary": "same eight images replayed, no new holdout; cached measurements; raw outputs only; no C",
+  "peak_ram_mb": 6636.0,
+  "peak_swap_mb": 1159.0,
+  "peak_temperature_c": 60.718
+}

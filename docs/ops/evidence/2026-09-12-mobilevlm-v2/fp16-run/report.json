@@ -1,0 +1,500 @@
+{
+  "status": "completed",
+  "torch": "2.5.0a0+872d972e41.nv24.08",
+  "transformers": "4.33.1",
+  "cuda": "12.6",
+  "precision": "FP16",
+  "prompt": "Describe the person's visible action and any object they are handling in one short sentence. Do not guess intent or identity.",
+  "max_new_tokens": 48,
+  "last_token_logits": false,
+  "distributed_unavailable_fsdp_probe_disabled": true,
+  "runtime": {
+    "source_revision": "688fdec914810485c8766da96c63d9d2ce15f750",
+    "changes": [
+      "Construct dummy vision tower from config; require complete outer checkpoint key match"
+    ],
+    "model_math": "unchanged upstream FP16 inference"
+  },
+  "conversion": {
+    "method": "torch.load weights_only mmap; lossless safetensors sharding",
+    "tensor_count": 616,
+    "total_bytes": 3348242432,
+    "vision_key_count": 391,
+    "source_sha256": "cd16648451c84831f317dbcc59e9c8d323235bde2dd2ecdaadb67808a25132e9"
+  },
+  "cases": [
+    {
+      "path": "/home/jetson/openhalo-mobilevlm-v2/media/eating.jpg",
+      "sha256": "38e1efc1d25a5d0ed67b5f8ec99a5811e4e43449e46d0096f7f3c4c7f946fb5c",
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": true,
+          "preprocess_seconds": 0.12784071499481797,
+          "generation_seconds": 7.044337334984448,
+          "total_seconds": 7.172178049979266,
+          "vision_seconds": 2.387870513019152,
+          "projector_seconds": 0.46397968096425757,
+          "visual_tokens": 144,
+          "output_tokens": 20,
+          "output": "The person is holding a piece of food in their hand and appears to be eating it.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3481922560,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 4.192487141001038
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.11957663903012872,
+          "generation_seconds": 1.4490110739716329,
+          "total_seconds": 1.5685877130017616,
+          "vision_seconds": 0.13600855198455974,
+          "projector_seconds": 0.007710348989348859,
+          "visual_tokens": 144,
+          "output_tokens": 20,
+          "output": "The person is holding a piece of food in their hand and appears to be eating it.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3481922560,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 1.3052921729977243
+        },
+        {
+          "repeat": 2,
+          "first_inference": false,
+          "preprocess_seconds": 0.04446191299939528,
+          "generation_seconds": 1.3725797929801047,
+          "total_seconds": 1.4170417059795,
+          "vision_seconds": 0.10149082099087536,
+          "projector_seconds": 0.001941883994732052,
+          "visual_tokens": 144,
+          "output_tokens": 20,
+          "output": "The person is holding a piece of food in their hand and appears to be eating it.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3481922560,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 1.2691470879944973
+        }
+      ],
+      "image_size": [
+        1280,
+        720
+      ]
+    },
+    {
+      "path": "/home/jetson/openhalo-mobilevlm-v2/media/raised.jpg",
+      "sha256": "772ea1a829615c4594658cb3e10739236f7ca34c9f4522d7bdfa68b202ecfdae",
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": false,
+          "preprocess_seconds": 0.0483460960094817,
+          "generation_seconds": 1.6102078600088134,
+          "total_seconds": 1.6585539560182951,
+          "vision_seconds": 0.09506021195556968,
+          "projector_seconds": 0.002068930014502257,
+          "visual_tokens": 144,
+          "output_tokens": 24,
+          "output": "The person in the image is waving at the camera, and they are holding a cell phone in one hand.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3481922560,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 1.5130787180387415
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.04653564200270921,
+          "generation_seconds": 1.6119572349707596,
+          "total_seconds": 1.6584928769734688,
+          "vision_seconds": 0.0958461039699614,
+          "projector_seconds": 0.002074369986075908,
+          "visual_tokens": 144,
+          "output_tokens": 24,
+          "output": "The person in the image is waving at the camera, and they are holding a cell phone in one hand.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3481922560,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 1.5140367610147223
+        },
+        {
+          "repeat": 2,
+          "first_inference": false,
+          "preprocess_seconds": 0.041240831022150815,
+          "generation_seconds": 1.608655431016814,
+          "total_seconds": 1.6498962620389648,
+          "vision_seconds": 0.09651237400248647,
+          "projector_seconds": 0.002171494998037815,
+          "visual_tokens": 144,
+          "output_tokens": 24,
+          "output": "The person in the image is waving at the camera, and they are holding a cell phone in one hand.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3481922560,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 1.5099715620162897
+        }
+      ],
+      "image_size": [
+        1280,
+        720
+      ]
+    },
+    {
+      "path": "/home/jetson/openhalo-mobilevlm-v2/media/rest.jpg",
+      "sha256": "94f0893a1b0c5dfe99b55fef9ea52aab898af1e59b1f558ce0f1342551180833",
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": false,
+          "preprocess_seconds": 0.04134643595898524,
+          "generation_seconds": 1.72541427903343,
+          "total_seconds": 1.7667607149924152,
+          "vision_seconds": 0.09453058301005512,
+          "projector_seconds": 0.0017609799979254603,
+          "visual_tokens": 144,
+          "output_tokens": 26,
+          "output": "The person in the image is sitting down and appears to be smiling. They are holding a remote control in their hand.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3481922560,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 1.6291227160254493
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.04131027398398146,
+          "generation_seconds": 1.7279457700205967,
+          "total_seconds": 1.7692560440045781,
+          "vision_seconds": 0.0955515910172835,
+          "projector_seconds": 0.0017021609819494188,
+          "visual_tokens": 144,
+          "output_tokens": 26,
+          "output": "The person in the image is sitting down and appears to be smiling. They are holding a remote control in their hand.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3481922560,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 1.6306920180213638
+        },
+        {
+          "repeat": 2,
+          "first_inference": false,
+          "preprocess_seconds": 0.041333122993819416,
+          "generation_seconds": 1.7245618460001424,
+          "total_seconds": 1.7658949689939618,
+          "vision_seconds": 0.09555613400880247,
+          "projector_seconds": 0.002086818974930793,
+          "visual_tokens": 144,
+          "output_tokens": 26,
+          "output": "The person in the image is sitting down and appears to be smiling. They are holding a remote control in their hand.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3481922560,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 1.6269188930164091
+        }
+      ],
+      "image_size": [
+        1280,
+        720
+      ]
+    },
+    {
+      "path": "/home/jetson/openhalo-mobilevlm-v2/media/lowered.jpg",
+      "sha256": "262091220adf2e90f9dd7ffa937fdfb57c11604094924492f4949c915cd24270",
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": false,
+          "preprocess_seconds": 0.0412957759690471,
+          "generation_seconds": 1.300090343982447,
+          "total_seconds": 1.341386119951494,
+          "vision_seconds": 0.0956746349693276,
+          "projector_seconds": 0.0021066920016892254,
+          "visual_tokens": 144,
+          "output_tokens": 19,
+          "output": "The person is holding a remote control in one hand and a cell phone in the other.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3481922560,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 1.2023090170114301
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.041107734956312925,
+          "generation_seconds": 1.309546490025241,
+          "total_seconds": 1.3506542249815539,
+          "vision_seconds": 0.09574196400353685,
+          "projector_seconds": 0.002096546988468617,
+          "visual_tokens": 144,
+          "output_tokens": 19,
+          "output": "The person is holding a remote control in one hand and a cell phone in the other.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3481922560,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 1.2117079790332355
+        },
+        {
+          "repeat": 2,
+          "first_inference": false,
+          "preprocess_seconds": 0.04152116196928546,
+          "generation_seconds": 1.3032900880207308,
+          "total_seconds": 1.3448112499900162,
+          "vision_seconds": 0.09665179799776524,
+          "projector_seconds": 0.0020962909911759198,
+          "visual_tokens": 144,
+          "output_tokens": 19,
+          "output": "The person is holding a remote control in one hand and a cell phone in the other.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3481922560,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 1.2045419990317896
+        }
+      ],
+      "image_size": [
+        1280,
+        720
+      ]
+    },
+    {
+      "path": "/home/jetson/openhalo-mobilevlm-v2/media/eating-crop.jpg",
+      "sha256": "711dc9ea72a70dd59e8f0e8fcfd19e6903da3f12918d4325f3ba79e2d376a944",
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": false,
+          "preprocess_seconds": 0.03243721299804747,
+          "generation_seconds": 1.5496709300205112,
+          "total_seconds": 1.5821081430185586,
+          "vision_seconds": 0.09609186800662428,
+          "projector_seconds": 0.0022753080120310187,
+          "visual_tokens": 144,
+          "output_tokens": 23,
+          "output": "The person in the image is holding a piece of food in their hand and appears to be eating it.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3481922560,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 1.4513037540018559
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.03237320901826024,
+          "generation_seconds": 1.5489290870027617,
+          "total_seconds": 1.581302296021022,
+          "vision_seconds": 0.09594801999628544,
+          "projector_seconds": 0.001709425006993115,
+          "visual_tokens": 144,
+          "output_tokens": 23,
+          "output": "The person in the image is holding a piece of food in their hand and appears to be eating it.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3481922560,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 1.451271641999483
+        },
+        {
+          "repeat": 2,
+          "first_inference": false,
+          "preprocess_seconds": 0.03253148897783831,
+          "generation_seconds": 1.5494549840223044,
+          "total_seconds": 1.5819864730001427,
+          "vision_seconds": 0.0955382400425151,
+          "projector_seconds": 0.0017609790083952248,
+          "visual_tokens": 144,
+          "output_tokens": 23,
+          "output": "The person in the image is holding a piece of food in their hand and appears to be eating it.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3481922560,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 1.452155764971394
+        }
+      ],
+      "image_size": [
+        980,
+        680
+      ]
+    },
+    {
+      "path": "/home/jetson/openhalo-mobilevlm-v2/media/raised-crop.jpg",
+      "sha256": "50ceb4f2a96bc2ca42edb9c8e0813812776aaa2675a7ae2908853672fcd9078e",
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": false,
+          "preprocess_seconds": 0.03220139199402183,
+          "generation_seconds": 1.6097718329983763,
+          "total_seconds": 1.6419732249923982,
+          "vision_seconds": 0.09632243501255289,
+          "projector_seconds": 0.0017079209792427719,
+          "visual_tokens": 144,
+          "output_tokens": 24,
+          "output": "The person in the image is waving at the camera, and they are holding a remote control in one hand.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3481922560,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 1.5117414770065807
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.03199869499076158,
+          "generation_seconds": 1.6027843169867992,
+          "total_seconds": 1.6347830119775608,
+          "vision_seconds": 0.09560995298670605,
+          "projector_seconds": 0.0016921119531616569,
+          "visual_tokens": 144,
+          "output_tokens": 24,
+          "output": "The person in the image is waving at the camera, and they are holding a remote control in one hand.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3481922560,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 1.5054822520469315
+        },
+        {
+          "repeat": 2,
+          "first_inference": false,
+          "preprocess_seconds": 0.03232904599281028,
+          "generation_seconds": 1.60649007599568,
+          "total_seconds": 1.6388191219884902,
+          "vision_seconds": 0.0954907140112482,
+          "projector_seconds": 0.0021148190135136247,
+          "visual_tokens": 144,
+          "output_tokens": 24,
+          "output": "The person in the image is waving at the camera, and they are holding a remote control in one hand.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3481922560,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 1.5088845429709181
+        }
+      ],
+      "image_size": [
+        980,
+        680
+      ]
+    },
+    {
+      "path": "/home/jetson/openhalo-mobilevlm-v2/media/rest-crop.jpg",
+      "sha256": "05fe5fe44237c8a1a77d33c5279d0c4127bdc19014e75a64c3c09404f37d78b6",
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": false,
+          "preprocess_seconds": 0.0324086329783313,
+          "generation_seconds": 2.5326662260340527,
+          "total_seconds": 2.565074859012384,
+          "vision_seconds": 0.09504858002765104,
+          "projector_seconds": 0.001712337019853294,
+          "visual_tokens": 144,
+          "output_tokens": 39,
+          "output": "The person in the image is sitting down and appears to be looking at something off-camera. They are holding a white object in their hand, which is not clearly visible in the image.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3482967552,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 2.4359053089865483
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.03250578901497647,
+          "generation_seconds": 2.5561528599937446,
+          "total_seconds": 2.588658649008721,
+          "vision_seconds": 0.09494527796050534,
+          "projector_seconds": 0.002304171968717128,
+          "visual_tokens": 144,
+          "output_tokens": 39,
+          "output": "The person in the image is sitting down and appears to be looking at something off-camera. They are holding a white object in their hand, which is not clearly visible in the image.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3482967552,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 2.458903410064522
+        },
+        {
+          "repeat": 2,
+          "first_inference": false,
+          "preprocess_seconds": 0.03244799398817122,
+          "generation_seconds": 2.531630798999686,
+          "total_seconds": 2.564078792987857,
+          "vision_seconds": 0.10155554104130715,
+          "projector_seconds": 0.002206055971328169,
+          "visual_tokens": 144,
+          "output_tokens": 39,
+          "output": "The person in the image is sitting down and appears to be looking at something off-camera. They are holding a white object in their hand, which is not clearly visible in the image.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3482967552,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 2.4278692019870505
+        }
+      ],
+      "image_size": [
+        980,
+        680
+      ]
+    },
+    {
+      "path": "/home/jetson/openhalo-mobilevlm-v2/media/lowered-crop.jpg",
+      "sha256": "7069f5b0d2eac7b2d6b98ecb5ea85588b429a9417843a71e98d06505d33d645c",
+      "runs": [
+        {
+          "repeat": 0,
+          "first_inference": false,
+          "preprocess_seconds": 0.03226081602042541,
+          "generation_seconds": 1.060944209981244,
+          "total_seconds": 1.0932050260016695,
+          "vision_seconds": 0.09589907998451963,
+          "projector_seconds": 0.0016954719903878868,
+          "visual_tokens": 144,
+          "output_tokens": 15,
+          "output": "The person in the image is holding a white object in their hand.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3481922560,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 0.9633496580063365
+        },
+        {
+          "repeat": 1,
+          "first_inference": false,
+          "preprocess_seconds": 0.0321287140250206,
+          "generation_seconds": 1.0693188369623385,
+          "total_seconds": 1.1014475509873591,
+          "vision_seconds": 0.09562066599028185,
+          "projector_seconds": 0.001683567010331899,
+          "visual_tokens": 144,
+          "output_tokens": 15,
+          "output": "The person in the image is holding a white object in their hand.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3481922560,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 0.9720146039617248
+        },
+        {
+          "repeat": 2,
+          "first_inference": false,
+          "preprocess_seconds": 0.0318920940044336,
+          "generation_seconds": 1.069586586963851,
+          "total_seconds": 1.1014786809682846,
+          "vision_seconds": 0.09814660798292607,
+          "projector_seconds": 0.0017680200398899615,
+          "visual_tokens": 144,
+          "output_tokens": 15,
+          "output": "The person in the image is holding a white object in their hand.",
+          "hit_token_limit": false,
+          "cuda_peak_allocated_bytes": 3481922560,
+          "cuda_peak_reserved_bytes": 3630170112,
+          "language_seconds": 0.969671958941035
+        }
+      ],
+      "image_size": [
+        980,
+        680
+      ]
+    }
+  ],
+  "acceptance": "not accepted; bounded single-image check",
+  "load_seconds": 10.959164416010026,
+  "loading_info": {
+    "missing_keys": [],
+    "unexpected_keys": [],
+    "mismatched_keys": [],
+    "error_msgs": []
+  },
+  "loaded_cuda_allocated_bytes": 3375522816
+}

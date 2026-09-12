@@ -1,0 +1,61 @@
+{
+  "status": "completed",
+  "precision": "NF4 language linear / FP16 vision-projector-head",
+  "cases": [
+    {
+      "image": "frame-5.jpg",
+      "replays": 2,
+      "outputs": [
+        "The person is sitting at a desk and looking at a computer screen."
+      ],
+      "warmed_total_seconds": [
+        2.258547070028726
+      ],
+      "warmed_median_seconds": 2.258547070028726,
+      "truncated": false
+    },
+    {
+      "image": "frame-20.jpg",
+      "replays": 2,
+      "outputs": [
+        "The person is sitting at a desk and looking at a computer screen."
+      ],
+      "warmed_total_seconds": [
+        2.2625251269782893,
+        2.3028120860108174
+      ],
+      "warmed_median_seconds": 2.2826686064945534,
+      "truncated": false
+    },
+    {
+      "image": "frame-35.jpg",
+      "replays": 2,
+      "outputs": [
+        "The person is sitting down and looking at a computer screen."
+      ],
+      "warmed_total_seconds": [
+        1.906109618023038,
+        1.8986296560033225
+      ],
+      "warmed_median_seconds": 1.9023696370131802,
+      "truncated": false
+    },
+    {
+      "image": "frame-50.jpg",
+      "replays": 2,
+      "outputs": [
+        "The person is sitting down and looking at a computer screen."
+      ],
+      "warmed_total_seconds": [
+        1.8904674230143428,
+        1.8926644739694893
+      ],
+      "warmed_median_seconds": 1.891565948491916,
+      "truncated": false
+    }
+  ],
+  "peak_ram_used_mb": 6160.0,
+  "peak_swap_used_mb": 1113.0,
+  "peak_temperature_c": 59.437,
+  "boundary": "image disk decode/preprocess through generation; excludes capture/event/Runtime; repeats are not accuracy samples or robust P95; token-limited outputs are not complete answers"
+}

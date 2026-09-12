@@ -1,0 +1,119 @@
+[
+  {
+    "repo": "Zhang199/TinyLLaVA-Video-Qwen2.5-3B-Group-16-512",
+    "revision": "490db36363bae6e6653e2ad09d2041a4a9a33f29",
+    "name": "added_tokens.json",
+    "folder": "model",
+    "size": 605,
+    "expected_sha256": null,
+    "sha256": "58b54bbe36fc752f79a24a271ef66a0a0830054b4dfad94bde757d851968060b"
+  },
+  {
+    "repo": "Zhang199/TinyLLaVA-Video-Qwen2.5-3B-Group-16-512",
+    "revision": "490db36363bae6e6653e2ad09d2041a4a9a33f29",
+    "name": "config.json",
+    "folder": "model",
+    "size": 2084,
+    "expected_sha256": null,
+    "sha256": "2cb12a736e6e63b66c323ac4401aac9b84093721e05a4a035b975a0b45bdac26"
+  },
+  {
+    "repo": "Zhang199/TinyLLaVA-Video-Qwen2.5-3B-Group-16-512",
+    "revision": "490db36363bae6e6653e2ad09d2041a4a9a33f29",
+    "name": "generation_config.json",
+    "folder": "model",
+    "size": 143,
+    "expected_sha256": null,
+    "sha256": "51866fbcb267085063fcec404a4bd5bd83d6e76ebaeaa1d7f1961de0e3208fd6"
+  },
+  {
+    "repo": "Zhang199/TinyLLaVA-Video-Qwen2.5-3B-Group-16-512",
+    "revision": "490db36363bae6e6653e2ad09d2041a4a9a33f29",
+    "name": "merges.txt",
+    "folder": "model",
+    "size": 1671853,
+    "expected_sha256": null,
+    "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5"
+  },
+  {
+    "repo": "Zhang199/TinyLLaVA-Video-Qwen2.5-3B-Group-16-512",
+    "revision": "490db36363bae6e6653e2ad09d2041a4a9a33f29",
+    "name": "model-00001-of-00002.safetensors",
+    "folder": "model",
+    "size": 4957565464,
+    "expected_sha256": "ca6e00911e7773c7c9cfed988b7beeb6ed7906005ad0b22954a797cd462bfcef",
+    "sha256": "ca6e00911e7773c7c9cfed988b7beeb6ed7906005ad0b22954a797cd462bfcef"
+  },
+  {
+    "repo": "Zhang199/TinyLLaVA-Video-Qwen2.5-3B-Group-16-512",
+    "revision": "490db36363bae6e6653e2ad09d2041a4a9a33f29",
+    "name": "model-00002-of-00002.safetensors",
+    "folder": "model",
+    "size": 2302319744,
+    "expected_sha256": "2c4babb307e8c915a6bea85b772e6e0e3a884163c4a1a22a2c7c2cc00f5ae17d",
+    "sha256": "2c4babb307e8c915a6bea85b772e6e0e3a884163c4a1a22a2c7c2cc00f5ae17d"
+  },
+  {
+    "repo": "Zhang199/TinyLLaVA-Video-Qwen2.5-3B-Group-16-512",
+    "revision": "490db36363bae6e6653e2ad09d2041a4a9a33f29",
+    "name": "model.safetensors.index.json",
+    "folder": "model",
+    "size": 99101,
+    "expected_sha256": null,
+    "sha256": "c8f3da7529c760c309d14bb2b7cf6faaecc2a29c3ad434e193aec986ba0bb3d3"
+  },
+  {
+    "repo": "Zhang199/TinyLLaVA-Video-Qwen2.5-3B-Group-16-512",
+    "revision": "490db36363bae6e6653e2ad09d2041a4a9a33f29",
+    "name": "special_tokens_map.json",
+    "folder": "model",
+    "size": 648,
+    "expected_sha256": null,
+    "sha256": "6b2a2e4adcd694648eaff1a49cdf21ba1c5506b2f869c5a4e3034b88be7dd1f3"
+  },
+  {
+    "repo": "Zhang199/TinyLLaVA-Video-Qwen2.5-3B-Group-16-512",
+    "revision": "490db36363bae6e6653e2ad09d2041a4a9a33f29",
+    "name": "tokenizer_config.json",
+    "folder": "model",
+    "size": 7265,
+    "expected_sha256": null,
+    "sha256": "020021a22517c8942e13f3628f896c0d9089531942c8c281c9549d9a64dd2468"
+  },
+  {
+    "repo": "Zhang199/TinyLLaVA-Video-Qwen2.5-3B-Group-16-512",
+    "revision": "490db36363bae6e6653e2ad09d2041a4a9a33f29",
+    "name": "vocab.json",
+    "folder": "model",
+    "size": 3383407,
+    "expected_sha256": null,
+    "sha256": "87a257b04b17642a0688c98cd1df89c398bda4fee532d6f88b38a659ecb4ac8d"
+  },
+  {
+    "repo": "google/siglip-so400m-patch14-384",
+    "revision": "9fdffc58afc957d1a03a25b10dba0329ab15c2a3",
+    "name": "config.json",
+    "folder": "siglip",
+    "size": 576,
+    "expected_sha256": null,
+    "sha256": "adc04928d8fd19a61822584fe0cf2e813e5ebac17f3e49fb1ea096860ae6457b"
+  },
+  {
+    "repo": "google/siglip-so400m-patch14-384",
+    "revision": "9fdffc58afc957d1a03a25b10dba0329ab15c2a3",
+    "name": "preprocessor_config.json",
+    "folder": "siglip",
+    "size": 368,
+    "expected_sha256": null,
+    "sha256": "f59da2f87c3cd079bd4f8f3037e81b277c60c498e279a8020331f67a5a3157e8"
+  },
+  {
+    "repo": "Qwen/Qwen2.5-3B",
+    "revision": "3aab1f1954e9cc14eb9509a215f9e5ca08227a9b",
+    "name": "config.json",
+    "folder": "qwen2",
+    "size": 683,
+    "expected_sha256": null,
+    "sha256": "27467e2fc311a7656c09a43ae9c3d408211e1f212bbddbc93c8596a06423826f"
+  }
+]

@@ -1,0 +1,410 @@
+[
+  {
+    "case": "challenge-food",
+    "runs": [
+      {
+        "version": "grounding-claims-v1.1-diagnostic",
+        "aligned": true,
+        "claims": [
+          {
+            "claim": "The person is holding a piece of food",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "retained_claims": [],
+        "withdrawn_claims": [
+          {
+            "claim": "The person is holding a piece of food",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "all_withdrawn": true,
+        "verified_claim_count": 0,
+        "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+        "offline_gate_seconds": 0.0014669809606857598
+      },
+      {
+        "version": "grounding-claims-v1.1-diagnostic",
+        "aligned": true,
+        "claims": [
+          {
+            "claim": "The person is holding a piece of food",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "retained_claims": [],
+        "withdrawn_claims": [
+          {
+            "claim": "The person is holding a piece of food",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "all_withdrawn": true,
+        "verified_claim_count": 0,
+        "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+        "offline_gate_seconds": 3.212998853996396e-05
+      }
+    ]
+  },
+  {
+    "case": "challenge-raised",
+    "runs": [
+      {
+        "version": "grounding-claims-v1.1-diagnostic",
+        "aligned": true,
+        "claims": [
+          {
+            "claim": "The person is holding their hands up",
+            "status": "image_only_unverified",
+            "reason": "static_hand_position_not_object_holding; keypoints_do_not_establish_motion"
+          }
+        ],
+        "retained_claims": [
+          {
+            "claim": "The person is holding their hands up",
+            "status": "image_only_unverified",
+            "reason": "static_hand_position_not_object_holding; keypoints_do_not_establish_motion"
+          }
+        ],
+        "withdrawn_claims": [],
+        "all_withdrawn": false,
+        "verified_claim_count": 0,
+        "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+        "offline_gate_seconds": 1.9297003746032715e-05
+      },
+      {
+        "version": "grounding-claims-v1.1-diagnostic",
+        "aligned": true,
+        "claims": [
+          {
+            "claim": "The person is holding their hands up",
+            "status": "image_only_unverified",
+            "reason": "static_hand_position_not_object_holding; keypoints_do_not_establish_motion"
+          }
+        ],
+        "retained_claims": [
+          {
+            "claim": "The person is holding their hands up",
+            "status": "image_only_unverified",
+            "reason": "static_hand_position_not_object_holding; keypoints_do_not_establish_motion"
+          }
+        ],
+        "withdrawn_claims": [],
+        "all_withdrawn": false,
+        "verified_claim_count": 0,
+        "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+        "offline_gate_seconds": 1.2800039257854223e-05
+      }
+    ]
+  },
+  {
+    "case": "challenge-remote",
+    "runs": [
+      {
+        "version": "grounding-claims-v1.1-diagnostic",
+        "aligned": true,
+        "claims": [
+          {
+            "claim": "The person is holding a remote control",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "retained_claims": [],
+        "withdrawn_claims": [
+          {
+            "claim": "The person is holding a remote control",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "all_withdrawn": true,
+        "verified_claim_count": 0,
+        "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+        "offline_gate_seconds": 1.817703014239669e-05
+      },
+      {
+        "version": "grounding-claims-v1.1-diagnostic",
+        "aligned": true,
+        "claims": [
+          {
+            "claim": "The person is holding a remote control",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "retained_claims": [],
+        "withdrawn_claims": [
+          {
+            "claim": "The person is holding a remote control",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "all_withdrawn": true,
+        "verified_claim_count": 0,
+        "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+        "offline_gate_seconds": 1.497694756835699e-05
+      }
+    ]
+  },
+  {
+    "case": "challenge-screen",
+    "runs": [
+      {
+        "version": "grounding-claims-v1.1-diagnostic",
+        "aligned": true,
+        "claims": [
+          {
+            "claim": "The person is sitting in front of a computer",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "retained_claims": [],
+        "withdrawn_claims": [
+          {
+            "claim": "The person is sitting in front of a computer",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "all_withdrawn": true,
+        "verified_claim_count": 0,
+        "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+        "offline_gate_seconds": 1.7633021343499422e-05
+      },
+      {
+        "version": "grounding-claims-v1.1-diagnostic",
+        "aligned": true,
+        "claims": [
+          {
+            "claim": "The person is sitting in front of a computer",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "retained_claims": [],
+        "withdrawn_claims": [
+          {
+            "claim": "The person is sitting in front of a computer",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "all_withdrawn": true,
+        "verified_claim_count": 0,
+        "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+        "offline_gate_seconds": 1.5489000361412764e-05
+      }
+    ]
+  },
+  {
+    "case": "heldout-b-rest",
+    "runs": [
+      {
+        "version": "grounding-claims-v1.1-diagnostic",
+        "aligned": true,
+        "claims": [
+          {
+            "claim": "The person is holding a remote control",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "retained_claims": [],
+        "withdrawn_claims": [
+          {
+            "claim": "The person is holding a remote control",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "all_withdrawn": true,
+        "verified_claim_count": 0,
+        "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+        "offline_gate_seconds": 1.5456986147910357e-05
+      },
+      {
+        "version": "grounding-claims-v1.1-diagnostic",
+        "aligned": true,
+        "claims": [
+          {
+            "claim": "The person is holding a remote control",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "retained_claims": [],
+        "withdrawn_claims": [
+          {
+            "claim": "The person is holding a remote control",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "all_withdrawn": true,
+        "verified_claim_count": 0,
+        "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+        "offline_gate_seconds": 1.8945022020488977e-05
+      }
+    ]
+  },
+  {
+    "case": "heldout-b-raised",
+    "runs": [
+      {
+        "version": "grounding-claims-v1.1-diagnostic",
+        "aligned": true,
+        "claims": [
+          {
+            "claim": "The person is holding a hand",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "retained_claims": [],
+        "withdrawn_claims": [
+          {
+            "claim": "The person is holding a hand",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "all_withdrawn": true,
+        "verified_claim_count": 0,
+        "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+        "offline_gate_seconds": 1.5425030142068863e-05
+      },
+      {
+        "version": "grounding-claims-v1.1-diagnostic",
+        "aligned": true,
+        "claims": [
+          {
+            "claim": "The person is holding a hand",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "retained_claims": [],
+        "withdrawn_claims": [
+          {
+            "claim": "The person is holding a hand",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "all_withdrawn": true,
+        "verified_claim_count": 0,
+        "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+        "offline_gate_seconds": 1.3024022337049246e-05
+      }
+    ]
+  },
+  {
+    "case": "heldout-b-down",
+    "runs": [
+      {
+        "version": "grounding-claims-v1.1-diagnostic",
+        "aligned": true,
+        "claims": [
+          {
+            "claim": "The person is holding a remote control",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "retained_claims": [],
+        "withdrawn_claims": [
+          {
+            "claim": "The person is holding a remote control",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "all_withdrawn": true,
+        "verified_claim_count": 0,
+        "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+        "offline_gate_seconds": 2.4481036234647036e-05
+      },
+      {
+        "version": "grounding-claims-v1.1-diagnostic",
+        "aligned": true,
+        "claims": [
+          {
+            "claim": "The person is holding a remote control",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "retained_claims": [],
+        "withdrawn_claims": [
+          {
+            "claim": "The person is holding a remote control",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "all_withdrawn": true,
+        "verified_claim_count": 0,
+        "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+        "offline_gate_seconds": 1.5489000361412764e-05
+      }
+    ]
+  },
+  {
+    "case": "heldout-food",
+    "runs": [
+      {
+        "version": "grounding-claims-v1.1-diagnostic",
+        "aligned": true,
+        "claims": [
+          {
+            "claim": "The person is holding a cell phone",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "retained_claims": [],
+        "withdrawn_claims": [
+          {
+            "claim": "The person is holding a cell phone",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "all_withdrawn": true,
+        "verified_claim_count": 0,
+        "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+        "offline_gate_seconds": 1.4624965842813253e-05
+      },
+      {
+        "version": "grounding-claims-v1.1-diagnostic",
+        "aligned": true,
+        "claims": [
+          {
+            "claim": "The person is holding a cell phone",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "retained_claims": [],
+        "withdrawn_claims": [
+          {
+            "claim": "The person is holding a cell phone",
+            "status": "withdrawn",
+            "reason": "specific_relation_or_temporal_action_not_independently_measured"
+          }
+        ],
+        "all_withdrawn": true,
+        "verified_claim_count": 0,
+        "boundary": "image_only_unverified claims are captions, not verified state or Runtime observations",
+        "offline_gate_seconds": 1.3313023373484612e-05
+      }
+    ]
+  }
+]
