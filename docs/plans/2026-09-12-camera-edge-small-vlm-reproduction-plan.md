@@ -41,6 +41,16 @@ remain to be verified, not newly accepted by this order update.
 
 ### Route 2: later specialist-plus-image-VLM comparison
 
+2026-09-12 scheduling follow-up: [single-flight ROI replay](../ops/jetson-roi-singleflight-validation.md)
+now implements one in-flight request, latest-only observations, stale-result
+rejection, unverified-caption caching and retry cooldown. On the same 90 s clip,
+the histogram ablation made 15 actual calls for 146 selected unknown observations,
+cached 7 captions with 41 reuse events, and discarded 8 stale replies. The pixel
+comparison control made 20 calls and cached none. Eight synthetic contract tests
+passed. This validates bounded scheduling behavior, not object continuity or
+semantic correctness: a screwdriver-to-syringe error also entered the cache.
+Fresh object-swap tests, live contention, hang recovery and Runtime remain open.
+
 Owner disposition after the first conditional ROI replay: retain this combination
 as valuable for further validation. The positive bounded phone/hand-description
 results do not resolve screwdriver recognition, high-score bypass, structured

@@ -58,3 +58,23 @@ automatic hand crops. `roi_fallback.py` evaluates score-below-0.7 routing to an
 image-only MobileVLM answer, with full-frame controls. Run separately under
 `/home/jetson/openhalo-roi-fallback/`; no live service is installed. See
 [results, limitations and commands](../../docs/ops/jetson-mobilevlm-roi-fallback-validation.md).
+
+## Asynchronous ROI request deduplication
+
+`singleflight.py` keeps one backend request in flight, retains the latest
+observation, rejects stale replies, and caches unverified model captions.
+`test_singleflight.py` exercises the scheduler contracts without models.
+`async_roi_replay.py` paces the saved specialist observations and video while
+`vlm_session.py` runs the existing MobileVLM NF4 stack in one worker thread.
+The histogram option is an appearance-change ablation, not object identity.
+See [bounded replay results](../../docs/ops/jetson-roi-singleflight-validation.md).
+
+```sh
+python -B -m unittest discover -s experiments/specialist_temporal -p test_singleflight.py
+/home/jetson/openhalo-mobilevlm-v2-venv/bin/python \
+  /home/jetson/openhalo-roi-singleflight/scripts/async_roi_replay.py \
+  --appearance histogram --output /home/jetson/openhalo-roi-singleflight/run-NEW
+```
+
+Use a fresh output directory. This is an isolated recorded-video experiment,
+not a camera service or Runtime implementation.

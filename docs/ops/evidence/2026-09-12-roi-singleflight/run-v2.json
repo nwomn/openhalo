@@ -1,0 +1,6168 @@
+{
+  "status": "completed",
+  "config": {
+    "cache_s": 10.0,
+    "cooldown_s": 2.0,
+    "max_cooldown_s": 8.0,
+    "max_result_age_s": 5.0,
+    "observation_fresh_s": 0.65
+  },
+  "appearance_mode": "histogram",
+  "appearance_threshold": 0.35,
+  "association_iou_threshold": 0.1,
+  "source_report_sha256": "8bd10fa6b39c23ec5c8151c29fa60d6b8f0c7b15178ed1932049c951d5c67813",
+  "source_hashes": {
+    "singleflight.py": "56d1607b07db84a19aa90b408c174e6759bb6da400852bc7165f1a6e2dc80e84",
+    "async_roi_replay.py": "a5b2b0173a869557155f5bf2e682399e70c07b67aec0fcb1ffed7227e4cf707b",
+    "vlm_session.py": "750a6aaaf6af075c7ca3ed94fa6307d92717346eb8acf47d5236b806e0a16667"
+  },
+  "boundary": "paced saved video and cached specialist observations; actual VLM worker; no live camera, Runtime or verified object identity",
+  "requests": [
+    {
+      "id": 1,
+      "key": "t1:r1",
+      "started": 3.116805251047481,
+      "completed": 5.272690392041113,
+      "source": {
+        "source_t": 3.0306258024691357,
+        "frame_index": 182,
+        "crop": [
+          0.1203125,
+          0.25555555555555554,
+          0.5671875,
+          1.0
+        ],
+        "classifier": {
+          "label": "knee_pad",
+          "score": 0.1208266019821167
+        }
+      },
+      "accepted": false,
+      "text": "A man holding a cell phone in his hands.",
+      "seconds": 1.939145611017011,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 11
+    },
+    {
+      "id": 2,
+      "key": "t1:r2",
+      "started": 5.272690392041113,
+      "completed": 7.143912603030913,
+      "source": {
+        "source_t": 5.1953585185185185,
+        "frame_index": 312,
+        "crop": [
+          0.13359375,
+          0.2625,
+          0.4265625,
+          0.7833333333333333
+        ],
+        "classifier": {
+          "label": "iPod",
+          "score": 0.16748712956905365
+        }
+      },
+      "accepted": false,
+      "text": "A person holding a cell phone in their hand.",
+      "seconds": 1.7389401629916392,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 11
+    },
+    {
+      "id": 3,
+      "key": "t3:r1",
+      "started": 9.837737088033464,
+      "completed": 12.006686084030662,
+      "source": {
+        "source_t": 9.741297222222222,
+        "frame_index": 585,
+        "crop": [
+          0.18515625,
+          0.4,
+          0.565625,
+          1.0
+        ],
+        "classifier": {
+          "label": "brassiere",
+          "score": 0.4408694803714752
+        }
+      },
+      "accepted": true,
+      "text": "A person holding a pink object in their hand.",
+      "seconds": 1.991545895987656,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 12
+    },
+    {
+      "id": 4,
+      "key": "t3:r2",
+      "started": 13.061410708003677,
+      "completed": 15.15339828300057,
+      "source": {
+        "source_t": 12.988396296296296,
+        "frame_index": 780,
+        "crop": [
+          0.11015625,
+          0.20277777777777778,
+          0.55390625,
+          0.9916666666666667
+        ],
+        "classifier": {
+          "label": "syringe",
+          "score": 0.43919989466667175
+        }
+      },
+      "accepted": false,
+      "text": "A man holding a small syringe in his hand.",
+      "seconds": 2.0769417120027356,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 13
+    },
+    {
+      "id": 5,
+      "key": "t4:r1",
+      "started": 18.07510535902111,
+      "completed": 20.25087267201161,
+      "source": {
+        "source_t": 17.967281543209875,
+        "frame_index": 1079,
+        "crop": [
+          0.109375,
+          0.05,
+          0.7078125,
+          1.0
+        ],
+        "classifier": {
+          "label": "Band_Aid",
+          "score": 0.31228771805763245
+        }
+      },
+      "accepted": true,
+      "text": "A man in a white shirt holding his hand up.",
+      "seconds": 2.1286044099833816,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 13
+    },
+    {
+      "id": 6,
+      "key": "t5:r1",
+      "started": 21.05534722300945,
+      "completed": 22.94667162501719,
+      "source": {
+        "source_t": 20.99790734567901,
+        "frame_index": 1261,
+        "crop": [
+          0.3578125,
+          0.5694444444444444,
+          0.59453125,
+          0.9902777777777778
+        ],
+        "classifier": {
+          "label": "brassiere",
+          "score": 0.09100514650344849
+        }
+      },
+      "accepted": false,
+      "text": "A person is holding a remote in their hand.",
+      "seconds": 1.732840151002165,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 11
+    },
+    {
+      "id": 7,
+      "key": "t6:r1",
+      "started": 27.588664036011323,
+      "completed": 29.74781210202491,
+      "source": {
+        "source_t": 27.492105493827157,
+        "frame_index": 1651,
+        "crop": [
+          0.07578125,
+          0.0,
+          0.71875,
+          1.0
+        ],
+        "classifier": {
+          "label": "Band_Aid",
+          "score": 0.3588605225086212
+        }
+      },
+      "accepted": false,
+      "text": "A man in a blue shirt holding his hands up.",
+      "seconds": 2.1166248089866713,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 13
+    },
+    {
+      "id": 8,
+      "key": "t6:r2",
+      "started": 29.74781210202491,
+      "completed": 31.474020861031022,
+      "source": {
+        "source_t": 29.656838209876543,
+        "frame_index": 1781,
+        "crop": [
+          0.215625,
+          0.35555555555555557,
+          0.54609375,
+          0.9430555555555555
+        ],
+        "classifier": {
+          "label": "Band_Aid",
+          "score": 0.2431734949350357
+        }
+      },
+      "accepted": true,
+      "text": "A person with their hands in the air.",
+      "seconds": 1.651107539946679,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 10
+    },
+    {
+      "id": 9,
+      "key": "t6:r3",
+      "started": 33.862897046026774,
+      "completed": 36.1511840330204,
+      "source": {
+        "source_t": 33.76983037037037,
+        "frame_index": 2028,
+        "crop": [
+          0.1046875,
+          0.05,
+          0.7359375,
+          1.0
+        ],
+        "classifier": {
+          "label": "ice_lolly",
+          "score": 0.1168471947312355
+        }
+      },
+      "accepted": true,
+      "text": "A man in a purple shirt making a peace sign.",
+      "seconds": 2.2538078780053183,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 14
+    },
+    {
+      "id": 10,
+      "key": "t7:r1",
+      "started": 37.982766821049154,
+      "completed": 40.29243172501447,
+      "source": {
+        "source_t": 37.882822530864196,
+        "frame_index": 2275,
+        "crop": [
+          0.15234375,
+          0.0,
+          0.79375,
+          1.0
+        ],
+        "classifier": {
+          "label": "maillot_(tights)",
+          "score": 0.16281206905841827
+        }
+      },
+      "accepted": true,
+      "text": "A man holding a cell phone in front of a projector.",
+      "seconds": 2.245006228040438,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 14
+    },
+    {
+      "id": 11,
+      "key": "t8:r1",
+      "started": 43.368842007999774,
+      "completed": 45.31389091303572,
+      "source": {
+        "source_t": 43.294654320987654,
+        "frame_index": 2600,
+        "crop": [
+          0.35390625,
+          0.37777777777777777,
+          0.71015625,
+          1.0
+        ],
+        "classifier": {
+          "label": "Windsor_tie",
+          "score": 0.5823919177055359
+        }
+      },
+      "accepted": false,
+      "text": "A man holding a small object in his hand.",
+      "seconds": 1.8030818429542705,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 11
+    },
+    {
+      "id": 12,
+      "key": "t9:r1",
+      "started": 45.31389091303572,
+      "completed": 47.48647464503301,
+      "source": {
+        "source_t": 45.2429137654321,
+        "frame_index": 2717,
+        "crop": [
+          0.146875,
+          0.22916666666666666,
+          0.5890625,
+          1.0
+        ],
+        "classifier": {
+          "label": "bow",
+          "score": 0.473154217004776
+        }
+      },
+      "accepted": true,
+      "text": "A man holding a syringe with a needle.",
+      "seconds": 2.0546003009658307,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 13
+    },
+    {
+      "id": 13,
+      "key": "t10:r1",
+      "started": 49.21389884100063,
+      "completed": 51.60660438000923,
+      "source": {
+        "source_t": 49.139432654320984,
+        "frame_index": 2951,
+        "crop": [
+          0.53515625,
+          0.5083333333333333,
+          0.98828125,
+          1.0
+        ],
+        "classifier": {
+          "label": "Band_Aid",
+          "score": 0.1392829716205597
+        }
+      },
+      "accepted": false,
+      "text": "A person is playing a video game on a Nintendo Wii.",
+      "seconds": 2.2925504440208897,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 15
+    },
+    {
+      "id": 14,
+      "key": "t12:r1",
+      "started": 51.60660438000923,
+      "completed": 53.68557520903414,
+      "source": {
+        "source_t": 51.5206386419753,
+        "frame_index": 3094,
+        "crop": [
+          0.08984375,
+          0.0,
+          0.71953125,
+          1.0
+        ],
+        "classifier": {
+          "label": "Band_Aid",
+          "score": 0.26407918334007263
+        }
+      },
+      "accepted": true,
+      "text": "A man holding his hands up in front of his face.",
+      "seconds": 2.0750138889998198,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 13
+    },
+    {
+      "id": 15,
+      "key": "t13:r1",
+      "started": 54.609010814048816,
+      "completed": 56.716506398050115,
+      "source": {
+        "source_t": 54.55126444444444,
+        "frame_index": 3276,
+        "crop": [
+          0.740625,
+          0.6652777777777777,
+          0.92578125,
+          0.9958333333333333
+        ],
+        "classifier": {
+          "label": "space_shuttle",
+          "score": 0.6663496494293213
+        }
+      },
+      "accepted": false,
+      "text": "A pink tea pot with a red button on it.",
+      "seconds": 1.9762757329735905,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 13
+    }
+  ],
+  "samples": [
+    {
+      "source_t": 0.0,
+      "wall_t": 2.2946042008697987e-05,
+      "lag_s": 2.2946042008697987e-05,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 0.21647327160493826,
+      "wall_t": 0.21699201699811965,
+      "lag_s": 0.0005187453931813912,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 0.4329465432098765,
+      "wall_t": 0.4334770140121691,
+      "lag_s": 0.0005304708022925708,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 0.6494198148148148,
+      "wall_t": 0.649954772030469,
+      "lag_s": 0.0005349572156542193,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 0.865893086419753,
+      "wall_t": 0.8662099480279721,
+      "lag_s": 0.0003168616082190878,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 1.0823663580246914,
+      "wall_t": 1.0826649800292216,
+      "lag_s": 0.0002986220045302357,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 1.2988396296296296,
+      "wall_t": 1.2993588500539772,
+      "lag_s": 0.0005192204243475995,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 1.5153129012345679,
+      "wall_t": 1.5158412760356441,
+      "lag_s": 0.000528374801076259,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 1.731786172839506,
+      "wall_t": 1.7323116610059515,
+      "lag_s": 0.0005254881664453759,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 1.9482594444444443,
+      "wall_t": 1.9487935980432667,
+      "lag_s": 0.0005341535988223622,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 2.1647327160493828,
+      "wall_t": 2.165251277037896,
+      "lag_s": 0.000518560988513439,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 2.381205987654321,
+      "wall_t": 2.3817319340305403,
+      "lag_s": 0.0005259463762192773,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 2.5976792592592592,
+      "wall_t": 2.5979853669996373,
+      "lag_s": 0.0003061077403780921,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 2.8141525308641975,
+      "wall_t": 2.8146683040540665,
+      "lag_s": 0.0005157731898690621,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 3.0306258024691357,
+      "wall_t": 3.116805251047481,
+      "lag_s": 0.08617944857834514,
+      "key": "t1:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 1,
+      "cached_request": null
+    },
+    {
+      "source_t": 3.247099074074074,
+      "wall_t": 3.3219944940065034,
+      "lag_s": 0.07489541993242943,
+      "key": "t1:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.22067650653399284,
+      "pending_id": 1,
+      "cached_request": null
+    },
+    {
+      "source_t": 3.463572345679012,
+      "wall_t": 3.5769684350234456,
+      "lag_s": 0.11339608934443346,
+      "key": "t1:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.2273900384789002,
+      "pending_id": 1,
+      "cached_request": null
+    },
+    {
+      "source_t": 3.6800456172839504,
+      "wall_t": 3.804383837035857,
+      "lag_s": 0.12433821975190673,
+      "key": "t1:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.21666257158004937,
+      "pending_id": 1,
+      "cached_request": null
+    },
+    {
+      "source_t": 3.8965188888888886,
+      "wall_t": 3.9871513660182245,
+      "lag_s": 0.09063247712933586,
+      "key": "t1:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.2066238610027229,
+      "pending_id": 1,
+      "cached_request": null
+    },
+    {
+      "source_t": 4.112992160493827,
+      "wall_t": 4.269342360028531,
+      "lag_s": 0.15635019953470408,
+      "key": "t1:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.3805328760348163,
+      "pending_id": 1,
+      "cached_request": null
+    },
+    {
+      "source_t": 4.3294654320987656,
+      "wall_t": 4.359614669054281,
+      "lag_s": 0.030149236955515413,
+      "key": "t1:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.206662348459485,
+      "pending_id": 1,
+      "cached_request": null
+    },
+    {
+      "source_t": 4.545938703703704,
+      "wall_t": 4.588612124032807,
+      "lag_s": 0.04267342032910282,
+      "key": "t1:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.259455682097072,
+      "pending_id": 1,
+      "cached_request": null
+    },
+    {
+      "source_t": 4.762411975308642,
+      "wall_t": 4.822883881046437,
+      "lag_s": 0.06047190573779471,
+      "key": "t1:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.2816326621995013,
+      "pending_id": 1,
+      "cached_request": null
+    },
+    {
+      "source_t": 4.97888524691358,
+      "wall_t": 5.047307367029134,
+      "lag_s": 0.06842212011555393,
+      "key": "t1:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.32799095956121926,
+      "pending_id": 1,
+      "cached_request": null
+    },
+    {
+      "source_t": 5.1953585185185185,
+      "wall_t": 5.272690392041113,
+      "lag_s": 0.07733187352259474,
+      "key": "t1:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.29995794274159315,
+      "pending_id": 2,
+      "cached_request": null
+    },
+    {
+      "source_t": 5.411831790123457,
+      "wall_t": 5.497467220004182,
+      "lag_s": 0.08563542988072559,
+      "key": "t1:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.23661990394389046,
+      "pending_id": 2,
+      "cached_request": null
+    },
+    {
+      "source_t": 5.628305061728395,
+      "wall_t": 5.716344301006757,
+      "lag_s": 0.08803923927836177,
+      "key": "t2:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 2,
+      "cached_request": null
+    },
+    {
+      "source_t": 5.844778333333333,
+      "wall_t": 5.845221263007261,
+      "lag_s": 0.00044292967392767224,
+      "key": "t2:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 2,
+      "cached_request": null
+    },
+    {
+      "source_t": 6.061251604938271,
+      "wall_t": 6.061750236025546,
+      "lag_s": 0.000498631087274326,
+      "key": "t2:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 2,
+      "cached_request": null
+    },
+    {
+      "source_t": 6.27772487654321,
+      "wall_t": 6.278258888050914,
+      "lag_s": 0.0005340115077041574,
+      "key": "t2:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 2,
+      "cached_request": null
+    },
+    {
+      "source_t": 6.494198148148148,
+      "wall_t": 6.494526656053495,
+      "lag_s": 0.00032850790534677543,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 2,
+      "cached_request": null
+    },
+    {
+      "source_t": 6.710671419753086,
+      "wall_t": 6.710982142016292,
+      "lag_s": 0.00031072226320549845,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 2,
+      "cached_request": null
+    },
+    {
+      "source_t": 6.927144691358024,
+      "wall_t": 6.927692306053359,
+      "lag_s": 0.0005476146953347083,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 2,
+      "cached_request": null
+    },
+    {
+      "source_t": 7.143617962962963,
+      "wall_t": 7.143912603030913,
+      "lag_s": 0.00029464006794999165,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 7.360091234567901,
+      "wall_t": 7.360373113013338,
+      "lag_s": 0.00028187844543747786,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 7.576564506172839,
+      "wall_t": 7.577065609046258,
+      "lag_s": 0.0005011028734189793,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 7.793037777777777,
+      "wall_t": 7.793557248020079,
+      "lag_s": 0.0005194702423017006,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 8.009511049382716,
+      "wall_t": 8.010025109048001,
+      "lag_s": 0.0005140596652850604,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 8.225984320987655,
+      "wall_t": 8.22651178704109,
+      "lag_s": 0.0005274660534357878,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 8.442457592592593,
+      "wall_t": 8.442757548997179,
+      "lag_s": 0.0002999564045857994,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 8.658930864197531,
+      "wall_t": 8.659239709028043,
+      "lag_s": 0.00030884483051174527,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 8.87540413580247,
+      "wall_t": 8.875708328036126,
+      "lag_s": 0.00030419223365640846,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 9.091877407407408,
+      "wall_t": 9.092403175018262,
+      "lag_s": 0.0005257676108545439,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 9.308350679012346,
+      "wall_t": 9.308672481041867,
+      "lag_s": 0.0003218020295214785,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 9.524823950617284,
+      "wall_t": 9.525132843002211,
+      "lag_s": 0.0003088923849272618,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 9.741297222222222,
+      "wall_t": 9.837737088033464,
+      "lag_s": 0.09643986581124153,
+      "key": "t3:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 3,
+      "cached_request": null
+    },
+    {
+      "source_t": 9.95777049382716,
+      "wall_t": 10.05805530701764,
+      "lag_s": 0.10028481319047877,
+      "key": "t3:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.26314758612766326,
+      "pending_id": 3,
+      "cached_request": null
+    },
+    {
+      "source_t": 10.174243765432099,
+      "wall_t": 10.297241257037967,
+      "lag_s": 0.1229974916058687,
+      "key": "t3:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.24506786026758548,
+      "pending_id": 3,
+      "cached_request": null
+    },
+    {
+      "source_t": 10.390717037037037,
+      "wall_t": 10.428368373017292,
+      "lag_s": 0.037651335980255496,
+      "key": "t3:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.27198391331097715,
+      "pending_id": 3,
+      "cached_request": null
+    },
+    {
+      "source_t": 10.607190308641975,
+      "wall_t": 10.657234999001957,
+      "lag_s": 0.05004469035998227,
+      "key": "t3:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.29364882770625833,
+      "pending_id": 3,
+      "cached_request": null
+    },
+    {
+      "source_t": 10.823663580246913,
+      "wall_t": 10.889479255012702,
+      "lag_s": 0.06581567476578876,
+      "key": "t3:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.3178110692402632,
+      "pending_id": 3,
+      "cached_request": null
+    },
+    {
+      "source_t": 11.040136851851852,
+      "wall_t": 11.114137548021972,
+      "lag_s": 0.0740006961701205,
+      "key": "t3:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.28045079582998395,
+      "pending_id": 3,
+      "cached_request": null
+    },
+    {
+      "source_t": 11.25661012345679,
+      "wall_t": 11.333104922028724,
+      "lag_s": 0.0764947985719342,
+      "key": "t3:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.31064930971991483,
+      "pending_id": 3,
+      "cached_request": null
+    },
+    {
+      "source_t": 11.473083395061728,
+      "wall_t": 11.571174987009726,
+      "lag_s": 0.09809159194799832,
+      "key": "t3:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.32900423569014164,
+      "pending_id": 3,
+      "cached_request": null
+    },
+    {
+      "source_t": 11.689556666666666,
+      "wall_t": 11.789691721030977,
+      "lag_s": 0.10013505436431025,
+      "key": "t3:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.34360351435901715,
+      "pending_id": 3,
+      "cached_request": null
+    },
+    {
+      "source_t": 11.906029938271605,
+      "wall_t": 12.006686084030662,
+      "lag_s": 0.10065614575905713,
+      "key": "t3:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.34232865631440157,
+      "pending_id": null,
+      "cached_request": 3
+    },
+    {
+      "source_t": 12.122503209876543,
+      "wall_t": 12.234582181030419,
+      "lag_s": 0.11207897115387588,
+      "key": "t3:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.34300531976596305,
+      "pending_id": null,
+      "cached_request": 3
+    },
+    {
+      "source_t": 12.338976481481481,
+      "wall_t": 12.379313682031352,
+      "lag_s": 0.040337200549871,
+      "key": "t3:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.33687565726057306,
+      "pending_id": null,
+      "cached_request": 3
+    },
+    {
+      "source_t": 12.55544975308642,
+      "wall_t": 12.603207064035814,
+      "lag_s": 0.04775731094939495,
+      "key": "t3:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.3036165655697862,
+      "pending_id": null,
+      "cached_request": 3
+    },
+    {
+      "source_t": 12.771923024691358,
+      "wall_t": 12.838270773005206,
+      "lag_s": 0.0663477483138486,
+      "key": "t3:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.27857552062034774,
+      "pending_id": null,
+      "cached_request": 3
+    },
+    {
+      "source_t": 12.988396296296296,
+      "wall_t": 13.061410708003677,
+      "lag_s": 0.07301441170738165,
+      "key": "t3:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.5161451947799285,
+      "pending_id": 4,
+      "cached_request": null
+    },
+    {
+      "source_t": 13.204869567901234,
+      "wall_t": 13.282730072038248,
+      "lag_s": 0.07786050413701417,
+      "key": "t3:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.47069556248434913,
+      "pending_id": 4,
+      "cached_request": null
+    },
+    {
+      "source_t": 13.421342839506172,
+      "wall_t": 13.510169864050113,
+      "lag_s": 0.08882702454394042,
+      "key": "t3:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.18379152285170583,
+      "pending_id": 4,
+      "cached_request": null
+    },
+    {
+      "source_t": 13.63781611111111,
+      "wall_t": 13.735475383000448,
+      "lag_s": 0.09765927188933787,
+      "key": "t3:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.20566179970008633,
+      "pending_id": 4,
+      "cached_request": null
+    },
+    {
+      "source_t": 13.854289382716049,
+      "wall_t": 13.959026352036744,
+      "lag_s": 0.10473696932069565,
+      "key": "t3:r3",
+      "hand_visible": true,
+      "selected_unknown": false,
+      "appearance_distance": 0.1851869099055506,
+      "pending_id": 4,
+      "cached_request": null
+    },
+    {
+      "source_t": 14.070762654320987,
+      "wall_t": 14.196242234029341,
+      "lag_s": 0.12547957970835455,
+      "key": "t3:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.20442964494502255,
+      "pending_id": 4,
+      "cached_request": null
+    },
+    {
+      "source_t": 14.287235925925925,
+      "wall_t": 14.287362255039625,
+      "lag_s": 0.0001263291136996969,
+      "key": "t3:r3",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 4,
+      "cached_request": null
+    },
+    {
+      "source_t": 14.503709197530863,
+      "wall_t": 14.503960308036767,
+      "lag_s": 0.0002511105059035401,
+      "key": "t3:r3",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 4,
+      "cached_request": null
+    },
+    {
+      "source_t": 14.720182469135802,
+      "wall_t": 14.72043546300847,
+      "lag_s": 0.0002529938726691938,
+      "key": "t3:r3",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 4,
+      "cached_request": null
+    },
+    {
+      "source_t": 14.93665574074074,
+      "wall_t": 14.936970974027645,
+      "lag_s": 0.0003152332869049701,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 4,
+      "cached_request": null
+    },
+    {
+      "source_t": 15.153129012345678,
+      "wall_t": 15.15339828300057,
+      "lag_s": 0.00026927065489168456,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 15.369602283950616,
+      "wall_t": 15.37011653004447,
+      "lag_s": 0.0005142460938536431,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 15.586075555555555,
+      "wall_t": 15.58659078401979,
+      "lag_s": 0.0005152284642360172,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 15.802548827160493,
+      "wall_t": 15.803079146018717,
+      "lag_s": 0.0005303188582246321,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 16.019022098765433,
+      "wall_t": 16.01955073705176,
+      "lag_s": 0.0005286382863260997,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 16.23549537037037,
+      "wall_t": 16.23580080602551,
+      "lag_s": 0.00030543565513951876,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 16.45196864197531,
+      "wall_t": 16.45213904301636,
+      "lag_s": 0.00017040104104992793,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 16.668441913580246,
+      "wall_t": 16.6689651220222,
+      "lag_s": 0.0005232084419546368,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 16.884915185185186,
+      "wall_t": 16.88544208102394,
+      "lag_s": 0.0005268958387532052,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 17.101388456790122,
+      "wall_t": 17.10191660700366,
+      "lag_s": 0.0005281502135368044,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 17.317861728395062,
+      "wall_t": 17.31839587003924,
+      "lag_s": 0.0005341416441773106,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 17.534335,
+      "wall_t": 17.534845626039896,
+      "lag_s": 0.0005106260398974882,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 17.75080827160494,
+      "wall_t": 17.751334896020126,
+      "lag_s": 0.0005266244151869159,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 17.967281543209875,
+      "wall_t": 18.07510535902111,
+      "lag_s": 0.10782381581123346,
+      "key": "t4:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 5,
+      "cached_request": null
+    },
+    {
+      "source_t": 18.183754814814815,
+      "wall_t": 18.317017984052654,
+      "lag_s": 0.1332631692378392,
+      "key": "t4:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1201020267231696,
+      "pending_id": 5,
+      "cached_request": null
+    },
+    {
+      "source_t": 18.40022808641975,
+      "wall_t": 18.44467307603918,
+      "lag_s": 0.044444989619428554,
+      "key": "t4:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1304564591027199,
+      "pending_id": 5,
+      "cached_request": null
+    },
+    {
+      "source_t": 18.61670135802469,
+      "wall_t": 18.67019530304242,
+      "lag_s": 0.05349394501772764,
+      "key": "t4:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.15748362324843615,
+      "pending_id": 5,
+      "cached_request": null
+    },
+    {
+      "source_t": 18.833174629629628,
+      "wall_t": 18.899791570031084,
+      "lag_s": 0.06661694040145605,
+      "key": "t4:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.15286284398442815,
+      "pending_id": 5,
+      "cached_request": null
+    },
+    {
+      "source_t": 19.049647901234568,
+      "wall_t": 19.127488027035724,
+      "lag_s": 0.07784012580115629,
+      "key": "t4:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.2348049923959223,
+      "pending_id": 5,
+      "cached_request": null
+    },
+    {
+      "source_t": 19.266121172839505,
+      "wall_t": 19.35055829701014,
+      "lag_s": 0.08443712417063409,
+      "key": "t4:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.13683807801071343,
+      "pending_id": 5,
+      "cached_request": null
+    },
+    {
+      "source_t": 19.482594444444445,
+      "wall_t": 19.580182020028587,
+      "lag_s": 0.09758757558414288,
+      "key": "t4:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1375030221700636,
+      "pending_id": 5,
+      "cached_request": null
+    },
+    {
+      "source_t": 19.69906771604938,
+      "wall_t": 19.791492269025184,
+      "lag_s": 0.09242455297580321,
+      "key": "t4:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.18908173801204708,
+      "pending_id": 5,
+      "cached_request": null
+    },
+    {
+      "source_t": 19.91554098765432,
+      "wall_t": 20.028916458017193,
+      "lag_s": 0.11337547036287177,
+      "key": "t4:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.21188908278316013,
+      "pending_id": 5,
+      "cached_request": null
+    },
+    {
+      "source_t": 20.132014259259257,
+      "wall_t": 20.25087267201161,
+      "lag_s": 0.11885841275235265,
+      "key": "t4:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1503930155151063,
+      "pending_id": null,
+      "cached_request": 5
+    },
+    {
+      "source_t": 20.348487530864197,
+      "wall_t": 20.38961765903514,
+      "lag_s": 0.041130128170941305,
+      "key": "t4:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.13156489795258075,
+      "pending_id": null,
+      "cached_request": 5
+    },
+    {
+      "source_t": 20.564960802469134,
+      "wall_t": 20.61792042502202,
+      "lag_s": 0.052959622552887,
+      "key": "t4:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.11461299831273798,
+      "pending_id": null,
+      "cached_request": 5
+    },
+    {
+      "source_t": 20.781434074074074,
+      "wall_t": 20.836700646032114,
+      "lag_s": 0.055266571958039634,
+      "key": "t4:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.13809922470350958,
+      "pending_id": null,
+      "cached_request": 5
+    },
+    {
+      "source_t": 20.99790734567901,
+      "wall_t": 21.05534722300945,
+      "lag_s": 0.057439877330438094,
+      "key": "t5:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 6,
+      "cached_request": null
+    },
+    {
+      "source_t": 21.21438061728395,
+      "wall_t": 21.21461341000395,
+      "lag_s": 0.00023279271999854245,
+      "key": "t5:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 6,
+      "cached_request": null
+    },
+    {
+      "source_t": 21.430853888888887,
+      "wall_t": 21.431119389017113,
+      "lag_s": 0.0002655001282256819,
+      "key": "t5:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 6,
+      "cached_request": null
+    },
+    {
+      "source_t": 21.647327160493827,
+      "wall_t": 21.647585807018913,
+      "lag_s": 0.0002586465250864478,
+      "key": "t5:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 6,
+      "cached_request": null
+    },
+    {
+      "source_t": 21.863800432098763,
+      "wall_t": 21.86430833901977,
+      "lag_s": 0.0005079069210083276,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 6,
+      "cached_request": null
+    },
+    {
+      "source_t": 22.080273703703703,
+      "wall_t": 22.080751102999784,
+      "lag_s": 0.00047739929608070497,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 6,
+      "cached_request": null
+    },
+    {
+      "source_t": 22.29674697530864,
+      "wall_t": 22.297087874030694,
+      "lag_s": 0.0003408987220545612,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 6,
+      "cached_request": null
+    },
+    {
+      "source_t": 22.51322024691358,
+      "wall_t": 22.513517965038773,
+      "lag_s": 0.00029771812519285845,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 6,
+      "cached_request": null
+    },
+    {
+      "source_t": 22.729693518518516,
+      "wall_t": 22.729978449002374,
+      "lag_s": 0.0002849304838576927,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 6,
+      "cached_request": null
+    },
+    {
+      "source_t": 22.946166790123456,
+      "wall_t": 22.94667162501719,
+      "lag_s": 0.0005048348937322089,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 23.162640061728393,
+      "wall_t": 23.162943964998703,
+      "lag_s": 0.0003039032703107125,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 23.379113333333333,
+      "wall_t": 23.3794361629989,
+      "lag_s": 0.0003228296655670704,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 23.59558660493827,
+      "wall_t": 23.596129112003837,
+      "lag_s": 0.0005425070655675768,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 23.81205987654321,
+      "wall_t": 23.81237596803112,
+      "lag_s": 0.0003160914879103416,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 24.028533148148146,
+      "wall_t": 24.02906404604437,
+      "lag_s": 0.0005308978962226263,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 24.245006419753086,
+      "wall_t": 24.24531471100636,
+      "lag_s": 0.00030829125327258566,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 24.461479691358022,
+      "wall_t": 24.461778609023895,
+      "lag_s": 0.0002989176658729775,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 24.677952962962962,
+      "wall_t": 24.678239461034536,
+      "lag_s": 0.0002864980715742149,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 24.8944262345679,
+      "wall_t": 24.8949226650293,
+      "lag_s": 0.0004964304613999104,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 25.11089950617284,
+      "wall_t": 25.11141830100678,
+      "lag_s": 0.0005187948339404613,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 25.327372777777775,
+      "wall_t": 25.32788692699978,
+      "lag_s": 0.0005141492220062105,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 25.543846049382715,
+      "wall_t": 25.54437241703272,
+      "lag_s": 0.0005263676500035785,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 25.76031932098765,
+      "wall_t": 25.76083834504243,
+      "lag_s": 0.0005190240547783276,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 25.97679259259259,
+      "wall_t": 25.97731582605047,
+      "lag_s": 0.000523233457879968,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 26.193265864197528,
+      "wall_t": 26.19378636300098,
+      "lag_s": 0.0005204988034535063,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 26.409739135802468,
+      "wall_t": 26.410040337010287,
+      "lag_s": 0.0003012012078187354,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 26.626212407407404,
+      "wall_t": 26.626738696009852,
+      "lag_s": 0.0005262886024475222,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 26.842685679012344,
+      "wall_t": 26.843215303029865,
+      "lag_s": 0.0005296240175205469,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 27.05915895061728,
+      "wall_t": 27.05967376602348,
+      "lag_s": 0.0005148154061984656,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 27.27563222222222,
+      "wall_t": 27.276158406049944,
+      "lag_s": 0.0005261838277235142,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 27.492105493827157,
+      "wall_t": 27.588664036011323,
+      "lag_s": 0.09655854218416593,
+      "key": "t6:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 7,
+      "cached_request": null
+    },
+    {
+      "source_t": 27.708578765432097,
+      "wall_t": 27.814123766031116,
+      "lag_s": 0.10554500059901883,
+      "key": "t6:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.10821704331779872,
+      "pending_id": 7,
+      "cached_request": null
+    },
+    {
+      "source_t": 27.925052037037034,
+      "wall_t": 28.042194149049465,
+      "lag_s": 0.11714211201243074,
+      "key": "t6:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1277268950530268,
+      "pending_id": 7,
+      "cached_request": null
+    },
+    {
+      "source_t": 28.141525308641974,
+      "wall_t": 28.262451804010198,
+      "lag_s": 0.12092649536822364,
+      "key": "t6:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.13475700484714917,
+      "pending_id": 7,
+      "cached_request": null
+    },
+    {
+      "source_t": 28.35799858024691,
+      "wall_t": 28.391113038000185,
+      "lag_s": 0.033114457753274706,
+      "key": "t6:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.14969079839570823,
+      "pending_id": 7,
+      "cached_request": null
+    },
+    {
+      "source_t": 28.57447185185185,
+      "wall_t": 28.625389864027966,
+      "lag_s": 0.05091801217611547,
+      "key": "t6:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.11943503671042545,
+      "pending_id": 7,
+      "cached_request": null
+    },
+    {
+      "source_t": 28.790945123456787,
+      "wall_t": 28.850548374000937,
+      "lag_s": 0.059603250544149944,
+      "key": "t6:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.11470239199900344,
+      "pending_id": 7,
+      "cached_request": null
+    },
+    {
+      "source_t": 29.007418395061727,
+      "wall_t": 29.077305548009463,
+      "lag_s": 0.06988715294773584,
+      "key": "t6:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.2652528694735755,
+      "pending_id": 7,
+      "cached_request": null
+    },
+    {
+      "source_t": 29.223891666666663,
+      "wall_t": 29.303437324007973,
+      "lag_s": 0.0795456573413098,
+      "key": "t6:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.3264030985327122,
+      "pending_id": 7,
+      "cached_request": null
+    },
+    {
+      "source_t": 29.440364938271603,
+      "wall_t": 29.530021234997548,
+      "lag_s": 0.08965629672594488,
+      "key": "t6:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.35545596226255605,
+      "pending_id": 7,
+      "cached_request": null
+    },
+    {
+      "source_t": 29.656838209876543,
+      "wall_t": 29.74781210202491,
+      "lag_s": 0.09097389214836582,
+      "key": "t6:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1601417506624189,
+      "pending_id": 8,
+      "cached_request": null
+    },
+    {
+      "source_t": 29.87331148148148,
+      "wall_t": 29.968910130031873,
+      "lag_s": 0.0955986485503928,
+      "key": "t6:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.18834937622251724,
+      "pending_id": 8,
+      "cached_request": null
+    },
+    {
+      "source_t": 30.08978475308642,
+      "wall_t": 30.204936144000385,
+      "lag_s": 0.1151513909139652,
+      "key": "t6:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.17566708815887022,
+      "pending_id": 8,
+      "cached_request": null
+    },
+    {
+      "source_t": 30.306258024691356,
+      "wall_t": 30.337066462030634,
+      "lag_s": 0.030808437339278072,
+      "key": "t6:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.15567176197328186,
+      "pending_id": 8,
+      "cached_request": null
+    },
+    {
+      "source_t": 30.522731296296296,
+      "wall_t": 30.571618173038587,
+      "lag_s": 0.04888687674229075,
+      "key": "t6:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.15555089725867985,
+      "pending_id": 8,
+      "cached_request": null
+    },
+    {
+      "source_t": 30.739204567901233,
+      "wall_t": 30.795853641000576,
+      "lag_s": 0.05664907309934364,
+      "key": "t6:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.13571637039046697,
+      "pending_id": 8,
+      "cached_request": null
+    },
+    {
+      "source_t": 30.955677839506173,
+      "wall_t": 31.02594595804112,
+      "lag_s": 0.07026811853494763,
+      "key": "t6:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1138422156082785,
+      "pending_id": 8,
+      "cached_request": null
+    },
+    {
+      "source_t": 31.17215111111111,
+      "wall_t": 31.24834367004223,
+      "lag_s": 0.07619255893112253,
+      "key": "t6:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.23214777029791275,
+      "pending_id": 8,
+      "cached_request": null
+    },
+    {
+      "source_t": 31.38862438271605,
+      "wall_t": 31.474020861031022,
+      "lag_s": 0.08539647831497277,
+      "key": "t6:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.24818800660066326,
+      "pending_id": null,
+      "cached_request": 8
+    },
+    {
+      "source_t": 31.605097654320986,
+      "wall_t": 31.69919854501495,
+      "lag_s": 0.09410089069396577,
+      "key": "t6:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.3148824073773586,
+      "pending_id": null,
+      "cached_request": 8
+    },
+    {
+      "source_t": 31.821570925925926,
+      "wall_t": 31.923680937034078,
+      "lag_s": 0.10211001110815232,
+      "key": "t6:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.3076042434761978,
+      "pending_id": null,
+      "cached_request": 8
+    },
+    {
+      "source_t": 32.038044197530866,
+      "wall_t": 32.14443296403624,
+      "lag_s": 0.10638876650537554,
+      "key": "t6:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.2997830425459452,
+      "pending_id": null,
+      "cached_request": 8
+    },
+    {
+      "source_t": 32.2545174691358,
+      "wall_t": 32.288673161005136,
+      "lag_s": 0.03415569186933709,
+      "key": "t6:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.290551586013961,
+      "pending_id": null,
+      "cached_request": 8
+    },
+    {
+      "source_t": 32.47099074074074,
+      "wall_t": 32.51275142200757,
+      "lag_s": 0.041760681266829636,
+      "key": "t6:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.30554658967979215,
+      "pending_id": null,
+      "cached_request": 8
+    },
+    {
+      "source_t": 32.68746401234568,
+      "wall_t": 32.74113890301669,
+      "lag_s": 0.05367489067101161,
+      "key": "t6:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.2971970064462555,
+      "pending_id": null,
+      "cached_request": 8
+    },
+    {
+      "source_t": 32.90393728395062,
+      "wall_t": 32.972705181047786,
+      "lag_s": 0.06876789709716746,
+      "key": "t6:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.33385544754259716,
+      "pending_id": null,
+      "cached_request": 8
+    },
+    {
+      "source_t": 33.12041055555555,
+      "wall_t": 33.23067923303461,
+      "lag_s": 0.11026867747905555,
+      "key": "t6:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.30979801067185175,
+      "pending_id": null,
+      "cached_request": 8
+    },
+    {
+      "source_t": 33.33688382716049,
+      "wall_t": 33.422611849033274,
+      "lag_s": 0.08572802187278228,
+      "key": "t6:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.3007625320048447,
+      "pending_id": null,
+      "cached_request": 8
+    },
+    {
+      "source_t": 33.55335709876543,
+      "wall_t": 33.65440508403117,
+      "lag_s": 0.10104798526573688,
+      "key": "t6:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.31877210918171317,
+      "pending_id": null,
+      "cached_request": 8
+    },
+    {
+      "source_t": 33.76983037037037,
+      "wall_t": 33.862897046026774,
+      "lag_s": 0.09306667565640225,
+      "key": "t6:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.3611754713739756,
+      "pending_id": 9,
+      "cached_request": null
+    },
+    {
+      "source_t": 33.986303641975304,
+      "wall_t": 34.09478644601768,
+      "lag_s": 0.10848280404237443,
+      "key": "t6:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.0887153462047081,
+      "pending_id": 9,
+      "cached_request": null
+    },
+    {
+      "source_t": 34.202776913580244,
+      "wall_t": 34.32363478804473,
+      "lag_s": 0.12085787446448393,
+      "key": "t6:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.11914990586019075,
+      "pending_id": 9,
+      "cached_request": null
+    },
+    {
+      "source_t": 34.419250185185184,
+      "wall_t": 34.46262259100331,
+      "lag_s": 0.043372405818125515,
+      "key": "t6:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.15883269641251435,
+      "pending_id": 9,
+      "cached_request": null
+    },
+    {
+      "source_t": 34.635723456790124,
+      "wall_t": 34.69137984601548,
+      "lag_s": 0.055656389225354985,
+      "key": "t6:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1914041808858255,
+      "pending_id": 9,
+      "cached_request": null
+    },
+    {
+      "source_t": 34.85219672839506,
+      "wall_t": 34.91719384101452,
+      "lag_s": 0.06499711261946572,
+      "key": "t6:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.19139617545089282,
+      "pending_id": 9,
+      "cached_request": null
+    },
+    {
+      "source_t": 35.06867,
+      "wall_t": 35.142132147040684,
+      "lag_s": 0.07346214704068643,
+      "key": "t6:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.16733177439157387,
+      "pending_id": 9,
+      "cached_request": null
+    },
+    {
+      "source_t": 35.28514327160494,
+      "wall_t": 35.3748590790201,
+      "lag_s": 0.0897158074151605,
+      "key": "t6:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.14970598180661865,
+      "pending_id": 9,
+      "cached_request": null
+    },
+    {
+      "source_t": 35.50161654320988,
+      "wall_t": 35.58943548001116,
+      "lag_s": 0.08781893680128405,
+      "key": "t6:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.17179714197135335,
+      "pending_id": 9,
+      "cached_request": null
+    },
+    {
+      "source_t": 35.71808981481481,
+      "wall_t": 35.82956165302312,
+      "lag_s": 0.11147183820830975,
+      "key": "t6:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1903365972910049,
+      "pending_id": 9,
+      "cached_request": null
+    },
+    {
+      "source_t": 35.93456308641975,
+      "wall_t": 36.046666870010085,
+      "lag_s": 0.11210378359033513,
+      "key": "t6:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.3280567288356501,
+      "pending_id": 9,
+      "cached_request": null
+    },
+    {
+      "source_t": 36.15103635802469,
+      "wall_t": 36.1511840330204,
+      "lag_s": 0.00014767499570922382,
+      "key": "t6:r3",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": 9
+    },
+    {
+      "source_t": 36.36750962962963,
+      "wall_t": 36.36775707703782,
+      "lag_s": 0.0002474474081921585,
+      "key": "t6:r3",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": 9
+    },
+    {
+      "source_t": 36.58398290123456,
+      "wall_t": 36.58411054703174,
+      "lag_s": 0.00012764579717838842,
+      "key": "t6:r3",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": 9
+    },
+    {
+      "source_t": 36.8004561728395,
+      "wall_t": 36.800749027053826,
+      "lag_s": 0.0002928542143223467,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 37.01692944444444,
+      "wall_t": 37.01720378000755,
+      "lag_s": 0.0002743355631054101,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 37.23340271604938,
+      "wall_t": 37.23367459804285,
+      "lag_s": 0.0002718819934699468,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 37.449875987654316,
+      "wall_t": 37.45013584702974,
+      "lag_s": 0.00025985937542571946,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 37.666349259259256,
+      "wall_t": 37.66661270702025,
+      "lag_s": 0.0002634477609930741,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 37.882822530864196,
+      "wall_t": 37.982766821049154,
+      "lag_s": 0.09994429018495765,
+      "key": "t7:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 10,
+      "cached_request": null
+    },
+    {
+      "source_t": 38.099295802469136,
+      "wall_t": 38.20946367800934,
+      "lag_s": 0.11016787554020624,
+      "key": "t7:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.11699159103217635,
+      "pending_id": 10,
+      "cached_request": null
+    },
+    {
+      "source_t": 38.31576907407407,
+      "wall_t": 38.34494319400983,
+      "lag_s": 0.029174119935760245,
+      "key": "t7:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.162458574148231,
+      "pending_id": 10,
+      "cached_request": null
+    },
+    {
+      "source_t": 38.53224234567901,
+      "wall_t": 38.579564110026695,
+      "lag_s": 0.04732176434768576,
+      "key": "t7:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.21346021469368087,
+      "pending_id": 10,
+      "cached_request": null
+    },
+    {
+      "source_t": 38.74871561728395,
+      "wall_t": 38.807093284034636,
+      "lag_s": 0.058377666750686785,
+      "key": "t7:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.22486428168029718,
+      "pending_id": 10,
+      "cached_request": null
+    },
+    {
+      "source_t": 38.96518888888889,
+      "wall_t": 39.032358490047045,
+      "lag_s": 0.06716960115815596,
+      "key": "t7:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.18751406156847408,
+      "pending_id": 10,
+      "cached_request": null
+    },
+    {
+      "source_t": 39.18166216049382,
+      "wall_t": 39.269599844003096,
+      "lag_s": 0.08793768350927422,
+      "key": "t7:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.15591084857646942,
+      "pending_id": 10,
+      "cached_request": null
+    },
+    {
+      "source_t": 39.39813543209876,
+      "wall_t": 39.48180113104172,
+      "lag_s": 0.0836656989429585,
+      "key": "t7:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.19694361113376518,
+      "pending_id": 10,
+      "cached_request": null
+    },
+    {
+      "source_t": 39.6146087037037,
+      "wall_t": 39.70523599901935,
+      "lag_s": 0.09062729531564884,
+      "key": "t7:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.22527570254524223,
+      "pending_id": 10,
+      "cached_request": null
+    },
+    {
+      "source_t": 39.83108197530864,
+      "wall_t": 39.94262129202252,
+      "lag_s": 0.11153931671388051,
+      "key": "t7:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.20695018572885426,
+      "pending_id": 10,
+      "cached_request": null
+    },
+    {
+      "source_t": 40.047555246913575,
+      "wall_t": 40.14644512603991,
+      "lag_s": 0.0988898791263324,
+      "key": "t7:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.24885881679845906,
+      "pending_id": 10,
+      "cached_request": null
+    },
+    {
+      "source_t": 40.264028518518515,
+      "wall_t": 40.29243172501447,
+      "lag_s": 0.02840320649595185,
+      "key": "t7:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.22576913256874265,
+      "pending_id": null,
+      "cached_request": 10
+    },
+    {
+      "source_t": 40.480501790123455,
+      "wall_t": 40.526841022016015,
+      "lag_s": 0.04633923189255995,
+      "key": "t7:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.22212834771601597,
+      "pending_id": null,
+      "cached_request": 10
+    },
+    {
+      "source_t": 40.696975061728395,
+      "wall_t": 40.75147591601126,
+      "lag_s": 0.054500854282864,
+      "key": "t7:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.2092949843866628,
+      "pending_id": null,
+      "cached_request": 10
+    },
+    {
+      "source_t": 40.91344833333333,
+      "wall_t": 40.97663920704508,
+      "lag_s": 0.06319087371175414,
+      "key": "t7:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.13318381401739982,
+      "pending_id": null,
+      "cached_request": 10
+    },
+    {
+      "source_t": 41.12992160493827,
+      "wall_t": 41.130152642028406,
+      "lag_s": 0.00023103709013838625,
+      "key": "t7:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": 10
+    },
+    {
+      "source_t": 41.34639487654321,
+      "wall_t": 41.34667059604544,
+      "lag_s": 0.00027571950223403974,
+      "key": "t7:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": 10
+    },
+    {
+      "source_t": 41.56286814814815,
+      "wall_t": 41.563152928021736,
+      "lag_s": 0.0002847798735885476,
+      "key": "t7:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": 10
+    },
+    {
+      "source_t": 41.77934141975308,
+      "wall_t": 41.77967884100508,
+      "lag_s": 0.0003374212519986486,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 41.99581469135802,
+      "wall_t": 41.99613591603702,
+      "lag_s": 0.0003212246789985329,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 42.21228796296296,
+      "wall_t": 42.21277646202361,
+      "lag_s": 0.0004884990606512929,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 42.4287612345679,
+      "wall_t": 42.42926682002144,
+      "lag_s": 0.0005055854535385151,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 42.645234506172834,
+      "wall_t": 42.645755668054335,
+      "lag_s": 0.0005211618815010866,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 42.861707777777774,
+      "wall_t": 42.86222326301504,
+      "lag_s": 0.0005154852372655228,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 43.078181049382714,
+      "wall_t": 43.0786970340414,
+      "lag_s": 0.0005159846586835215,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 43.294654320987654,
+      "wall_t": 43.368842007999774,
+      "lag_s": 0.0741876870121203,
+      "key": "t8:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 11,
+      "cached_request": null
+    },
+    {
+      "source_t": 43.51112759259259,
+      "wall_t": 43.601037998043466,
+      "lag_s": 0.0899104054508797,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 11,
+      "cached_request": null
+    },
+    {
+      "source_t": 43.72760086419753,
+      "wall_t": 43.82631349301664,
+      "lag_s": 0.09871262881911491,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1316887590546518,
+      "pending_id": 11,
+      "cached_request": null
+    },
+    {
+      "source_t": 43.94407413580247,
+      "wall_t": 44.04216336301761,
+      "lag_s": 0.0980892272151408,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1701937133165898,
+      "pending_id": 11,
+      "cached_request": null
+    },
+    {
+      "source_t": 44.16054740740741,
+      "wall_t": 44.26439050602494,
+      "lag_s": 0.10384309861753138,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.21619954288854995,
+      "pending_id": 11,
+      "cached_request": null
+    },
+    {
+      "source_t": 44.37702067901235,
+      "wall_t": 44.41027729603229,
+      "lag_s": 0.0332566170199442,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.2166845548716761,
+      "pending_id": 11,
+      "cached_request": null
+    },
+    {
+      "source_t": 44.59349395061728,
+      "wall_t": 44.63758057303494,
+      "lag_s": 0.044086622417658816,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.18359352083347796,
+      "pending_id": 11,
+      "cached_request": null
+    },
+    {
+      "source_t": 44.80996722222222,
+      "wall_t": 44.870159971003886,
+      "lag_s": 0.060192748781666694,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1688990111173709,
+      "pending_id": 11,
+      "cached_request": null
+    },
+    {
+      "source_t": 45.02644049382716,
+      "wall_t": 45.09429155301768,
+      "lag_s": 0.0678510591905237,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.13197397132342964,
+      "pending_id": 11,
+      "cached_request": null
+    },
+    {
+      "source_t": 45.2429137654321,
+      "wall_t": 45.31389091303572,
+      "lag_s": 0.07097714760362095,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1652948485893384,
+      "pending_id": 12,
+      "cached_request": null
+    },
+    {
+      "source_t": 45.45938703703703,
+      "wall_t": 45.5462148640072,
+      "lag_s": 0.08682782697016478,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.17422197685319343,
+      "pending_id": 12,
+      "cached_request": null
+    },
+    {
+      "source_t": 45.67586030864197,
+      "wall_t": 45.766754070005845,
+      "lag_s": 0.09089376136387273,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.22660736568095222,
+      "pending_id": 12,
+      "cached_request": null
+    },
+    {
+      "source_t": 45.89233358024691,
+      "wall_t": 45.986551678040996,
+      "lag_s": 0.09421809779408363,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.2139447223081292,
+      "pending_id": 12,
+      "cached_request": null
+    },
+    {
+      "source_t": 46.10880685185185,
+      "wall_t": 46.22360638604732,
+      "lag_s": 0.11479953419546973,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": false,
+      "appearance_distance": 0.21505348098778532,
+      "pending_id": 12,
+      "cached_request": null
+    },
+    {
+      "source_t": 46.325280123456785,
+      "wall_t": 46.3630314040347,
+      "lag_s": 0.03775128057791477,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.265869198343647,
+      "pending_id": 12,
+      "cached_request": null
+    },
+    {
+      "source_t": 46.541753395061725,
+      "wall_t": 46.59063737804536,
+      "lag_s": 0.04888398298363228,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.2727046570052681,
+      "pending_id": 12,
+      "cached_request": null
+    },
+    {
+      "source_t": 46.758226666666665,
+      "wall_t": 46.8211648070137,
+      "lag_s": 0.06293814034703615,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": false,
+      "appearance_distance": 0.3024429995670093,
+      "pending_id": 12,
+      "cached_request": null
+    },
+    {
+      "source_t": 46.974699938271606,
+      "wall_t": 47.04023002402391,
+      "lag_s": 0.06553008575230734,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.2806543465232205,
+      "pending_id": 12,
+      "cached_request": null
+    },
+    {
+      "source_t": 47.19117320987654,
+      "wall_t": 47.27533675101586,
+      "lag_s": 0.08416354113931845,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.2547420491707615,
+      "pending_id": 12,
+      "cached_request": null
+    },
+    {
+      "source_t": 47.40764648148148,
+      "wall_t": 47.48647464503301,
+      "lag_s": 0.07882816355153466,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.239384452464069,
+      "pending_id": null,
+      "cached_request": 12
+    },
+    {
+      "source_t": 47.62411975308642,
+      "wall_t": 47.71518530504545,
+      "lag_s": 0.09106555195903354,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.21897043986749504,
+      "pending_id": null,
+      "cached_request": 12
+    },
+    {
+      "source_t": 47.84059302469136,
+      "wall_t": 47.9312909040018,
+      "lag_s": 0.09069787931044004,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.21793351145356257,
+      "pending_id": null,
+      "cached_request": 12
+    },
+    {
+      "source_t": 48.05706629629629,
+      "wall_t": 48.15995003900025,
+      "lag_s": 0.10288374270395906,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.2001107325562422,
+      "pending_id": null,
+      "cached_request": 12
+    },
+    {
+      "source_t": 48.27353956790123,
+      "wall_t": 48.30687890801346,
+      "lag_s": 0.033339340112227944,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1450735150195809,
+      "pending_id": null,
+      "cached_request": 12
+    },
+    {
+      "source_t": 48.49001283950617,
+      "wall_t": 48.53201096103294,
+      "lag_s": 0.04199812152676685,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1789203818312147,
+      "pending_id": null,
+      "cached_request": 12
+    },
+    {
+      "source_t": 48.70648611111111,
+      "wall_t": 48.75750409200555,
+      "lag_s": 0.051017980894435766,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.23386634162689077,
+      "pending_id": null,
+      "cached_request": 12
+    },
+    {
+      "source_t": 48.922959382716044,
+      "wall_t": 48.98169391404372,
+      "lag_s": 0.05873453132767281,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.24079207260100113,
+      "pending_id": null,
+      "cached_request": 12
+    },
+    {
+      "source_t": 49.139432654320984,
+      "wall_t": 49.21389884100063,
+      "lag_s": 0.07446618667964344,
+      "key": "t10:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 49.355905925925924,
+      "wall_t": 49.35612839704845,
+      "lag_s": 0.00022247112252671286,
+      "key": "t10:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 49.572379197530864,
+      "wall_t": 49.572917210054584,
+      "lag_s": 0.0005380125237195443,
+      "key": "t10:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 49.7888524691358,
+      "wall_t": 49.78935488202842,
+      "lag_s": 0.000502412892622317,
+      "key": "t10:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 50.00532574074074,
+      "wall_t": 50.005664096039254,
+      "lag_s": 0.0003383552985170013,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 50.22179901234568,
+      "wall_t": 50.249175820034,
+      "lag_s": 0.02737680768832007,
+      "key": "t11:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 50.43827228395062,
+      "wall_t": 50.48532916500699,
+      "lag_s": 0.047056881056370514,
+      "key": "t12:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 50.65474555555555,
+      "wall_t": 50.70591050601797,
+      "lag_s": 0.05116495046242164,
+      "key": "t12:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1883040941884218,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 50.87121882716049,
+      "wall_t": 50.941305954009295,
+      "lag_s": 0.07008712684880436,
+      "key": "t12:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.217113459875668,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 51.08769209876543,
+      "wall_t": 51.15905332803959,
+      "lag_s": 0.07136122927416011,
+      "key": "t12:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.2310227398942178,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 51.30416537037037,
+      "wall_t": 51.38214796700049,
+      "lag_s": 0.07798259663012175,
+      "key": "t12:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.24559214072569688,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 51.5206386419753,
+      "wall_t": 51.60660438000923,
+      "lag_s": 0.08596573803392715,
+      "key": "t12:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.24848377640510938,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 51.73711191358024,
+      "wall_t": 51.83578096004203,
+      "lag_s": 0.09866904646178654,
+      "key": "t12:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.2370277294111363,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 51.95358518518518,
+      "wall_t": 52.0715362370247,
+      "lag_s": 0.11795105183951904,
+      "key": "t12:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.22800954524025313,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 52.17005845679012,
+      "wall_t": 52.27543424704345,
+      "lag_s": 0.10537579025332633,
+      "key": "t12:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.24222344633464563,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 52.386531728395056,
+      "wall_t": 52.43173210200621,
+      "lag_s": 0.045200373611152145,
+      "key": "t12:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.27164981700023844,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 52.603004999999996,
+      "wall_t": 52.65520109300269,
+      "lag_s": 0.05219609300269212,
+      "key": "t12:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.25416470093063404,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 52.819478271604936,
+      "wall_t": 52.88669913902413,
+      "lag_s": 0.06722086741919497,
+      "key": "t12:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.28490560610043747,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 53.035951543209876,
+      "wall_t": 53.11137395602418,
+      "lag_s": 0.07542241281430506,
+      "key": "t12:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.2802601580188614,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 53.25242481481481,
+      "wall_t": 53.32526447600685,
+      "lag_s": 0.07283966119204166,
+      "key": "t12:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.27295080002510935,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 53.46889808641975,
+      "wall_t": 53.54730079800356,
+      "lag_s": 0.07840271158381285,
+      "key": "t12:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.32421719284822653,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 53.68537135802469,
+      "wall_t": 53.68557520903414,
+      "lag_s": 0.00020385100945219392,
+      "key": "t12:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": 14
+    },
+    {
+      "source_t": 53.90184462962963,
+      "wall_t": 53.90212059899932,
+      "lag_s": 0.0002759693696887666,
+      "key": "t12:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": 14
+    },
+    {
+      "source_t": 54.11831790123456,
+      "wall_t": 54.11859062302392,
+      "lag_s": 0.00027272178935788816,
+      "key": "t12:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": 14
+    },
+    {
+      "source_t": 54.3347911728395,
+      "wall_t": 54.335124556033406,
+      "lag_s": 0.000333383193904524,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 54.55126444444444,
+      "wall_t": 54.609010814048816,
+      "lag_s": 0.057746369604373626,
+      "key": "t13:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 15,
+      "cached_request": null
+    },
+    {
+      "source_t": 54.76773771604938,
+      "wall_t": 54.7679888420389,
+      "lag_s": 0.00025112598952148346,
+      "key": "t13:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 15,
+      "cached_request": null
+    },
+    {
+      "source_t": 54.984210987654315,
+      "wall_t": 54.98472057504114,
+      "lag_s": 0.0005095873868228296,
+      "key": "t13:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 15,
+      "cached_request": null
+    },
+    {
+      "source_t": 55.200684259259255,
+      "wall_t": 55.20118185301544,
+      "lag_s": 0.0004975937561866317,
+      "key": "t13:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 15,
+      "cached_request": null
+    },
+    {
+      "source_t": 55.417157530864195,
+      "wall_t": 55.41770153603284,
+      "lag_s": 0.0005440051686420588,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 15,
+      "cached_request": null
+    },
+    {
+      "source_t": 55.633630802469135,
+      "wall_t": 55.63414044003002,
+      "lag_s": 0.0005096375608886206,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 15,
+      "cached_request": null
+    },
+    {
+      "source_t": 55.85010407407407,
+      "wall_t": 55.850613166054245,
+      "lag_s": 0.0005090919801773452,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 15,
+      "cached_request": null
+    },
+    {
+      "source_t": 56.06657734567901,
+      "wall_t": 56.06687313801376,
+      "lag_s": 0.00029579233475374167,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 15,
+      "cached_request": null
+    },
+    {
+      "source_t": 56.28305061728395,
+      "wall_t": 56.283348552009556,
+      "lag_s": 0.00029793472560868395,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 15,
+      "cached_request": null
+    },
+    {
+      "source_t": 56.49952388888889,
+      "wall_t": 56.499816382012796,
+      "lag_s": 0.00029249312390788873,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 15,
+      "cached_request": null
+    },
+    {
+      "source_t": 56.71599716049382,
+      "wall_t": 56.716506398050115,
+      "lag_s": 0.00050923755629384,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 56.93247043209876,
+      "wall_t": 56.93297863501357,
+      "lag_s": 0.0005082029148084644,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 57.1489437037037,
+      "wall_t": 57.14944952802034,
+      "lag_s": 0.0005058243166402576,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 57.36541697530864,
+      "wall_t": 57.36592022900004,
+      "lag_s": 0.0005032536913986974,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 57.581890246913574,
+      "wall_t": 57.58219302300131,
+      "lag_s": 0.0003027760877358787,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 57.798363518518514,
+      "wall_t": 57.798877173045184,
+      "lag_s": 0.0005136545266708481,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 58.014836790123454,
+      "wall_t": 58.01512947899755,
+      "lag_s": 0.00029268887409727995,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 58.231310061728394,
+      "wall_t": 58.23159700300312,
+      "lag_s": 0.00028694127472306263,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 58.44778333333333,
+      "wall_t": 58.44829792203382,
+      "lag_s": 0.0005145887004900374,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 58.66425660493827,
+      "wall_t": 58.66476540802978,
+      "lag_s": 0.0005088030915132435,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 58.88072987654321,
+      "wall_t": 58.881232443032786,
+      "lag_s": 0.0005025664895796922,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 59.09720314814815,
+      "wall_t": 59.097708215005696,
+      "lag_s": 0.0005050668575492523,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 59.31367641975309,
+      "wall_t": 59.31400883605238,
+      "lag_s": 0.000332416299293925,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 59.53014969135802,
+      "wall_t": 59.530669999017846,
+      "lag_s": 0.0005203076598263578,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 59.74662296296296,
+      "wall_t": 59.74713997001527,
+      "lag_s": 0.0005170070523092818,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 59.9630962345679,
+      "wall_t": 59.96340928302379,
+      "lag_s": 0.00031304845589374963,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 60.17956950617284,
+      "wall_t": 60.17988258204423,
+      "lag_s": 0.00031307587138940107,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 60.39604277777777,
+      "wall_t": 60.396547737007495,
+      "lag_s": 0.0005049592297226013,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 60.61251604938271,
+      "wall_t": 60.61280987801729,
+      "lag_s": 0.0002938286345752772,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 60.82898932098765,
+      "wall_t": 60.82929539302131,
+      "lag_s": 0.0003060720336591771,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 61.04546259259259,
+      "wall_t": 61.045967963000294,
+      "lag_s": 0.0005053704077013776,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 61.261935864197525,
+      "wall_t": 61.26224216504488,
+      "lag_s": 0.0003063008473560558,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 61.478409135802465,
+      "wall_t": 61.47891841601813,
+      "lag_s": 0.0005092802156667631,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 61.694882407407405,
+      "wall_t": 61.69519037002465,
+      "lag_s": 0.00030796261724219676,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 61.911355679012345,
+      "wall_t": 61.91166822705418,
+      "lag_s": 0.0003125480418333382,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 62.12782895061728,
+      "wall_t": 62.128344021039084,
+      "lag_s": 0.0005150704218053193,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 62.34430222222222,
+      "wall_t": 62.344576514035,
+      "lag_s": 0.0002742918127793814,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 62.56077549382716,
+      "wall_t": 62.561280917027034,
+      "lag_s": 0.0005054231998755654,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 62.7772487654321,
+      "wall_t": 62.77776788704796,
+      "lag_s": 0.0005191216158593193,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 62.99372203703703,
+      "wall_t": 62.99423971900251,
+      "lag_s": 0.0005176819654764131,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 63.21019530864197,
+      "wall_t": 63.210501837020274,
+      "lag_s": 0.00030652837830302815,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 63.42666858024691,
+      "wall_t": 63.42697216605302,
+      "lag_s": 0.0003035858061082308,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 63.64314185185185,
+      "wall_t": 63.64345615403727,
+      "lag_s": 0.00031430218541572685,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 63.859615123456784,
+      "wall_t": 63.86011212103767,
+      "lag_s": 0.0004969975808890581,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 64.07608839506173,
+      "wall_t": 64.07660333800595,
+      "lag_s": 0.000514942944221275,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 64.29256166666666,
+      "wall_t": 64.29305570403812,
+      "lag_s": 0.0004940373714674706,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 64.5090349382716,
+      "wall_t": 64.50935576902702,
+      "lag_s": 0.000320830755427437,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 64.72550820987654,
+      "wall_t": 64.72601390402997,
+      "lag_s": 0.0005056941534320458,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 64.94198148148148,
+      "wall_t": 64.9424940070021,
+      "lag_s": 0.0005125255206195334,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 65.15845475308642,
+      "wall_t": 65.15898515103618,
+      "lag_s": 0.0005303979497597311,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 65.37492802469136,
+      "wall_t": 65.37521544203628,
+      "lag_s": 0.0002874173449214368,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 65.5914012962963,
+      "wall_t": 65.5917137520155,
+      "lag_s": 0.00031245571919669146,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 65.80787456790124,
+      "wall_t": 65.80838205502369,
+      "lag_s": 0.0005074871224479693,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 66.02434783950616,
+      "wall_t": 66.02463694603648,
+      "lag_s": 0.00028910653031744005,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 66.2408211111111,
+      "wall_t": 66.24113822705112,
+      "lag_s": 0.00031711594002103993,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 66.45729438271604,
+      "wall_t": 66.45760414400138,
+      "lag_s": 0.0003097612853366627,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 66.67376765432098,
+      "wall_t": 66.67428204102907,
+      "lag_s": 0.0005143867080903419,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 66.89024092592592,
+      "wall_t": 66.89073172502685,
+      "lag_s": 0.0004907991009304169,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 67.10671419753086,
+      "wall_t": 67.10723072499968,
+      "lag_s": 0.0005165274688181398,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 67.3231874691358,
+      "wall_t": 67.32349965703906,
+      "lag_s": 0.000312187903261929,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 67.53966074074074,
+      "wall_t": 67.54016996599967,
+      "lag_s": 0.0005092252589236068,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 67.75613401234567,
+      "wall_t": 67.75662037701113,
+      "lag_s": 0.00048636466546270185,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 67.97260728395061,
+      "wall_t": 67.9731232720078,
+      "lag_s": 0.0005159880571881104,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 68.18908055555555,
+      "wall_t": 68.1895921480027,
+      "lag_s": 0.0005115924471539302,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 68.40555382716049,
+      "wall_t": 68.40606796904467,
+      "lag_s": 0.0005141418841816403,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 68.62202709876543,
+      "wall_t": 68.62255175504833,
+      "lag_s": 0.0005246562829057666,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 68.83850037037037,
+      "wall_t": 68.83880140405381,
+      "lag_s": 0.0003010336834421423,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 69.05497364197531,
+      "wall_t": 69.05528480099747,
+      "lag_s": 0.000311159022160723,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 69.27144691358025,
+      "wall_t": 69.27195931802271,
+      "lag_s": 0.000512404442460479,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 69.48792018518517,
+      "wall_t": 69.48844386701239,
+      "lag_s": 0.0005236818272180699,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 69.70439345679011,
+      "wall_t": 69.7046936370316,
+      "lag_s": 0.0003001802414814847,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 69.92086672839505,
+      "wall_t": 69.921194243012,
+      "lag_s": 0.0003275146169414711,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 70.13734,
+      "wall_t": 70.13784174103057,
+      "lag_s": 0.0005017410305754311,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 70.35381327160493,
+      "wall_t": 70.35412197600817,
+      "lag_s": 0.0003087044032383801,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 70.57028654320987,
+      "wall_t": 70.57058241602499,
+      "lag_s": 0.000295872815115672,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 70.78675981481481,
+      "wall_t": 70.78705645102309,
+      "lag_s": 0.0002966362082759133,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 71.00323308641975,
+      "wall_t": 71.00352130102692,
+      "lag_s": 0.0002882146071669922,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 71.21970635802468,
+      "wall_t": 71.22024774103193,
+      "lag_s": 0.0005413830072455994,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 71.43617962962962,
+      "wall_t": 71.43649340502452,
+      "lag_s": 0.0003137753949005173,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 71.65265290123456,
+      "wall_t": 71.65296637802385,
+      "lag_s": 0.0003134767892873924,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 71.8691261728395,
+      "wall_t": 71.86939793702913,
+      "lag_s": 0.00027176418963392734,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 72.08559944444444,
+      "wall_t": 72.08587727602571,
+      "lag_s": 0.00027783158127192564,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 72.30207271604938,
+      "wall_t": 72.30234483705135,
+      "lag_s": 0.0002721210019700493,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 72.51854598765432,
+      "wall_t": 72.5188271200168,
+      "lag_s": 0.00028113236247406803,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 72.73501925925926,
+      "wall_t": 72.73529701004736,
+      "lag_s": 0.00027775078810066134,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 72.95149253086419,
+      "wall_t": 72.95175067300443,
+      "lag_s": 0.00025814214023966997,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 73.16796580246913,
+      "wall_t": 73.16824136400828,
+      "lag_s": 0.00027556153915497816,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 73.38443907407407,
+      "wall_t": 73.38470427703578,
+      "lag_s": 0.0002652029617138396,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 73.600912345679,
+      "wall_t": 73.60118069202872,
+      "lag_s": 0.0002683463497135108,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 73.81738561728395,
+      "wall_t": 73.81765182001982,
+      "lag_s": 0.0002662027358724117,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 74.03385888888889,
+      "wall_t": 74.03412995801773,
+      "lag_s": 0.00027106912884278245,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 74.25033216049383,
+      "wall_t": 74.25060547102476,
+      "lag_s": 0.00027331053092893853,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 74.46680543209877,
+      "wall_t": 74.46707183105173,
+      "lag_s": 0.0002663989529594346,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 74.6832787037037,
+      "wall_t": 74.68353664904134,
+      "lag_s": 0.0002579453376370111,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 74.89975197530863,
+      "wall_t": 74.89999868004816,
+      "lag_s": 0.00024670473952426164,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 75.11622524691357,
+      "wall_t": 75.11650013900362,
+      "lag_s": 0.000274892090047274,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 75.33269851851851,
+      "wall_t": 75.33296933904057,
+      "lag_s": 0.00027082052206139906,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 75.54917179012345,
+      "wall_t": 75.54944321000949,
+      "lag_s": 0.00027141988603318623,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 75.76564506172839,
+      "wall_t": 75.76591067400295,
+      "lag_s": 0.00026561227456056713,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 75.98211833333333,
+      "wall_t": 75.98237352899741,
+      "lag_s": 0.00025519566408149785,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 76.19859160493827,
+      "wall_t": 76.19886169803794,
+      "lag_s": 0.00027009309967240824,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 76.41506487654321,
+      "wall_t": 76.41532964102225,
+      "lag_s": 0.00026476447904144607,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 76.63153814814814,
+      "wall_t": 76.63180695701158,
+      "lag_s": 0.00026880886343860766,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 76.84801141975308,
+      "wall_t": 76.84827361203497,
+      "lag_s": 0.0002621922818946132,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 77.06448469135802,
+      "wall_t": 77.06474401103333,
+      "lag_s": 0.00025931967530823385,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 77.28095796296296,
+      "wall_t": 77.28122506604996,
+      "lag_s": 0.0002671030869976221,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 77.4974312345679,
+      "wall_t": 77.4976937690517,
+      "lag_s": 0.00026253448379520705,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 77.71390450617284,
+      "wall_t": 77.71416316903196,
+      "lag_s": 0.0002586628591245699,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 77.93037777777778,
+      "wall_t": 77.93062831100542,
+      "lag_s": 0.00025053322764279073,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 78.14685104938272,
+      "wall_t": 78.1471200149972,
+      "lag_s": 0.000268965614480976,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 78.36332432098764,
+      "wall_t": 78.36359277402516,
+      "lag_s": 0.00026845303752054406,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 78.57979759259258,
+      "wall_t": 78.58008607605007,
+      "lag_s": 0.00028848345748144766,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 78.79627086419752,
+      "wall_t": 78.79656525905011,
+      "lag_s": 0.00029439485258819786,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 79.01274413580246,
+      "wall_t": 79.01300533401081,
+      "lag_s": 0.0002611982083493558,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 79.2292174074074,
+      "wall_t": 79.22948403703049,
+      "lag_s": 0.00026662962308421356,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 79.44569067901234,
+      "wall_t": 79.4459579710383,
+      "lag_s": 0.00026729202595277,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 79.66216395061728,
+      "wall_t": 79.6624227790162,
+      "lag_s": 0.0002588283989126694,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 79.87863722222222,
+      "wall_t": 79.87889014399843,
+      "lag_s": 0.0002529217762088365,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 80.09511049382715,
+      "wall_t": 80.0953697990044,
+      "lag_s": 0.00025930517725214486,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 80.31158376543209,
+      "wall_t": 80.31184785300866,
+      "lag_s": 0.00026408757656781745,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 80.52805703703703,
+      "wall_t": 80.52832581003895,
+      "lag_s": 0.0002687730019204082,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 80.74453030864197,
+      "wall_t": 80.74480148800649,
+      "lag_s": 0.00027117936451759306,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 80.96100358024691,
+      "wall_t": 80.9612602040288,
+      "lag_s": 0.00025662378189394985,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 81.17747685185185,
+      "wall_t": 81.17775421903934,
+      "lag_s": 0.0002773671874933825,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 81.39395012345679,
+      "wall_t": 81.39421639102511,
+      "lag_s": 0.0002662675683211546,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 81.61042339506173,
+      "wall_t": 81.61069917003624,
+      "lag_s": 0.0002757749745114779,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 81.82689666666666,
+      "wall_t": 81.82715541304788,
+      "lag_s": 0.000258746381220476,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 82.0433699382716,
+      "wall_t": 82.04363287502201,
+      "lag_s": 0.0002629367504169977,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 82.25984320987654,
+      "wall_t": 82.26010953600053,
+      "lag_s": 0.0002663261239916892,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 82.47631648148148,
+      "wall_t": 82.47658155602403,
+      "lag_s": 0.000265074542554089,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 82.69278975308642,
+      "wall_t": 82.6930563870119,
+      "lag_s": 0.000266633925477322,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 82.90926302469136,
+      "wall_t": 82.90953038301086,
+      "lag_s": 0.0002673583195047513,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 83.1257362962963,
+      "wall_t": 83.12600844400004,
+      "lag_s": 0.0002721477037397335,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 83.34220956790124,
+      "wall_t": 83.3424843600369,
+      "lag_s": 0.00027479213567005445,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 83.55868283950616,
+      "wall_t": 83.5589516350301,
+      "lag_s": 0.0002687955239366602,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 83.7751561111111,
+      "wall_t": 83.77543957601301,
+      "lag_s": 0.0002834649019121116,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 83.99162938271604,
+      "wall_t": 83.99188047304051,
+      "lag_s": 0.00025109032446835045,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 84.20810265432098,
+      "wall_t": 84.20837222301634,
+      "lag_s": 0.00026956869535865735,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 84.42457592592592,
+      "wall_t": 84.42484576301649,
+      "lag_s": 0.00026983709057049055,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 84.64104919753086,
+      "wall_t": 84.64131331403041,
+      "lag_s": 0.0002641164995509371,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 84.8575224691358,
+      "wall_t": 84.85778594901785,
+      "lag_s": 0.0002634798820508877,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 85.07399574074074,
+      "wall_t": 85.0742576890043,
+      "lag_s": 0.0002619482635566328,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 85.29046901234567,
+      "wall_t": 85.29073902900564,
+      "lag_s": 0.00027001665996806423,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 85.50694228395061,
+      "wall_t": 85.50721480103675,
+      "lag_s": 0.00027251708614528525,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 85.72341555555555,
+      "wall_t": 85.72368752403418,
+      "lag_s": 0.000271968478628537,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 85.93988882716049,
+      "wall_t": 85.94014091801364,
+      "lag_s": 0.00025209085315225366,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 86.15636209876543,
+      "wall_t": 86.15663085802225,
+      "lag_s": 0.0002687592568264563,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 86.37283537037037,
+      "wall_t": 86.37310482905013,
+      "lag_s": 0.0002694586797673537,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 86.58930864197531,
+      "wall_t": 86.5895734540536,
+      "lag_s": 0.00026481207829931463,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 86.80578191358025,
+      "wall_t": 86.8060561530292,
+      "lag_s": 0.0002742394489558819,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 87.02225518518517,
+      "wall_t": 87.0225180190173,
+      "lag_s": 0.0002628338321244428,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 87.23872845679011,
+      "wall_t": 87.23899236600846,
+      "lag_s": 0.0002639092183471803,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 87.45520172839505,
+      "wall_t": 87.45547256903956,
+      "lag_s": 0.0002708406445037781,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 87.671675,
+      "wall_t": 87.67195062304381,
+      "lag_s": 0.0002756230438194507,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 87.88814827160493,
+      "wall_t": 87.88841814501211,
+      "lag_s": 0.0002698734071771014,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 88.10462154320987,
+      "wall_t": 88.1048856350244,
+      "lag_s": 0.0002640918145289106,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 88.32109481481481,
+      "wall_t": 88.3213619570015,
+      "lag_s": 0.0002671421866864421,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 88.53756808641975,
+      "wall_t": 88.53783274302259,
+      "lag_s": 0.0002646566028374764,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 88.7540413580247,
+      "wall_t": 88.75431190500967,
+      "lag_s": 0.00027054698497863683,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 88.97051462962962,
+      "wall_t": 88.97078489104751,
+      "lag_s": 0.0002702614178957674,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 89.18698790123456,
+      "wall_t": 89.18725502904272,
+      "lag_s": 0.0002671278081578521,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 89.4034611728395,
+      "wall_t": 89.40373358404031,
+      "lag_s": 0.0002724112008110069,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 89.61993444444444,
+      "wall_t": 89.62019101303304,
+      "lag_s": 0.000256568588596906,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 89.83640771604938,
+      "wall_t": 89.83666354301386,
+      "lag_s": 0.0002558269644765687,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    }
+  ],
+  "model": {
+    "loading_info": {
+      "missing_keys": [],
+      "unexpected_keys": [],
+      "mismatched_keys": [],
+      "error_msgs": []
+    },
+    "nf4_linears": 168,
+    "torch": "2.5.0a0+872d972e41.nv24.08",
+    "transformers": "4.33.1"
+  },
+  "warmup": {
+    "text": "In this image, the renowned actor Chadwick Boswell is captured in a moment of quiet contemplation. He is seated in a chair, his gaze directed off to the side, suggesting deep thought or perhaps a moment",
+    "seconds": 7.339698633004446,
+    "hit_token_limit": true,
+    "usable": false,
+    "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+    "output_tokens": 48
+  },
+  "events": [
+    {
+      "type": "target_changed",
+      "t": 3.0308870400185697,
+      "old": null,
+      "new": "t1:r1"
+    },
+    {
+      "type": "dispatched",
+      "t": 3.116805251047481,
+      "id": 1,
+      "key": "t1:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 3.3219944940065034,
+      "key": "t1:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 3.5769684350234456,
+      "key": "t1:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 3.804383837035857,
+      "key": "t1:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 3.9871513660182245,
+      "key": "t1:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 4.113173247023951,
+      "old": "t1:r1",
+      "new": "t1:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 4.269342360028531,
+      "key": "t1:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 4.359614669054281,
+      "key": "t1:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 4.588612124032807,
+      "key": "t1:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 4.822883881046437,
+      "key": "t1:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 5.047307367029134,
+      "key": "t1:r2"
+    },
+    {
+      "type": "stale_discarded",
+      "t": 5.272690392041113,
+      "id": 1,
+      "job_key": "t1:r1",
+      "current_key": "t1:r2"
+    },
+    {
+      "type": "dispatched",
+      "t": 5.272690392041113,
+      "id": 2,
+      "key": "t1:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 5.497467220004182,
+      "key": "t1:r2"
+    },
+    {
+      "type": "target_changed",
+      "t": 5.628469326009508,
+      "old": "t1:r2",
+      "new": "t2:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 5.716344301006757,
+      "key": "t2:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 5.845221263007261,
+      "key": "t2:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 6.061750236025546,
+      "key": "t2:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 6.278258888050914,
+      "key": "t2:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 6.49447231501108,
+      "old": "t2:r1",
+      "new": null
+    },
+    {
+      "type": "stale_discarded",
+      "t": 7.143912603030913,
+      "id": 2,
+      "job_key": "t1:r2",
+      "current_key": null
+    },
+    {
+      "type": "target_changed",
+      "t": 9.74156653805403,
+      "old": null,
+      "new": "t3:r1"
+    },
+    {
+      "type": "dispatched",
+      "t": 9.837737088033464,
+      "id": 3,
+      "key": "t3:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 10.05805530701764,
+      "key": "t3:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 10.297241257037967,
+      "key": "t3:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 10.428368373017292,
+      "key": "t3:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 10.657234999001957,
+      "key": "t3:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 10.889479255012702,
+      "key": "t3:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 11.114137548021972,
+      "key": "t3:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 11.333104922028724,
+      "key": "t3:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 11.571174987009726,
+      "key": "t3:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 11.789691721030977,
+      "key": "t3:r1"
+    },
+    {
+      "type": "caption_cached",
+      "t": 12.006686084030662,
+      "id": 3,
+      "key": "t3:r1",
+      "expires": 22.00668608403066
+    },
+    {
+      "type": "cache_reused",
+      "t": 12.006686084030662,
+      "key": "t3:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 12.234582181030419,
+      "key": "t3:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 12.379313682031352,
+      "key": "t3:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 12.603207064035814,
+      "key": "t3:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 12.838270773005206,
+      "key": "t3:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 12.988582617021166,
+      "old": "t3:r1",
+      "new": "t3:r2"
+    },
+    {
+      "type": "dispatched",
+      "t": 13.061410708003677,
+      "id": 4,
+      "key": "t3:r2"
+    },
+    {
+      "type": "target_changed",
+      "t": 13.205058749997988,
+      "old": "t3:r2",
+      "new": "t3:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 13.282730072038248,
+      "key": "t3:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 13.510169864050113,
+      "key": "t3:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 13.735475383000448,
+      "key": "t3:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 14.196242234029341,
+      "key": "t3:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 14.287362255039625,
+      "key": "t3:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 14.503960308036767,
+      "key": "t3:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 14.72043546300847,
+      "key": "t3:r3"
+    },
+    {
+      "type": "target_changed",
+      "t": 14.936947420006618,
+      "old": "t3:r3",
+      "new": null
+    },
+    {
+      "type": "stale_discarded",
+      "t": 15.15339828300057,
+      "id": 4,
+      "job_key": "t3:r2",
+      "current_key": null
+    },
+    {
+      "type": "target_changed",
+      "t": 17.96777315303916,
+      "old": null,
+      "new": "t4:r1"
+    },
+    {
+      "type": "dispatched",
+      "t": 18.07510535902111,
+      "id": 5,
+      "key": "t4:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 18.317017984052654,
+      "key": "t4:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 18.44467307603918,
+      "key": "t4:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 18.67019530304242,
+      "key": "t4:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 18.899791570031084,
+      "key": "t4:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 19.127488027035724,
+      "key": "t4:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 19.35055829701014,
+      "key": "t4:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 19.580182020028587,
+      "key": "t4:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 19.791492269025184,
+      "key": "t4:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 20.028916458017193,
+      "key": "t4:r1"
+    },
+    {
+      "type": "caption_cached",
+      "t": 20.25087267201161,
+      "id": 5,
+      "key": "t4:r1",
+      "expires": 30.25087267201161
+    },
+    {
+      "type": "cache_reused",
+      "t": 20.25087267201161,
+      "key": "t4:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 20.38961765903514,
+      "key": "t4:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 20.61792042502202,
+      "key": "t4:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 20.836700646032114,
+      "key": "t4:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 20.99812320905039,
+      "old": "t4:r1",
+      "new": "t5:r1"
+    },
+    {
+      "type": "dispatched",
+      "t": 21.05534722300945,
+      "id": 6,
+      "key": "t5:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 21.21461341000395,
+      "key": "t5:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 21.431119389017113,
+      "key": "t5:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 21.647585807018913,
+      "key": "t5:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 21.864274416002445,
+      "old": "t5:r1",
+      "new": null
+    },
+    {
+      "type": "stale_discarded",
+      "t": 22.94667162501719,
+      "id": 6,
+      "job_key": "t5:r1",
+      "current_key": null
+    },
+    {
+      "type": "target_changed",
+      "t": 27.49258646502858,
+      "old": null,
+      "new": "t6:r1"
+    },
+    {
+      "type": "dispatched",
+      "t": 27.588664036011323,
+      "id": 7,
+      "key": "t6:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 27.814123766031116,
+      "key": "t6:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 28.042194149049465,
+      "key": "t6:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 28.262451804010198,
+      "key": "t6:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 28.391113038000185,
+      "key": "t6:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 28.625389864027966,
+      "key": "t6:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 28.850548374000937,
+      "key": "t6:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 29.077305548009463,
+      "key": "t6:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 29.303437324007973,
+      "key": "t6:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 29.44053869403433,
+      "old": "t6:r1",
+      "new": "t6:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 29.530021234997548,
+      "key": "t6:r2"
+    },
+    {
+      "type": "stale_discarded",
+      "t": 29.74781210202491,
+      "id": 7,
+      "job_key": "t6:r1",
+      "current_key": "t6:r2"
+    },
+    {
+      "type": "dispatched",
+      "t": 29.74781210202491,
+      "id": 8,
+      "key": "t6:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 29.968910130031873,
+      "key": "t6:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 30.204936144000385,
+      "key": "t6:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 30.337066462030634,
+      "key": "t6:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 30.571618173038587,
+      "key": "t6:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 30.795853641000576,
+      "key": "t6:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 31.02594595804112,
+      "key": "t6:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 31.24834367004223,
+      "key": "t6:r2"
+    },
+    {
+      "type": "caption_cached",
+      "t": 31.474020861031022,
+      "id": 8,
+      "key": "t6:r2",
+      "expires": 41.47402086103102
+    },
+    {
+      "type": "cache_reused",
+      "t": 31.474020861031022,
+      "key": "t6:r2"
+    },
+    {
+      "type": "cache_reused",
+      "t": 31.69919854501495,
+      "key": "t6:r2"
+    },
+    {
+      "type": "cache_reused",
+      "t": 31.923680937034078,
+      "key": "t6:r2"
+    },
+    {
+      "type": "cache_reused",
+      "t": 32.14443296403624,
+      "key": "t6:r2"
+    },
+    {
+      "type": "cache_reused",
+      "t": 32.288673161005136,
+      "key": "t6:r2"
+    },
+    {
+      "type": "cache_reused",
+      "t": 32.51275142200757,
+      "key": "t6:r2"
+    },
+    {
+      "type": "cache_reused",
+      "t": 32.74113890301669,
+      "key": "t6:r2"
+    },
+    {
+      "type": "cache_reused",
+      "t": 32.972705181047786,
+      "key": "t6:r2"
+    },
+    {
+      "type": "cache_reused",
+      "t": 33.23067923303461,
+      "key": "t6:r2"
+    },
+    {
+      "type": "cache_reused",
+      "t": 33.422611849033274,
+      "key": "t6:r2"
+    },
+    {
+      "type": "cache_reused",
+      "t": 33.65440508403117,
+      "key": "t6:r2"
+    },
+    {
+      "type": "target_changed",
+      "t": 33.76999874605099,
+      "old": "t6:r2",
+      "new": "t6:r3"
+    },
+    {
+      "type": "dispatched",
+      "t": 33.862897046026774,
+      "id": 9,
+      "key": "t6:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 34.09478644601768,
+      "key": "t6:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 34.32363478804473,
+      "key": "t6:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 34.46262259100331,
+      "key": "t6:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 34.69137984601548,
+      "key": "t6:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 34.91719384101452,
+      "key": "t6:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 35.142132147040684,
+      "key": "t6:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 35.3748590790201,
+      "key": "t6:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 35.58943548001116,
+      "key": "t6:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 35.82956165302312,
+      "key": "t6:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 36.046666870010085,
+      "key": "t6:r3"
+    },
+    {
+      "type": "caption_cached",
+      "t": 36.1511840330204,
+      "id": 9,
+      "key": "t6:r3",
+      "expires": 46.1511840330204
+    },
+    {
+      "type": "cache_reused",
+      "t": 36.1511840330204,
+      "key": "t6:r3"
+    },
+    {
+      "type": "cache_reused",
+      "t": 36.36775707703782,
+      "key": "t6:r3"
+    },
+    {
+      "type": "cache_reused",
+      "t": 36.58411054703174,
+      "key": "t6:r3"
+    },
+    {
+      "type": "target_changed",
+      "t": 36.80071228800807,
+      "old": "t6:r3",
+      "new": null
+    },
+    {
+      "type": "target_changed",
+      "t": 37.88307125901338,
+      "old": null,
+      "new": "t7:r1"
+    },
+    {
+      "type": "dispatched",
+      "t": 37.982766821049154,
+      "id": 10,
+      "key": "t7:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 38.20946367800934,
+      "key": "t7:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 38.34494319400983,
+      "key": "t7:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 38.579564110026695,
+      "key": "t7:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 38.807093284034636,
+      "key": "t7:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 39.032358490047045,
+      "key": "t7:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 39.269599844003096,
+      "key": "t7:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 39.48180113104172,
+      "key": "t7:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 39.70523599901935,
+      "key": "t7:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 39.94262129202252,
+      "key": "t7:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 40.14644512603991,
+      "key": "t7:r1"
+    },
+    {
+      "type": "caption_cached",
+      "t": 40.29243172501447,
+      "id": 10,
+      "key": "t7:r1",
+      "expires": 50.29243172501447
+    },
+    {
+      "type": "cache_reused",
+      "t": 40.29243172501447,
+      "key": "t7:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 40.526841022016015,
+      "key": "t7:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 40.75147591601126,
+      "key": "t7:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 40.97663920704508,
+      "key": "t7:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 41.130152642028406,
+      "key": "t7:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 41.34667059604544,
+      "key": "t7:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 41.563152928021736,
+      "key": "t7:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 41.77960616303608,
+      "old": "t7:r1",
+      "new": null
+    },
+    {
+      "type": "target_changed",
+      "t": 43.29493030504091,
+      "old": null,
+      "new": "t8:r1"
+    },
+    {
+      "type": "dispatched",
+      "t": 43.368842007999774,
+      "id": 11,
+      "key": "t8:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 43.511315972020384,
+      "old": "t8:r1",
+      "new": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 43.601037998043466,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 43.82631349301664,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 44.04216336301761,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 44.26439050602494,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 44.41027729603229,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 44.63758057303494,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 44.870159971003886,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 45.09429155301768,
+      "key": "t9:r1"
+    },
+    {
+      "type": "stale_discarded",
+      "t": 45.31389091303572,
+      "id": 11,
+      "job_key": "t8:r1",
+      "current_key": "t9:r1"
+    },
+    {
+      "type": "dispatched",
+      "t": 45.31389091303572,
+      "id": 12,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 45.5462148640072,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 45.766754070005845,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 45.986551678040996,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 46.3630314040347,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 46.59063737804536,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 47.04023002402391,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 47.27533675101586,
+      "key": "t9:r1"
+    },
+    {
+      "type": "caption_cached",
+      "t": 47.48647464503301,
+      "id": 12,
+      "key": "t9:r1",
+      "expires": 57.48647464503301
+    },
+    {
+      "type": "cache_reused",
+      "t": 47.48647464503301,
+      "key": "t9:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 47.71518530504545,
+      "key": "t9:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 47.9312909040018,
+      "key": "t9:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 48.15995003900025,
+      "key": "t9:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 48.30687890801346,
+      "key": "t9:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 48.53201096103294,
+      "key": "t9:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 48.75750409200555,
+      "key": "t9:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 48.98169391404372,
+      "key": "t9:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 49.13986570603447,
+      "old": "t9:r1",
+      "new": "t10:r1"
+    },
+    {
+      "type": "dispatched",
+      "t": 49.21389884100063,
+      "id": 13,
+      "key": "t10:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 49.35612839704845,
+      "key": "t10:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 49.572917210054584,
+      "key": "t10:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 49.78935488202842,
+      "key": "t10:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 50.005606812017504,
+      "old": "t10:r1",
+      "new": null
+    },
+    {
+      "type": "target_changed",
+      "t": 50.22207930299919,
+      "old": null,
+      "new": "t11:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 50.249175820034,
+      "key": "t11:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 50.43857288500294,
+      "old": "t11:r1",
+      "new": "t12:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 50.48532916500699,
+      "key": "t12:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 50.70591050601797,
+      "key": "t12:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 50.941305954009295,
+      "key": "t12:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 51.15905332803959,
+      "key": "t12:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 51.38214796700049,
+      "key": "t12:r1"
+    },
+    {
+      "type": "stale_discarded",
+      "t": 51.60660438000923,
+      "id": 13,
+      "job_key": "t10:r1",
+      "current_key": "t12:r1"
+    },
+    {
+      "type": "dispatched",
+      "t": 51.60660438000923,
+      "id": 14,
+      "key": "t12:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 51.83578096004203,
+      "key": "t12:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 52.0715362370247,
+      "key": "t12:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 52.27543424704345,
+      "key": "t12:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 52.43173210200621,
+      "key": "t12:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 52.65520109300269,
+      "key": "t12:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 52.88669913902413,
+      "key": "t12:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 53.11137395602418,
+      "key": "t12:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 53.32526447600685,
+      "key": "t12:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 53.54730079800356,
+      "key": "t12:r1"
+    },
+    {
+      "type": "caption_cached",
+      "t": 53.68557520903414,
+      "id": 14,
+      "key": "t12:r1",
+      "expires": 63.68557520903414
+    },
+    {
+      "type": "cache_reused",
+      "t": 53.68557520903414,
+      "key": "t12:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 53.90212059899932,
+      "key": "t12:r1"
+    },
+    {
+      "type": "cache_reused",
+      "t": 54.11859062302392,
+      "key": "t12:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 54.33505511004478,
+      "old": "t12:r1",
+      "new": null
+    },
+    {
+      "type": "target_changed",
+      "t": 54.551546062051784,
+      "old": null,
+      "new": "t13:r1"
+    },
+    {
+      "type": "dispatched",
+      "t": 54.609010814048816,
+      "id": 15,
+      "key": "t13:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 54.7679888420389,
+      "key": "t13:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 54.98472057504114,
+      "key": "t13:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 55.20118185301544,
+      "key": "t13:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 55.41764396301005,
+      "old": "t13:r1",
+      "new": null
+    },
+    {
+      "type": "stale_discarded",
+      "t": 56.716506398050115,
+      "id": 15,
+      "job_key": "t13:r1",
+      "current_key": null
+    }
+  ],
+  "summary": {
+    "samples": 416,
+    "requests": 15,
+    "selected_unknown_frames": 146,
+    "accepted_captions": 7,
+    "events": {
+      "target_changed": 26,
+      "dispatched": 15,
+      "suppressed_pending": 114,
+      "stale_discarded": 8,
+      "caption_cached": 7,
+      "cache_reused": 41
+    },
+    "wall_seconds": 89.83774392004125,
+    "max_replay_lag_s": 0.15635019953470408
+  }
+}

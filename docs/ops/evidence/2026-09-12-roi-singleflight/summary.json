@@ -1,0 +1,99 @@
+{
+  "v1": {
+    "samples": 416,
+    "requests": 20,
+    "selected_unknown_frames": 146,
+    "accepted_captions": 0,
+    "events": {
+      "target_changed": 50,
+      "dispatched": 20,
+      "suppressed_pending": 150,
+      "stale_discarded": 20
+    },
+    "wall_seconds": 89.8378500220133,
+    "max_replay_lag_s": 0.13394474930020106,
+    "model_seconds": {
+      "min": 1.050626691954676,
+      "median": 2.0380140025226865,
+      "p95": 2.287914071051637,
+      "max": 2.422374202986248
+    },
+    "avoided_vs_per_selected_unknown_frame": 0.863013698630137,
+    "maximum_backend_concurrency": 1,
+    "ram_peak_mb": 6857,
+    "swap_min_mb": 903,
+    "swap_max_mb": 1024,
+    "cached": []
+  },
+  "v2": {
+    "samples": 416,
+    "requests": 15,
+    "selected_unknown_frames": 146,
+    "accepted_captions": 7,
+    "events": {
+      "target_changed": 26,
+      "dispatched": 15,
+      "suppressed_pending": 114,
+      "stale_discarded": 8,
+      "caption_cached": 7,
+      "cache_reused": 41
+    },
+    "wall_seconds": 89.83774392004125,
+    "max_replay_lag_s": 0.15635019953470408,
+    "model_seconds": {
+      "min": 1.651107539946679,
+      "median": 2.0546003009658307,
+      "p95": 2.26543064780999,
+      "max": 2.2925504440208897
+    },
+    "avoided_vs_per_selected_unknown_frame": 0.8972602739726028,
+    "maximum_backend_concurrency": 1,
+    "ram_peak_mb": 6835,
+    "swap_min_mb": 912,
+    "swap_max_mb": 1015,
+    "cached": [
+      {
+        "id": 3,
+        "source_t": 9.741297222222222,
+        "key": "t3:r1",
+        "text": "A person holding a pink object in their hand."
+      },
+      {
+        "id": 5,
+        "source_t": 17.967281543209875,
+        "key": "t4:r1",
+        "text": "A man in a white shirt holding his hand up."
+      },
+      {
+        "id": 8,
+        "source_t": 29.656838209876543,
+        "key": "t6:r2",
+        "text": "A person with their hands in the air."
+      },
+      {
+        "id": 9,
+        "source_t": 33.76983037037037,
+        "key": "t6:r3",
+        "text": "A man in a purple shirt making a peace sign."
+      },
+      {
+        "id": 10,
+        "source_t": 37.882822530864196,
+        "key": "t7:r1",
+        "text": "A man holding a cell phone in front of a projector."
+      },
+      {
+        "id": 12,
+        "source_t": 45.2429137654321,
+        "key": "t9:r1",
+        "text": "A man holding a syringe with a needle."
+      },
+      {
+        "id": 14,
+        "source_t": 51.5206386419753,
+        "key": "t12:r1",
+        "text": "A man holding his hands up in front of his face."
+      }
+    ]
+  }
+}

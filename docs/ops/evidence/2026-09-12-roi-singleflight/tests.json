@@ -1,0 +1,9 @@
+{
+  "returncode": 0,
+  "output": "........\n----------------------------------------------------------------------\nRan 8 tests in 0.000s\n\nOK\n",
+  "boundary": "synthetic scheduler contracts, not visual accuracy",
+  "sources": {
+    "singleflight.py": "56d1607b07db84a19aa90b408c174e6759bb6da400852bc7165f1a6e2dc80e84",
+    "test_singleflight.py": "13db9bff893ad36b8abcee9974b8e40f53aebb3a2798b46feee7f4b955b8375e"
+  }
+}

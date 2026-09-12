@@ -1,0 +1,6484 @@
+{
+  "status": "completed",
+  "config": {
+    "cache_s": 10.0,
+    "cooldown_s": 2.0,
+    "max_cooldown_s": 8.0,
+    "max_result_age_s": 5.0,
+    "observation_fresh_s": 0.65
+  },
+  "appearance_mae_threshold": 0.12,
+  "association_iou_threshold": 0.1,
+  "source_report_sha256": "8bd10fa6b39c23ec5c8151c29fa60d6b8f0c7b15178ed1932049c951d5c67813",
+  "source_hashes": {
+    "singleflight.py": "56d1607b07db84a19aa90b408c174e6759bb6da400852bc7165f1a6e2dc80e84",
+    "async_roi_replay.py": "7189ae2b9fe0b94044c9f1b0956193165eb89e4753a3337a56070eb84ec8e391",
+    "vlm_session.py": "750a6aaaf6af075c7ca3ed94fa6307d92717346eb8acf47d5236b806e0a16667"
+  },
+  "boundary": "paced saved video and cached specialist observations; actual VLM worker; no live camera, Runtime or verified object identity",
+  "requests": [
+    {
+      "id": 1,
+      "key": "t1:r1",
+      "started": 3.1057513350388035,
+      "completed": 5.0329612829955295,
+      "source": {
+        "source_t": 3.0306258024691357,
+        "frame_index": 182,
+        "crop": [
+          0.1203125,
+          0.25555555555555554,
+          0.5671875,
+          1.0
+        ],
+        "classifier": {
+          "label": "knee_pad",
+          "score": 0.1208266019821167
+        }
+      },
+      "accepted": false,
+      "text": "A man holding a cell phone in his hands.",
+      "seconds": 1.8530651439796202,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 11
+    },
+    {
+      "id": 2,
+      "key": "t1:r3",
+      "started": 5.0329612829955295,
+      "completed": 6.927458774007391,
+      "source": {
+        "source_t": 4.97888524691358,
+        "frame_index": 299,
+        "crop": [
+          0.14140625,
+          0.2625,
+          0.43125,
+          0.7777777777777778
+        ],
+        "classifier": {
+          "label": "knee_pad",
+          "score": 0.15921518206596375
+        }
+      },
+      "accepted": false,
+      "text": "A person holding a cell phone in their hand.",
+      "seconds": 1.751691273006145,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 11
+    },
+    {
+      "id": 3,
+      "key": "t3:r1",
+      "started": 9.838433400029317,
+      "completed": 12.009072831016965,
+      "source": {
+        "source_t": 9.741297222222222,
+        "frame_index": 585,
+        "crop": [
+          0.18515625,
+          0.4,
+          0.565625,
+          1.0
+        ],
+        "classifier": {
+          "label": "brassiere",
+          "score": 0.4408694803714752
+        }
+      },
+      "accepted": false,
+      "text": "A person holding a pink object in their hand.",
+      "seconds": 1.9771131000015885,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 12
+    },
+    {
+      "id": 4,
+      "key": "t3:r3",
+      "started": 12.009072831016965,
+      "completed": 14.178126328042708,
+      "source": {
+        "source_t": 11.906029938271605,
+        "frame_index": 715,
+        "crop": [
+          0.06171875,
+          0.0125,
+          0.63671875,
+          1.0
+        ],
+        "classifier": {
+          "label": "syringe",
+          "score": 0.11301232129335403
+        }
+      },
+      "accepted": false,
+      "text": "A man holding a pencil in his hand.",
+      "seconds": 1.948381390015129,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 12
+    },
+    {
+      "id": 5,
+      "key": "t3:r5",
+      "started": 14.178126328042708,
+      "completed": 15.369889097986743,
+      "source": {
+        "source_t": 14.070762654320987,
+        "frame_index": 845,
+        "crop": [
+          0.14765625,
+          0.31805555555555554,
+          0.5640625,
+          1.0
+        ],
+        "classifier": {
+          "label": "Band_Aid",
+          "score": 0.2539548873901367
+        }
+      },
+      "accepted": false,
+      "text": "A girl in a car",
+      "seconds": 1.050626691954676,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 6
+    },
+    {
+      "id": 6,
+      "key": "t4:r1",
+      "started": 18.069834338035434,
+      "completed": 20.235113674018066,
+      "source": {
+        "source_t": 17.967281543209875,
+        "frame_index": 1079,
+        "crop": [
+          0.109375,
+          0.05,
+          0.7078125,
+          1.0
+        ],
+        "classifier": {
+          "label": "Band_Aid",
+          "score": 0.31228771805763245
+        }
+      },
+      "accepted": false,
+      "text": "A man in a white shirt holding his hand up.",
+      "seconds": 2.097072879958432,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 13
+    },
+    {
+      "id": 7,
+      "key": "t4:r6",
+      "started": 20.235113674018066,
+      "completed": 22.513522476016078,
+      "source": {
+        "source_t": 20.132014259259257,
+        "frame_index": 1209,
+        "crop": [
+          0.08359375,
+          0.0,
+          0.690625,
+          0.9708333333333333
+        ],
+        "classifier": {
+          "label": "Band_Aid",
+          "score": 0.18419431149959564
+        }
+      },
+      "accepted": false,
+      "text": "A man in a purple shirt holding his hand up.",
+      "seconds": 2.1322208840283565,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 14
+    },
+    {
+      "id": 8,
+      "key": "t6:r1",
+      "started": 27.579954717017245,
+      "completed": 29.744117558002472,
+      "source": {
+        "source_t": 27.492105493827157,
+        "frame_index": 1651,
+        "crop": [
+          0.07578125,
+          0.0,
+          0.71875,
+          1.0
+        ],
+        "classifier": {
+          "label": "Band_Aid",
+          "score": 0.3588605225086212
+        }
+      },
+      "accepted": false,
+      "text": "A man in a blue shirt holding his hands up.",
+      "seconds": 2.0889829139923677,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 13
+    },
+    {
+      "id": 9,
+      "key": "t6:r3",
+      "started": 29.744117558002472,
+      "completed": 31.465648423007224,
+      "source": {
+        "source_t": 29.656838209876543,
+        "frame_index": 1781,
+        "crop": [
+          0.215625,
+          0.35555555555555557,
+          0.54609375,
+          0.9430555555555555
+        ],
+        "classifier": {
+          "label": "Band_Aid",
+          "score": 0.2431734949350357
+        }
+      },
+      "accepted": false,
+      "text": "A person with their hands in the air.",
+      "seconds": 1.6384411689941771,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 10
+    },
+    {
+      "id": 10,
+      "key": "t6:r5",
+      "started": 31.465648423007224,
+      "completed": 33.638861473998986,
+      "source": {
+        "source_t": 31.38862438271605,
+        "frame_index": 1885,
+        "crop": [
+          0.2046875,
+          0.2263888888888889,
+          0.60546875,
+          0.9402777777777778
+        ],
+        "classifier": {
+          "label": "Band_Aid",
+          "score": 0.4038447439670563
+        }
+      },
+      "accepted": false,
+      "text": "A man giving a thumbs up sign while sitting down.",
+      "seconds": 2.02365412999643,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 13
+    },
+    {
+      "id": 11,
+      "key": "t6:r7",
+      "started": 33.638861473998986,
+      "completed": 35.809342154010665,
+      "source": {
+        "source_t": 33.55335709876543,
+        "frame_index": 2015,
+        "crop": [
+          0.1328125,
+          0.043055555555555555,
+          0.6359375,
+          0.9388888888888889
+        ],
+        "classifier": {
+          "label": "Band_Aid",
+          "score": 0.23660264909267426
+        }
+      },
+      "accepted": false,
+      "text": "A man in a gray shirt is pointing his finger.",
+      "seconds": 2.052373875048943,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 13
+    },
+    {
+      "id": 12,
+      "key": "t6:r8",
+      "started": 35.809342154010665,
+      "completed": 37.98812946298858,
+      "source": {
+        "source_t": 35.71808981481481,
+        "frame_index": 2145,
+        "crop": [
+          0.09296875,
+          0.05416666666666667,
+          0.7578125,
+          1.0
+        ],
+        "classifier": {
+          "label": "Band_Aid",
+          "score": 0.22582051157951355
+        }
+      },
+      "accepted": false,
+      "text": "A man is making a peace sign in front of a computer.",
+      "seconds": 2.1221885550185107,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 14
+    },
+    {
+      "id": 13,
+      "key": "t7:r1",
+      "started": 37.98812946298858,
+      "completed": 40.29907152202213,
+      "source": {
+        "source_t": 37.882822530864196,
+        "frame_index": 2275,
+        "crop": [
+          0.15234375,
+          0.0,
+          0.79375,
+          1.0
+        ],
+        "classifier": {
+          "label": "maillot_(tights)",
+          "score": 0.16281206905841827
+        }
+      },
+      "accepted": false,
+      "text": "A man holding a cell phone in front of a projector.",
+      "seconds": 2.174509083968587,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 14
+    },
+    {
+      "id": 14,
+      "key": "t7:r4",
+      "started": 40.29907152202213,
+      "completed": 42.86201753298519,
+      "source": {
+        "source_t": 40.264028518518515,
+        "frame_index": 2418,
+        "crop": [
+          0.15625,
+          0.03888888888888889,
+          0.74609375,
+          1.0
+        ],
+        "classifier": {
+          "label": "bikini",
+          "score": 0.19034987688064575
+        }
+      },
+      "accepted": false,
+      "text": "A man holding a cell phone with a picture of a girl on it.",
+      "seconds": 2.422374202986248,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 16
+    },
+    {
+      "id": 15,
+      "key": "t8:r1",
+      "started": 43.37125179101713,
+      "completed": 45.31189815304242,
+      "source": {
+        "source_t": 43.294654320987654,
+        "frame_index": 2600,
+        "crop": [
+          0.35390625,
+          0.37777777777777777,
+          0.71015625,
+          1.0
+        ],
+        "classifier": {
+          "label": "Windsor_tie",
+          "score": 0.5823919177055359
+        }
+      },
+      "accepted": false,
+      "text": "A man holding a small object in his hand.",
+      "seconds": 1.7780042159720324,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 11
+    },
+    {
+      "id": 16,
+      "key": "t9:r1",
+      "started": 45.31189815304242,
+      "completed": 47.484249814006034,
+      "source": {
+        "source_t": 45.2429137654321,
+        "frame_index": 2717,
+        "crop": [
+          0.146875,
+          0.22916666666666666,
+          0.5890625,
+          1.0
+        ],
+        "classifier": {
+          "label": "bow",
+          "score": 0.473154217004776
+        }
+      },
+      "accepted": false,
+      "text": "A man holding a syringe with a needle.",
+      "seconds": 2.053923302970361,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 13
+    },
+    {
+      "id": 17,
+      "key": "t9:r3",
+      "started": 47.484249814006034,
+      "completed": 49.356112720037345,
+      "source": {
+        "source_t": 47.40764648148148,
+        "frame_index": 2847,
+        "crop": [
+          0.11015625,
+          0.15555555555555556,
+          0.56328125,
+          0.9611111111111111
+        ],
+        "classifier": {
+          "label": "syringe",
+          "score": 0.6118237972259521
+        }
+      },
+      "accepted": false,
+      "text": "A man holding a small object in his hand.",
+      "seconds": 1.7651823309715837,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 11
+    },
+    {
+      "id": 18,
+      "key": "t10:r1",
+      "started": 49.356112720037345,
+      "completed": 51.83360886602895,
+      "source": {
+        "source_t": 49.139432654320984,
+        "frame_index": 2951,
+        "crop": [
+          0.53515625,
+          0.5083333333333333,
+          0.98828125,
+          1.0
+        ],
+        "classifier": {
+          "label": "Band_Aid",
+          "score": 0.1392829716205597
+        }
+      },
+      "accepted": false,
+      "text": "A person is playing a video game on a Nintendo Wii.",
+      "seconds": 2.2808372220024467,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 15
+    },
+    {
+      "id": 19,
+      "key": "t12:r2",
+      "started": 51.83360886602895,
+      "completed": 54.11861780000618,
+      "source": {
+        "source_t": 51.73711191358024,
+        "frame_index": 3107,
+        "crop": [
+          0.0859375,
+          0.0,
+          0.71796875,
+          1.0
+        ],
+        "classifier": {
+          "label": "Band_Aid",
+          "score": 0.17775802314281464
+        }
+      },
+      "accepted": false,
+      "text": "A man holding his hand up in front of a computer screen.",
+      "seconds": 2.197486958990339,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 14
+    },
+    {
+      "id": 20,
+      "key": "t12:r3",
+      "started": 54.11861780000618,
+      "completed": 56.28335862699896,
+      "source": {
+        "source_t": 53.46889808641975,
+        "frame_index": 3211,
+        "crop": [
+          0.26640625,
+          0.25972222222222224,
+          0.71953125,
+          1.0
+        ],
+        "classifier": {
+          "label": "Band_Aid",
+          "score": 0.21478749811649323
+        }
+      },
+      "accepted": false,
+      "text": "A man in a white shirt is pointing at something.",
+      "seconds": 1.971709860023111,
+      "hit_token_limit": false,
+      "usable": true,
+      "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+      "output_tokens": 13
+    }
+  ],
+  "samples": [
+    {
+      "source_t": 0.0,
+      "wall_t": 2.1602027118206024e-05,
+      "lag_s": 2.1602027118206024e-05,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 0.21647327160493826,
+      "wall_t": 0.21698778204154223,
+      "lag_s": 0.000514510436603971,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 0.4329465432098765,
+      "wall_t": 0.4334601960144937,
+      "lag_s": 0.0005136528046171818,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 0.6494198148148148,
+      "wall_t": 0.6499438110040501,
+      "lag_s": 0.0005239961892352651,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 0.865893086419753,
+      "wall_t": 0.866388892987743,
+      "lag_s": 0.0004958065679899759,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 1.0823663580246914,
+      "wall_t": 1.0828890210250393,
+      "lag_s": 0.0005226630003478672,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 1.2988396296296296,
+      "wall_t": 1.2993628040421754,
+      "lag_s": 0.0005231744125457904,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 1.5153129012345679,
+      "wall_t": 1.5158275819849223,
+      "lag_s": 0.0005146807503544348,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 1.731786172839506,
+      "wall_t": 1.732299975992646,
+      "lag_s": 0.00051380315313998,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 1.9482594444444443,
+      "wall_t": 1.948780628037639,
+      "lag_s": 0.0005211835931946407,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 2.1647327160493828,
+      "wall_t": 2.165257374988869,
+      "lag_s": 0.0005246589394860557,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 2.381205987654321,
+      "wall_t": 2.381730619992595,
+      "lag_s": 0.0005246323382741558,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 2.5976792592592592,
+      "wall_t": 2.5981898750178516,
+      "lag_s": 0.0005106157585923476,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 2.8141525308641975,
+      "wall_t": 2.8146772290347144,
+      "lag_s": 0.000524698170516924,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 3.0306258024691357,
+      "wall_t": 3.1057513350388035,
+      "lag_s": 0.07512553256966781,
+      "key": "t1:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 1,
+      "cached_request": null
+    },
+    {
+      "source_t": 3.247099074074074,
+      "wall_t": 3.3199097600299865,
+      "lag_s": 0.07281068595591256,
+      "key": "t1:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1184895858168602,
+      "pending_id": 1,
+      "cached_request": null
+    },
+    {
+      "source_t": 3.463572345679012,
+      "wall_t": 3.555098220007494,
+      "lag_s": 0.09152587432848192,
+      "key": "t1:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.10678615421056747,
+      "pending_id": 1,
+      "cached_request": null
+    },
+    {
+      "source_t": 3.6800456172839504,
+      "wall_t": 3.7758444400387816,
+      "lag_s": 0.0957988227548312,
+      "key": "t1:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.13402266800403595,
+      "pending_id": 1,
+      "cached_request": null
+    },
+    {
+      "source_t": 3.8965188888888886,
+      "wall_t": 3.9964414600399323,
+      "lag_s": 0.09992257115104364,
+      "key": "t1:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.07103758305311203,
+      "pending_id": 1,
+      "cached_request": null
+    },
+    {
+      "source_t": 4.112992160493827,
+      "wall_t": 4.222551899030805,
+      "lag_s": 0.10955973853697731,
+      "key": "t1:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.22369281947612762,
+      "pending_id": 1,
+      "cached_request": null
+    },
+    {
+      "source_t": 4.3294654320987656,
+      "wall_t": 4.356690436019562,
+      "lag_s": 0.02722500392079663,
+      "key": "t1:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.058231208473443985,
+      "pending_id": 1,
+      "cached_request": null
+    },
+    {
+      "source_t": 4.545938703703704,
+      "wall_t": 4.59419621003326,
+      "lag_s": 0.0482575063295565,
+      "key": "t1:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.05686274543404579,
+      "pending_id": 1,
+      "cached_request": null
+    },
+    {
+      "source_t": 4.762411975308642,
+      "wall_t": 4.815163041988853,
+      "lag_s": 0.052751066680211345,
+      "key": "t1:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.06663602590560913,
+      "pending_id": 1,
+      "cached_request": null
+    },
+    {
+      "source_t": 4.97888524691358,
+      "wall_t": 5.0329612829955295,
+      "lag_s": 0.05407603608194922,
+      "key": "t1:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.09617545455694199,
+      "pending_id": 2,
+      "cached_request": null
+    },
+    {
+      "source_t": 5.1953585185185185,
+      "wall_t": 5.273292055993807,
+      "lag_s": 0.07793353747528808,
+      "key": "t1:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.09756433963775635,
+      "pending_id": 2,
+      "cached_request": null
+    },
+    {
+      "source_t": 5.411831790123457,
+      "wall_t": 5.502768221020233,
+      "lag_s": 0.09093643089677617,
+      "key": "t1:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1018075942993164,
+      "pending_id": 2,
+      "cached_request": null
+    },
+    {
+      "source_t": 5.628305061728395,
+      "wall_t": 5.762249811028596,
+      "lag_s": 0.13394474930020106,
+      "key": "t2:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 2,
+      "cached_request": null
+    },
+    {
+      "source_t": 5.844778333333333,
+      "wall_t": 5.844932411040645,
+      "lag_s": 0.00015407770731190595,
+      "key": "t2:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 2,
+      "cached_request": null
+    },
+    {
+      "source_t": 6.061251604938271,
+      "wall_t": 6.061533770000096,
+      "lag_s": 0.00028216506182499046,
+      "key": "t2:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 2,
+      "cached_request": null
+    },
+    {
+      "source_t": 6.27772487654321,
+      "wall_t": 6.277984708023723,
+      "lag_s": 0.00025983148051356153,
+      "key": "t2:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 2,
+      "cached_request": null
+    },
+    {
+      "source_t": 6.494198148148148,
+      "wall_t": 6.494479509012308,
+      "lag_s": 0.0002813608641600851,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 2,
+      "cached_request": null
+    },
+    {
+      "source_t": 6.710671419753086,
+      "wall_t": 6.710954660025891,
+      "lag_s": 0.0002832402728047967,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 2,
+      "cached_request": null
+    },
+    {
+      "source_t": 6.927144691358024,
+      "wall_t": 6.927458774007391,
+      "lag_s": 0.0003140826493668314,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 7.143617962962963,
+      "wall_t": 7.143906946002971,
+      "lag_s": 0.0002889830400087945,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 7.360091234567901,
+      "wall_t": 7.360355138021987,
+      "lag_s": 0.0002639034540861118,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 7.576564506172839,
+      "wall_t": 7.576840704015922,
+      "lag_s": 0.0002761978430827483,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 7.793037777777777,
+      "wall_t": 7.793353407992981,
+      "lag_s": 0.00031563021520408796,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 8.009511049382716,
+      "wall_t": 8.009826557012275,
+      "lag_s": 0.00031550762955845357,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 8.225984320987655,
+      "wall_t": 8.226258356007747,
+      "lag_s": 0.0002740350200927111,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 8.442457592592593,
+      "wall_t": 8.442753089009784,
+      "lag_s": 0.0002954964171912877,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 8.658930864197531,
+      "wall_t": 8.659220169996843,
+      "lag_s": 0.00028930579931163436,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 8.87540413580247,
+      "wall_t": 8.87568120303331,
+      "lag_s": 0.000277067230840089,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 9.091877407407408,
+      "wall_t": 9.092186240013689,
+      "lag_s": 0.00030883260628122855,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 9.308350679012346,
+      "wall_t": 9.30861868703505,
+      "lag_s": 0.0002680080227044357,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 9.524823950617284,
+      "wall_t": 9.52509218303021,
+      "lag_s": 0.00026823241292639466,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 9.741297222222222,
+      "wall_t": 9.838433400029317,
+      "lag_s": 0.09713617780709427,
+      "key": "t3:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 3,
+      "cached_request": null
+    },
+    {
+      "source_t": 9.95777049382716,
+      "wall_t": 10.072232281032484,
+      "lag_s": 0.11446178720532352,
+      "key": "t3:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.15667381882667542,
+      "pending_id": 3,
+      "cached_request": null
+    },
+    {
+      "source_t": 10.174243765432099,
+      "wall_t": 10.29091368400259,
+      "lag_s": 0.1166699185704907,
+      "key": "t3:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.06667177379131317,
+      "pending_id": 3,
+      "cached_request": null
+    },
+    {
+      "source_t": 10.390717037037037,
+      "wall_t": 10.419320540037006,
+      "lag_s": 0.028603502999969166,
+      "key": "t3:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.0686376690864563,
+      "pending_id": 3,
+      "cached_request": null
+    },
+    {
+      "source_t": 10.607190308641975,
+      "wall_t": 10.65967228601221,
+      "lag_s": 0.052481977370234745,
+      "key": "t3:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.06786662340164185,
+      "pending_id": 3,
+      "cached_request": null
+    },
+    {
+      "source_t": 10.823663580246913,
+      "wall_t": 10.887285628996324,
+      "lag_s": 0.06362204874941035,
+      "key": "t3:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.0645475909113884,
+      "pending_id": 3,
+      "cached_request": null
+    },
+    {
+      "source_t": 11.040136851851852,
+      "wall_t": 11.113481287029572,
+      "lag_s": 0.07334443517772016,
+      "key": "t3:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.07078226655721664,
+      "pending_id": 3,
+      "cached_request": null
+    },
+    {
+      "source_t": 11.25661012345679,
+      "wall_t": 11.341563566005789,
+      "lag_s": 0.08495344254899884,
+      "key": "t3:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.16650326550006866,
+      "pending_id": 3,
+      "cached_request": null
+    },
+    {
+      "source_t": 11.473083395061728,
+      "wall_t": 11.570610994007438,
+      "lag_s": 0.09752759894571028,
+      "key": "t3:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.056122343987226486,
+      "pending_id": 3,
+      "cached_request": null
+    },
+    {
+      "source_t": 11.689556666666666,
+      "wall_t": 11.792223108001053,
+      "lag_s": 0.10266644133438696,
+      "key": "t3:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.07473958283662796,
+      "pending_id": 3,
+      "cached_request": null
+    },
+    {
+      "source_t": 11.906029938271605,
+      "wall_t": 12.009072831016965,
+      "lag_s": 0.1030428927453606,
+      "key": "t3:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.06365910917520523,
+      "pending_id": 4,
+      "cached_request": null
+    },
+    {
+      "source_t": 12.122503209876543,
+      "wall_t": 12.239447630010545,
+      "lag_s": 0.11694442013400241,
+      "key": "t3:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.06034007668495178,
+      "pending_id": 4,
+      "cached_request": null
+    },
+    {
+      "source_t": 12.338976481481481,
+      "wall_t": 12.377425426035188,
+      "lag_s": 0.038448944553707065,
+      "key": "t3:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.05321180447936058,
+      "pending_id": 4,
+      "cached_request": null
+    },
+    {
+      "source_t": 12.55544975308642,
+      "wall_t": 12.60654957900988,
+      "lag_s": 0.051099825923460074,
+      "key": "t3:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.13162274658679962,
+      "pending_id": 4,
+      "cached_request": null
+    },
+    {
+      "source_t": 12.771923024691358,
+      "wall_t": 12.831327737018,
+      "lag_s": 0.059404712326642795,
+      "key": "t3:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.07795138657093048,
+      "pending_id": 4,
+      "cached_request": null
+    },
+    {
+      "source_t": 12.988396296296296,
+      "wall_t": 13.052127555012703,
+      "lag_s": 0.06373125871640717,
+      "key": "t3:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.10218033939599991,
+      "pending_id": 4,
+      "cached_request": null
+    },
+    {
+      "source_t": 13.204869567901234,
+      "wall_t": 13.286398101015948,
+      "lag_s": 0.08152853311471375,
+      "key": "t3:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.08259803801774979,
+      "pending_id": 4,
+      "cached_request": null
+    },
+    {
+      "source_t": 13.421342839506172,
+      "wall_t": 13.508803574019112,
+      "lag_s": 0.08746073451293945,
+      "key": "t3:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.09192708134651184,
+      "pending_id": 4,
+      "cached_request": null
+    },
+    {
+      "source_t": 13.63781611111111,
+      "wall_t": 13.732869895000476,
+      "lag_s": 0.09505378388936592,
+      "key": "t3:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.09348958730697632,
+      "pending_id": 4,
+      "cached_request": null
+    },
+    {
+      "source_t": 13.854289382716049,
+      "wall_t": 13.954862972022966,
+      "lag_s": 0.10057358930691684,
+      "key": "t3:r4",
+      "hand_visible": true,
+      "selected_unknown": false,
+      "appearance_distance": 0.09130922704935074,
+      "pending_id": 4,
+      "cached_request": null
+    },
+    {
+      "source_t": 14.070762654320987,
+      "wall_t": 14.178126328042708,
+      "lag_s": 0.1073636737217214,
+      "key": "t3:r5",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1414930671453476,
+      "pending_id": 5,
+      "cached_request": null
+    },
+    {
+      "source_t": 14.287235925925925,
+      "wall_t": 14.287574665038846,
+      "lag_s": 0.00033873911292126024,
+      "key": "t3:r5",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 5,
+      "cached_request": null
+    },
+    {
+      "source_t": 14.503709197530863,
+      "wall_t": 14.504049191018566,
+      "lag_s": 0.000339993487703083,
+      "key": "t3:r5",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 5,
+      "cached_request": null
+    },
+    {
+      "source_t": 14.720182469135802,
+      "wall_t": 14.720448188018054,
+      "lag_s": 0.0002657188822521306,
+      "key": "t3:r5",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 5,
+      "cached_request": null
+    },
+    {
+      "source_t": 14.93665574074074,
+      "wall_t": 14.936952573014423,
+      "lag_s": 0.0002968322736833784,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 5,
+      "cached_request": null
+    },
+    {
+      "source_t": 15.153129012345678,
+      "wall_t": 15.153397494985256,
+      "lag_s": 0.00026848263957823804,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 5,
+      "cached_request": null
+    },
+    {
+      "source_t": 15.369602283950616,
+      "wall_t": 15.369889097986743,
+      "lag_s": 0.0002868140361265148,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 15.586075555555555,
+      "wall_t": 15.58634581201477,
+      "lag_s": 0.00027025645921519015,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 15.802548827160493,
+      "wall_t": 15.802844642021228,
+      "lag_s": 0.0002958148607348221,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 16.019022098765433,
+      "wall_t": 16.01929885899881,
+      "lag_s": 0.00027676023337619426,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 16.23549537037037,
+      "wall_t": 16.235768532031216,
+      "lag_s": 0.0002731616608464549,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 16.45196864197531,
+      "wall_t": 16.452232461015228,
+      "lag_s": 0.0002638190399189,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 16.668441913580246,
+      "wall_t": 16.668707430013455,
+      "lag_s": 0.0002655164332097115,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 16.884915185185186,
+      "wall_t": 16.885192768997513,
+      "lag_s": 0.00027758381232700913,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 17.101388456790122,
+      "wall_t": 17.10166469804244,
+      "lag_s": 0.0002762412523189539,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 17.317861728395062,
+      "wall_t": 17.318131498002913,
+      "lag_s": 0.000269769607850634,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 17.534335,
+      "wall_t": 17.53460068901768,
+      "lag_s": 0.00026568901768087017,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 17.75080827160494,
+      "wall_t": 17.75107288901927,
+      "lag_s": 0.0002646174143308144,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 17.967281543209875,
+      "wall_t": 18.069834338035434,
+      "lag_s": 0.10255279482555935,
+      "key": "t4:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 6,
+      "cached_request": null
+    },
+    {
+      "source_t": 18.183754814814815,
+      "wall_t": 18.300941382010933,
+      "lag_s": 0.11718656719611786,
+      "key": "t4:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.11812704801559448,
+      "pending_id": 6,
+      "cached_request": null
+    },
+    {
+      "source_t": 18.40022808641975,
+      "wall_t": 18.435588199004997,
+      "lag_s": 0.03536011258524496,
+      "key": "t4:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.10867034643888474,
+      "pending_id": 6,
+      "cached_request": null
+    },
+    {
+      "source_t": 18.61670135802469,
+      "wall_t": 18.675355146988295,
+      "lag_s": 0.058653788963603404,
+      "key": "t4:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.11186172813177109,
+      "pending_id": 6,
+      "cached_request": null
+    },
+    {
+      "source_t": 18.833174629629628,
+      "wall_t": 18.892737440008204,
+      "lag_s": 0.05956281037857636,
+      "key": "t4:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.13171978294849396,
+      "pending_id": 6,
+      "cached_request": null
+    },
+    {
+      "source_t": 19.049647901234568,
+      "wall_t": 19.12324050400639,
+      "lag_s": 0.07359260277182145,
+      "key": "t4:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.14573632180690765,
+      "pending_id": 6,
+      "cached_request": null
+    },
+    {
+      "source_t": 19.266121172839505,
+      "wall_t": 19.342986267001834,
+      "lag_s": 0.07686509416232923,
+      "key": "t4:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.14479677379131317,
+      "pending_id": 6,
+      "cached_request": null
+    },
+    {
+      "source_t": 19.482594444444445,
+      "wall_t": 19.564903641992714,
+      "lag_s": 0.08230919754826971,
+      "key": "t4:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.05278288200497627,
+      "pending_id": 6,
+      "cached_request": null
+    },
+    {
+      "source_t": 19.69906771604938,
+      "wall_t": 19.801927275024354,
+      "lag_s": 0.10285955897497345,
+      "key": "t4:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1145833358168602,
+      "pending_id": 6,
+      "cached_request": null
+    },
+    {
+      "source_t": 19.91554098765432,
+      "wall_t": 20.011057067022193,
+      "lag_s": 0.09551607936787221,
+      "key": "t4:r5",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1795598417520523,
+      "pending_id": 6,
+      "cached_request": null
+    },
+    {
+      "source_t": 20.132014259259257,
+      "wall_t": 20.235113674018066,
+      "lag_s": 0.1030994147588089,
+      "key": "t4:r6",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1604728400707245,
+      "pending_id": 7,
+      "cached_request": null
+    },
+    {
+      "source_t": 20.348487530864197,
+      "wall_t": 20.387398415012285,
+      "lag_s": 0.03891088414808763,
+      "key": "t4:r6",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.03864889591932297,
+      "pending_id": 7,
+      "cached_request": null
+    },
+    {
+      "source_t": 20.564960802469134,
+      "wall_t": 20.616065759037156,
+      "lag_s": 0.05110495656802172,
+      "key": "t4:r6",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.0584712028503418,
+      "pending_id": 7,
+      "cached_request": null
+    },
+    {
+      "source_t": 20.781434074074074,
+      "wall_t": 20.84153353702277,
+      "lag_s": 0.0600994629486955,
+      "key": "t4:r6",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.07582210749387741,
+      "pending_id": 7,
+      "cached_request": null
+    },
+    {
+      "source_t": 20.99790734567901,
+      "wall_t": 21.061104246997274,
+      "lag_s": 0.06319690131826405,
+      "key": "t5:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 7,
+      "cached_request": null
+    },
+    {
+      "source_t": 21.21438061728395,
+      "wall_t": 21.214848885021638,
+      "lag_s": 0.0004682677376877109,
+      "key": "t5:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 7,
+      "cached_request": null
+    },
+    {
+      "source_t": 21.430853888888887,
+      "wall_t": 21.431422304012813,
+      "lag_s": 0.0005684151239258028,
+      "key": "t5:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 7,
+      "cached_request": null
+    },
+    {
+      "source_t": 21.647327160493827,
+      "wall_t": 21.647939109010622,
+      "lag_s": 0.0006119485167950245,
+      "key": "t5:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 7,
+      "cached_request": null
+    },
+    {
+      "source_t": 21.863800432098763,
+      "wall_t": 21.864357726997696,
+      "lag_s": 0.0005572948989325255,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 7,
+      "cached_request": null
+    },
+    {
+      "source_t": 22.080273703703703,
+      "wall_t": 22.080579139990732,
+      "lag_s": 0.0003054362870287264,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 7,
+      "cached_request": null
+    },
+    {
+      "source_t": 22.29674697530864,
+      "wall_t": 22.297266868001316,
+      "lag_s": 0.0005198926926759384,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 7,
+      "cached_request": null
+    },
+    {
+      "source_t": 22.51322024691358,
+      "wall_t": 22.513522476016078,
+      "lag_s": 0.00030222910249833035,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 22.729693518518516,
+      "wall_t": 22.730228753993288,
+      "lag_s": 0.0005352354747714116,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 22.946166790123456,
+      "wall_t": 22.94669267203426,
+      "lag_s": 0.000525881910803605,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 23.162640061728393,
+      "wall_t": 23.163153228000738,
+      "lag_s": 0.0005131662723449892,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 23.379113333333333,
+      "wall_t": 23.379637167032342,
+      "lag_s": 0.000523833699009657,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 23.59558660493827,
+      "wall_t": 23.596112043014728,
+      "lag_s": 0.0005254380764583289,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 23.81205987654321,
+      "wall_t": 23.812385971017648,
+      "lag_s": 0.00032609447443832096,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 24.028533148148146,
+      "wall_t": 24.028856719029136,
+      "lag_s": 0.0003235708809903315,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 24.245006419753086,
+      "wall_t": 24.24531485600164,
+      "lag_s": 0.0003084362485559211,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 24.461479691358022,
+      "wall_t": 24.46179051499348,
+      "lag_s": 0.0003108236354592009,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 24.677952962962962,
+      "wall_t": 24.67847550701117,
+      "lag_s": 0.0005225440482092836,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 24.8944262345679,
+      "wall_t": 24.89474292099476,
+      "lag_s": 0.00031668642686000226,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 25.11089950617284,
+      "wall_t": 25.111181776039302,
+      "lag_s": 0.00028226986646373575,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 25.327372777777775,
+      "wall_t": 25.327652368985582,
+      "lag_s": 0.0002795912078070728,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 25.543846049382715,
+      "wall_t": 25.54414487601025,
+      "lag_s": 0.00029882662753522027,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 25.76031932098765,
+      "wall_t": 25.760637512023095,
+      "lag_s": 0.0003181910354435047,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 25.97679259259259,
+      "wall_t": 25.977317014010623,
+      "lag_s": 0.000524421418031551,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 26.193265864197528,
+      "wall_t": 26.193587738031056,
+      "lag_s": 0.0003218738335277749,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 26.409739135802468,
+      "wall_t": 26.41026764101116,
+      "lag_s": 0.000528505208691854,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 26.626212407407404,
+      "wall_t": 26.626546668005176,
+      "lag_s": 0.0003342605977714186,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 26.842685679012344,
+      "wall_t": 26.84321620000992,
+      "lag_s": 0.0005305209975752234,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 27.05915895061728,
+      "wall_t": 27.059460663993377,
+      "lag_s": 0.000301713376096302,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 27.27563222222222,
+      "wall_t": 27.275944283988792,
+      "lag_s": 0.0003120617665715031,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 27.492105493827157,
+      "wall_t": 27.579954717017245,
+      "lag_s": 0.08784922319008714,
+      "key": "t6:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 8,
+      "cached_request": null
+    },
+    {
+      "source_t": 27.708578765432097,
+      "wall_t": 27.806114469014574,
+      "lag_s": 0.09753570358247643,
+      "key": "t6:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.06630412489175797,
+      "pending_id": 8,
+      "cached_request": null
+    },
+    {
+      "source_t": 27.925052037037034,
+      "wall_t": 28.039723063004203,
+      "lag_s": 0.11467102596716927,
+      "key": "t6:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.058369074016809464,
+      "pending_id": 8,
+      "cached_request": null
+    },
+    {
+      "source_t": 28.141525308641974,
+      "wall_t": 28.246102637029253,
+      "lag_s": 0.10457732838727907,
+      "key": "t6:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.06461396813392639,
+      "pending_id": 8,
+      "cached_request": null
+    },
+    {
+      "source_t": 28.35799858024691,
+      "wall_t": 28.39378270303132,
+      "lag_s": 0.03578412278440979,
+      "key": "t6:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.0626276507973671,
+      "pending_id": 8,
+      "cached_request": null
+    },
+    {
+      "source_t": 28.57447185185185,
+      "wall_t": 28.625688892032485,
+      "lag_s": 0.05121704018063511,
+      "key": "t6:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.060753677040338516,
+      "pending_id": 8,
+      "cached_request": null
+    },
+    {
+      "source_t": 28.790945123456787,
+      "wall_t": 28.85089239804074,
+      "lag_s": 0.05994727458395488,
+      "key": "t6:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.04606311395764351,
+      "pending_id": 8,
+      "cached_request": null
+    },
+    {
+      "source_t": 29.007418395061727,
+      "wall_t": 29.073952417005785,
+      "lag_s": 0.066534021944058,
+      "key": "t6:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1891084462404251,
+      "pending_id": 8,
+      "cached_request": null
+    },
+    {
+      "source_t": 29.223891666666663,
+      "wall_t": 29.29900754900882,
+      "lag_s": 0.07511588234215694,
+      "key": "t6:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.12461704015731812,
+      "pending_id": 8,
+      "cached_request": null
+    },
+    {
+      "source_t": 29.440364938271603,
+      "wall_t": 29.527516790025402,
+      "lag_s": 0.08715185175379858,
+      "key": "t6:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.05379391089081764,
+      "pending_id": 8,
+      "cached_request": null
+    },
+    {
+      "source_t": 29.656838209876543,
+      "wall_t": 29.744117558002472,
+      "lag_s": 0.08727934812592864,
+      "key": "t6:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.05401347950100899,
+      "pending_id": 9,
+      "cached_request": null
+    },
+    {
+      "source_t": 29.87331148148148,
+      "wall_t": 29.97521519602742,
+      "lag_s": 0.10190371454594072,
+      "key": "t6:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.05610191822052002,
+      "pending_id": 9,
+      "cached_request": null
+    },
+    {
+      "source_t": 30.08978475308642,
+      "wall_t": 30.19223015103489,
+      "lag_s": 0.10244539794847185,
+      "key": "t6:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.05439133942127228,
+      "pending_id": 9,
+      "cached_request": null
+    },
+    {
+      "source_t": 30.306258024691356,
+      "wall_t": 30.33343323302688,
+      "lag_s": 0.02717520833552456,
+      "key": "t6:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.049239177256822586,
+      "pending_id": 9,
+      "cached_request": null
+    },
+    {
+      "source_t": 30.522731296296296,
+      "wall_t": 30.561300723988097,
+      "lag_s": 0.03856942769180094,
+      "key": "t6:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.04855494201183319,
+      "pending_id": 9,
+      "cached_request": null
+    },
+    {
+      "source_t": 30.739204567901233,
+      "wall_t": 30.789025544014294,
+      "lag_s": 0.04982097611306102,
+      "key": "t6:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.05107230320572853,
+      "pending_id": 9,
+      "cached_request": null
+    },
+    {
+      "source_t": 30.955677839506173,
+      "wall_t": 31.013691133994143,
+      "lag_s": 0.05801329448797077,
+      "key": "t6:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.07895731180906296,
+      "pending_id": 9,
+      "cached_request": null
+    },
+    {
+      "source_t": 31.17215111111111,
+      "wall_t": 31.239509353996255,
+      "lag_s": 0.06735824288514536,
+      "key": "t6:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.15887969732284546,
+      "pending_id": 9,
+      "cached_request": null
+    },
+    {
+      "source_t": 31.38862438271605,
+      "wall_t": 31.465648423007224,
+      "lag_s": 0.0770240402911746,
+      "key": "t6:r5",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.15174631774425507,
+      "pending_id": 10,
+      "cached_request": null
+    },
+    {
+      "source_t": 31.605097654320986,
+      "wall_t": 31.696124199021142,
+      "lag_s": 0.09102654470015636,
+      "key": "t6:r6",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.15462112426757812,
+      "pending_id": 10,
+      "cached_request": null
+    },
+    {
+      "source_t": 31.821570925925926,
+      "wall_t": 31.91840027400758,
+      "lag_s": 0.09682934808165555,
+      "key": "t6:r6",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.08676981925964355,
+      "pending_id": 10,
+      "cached_request": null
+    },
+    {
+      "source_t": 32.038044197530866,
+      "wall_t": 32.13617754500592,
+      "lag_s": 0.09813334747505564,
+      "key": "t6:r6",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.08162274956703186,
+      "pending_id": 10,
+      "cached_request": null
+    },
+    {
+      "source_t": 32.2545174691358,
+      "wall_t": 32.28563692298485,
+      "lag_s": 0.031119453849051126,
+      "key": "t6:r6",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.08763275295495987,
+      "pending_id": 10,
+      "cached_request": null
+    },
+    {
+      "source_t": 32.47099074074074,
+      "wall_t": 32.51104959403165,
+      "lag_s": 0.0400588532909083,
+      "key": "t6:r6",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.08962418884038925,
+      "pending_id": 10,
+      "cached_request": null
+    },
+    {
+      "source_t": 32.68746401234568,
+      "wall_t": 32.73719517298741,
+      "lag_s": 0.04973116064173411,
+      "key": "t6:r6",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.09801878780126572,
+      "pending_id": 10,
+      "cached_request": null
+    },
+    {
+      "source_t": 32.90393728395062,
+      "wall_t": 32.96650373801822,
+      "lag_s": 0.06256645406759986,
+      "key": "t6:r6",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.08685661107301712,
+      "pending_id": 10,
+      "cached_request": null
+    },
+    {
+      "source_t": 33.12041055555555,
+      "wall_t": 33.19816000200808,
+      "lag_s": 0.07774944645252901,
+      "key": "t6:r6",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.08733149617910385,
+      "pending_id": 10,
+      "cached_request": null
+    },
+    {
+      "source_t": 33.33688382716049,
+      "wall_t": 33.411307286995,
+      "lag_s": 0.07442345983450593,
+      "key": "t6:r6",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.10346711426973343,
+      "pending_id": 10,
+      "cached_request": null
+    },
+    {
+      "source_t": 33.55335709876543,
+      "wall_t": 33.638861473998986,
+      "lag_s": 0.0855043752335547,
+      "key": "t6:r7",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1607740968465805,
+      "pending_id": 11,
+      "cached_request": null
+    },
+    {
+      "source_t": 33.76983037037037,
+      "wall_t": 33.86721353698522,
+      "lag_s": 0.09738316661484703,
+      "key": "t6:r8",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.18409927189350128,
+      "pending_id": 11,
+      "cached_request": null
+    },
+    {
+      "source_t": 33.986303641975304,
+      "wall_t": 34.08948791201692,
+      "lag_s": 0.10318427004161634,
+      "key": "t6:r8",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.058951184153556824,
+      "pending_id": 11,
+      "cached_request": null
+    },
+    {
+      "source_t": 34.202776913580244,
+      "wall_t": 34.3087489749887,
+      "lag_s": 0.10597206140845827,
+      "key": "t6:r8",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.09124285727739334,
+      "pending_id": 11,
+      "cached_request": null
+    },
+    {
+      "source_t": 34.419250185185184,
+      "wall_t": 34.45824797399109,
+      "lag_s": 0.038997788805907874,
+      "key": "t6:r8",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.09320875257253647,
+      "pending_id": 11,
+      "cached_request": null
+    },
+    {
+      "source_t": 34.635723456790124,
+      "wall_t": 34.691391203028616,
+      "lag_s": 0.055667746238491134,
+      "key": "t6:r8",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.08704043179750443,
+      "pending_id": 11,
+      "cached_request": null
+    },
+    {
+      "source_t": 34.85219672839506,
+      "wall_t": 34.91130253201118,
+      "lag_s": 0.059105803616120056,
+      "key": "t6:r8",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.08380309492349625,
+      "pending_id": 11,
+      "cached_request": null
+    },
+    {
+      "source_t": 35.06867,
+      "wall_t": 35.135285097989254,
+      "lag_s": 0.06661509798925636,
+      "key": "t6:r8",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.08099979907274246,
+      "pending_id": 11,
+      "cached_request": null
+    },
+    {
+      "source_t": 35.28514327160494,
+      "wall_t": 35.35561485902872,
+      "lag_s": 0.07047158742378201,
+      "key": "t6:r8",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.08210784196853638,
+      "pending_id": 11,
+      "cached_request": null
+    },
+    {
+      "source_t": 35.50161654320988,
+      "wall_t": 35.57959001499694,
+      "lag_s": 0.07797347178706104,
+      "key": "t6:r8",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.08140318840742111,
+      "pending_id": 11,
+      "cached_request": null
+    },
+    {
+      "source_t": 35.71808981481481,
+      "wall_t": 35.809342154010665,
+      "lag_s": 0.0912523391958544,
+      "key": "t6:r8",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.07256434112787247,
+      "pending_id": 12,
+      "cached_request": null
+    },
+    {
+      "source_t": 35.93456308641975,
+      "wall_t": 36.03955277201021,
+      "lag_s": 0.10498968559046062,
+      "key": "t6:r9",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.25399816036224365,
+      "pending_id": 12,
+      "cached_request": null
+    },
+    {
+      "source_t": 36.15103635802469,
+      "wall_t": 36.15119807503652,
+      "lag_s": 0.0001617170118279887,
+      "key": "t6:r9",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 12,
+      "cached_request": null
+    },
+    {
+      "source_t": 36.36750962962963,
+      "wall_t": 36.36809795803856,
+      "lag_s": 0.0005883284089307494,
+      "key": "t6:r9",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 12,
+      "cached_request": null
+    },
+    {
+      "source_t": 36.58398290123456,
+      "wall_t": 36.58447026001522,
+      "lag_s": 0.0004873587806599744,
+      "key": "t6:r9",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 12,
+      "cached_request": null
+    },
+    {
+      "source_t": 36.8004561728395,
+      "wall_t": 36.80101822898723,
+      "lag_s": 0.0005620561477286401,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 12,
+      "cached_request": null
+    },
+    {
+      "source_t": 37.01692944444444,
+      "wall_t": 37.017231506993994,
+      "lag_s": 0.0003020625495508966,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 12,
+      "cached_request": null
+    },
+    {
+      "source_t": 37.23340271604938,
+      "wall_t": 37.233900671009906,
+      "lag_s": 0.0004979549605224065,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 12,
+      "cached_request": null
+    },
+    {
+      "source_t": 37.449875987654316,
+      "wall_t": 37.4504042660119,
+      "lag_s": 0.0005282783575850658,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 12,
+      "cached_request": null
+    },
+    {
+      "source_t": 37.666349259259256,
+      "wall_t": 37.66691086901119,
+      "lag_s": 0.0005616097519336449,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 12,
+      "cached_request": null
+    },
+    {
+      "source_t": 37.882822530864196,
+      "wall_t": 37.98812946298858,
+      "lag_s": 0.10530693212438536,
+      "key": "t7:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 38.099295802469136,
+      "wall_t": 38.213384556001984,
+      "lag_s": 0.11408875353284742,
+      "key": "t7:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.10660233348608017,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 38.31576907407407,
+      "wall_t": 38.355604226992,
+      "lag_s": 0.03983515291793083,
+      "key": "t7:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.12006741017103195,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 38.53224234567901,
+      "wall_t": 38.58138626802247,
+      "lag_s": 0.0491439223434611,
+      "key": "t7:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.07281454652547836,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 38.74871561728395,
+      "wall_t": 38.805576177022886,
+      "lag_s": 0.056860559738936445,
+      "key": "t7:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.0993872582912445,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 38.96518888888889,
+      "wall_t": 39.03275983501226,
+      "lag_s": 0.067570946123368,
+      "key": "t7:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.12460172176361084,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 39.18166216049382,
+      "wall_t": 39.25238347699633,
+      "lag_s": 0.07072131650250668,
+      "key": "t7:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.11117749661207199,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 39.39813543209876,
+      "wall_t": 39.47926971100969,
+      "lag_s": 0.08113427891093039,
+      "key": "t7:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.12793096899986267,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 39.6146087037037,
+      "wall_t": 39.715396740008146,
+      "lag_s": 0.10078803630444355,
+      "key": "t7:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.05778186395764351,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 39.83108197530864,
+      "wall_t": 39.923469892994035,
+      "lag_s": 0.092387917685393,
+      "key": "t7:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.07156351953744888,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 40.047555246913575,
+      "wall_t": 40.15735182503704,
+      "lag_s": 0.10979657812346488,
+      "key": "t7:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.067897267639637,
+      "pending_id": 13,
+      "cached_request": null
+    },
+    {
+      "source_t": 40.264028518518515,
+      "wall_t": 40.29907152202213,
+      "lag_s": 0.03504300350361689,
+      "key": "t7:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.07067504525184631,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 40.480501790123455,
+      "wall_t": 40.5332670690259,
+      "lag_s": 0.05276527890244154,
+      "key": "t7:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.0765165463089943,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 40.696975061728395,
+      "wall_t": 40.751107198011596,
+      "lag_s": 0.054132136283200794,
+      "key": "t7:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.08239379525184631,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 40.91344833333333,
+      "wall_t": 40.97754095098935,
+      "lag_s": 0.06409261765602281,
+      "key": "t7:r5",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.12045037001371384,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 41.12992160493827,
+      "wall_t": 41.130181643005926,
+      "lag_s": 0.00026003806765828585,
+      "key": "t7:r5",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 41.34639487654321,
+      "wall_t": 41.34667883999646,
+      "lag_s": 0.0002839634532492141,
+      "key": "t7:r5",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 41.56286814814815,
+      "wall_t": 41.563162812031806,
+      "lag_s": 0.00029466388365761986,
+      "key": "t7:r5",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 41.77934141975308,
+      "wall_t": 41.77964780799812,
+      "lag_s": 0.00030638824503625983,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 41.99581469135802,
+      "wall_t": 41.99611235404154,
+      "lag_s": 0.0002976626835220486,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 42.21228796296296,
+      "wall_t": 42.21260083903326,
+      "lag_s": 0.0003128760702963973,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 42.4287612345679,
+      "wall_t": 42.429074297018815,
+      "lag_s": 0.0003130624509140034,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 42.645234506172834,
+      "wall_t": 42.64553063403582,
+      "lag_s": 0.0002961278629882713,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 14,
+      "cached_request": null
+    },
+    {
+      "source_t": 42.861707777777774,
+      "wall_t": 42.86201753298519,
+      "lag_s": 0.00030975520741804985,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 43.078181049382714,
+      "wall_t": 43.07844436203595,
+      "lag_s": 0.0002633126532387564,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 43.294654320987654,
+      "wall_t": 43.37125179101713,
+      "lag_s": 0.07659747002947626,
+      "key": "t8:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 15,
+      "cached_request": null
+    },
+    {
+      "source_t": 43.51112759259259,
+      "wall_t": 43.596013573987875,
+      "lag_s": 0.08488598139528847,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 15,
+      "cached_request": null
+    },
+    {
+      "source_t": 43.72760086419753,
+      "wall_t": 43.828125939005986,
+      "lag_s": 0.10052507480845918,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.08492136001586914,
+      "pending_id": 15,
+      "cached_request": null
+    },
+    {
+      "source_t": 43.94407413580247,
+      "wall_t": 44.04057739704149,
+      "lag_s": 0.09650326123902175,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.0815972238779068,
+      "pending_id": 15,
+      "cached_request": null
+    },
+    {
+      "source_t": 44.16054740740741,
+      "wall_t": 44.267096508992836,
+      "lag_s": 0.10654910158542918,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.08329247683286667,
+      "pending_id": 15,
+      "cached_request": null
+    },
+    {
+      "source_t": 44.37702067901235,
+      "wall_t": 44.41229824302718,
+      "lag_s": 0.03527756401483373,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.08726511150598526,
+      "pending_id": 15,
+      "cached_request": null
+    },
+    {
+      "source_t": 44.59349395061728,
+      "wall_t": 44.64418432599632,
+      "lag_s": 0.050690375379041086,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.09189644455909729,
+      "pending_id": 15,
+      "cached_request": null
+    },
+    {
+      "source_t": 44.80996722222222,
+      "wall_t": 44.86505516199395,
+      "lag_s": 0.05508793977173099,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.08869995921850204,
+      "pending_id": 15,
+      "cached_request": null
+    },
+    {
+      "source_t": 45.02644049382716,
+      "wall_t": 45.095542892988306,
+      "lag_s": 0.06910239916114591,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.08641237765550613,
+      "pending_id": 15,
+      "cached_request": null
+    },
+    {
+      "source_t": 45.2429137654321,
+      "wall_t": 45.31189815304242,
+      "lag_s": 0.06898438761032111,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.08307801932096481,
+      "pending_id": 16,
+      "cached_request": null
+    },
+    {
+      "source_t": 45.45938703703703,
+      "wall_t": 45.5446563080186,
+      "lag_s": 0.08526927098156989,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.08419118076562881,
+      "pending_id": 16,
+      "cached_request": null
+    },
+    {
+      "source_t": 45.67586030864197,
+      "wall_t": 45.775378444988746,
+      "lag_s": 0.09951813634677364,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.09383169561624527,
+      "pending_id": 16,
+      "cached_request": null
+    },
+    {
+      "source_t": 45.89233358024691,
+      "wall_t": 45.982240910991095,
+      "lag_s": 0.08990733074418245,
+      "key": "t9:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.11443015187978745,
+      "pending_id": 16,
+      "cached_request": null
+    },
+    {
+      "source_t": 46.10880685185185,
+      "wall_t": 46.221004771010485,
+      "lag_s": 0.11219791915863198,
+      "key": "t9:r2",
+      "hand_visible": true,
+      "selected_unknown": false,
+      "appearance_distance": 0.1550142914056778,
+      "pending_id": 16,
+      "cached_request": null
+    },
+    {
+      "source_t": 46.325280123456785,
+      "wall_t": 46.36477113398723,
+      "lag_s": 0.03949101053044757,
+      "key": "t9:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.060437094420194626,
+      "pending_id": 16,
+      "cached_request": null
+    },
+    {
+      "source_t": 46.541753395061725,
+      "wall_t": 46.60120865603676,
+      "lag_s": 0.059455260975035173,
+      "key": "t9:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.07179330289363861,
+      "pending_id": 16,
+      "cached_request": null
+    },
+    {
+      "source_t": 46.758226666666665,
+      "wall_t": 46.813171023037285,
+      "lag_s": 0.05494435637061912,
+      "key": "t9:r2",
+      "hand_visible": true,
+      "selected_unknown": false,
+      "appearance_distance": 0.06933721154928207,
+      "pending_id": 16,
+      "cached_request": null
+    },
+    {
+      "source_t": 46.974699938271606,
+      "wall_t": 47.04208332300186,
+      "lag_s": 0.06738338473025607,
+      "key": "t9:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.07278390228748322,
+      "pending_id": 16,
+      "cached_request": null
+    },
+    {
+      "source_t": 47.19117320987654,
+      "wall_t": 47.26348816102836,
+      "lag_s": 0.0723149511518244,
+      "key": "t9:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.08935865759849548,
+      "pending_id": 16,
+      "cached_request": null
+    },
+    {
+      "source_t": 47.40764648148148,
+      "wall_t": 47.484249814006034,
+      "lag_s": 0.07660333252455587,
+      "key": "t9:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.12815053761005402,
+      "pending_id": 17,
+      "cached_request": null
+    },
+    {
+      "source_t": 47.62411975308642,
+      "wall_t": 47.71208064199891,
+      "lag_s": 0.08796088891249099,
+      "key": "t9:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.10978349298238754,
+      "pending_id": 17,
+      "cached_request": null
+    },
+    {
+      "source_t": 47.84059302469136,
+      "wall_t": 47.94140995899215,
+      "lag_s": 0.10081693430079497,
+      "key": "t9:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.12288092821836472,
+      "pending_id": 17,
+      "cached_request": null
+    },
+    {
+      "source_t": 48.05706629629629,
+      "wall_t": 48.16457938001258,
+      "lag_s": 0.10751308371629165,
+      "key": "t9:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.043418098241090775,
+      "pending_id": 17,
+      "cached_request": null
+    },
+    {
+      "source_t": 48.27353956790123,
+      "wall_t": 48.30524719902314,
+      "lag_s": 0.031707631121911106,
+      "key": "t9:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.05748569965362549,
+      "pending_id": 17,
+      "cached_request": null
+    },
+    {
+      "source_t": 48.49001283950617,
+      "wall_t": 48.53185289102839,
+      "lag_s": 0.0418400515222217,
+      "key": "t9:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.06163705512881279,
+      "pending_id": 17,
+      "cached_request": null
+    },
+    {
+      "source_t": 48.70648611111111,
+      "wall_t": 48.755613779998384,
+      "lag_s": 0.049127668887273046,
+      "key": "t9:r4",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.06836703419685364,
+      "pending_id": 17,
+      "cached_request": null
+    },
+    {
+      "source_t": 48.922959382716044,
+      "wall_t": 48.97420588100795,
+      "lag_s": 0.05124649829190275,
+      "key": "t9:r5",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1612132489681244,
+      "pending_id": 17,
+      "cached_request": null
+    },
+    {
+      "source_t": 49.139432654320984,
+      "wall_t": 49.211744119995274,
+      "lag_s": 0.07231146567428937,
+      "key": "t10:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 17,
+      "cached_request": null
+    },
+    {
+      "source_t": 49.355905925925924,
+      "wall_t": 49.356112720037345,
+      "lag_s": 0.0002067941114205496,
+      "key": "t10:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 18,
+      "cached_request": null
+    },
+    {
+      "source_t": 49.572379197530864,
+      "wall_t": 49.57265291403746,
+      "lag_s": 0.0002737165065980207,
+      "key": "t10:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 18,
+      "cached_request": null
+    },
+    {
+      "source_t": 49.7888524691358,
+      "wall_t": 49.78912199701881,
+      "lag_s": 0.0002695278830131542,
+      "key": "t10:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 18,
+      "cached_request": null
+    },
+    {
+      "source_t": 50.00532574074074,
+      "wall_t": 50.00562132202322,
+      "lag_s": 0.00029558128247941795,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 18,
+      "cached_request": null
+    },
+    {
+      "source_t": 50.22179901234568,
+      "wall_t": 50.25310964800883,
+      "lag_s": 0.03131063566315362,
+      "key": "t11:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 18,
+      "cached_request": null
+    },
+    {
+      "source_t": 50.43827228395062,
+      "wall_t": 50.4773872900405,
+      "lag_s": 0.0391150060898795,
+      "key": "t12:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 18,
+      "cached_request": null
+    },
+    {
+      "source_t": 50.65474555555555,
+      "wall_t": 50.706746606039815,
+      "lag_s": 0.05200105048426451,
+      "key": "t12:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.1278543770313263,
+      "pending_id": 18,
+      "cached_request": null
+    },
+    {
+      "source_t": 50.87121882716049,
+      "wall_t": 50.93170262099011,
+      "lag_s": 0.06048379382961855,
+      "key": "t12:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.043065767735242844,
+      "pending_id": 18,
+      "cached_request": null
+    },
+    {
+      "source_t": 51.08769209876543,
+      "wall_t": 51.15818394499365,
+      "lag_s": 0.07049184622822224,
+      "key": "t12:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.04982128366827965,
+      "pending_id": 18,
+      "cached_request": null
+    },
+    {
+      "source_t": 51.30416537037037,
+      "wall_t": 51.377002392022405,
+      "lag_s": 0.07283702165203465,
+      "key": "t12:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.060896653681993484,
+      "pending_id": 18,
+      "cached_request": null
+    },
+    {
+      "source_t": 51.5206386419753,
+      "wall_t": 51.61221563303843,
+      "lag_s": 0.09157699106312833,
+      "key": "t12:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.06282679736614227,
+      "pending_id": 18,
+      "cached_request": null
+    },
+    {
+      "source_t": 51.73711191358024,
+      "wall_t": 51.83360886602895,
+      "lag_s": 0.09649695244871026,
+      "key": "t12:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.05242544412612915,
+      "pending_id": 19,
+      "cached_request": null
+    },
+    {
+      "source_t": 51.95358518518518,
+      "wall_t": 52.05444268201245,
+      "lag_s": 0.10085749682726686,
+      "key": "t12:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.052736926823854446,
+      "pending_id": 19,
+      "cached_request": null
+    },
+    {
+      "source_t": 52.17005845679012,
+      "wall_t": 52.27901825302979,
+      "lag_s": 0.10895979623966667,
+      "key": "t12:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.052272260189056396,
+      "pending_id": 19,
+      "cached_request": null
+    },
+    {
+      "source_t": 52.386531728395056,
+      "wall_t": 52.42494141001953,
+      "lag_s": 0.038409681624472114,
+      "key": "t12:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.06273999810218811,
+      "pending_id": 19,
+      "cached_request": null
+    },
+    {
+      "source_t": 52.603004999999996,
+      "wall_t": 52.657542077009566,
+      "lag_s": 0.05453707700957011,
+      "key": "t12:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.06555861979722977,
+      "pending_id": 19,
+      "cached_request": null
+    },
+    {
+      "source_t": 52.819478271604936,
+      "wall_t": 52.88500794698484,
+      "lag_s": 0.0655296753799064,
+      "key": "t12:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.06866829842329025,
+      "pending_id": 19,
+      "cached_request": null
+    },
+    {
+      "source_t": 53.035951543209876,
+      "wall_t": 53.1025056290091,
+      "lag_s": 0.0665540857992255,
+      "key": "t12:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.07956495136022568,
+      "pending_id": 19,
+      "cached_request": null
+    },
+    {
+      "source_t": 53.25242481481481,
+      "wall_t": 53.33347373601282,
+      "lag_s": 0.08104892119801121,
+      "key": "t12:r2",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.09034926444292068,
+      "pending_id": 19,
+      "cached_request": null
+    },
+    {
+      "source_t": 53.46889808641975,
+      "wall_t": 53.54757623799378,
+      "lag_s": 0.07867815157403157,
+      "key": "t12:r3",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": 0.2155943661928177,
+      "pending_id": 19,
+      "cached_request": null
+    },
+    {
+      "source_t": 53.68537135802469,
+      "wall_t": 53.68579526798567,
+      "lag_s": 0.0004239099609790742,
+      "key": "t12:r3",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 19,
+      "cached_request": null
+    },
+    {
+      "source_t": 53.90184462962963,
+      "wall_t": 53.902356197009794,
+      "lag_s": 0.0005115673801654452,
+      "key": "t12:r3",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 19,
+      "cached_request": null
+    },
+    {
+      "source_t": 54.11831790123456,
+      "wall_t": 54.11861780000618,
+      "lag_s": 0.00029989877161540335,
+      "key": "t12:r3",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 20,
+      "cached_request": null
+    },
+    {
+      "source_t": 54.3347911728395,
+      "wall_t": 54.33514966099756,
+      "lag_s": 0.00035848815805650247,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 20,
+      "cached_request": null
+    },
+    {
+      "source_t": 54.55126444444444,
+      "wall_t": 54.60090990399476,
+      "lag_s": 0.049645459550319515,
+      "key": "t13:r1",
+      "hand_visible": true,
+      "selected_unknown": true,
+      "appearance_distance": null,
+      "pending_id": 20,
+      "cached_request": null
+    },
+    {
+      "source_t": 54.76773771604938,
+      "wall_t": 54.76796547003323,
+      "lag_s": 0.00022775398385022072,
+      "key": "t13:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 20,
+      "cached_request": null
+    },
+    {
+      "source_t": 54.984210987654315,
+      "wall_t": 54.98451188503532,
+      "lag_s": 0.000300897381002585,
+      "key": "t13:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 20,
+      "cached_request": null
+    },
+    {
+      "source_t": 55.200684259259255,
+      "wall_t": 55.2009980060393,
+      "lag_s": 0.00031374678004425505,
+      "key": "t13:r1",
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 20,
+      "cached_request": null
+    },
+    {
+      "source_t": 55.417157530864195,
+      "wall_t": 55.417483247001655,
+      "lag_s": 0.0003257161374605744,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 20,
+      "cached_request": null
+    },
+    {
+      "source_t": 55.633630802469135,
+      "wall_t": 55.633952806005254,
+      "lag_s": 0.0003220035361195528,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 20,
+      "cached_request": null
+    },
+    {
+      "source_t": 55.85010407407407,
+      "wall_t": 55.85043820599094,
+      "lag_s": 0.00033413191687259314,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 20,
+      "cached_request": null
+    },
+    {
+      "source_t": 56.06657734567901,
+      "wall_t": 56.06690738000907,
+      "lag_s": 0.0003300343300622899,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": 20,
+      "cached_request": null
+    },
+    {
+      "source_t": 56.28305061728395,
+      "wall_t": 56.28335862699896,
+      "lag_s": 0.0003080097150132133,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 56.49952388888889,
+      "wall_t": 56.49979120498756,
+      "lag_s": 0.00026731609867169936,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 56.71599716049382,
+      "wall_t": 56.71627431700472,
+      "lag_s": 0.00027715651089721405,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 56.93247043209876,
+      "wall_t": 56.93273637001403,
+      "lag_s": 0.000265937915266079,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 57.1489437037037,
+      "wall_t": 57.14922680903692,
+      "lag_s": 0.0002831053332172928,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 57.36541697530864,
+      "wall_t": 57.36569576401962,
+      "lag_s": 0.0002787887109789722,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 57.581890246913574,
+      "wall_t": 57.58215911203297,
+      "lag_s": 0.0002688651193949454,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 57.798363518518514,
+      "wall_t": 57.79864438303048,
+      "lag_s": 0.00028086451196429607,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 58.014836790123454,
+      "wall_t": 58.01508907403331,
+      "lag_s": 0.0002522839098588747,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 58.231310061728394,
+      "wall_t": 58.23158490500646,
+      "lag_s": 0.00027484327806348574,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 58.44778333333333,
+      "wall_t": 58.44804782100255,
+      "lag_s": 0.0002644876692201592,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 58.66425660493827,
+      "wall_t": 58.66451224102639,
+      "lag_s": 0.0002556360881200703,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 58.88072987654321,
+      "wall_t": 58.88100031099748,
+      "lag_s": 0.000270434454272106,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 59.09720314814815,
+      "wall_t": 59.09746623499086,
+      "lag_s": 0.0002630868427146993,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 59.31367641975309,
+      "wall_t": 59.31395269802306,
+      "lag_s": 0.00027627826997189686,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 59.53014969135802,
+      "wall_t": 59.5304108930286,
+      "lag_s": 0.00026120167058252264,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 59.74662296296296,
+      "wall_t": 59.74688592203893,
+      "lag_s": 0.00026295907596818324,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 59.9630962345679,
+      "wall_t": 59.96337285602931,
+      "lag_s": 0.0002766214614098317,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 60.17956950617284,
+      "wall_t": 60.179843468009494,
+      "lag_s": 0.0002739618366547347,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 60.39604277777777,
+      "wall_t": 60.39631083403947,
+      "lag_s": 0.0002680562616959037,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 60.61251604938271,
+      "wall_t": 60.61277704499662,
+      "lag_s": 0.00026099561390680037,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 60.82898932098765,
+      "wall_t": 60.82924053602619,
+      "lag_s": 0.00025121503853853255,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 61.04546259259259,
+      "wall_t": 61.04570578801213,
+      "lag_s": 0.00024319541953587986,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 61.261935864197525,
+      "wall_t": 61.2622036790126,
+      "lag_s": 0.00026781481507498484,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 61.478409135802465,
+      "wall_t": 61.4786612970056,
+      "lag_s": 0.00025216120313587,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 61.694882407407405,
+      "wall_t": 61.69513440399896,
+      "lag_s": 0.0002519965915581679,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 61.911355679012345,
+      "wall_t": 61.91162319300929,
+      "lag_s": 0.0002675139969454676,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 62.12782895061728,
+      "wall_t": 62.12808938801754,
+      "lag_s": 0.00026043740026437945,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 62.34430222222222,
+      "wall_t": 62.34457186301006,
+      "lag_s": 0.0002696407878417517,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 62.56077549382716,
+      "wall_t": 62.56103013601387,
+      "lag_s": 0.0002546421867108961,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 62.7772487654321,
+      "wall_t": 62.77750415500486,
+      "lag_s": 0.00025538957276438623,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 62.99372203703703,
+      "wall_t": 62.99397324601887,
+      "lag_s": 0.0002512089818367258,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 63.21019530864197,
+      "wall_t": 63.210469219018705,
+      "lag_s": 0.0002739103767339657,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 63.42666858024691,
+      "wall_t": 63.42694171902258,
+      "lag_s": 0.00027313877566825795,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 63.64314185185185,
+      "wall_t": 63.6434082959895,
+      "lag_s": 0.0002664441376509785,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 63.859615123456784,
+      "wall_t": 63.859878459014,
+      "lag_s": 0.0002633355572143614,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 64.07608839506173,
+      "wall_t": 64.07635367801413,
+      "lag_s": 0.00026528295239813815,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 64.29256166666666,
+      "wall_t": 64.29283561202465,
+      "lag_s": 0.0002739453579891915,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 64.5090349382716,
+      "wall_t": 64.50929183600238,
+      "lag_s": 0.00025689773077886,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 64.72550820987654,
+      "wall_t": 64.72576515004039,
+      "lag_s": 0.00025694016385102714,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 64.94198148148148,
+      "wall_t": 64.94225241802633,
+      "lag_s": 0.00027093654485099705,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 65.15845475308642,
+      "wall_t": 65.15870998700848,
+      "lag_s": 0.00025523392206139306,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 65.37492802469136,
+      "wall_t": 65.37519020203035,
+      "lag_s": 0.00026217733899613904,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 65.5914012962963,
+      "wall_t": 65.5916636280017,
+      "lag_s": 0.00026233170540024275,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 65.80787456790124,
+      "wall_t": 65.80815455998527,
+      "lag_s": 0.0002799920840317327,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 66.02434783950616,
+      "wall_t": 66.02461393602425,
+      "lag_s": 0.00026609651808939816,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 66.2408211111111,
+      "wall_t": 66.24109171301825,
+      "lag_s": 0.00027060190714678356,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 66.45729438271604,
+      "wall_t": 66.45756019401597,
+      "lag_s": 0.00026581129992564456,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 66.67376765432098,
+      "wall_t": 66.67403222701978,
+      "lag_s": 0.0002645726987964281,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 66.89024092592592,
+      "wall_t": 66.8905126460013,
+      "lag_s": 0.00027172007537501486,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 67.10671419753086,
+      "wall_t": 67.10685116203967,
+      "lag_s": 0.0001369645088118432,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 67.3231874691358,
+      "wall_t": 67.3234821149963,
+      "lag_s": 0.00029464586049243735,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 67.53966074074074,
+      "wall_t": 67.53992286499124,
+      "lag_s": 0.0002621242504972088,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 67.75613401234567,
+      "wall_t": 67.75640285102418,
+      "lag_s": 0.00026883867850813203,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 67.97260728395061,
+      "wall_t": 67.97287234000396,
+      "lag_s": 0.00026505605335103155,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 68.18908055555555,
+      "wall_t": 68.18934842199087,
+      "lag_s": 0.0002678664353226168,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 68.40555382716049,
+      "wall_t": 68.40581936901435,
+      "lag_s": 0.00026554185386373774,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 68.62202709876543,
+      "wall_t": 68.62228013703134,
+      "lag_s": 0.000253038265910277,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 68.83850037037037,
+      "wall_t": 68.83879044599598,
+      "lag_s": 0.00029007562561389477,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 69.05497364197531,
+      "wall_t": 69.05526567902416,
+      "lag_s": 0.0002920370488510571,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 69.27144691358025,
+      "wall_t": 69.27173377200961,
+      "lag_s": 0.0002868584293622689,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 69.48792018518517,
+      "wall_t": 69.48819103499409,
+      "lag_s": 0.00027084980891345367,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 69.70439345679011,
+      "wall_t": 69.70466206001583,
+      "lag_s": 0.0002686032257201987,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 69.92086672839505,
+      "wall_t": 69.92113743699156,
+      "lag_s": 0.0002707085965028,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 70.13734,
+      "wall_t": 70.13760711700888,
+      "lag_s": 0.0002671170088888175,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 70.35381327160493,
+      "wall_t": 70.35408395598643,
+      "lag_s": 0.0002706843814905824,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 70.57028654320987,
+      "wall_t": 70.5705561490031,
+      "lag_s": 0.00026960579322121703,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 70.78675981481481,
+      "wall_t": 70.78687206999166,
+      "lag_s": 0.00011225517684465558,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 71.00323308641975,
+      "wall_t": 71.00349214900052,
+      "lag_s": 0.00025906258076702215,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 71.21970635802468,
+      "wall_t": 71.21998652000912,
+      "lag_s": 0.00028016198443481244,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 71.43617962962962,
+      "wall_t": 71.43645015201764,
+      "lag_s": 0.00027052238802127704,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 71.65265290123456,
+      "wall_t": 71.65291736798827,
+      "lag_s": 0.00026446675370550565,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 71.8691261728395,
+      "wall_t": 71.86939485702896,
+      "lag_s": 0.00026868418946435213,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 72.08559944444444,
+      "wall_t": 72.08586012001615,
+      "lag_s": 0.0002606755717096121,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 72.30207271604938,
+      "wall_t": 72.30234950804152,
+      "lag_s": 0.0002767919921353723,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 72.51854598765432,
+      "wall_t": 72.5188015709864,
+      "lag_s": 0.0002555833320769807,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 72.73501925925926,
+      "wall_t": 72.73528653202811,
+      "lag_s": 0.00026727276885196716,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 72.95149253086419,
+      "wall_t": 72.95175862900214,
+      "lag_s": 0.00026609813795630544,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 73.16796580246913,
+      "wall_t": 73.16823056503199,
+      "lag_s": 0.0002647625628640071,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 73.38443907407407,
+      "wall_t": 73.38471973902779,
+      "lag_s": 0.00028066495372058853,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 73.600912345679,
+      "wall_t": 73.6012008760008,
+      "lag_s": 0.0002885303217965429,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 73.81738561728395,
+      "wall_t": 73.81767247599782,
+      "lag_s": 0.00028685871387779116,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 74.03385888888889,
+      "wall_t": 74.03413610701682,
+      "lag_s": 0.00027721812793402023,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 74.25033216049383,
+      "wall_t": 74.2506107770023,
+      "lag_s": 0.00027861650846716657,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 74.46680543209877,
+      "wall_t": 74.46708530600881,
+      "lag_s": 0.0002798739100455805,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 74.6832787037037,
+      "wall_t": 74.68356876302278,
+      "lag_s": 0.00029005931907022386,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 74.89975197530863,
+      "wall_t": 74.90004406002117,
+      "lag_s": 0.00029208471254094093,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 75.11622524691357,
+      "wall_t": 75.11649365798803,
+      "lag_s": 0.0002684110744581858,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 75.33269851851851,
+      "wall_t": 75.33297061000485,
+      "lag_s": 0.0002720914863374446,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 75.54917179012345,
+      "wall_t": 75.54943609703332,
+      "lag_s": 0.0002643069098695605,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 75.76564506172839,
+      "wall_t": 75.76591473800363,
+      "lag_s": 0.0002696762752378845,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 75.98211833333333,
+      "wall_t": 75.98237062501721,
+      "lag_s": 0.00025229168387852496,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 76.19859160493827,
+      "wall_t": 76.19885083398549,
+      "lag_s": 0.00025922904721653595,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 76.41506487654321,
+      "wall_t": 76.41533256502589,
+      "lag_s": 0.0002676884826797732,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 76.63153814814814,
+      "wall_t": 76.6317970760283,
+      "lag_s": 0.0002589278801679029,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 76.84801141975308,
+      "wall_t": 76.84828238899354,
+      "lag_s": 0.0002709692404607722,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 77.06448469135802,
+      "wall_t": 77.06475666200276,
+      "lag_s": 0.0002719706447464887,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 77.28095796296296,
+      "wall_t": 77.2812030230416,
+      "lag_s": 0.00024506007864033563,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 77.4974312345679,
+      "wall_t": 77.49769625702174,
+      "lag_s": 0.0002650224538456314,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 77.71390450617284,
+      "wall_t": 77.71415678499034,
+      "lag_s": 0.0002522788174985635,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 77.93037777777778,
+      "wall_t": 77.93063276901376,
+      "lag_s": 0.0002549912359768314,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 78.14685104938272,
+      "wall_t": 78.14710744202603,
+      "lag_s": 0.0002563926433083452,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 78.36332432098764,
+      "wall_t": 78.36359874502523,
+      "lag_s": 0.00027442403758470846,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 78.57979759259258,
+      "wall_t": 78.58005919202697,
+      "lag_s": 0.00026159943438130995,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 78.79627086419752,
+      "wall_t": 78.79651544702938,
+      "lag_s": 0.00024458283185424534,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 79.01274413580246,
+      "wall_t": 79.01301330601564,
+      "lag_s": 0.0002691702131727425,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 79.2292174074074,
+      "wall_t": 79.22947836102685,
+      "lag_s": 0.0002609536194455586,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 79.44569067901234,
+      "wall_t": 79.44596429902595,
+      "lag_s": 0.0002736200136013167,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 79.66216395061728,
+      "wall_t": 79.66242117801448,
+      "lag_s": 0.0002572273971992445,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 79.87863722222222,
+      "wall_t": 79.87888826598646,
+      "lag_s": 0.0002510437642371244,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 80.09511049382715,
+      "wall_t": 80.09538780502044,
+      "lag_s": 0.0002773111932867778,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 80.31158376543209,
+      "wall_t": 80.31185712601291,
+      "lag_s": 0.00027336058082028103,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 80.52805703703703,
+      "wall_t": 80.52832803898491,
+      "lag_s": 0.0002710019478797676,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 80.74453030864197,
+      "wall_t": 80.74479703098768,
+      "lag_s": 0.00026672234571378794,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 80.96100358024691,
+      "wall_t": 80.9612770639942,
+      "lag_s": 0.0002734837472928575,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 81.17747685185185,
+      "wall_t": 81.17775917804101,
+      "lag_s": 0.00028232618916490537,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 81.39395012345679,
+      "wall_t": 81.39422582101543,
+      "lag_s": 0.0002756975586351018,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 81.61042339506173,
+      "wall_t": 81.6106949900277,
+      "lag_s": 0.00027159496596596,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 81.82689666666666,
+      "wall_t": 81.82715849298984,
+      "lag_s": 0.0002618263231823903,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 82.0433699382716,
+      "wall_t": 82.0436432469869,
+      "lag_s": 0.00027330871530750755,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 82.25984320987654,
+      "wall_t": 82.26009890803834,
+      "lag_s": 0.00025569816180848193,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 82.47631648148148,
+      "wall_t": 82.47658479801612,
+      "lag_s": 0.0002683165346439864,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 82.69278975308642,
+      "wall_t": 82.6930379170226,
+      "lag_s": 0.00024816393617754784,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 82.90926302469136,
+      "wall_t": 82.90952492703218,
+      "lag_s": 0.00026190234082434927,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 83.1257362962963,
+      "wall_t": 83.12599353602855,
+      "lag_s": 0.000257239732249559,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 83.34220956790124,
+      "wall_t": 83.34247551299632,
+      "lag_s": 0.0002659450950801556,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 83.55868283950616,
+      "wall_t": 83.55885497602867,
+      "lag_s": 0.00017213652250802625,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 83.7751561111111,
+      "wall_t": 83.77542079502018,
+      "lag_s": 0.0002646839090800768,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 83.99162938271604,
+      "wall_t": 83.99189825198846,
+      "lag_s": 0.00026886927241775993,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 84.20810265432098,
+      "wall_t": 84.20837964699604,
+      "lag_s": 0.0002769926750545437,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 84.42457592592592,
+      "wall_t": 84.42485209699953,
+      "lag_s": 0.00027617107360811133,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 84.64104919753086,
+      "wall_t": 84.64129984000465,
+      "lag_s": 0.0002506424737873658,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 84.8575224691358,
+      "wall_t": 84.85776460799389,
+      "lag_s": 0.00024213885808421765,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 85.07399574074074,
+      "wall_t": 85.07426400401164,
+      "lag_s": 0.0002682632708967958,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 85.29046901234567,
+      "wall_t": 85.29073753702687,
+      "lag_s": 0.00026852468120353024,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 85.50694228395061,
+      "wall_t": 85.50720792199718,
+      "lag_s": 0.00026563804657087076,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 85.72341555555555,
+      "wall_t": 85.72366621001856,
+      "lag_s": 0.0002506544630165308,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 85.93988882716049,
+      "wall_t": 85.9401535569923,
+      "lag_s": 0.0002647298318123603,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 86.15636209876543,
+      "wall_t": 86.15662784699816,
+      "lag_s": 0.00026574823273506354,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 86.37283537037037,
+      "wall_t": 86.37309847801225,
+      "lag_s": 0.0002631076418850853,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 86.58930864197531,
+      "wall_t": 86.58957937604282,
+      "lag_s": 0.0002707340675129899,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 86.80578191358025,
+      "wall_t": 86.80603928101482,
+      "lag_s": 0.0002573674345711652,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 87.02225518518517,
+      "wall_t": 87.02252702903934,
+      "lag_s": 0.0002718438541648993,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 87.23872845679011,
+      "wall_t": 87.23885338299442,
+      "lag_s": 0.00012492620430748502,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 87.45520172839505,
+      "wall_t": 87.45547088800231,
+      "lag_s": 0.00026915960725659716,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 87.671675,
+      "wall_t": 87.67194105003728,
+      "lag_s": 0.0002660500372826391,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 87.88814827160493,
+      "wall_t": 87.888408171013,
+      "lag_s": 0.00025989940806425693,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 88.10462154320987,
+      "wall_t": 88.10488694201922,
+      "lag_s": 0.0002653988093470616,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 88.32109481481481,
+      "wall_t": 88.32135696901241,
+      "lag_s": 0.0002621541975997843,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 88.53756808641975,
+      "wall_t": 88.53783335600747,
+      "lag_s": 0.0002652695877145561,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 88.7540413580247,
+      "wall_t": 88.75430635100929,
+      "lag_s": 0.0002649929845972565,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 88.97051462962962,
+      "wall_t": 88.97078417800367,
+      "lag_s": 0.00026954837404957743,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 89.18698790123456,
+      "wall_t": 89.18728741601808,
+      "lag_s": 0.000299514783520749,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 89.4034611728395,
+      "wall_t": 89.4037252580165,
+      "lag_s": 0.0002640851769939445,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 89.61993444444444,
+      "wall_t": 89.62020364601631,
+      "lag_s": 0.0002692015718679386,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    },
+    {
+      "source_t": 89.83640771604938,
+      "wall_t": 89.83669963502325,
+      "lag_s": 0.00029191897387192967,
+      "key": null,
+      "hand_visible": false,
+      "selected_unknown": false,
+      "appearance_distance": null,
+      "pending_id": null,
+      "cached_request": null
+    }
+  ],
+  "model": {
+    "loading_info": {
+      "missing_keys": [],
+      "unexpected_keys": [],
+      "mismatched_keys": [],
+      "error_msgs": []
+    },
+    "nf4_linears": 168,
+    "torch": "2.5.0a0+872d972e41.nv24.08",
+    "transformers": "4.33.1"
+  },
+  "warmup": {
+    "text": "In this image, the renowned actor Chadwick Boswell is captured in a moment of quiet contemplation. He is seated in a chair, his gaze directed off to the side, suggesting deep thought or perhaps a moment",
+    "seconds": 7.381356115976814,
+    "hit_token_limit": true,
+    "usable": false,
+    "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe this image briefly. ASSISTANT:",
+    "output_tokens": 48
+  },
+  "events": [
+    {
+      "type": "target_changed",
+      "t": 3.031116641999688,
+      "old": null,
+      "new": "t1:r1"
+    },
+    {
+      "type": "dispatched",
+      "t": 3.1057513350388035,
+      "id": 1,
+      "key": "t1:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 3.3199097600299865,
+      "key": "t1:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 3.555098220007494,
+      "key": "t1:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 3.6803039149963297,
+      "old": "t1:r1",
+      "new": "t1:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 3.7758444400387816,
+      "key": "t1:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 3.9964414600399323,
+      "key": "t1:r2"
+    },
+    {
+      "type": "target_changed",
+      "t": 4.1132879630313255,
+      "old": "t1:r2",
+      "new": "t1:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 4.222551899030805,
+      "key": "t1:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 4.356690436019562,
+      "key": "t1:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 4.59419621003326,
+      "key": "t1:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 4.815163041988853,
+      "key": "t1:r3"
+    },
+    {
+      "type": "stale_discarded",
+      "t": 5.0329612829955295,
+      "id": 1,
+      "job_key": "t1:r1",
+      "current_key": "t1:r3"
+    },
+    {
+      "type": "dispatched",
+      "t": 5.0329612829955295,
+      "id": 2,
+      "key": "t1:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 5.273292055993807,
+      "key": "t1:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 5.502768221020233,
+      "key": "t1:r3"
+    },
+    {
+      "type": "target_changed",
+      "t": 5.628473148040939,
+      "old": "t1:r3",
+      "new": "t2:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 5.762249811028596,
+      "key": "t2:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 5.844932411040645,
+      "key": "t2:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 6.061533770000096,
+      "key": "t2:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 6.277984708023723,
+      "key": "t2:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 6.494450802041683,
+      "old": "t2:r1",
+      "new": null
+    },
+    {
+      "type": "stale_discarded",
+      "t": 6.927458774007391,
+      "id": 2,
+      "job_key": "t1:r3",
+      "current_key": null
+    },
+    {
+      "type": "target_changed",
+      "t": 9.741553997038864,
+      "old": null,
+      "new": "t3:r1"
+    },
+    {
+      "type": "dispatched",
+      "t": 9.838433400029317,
+      "id": 3,
+      "key": "t3:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 9.957935900019947,
+      "old": "t3:r1",
+      "new": "t3:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 10.072232281032484,
+      "key": "t3:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 10.29091368400259,
+      "key": "t3:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 10.419320540037006,
+      "key": "t3:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 10.65967228601221,
+      "key": "t3:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 10.887285628996324,
+      "key": "t3:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 11.113481287029572,
+      "key": "t3:r2"
+    },
+    {
+      "type": "target_changed",
+      "t": 11.256849497032817,
+      "old": "t3:r2",
+      "new": "t3:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 11.341563566005789,
+      "key": "t3:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 11.570610994007438,
+      "key": "t3:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 11.792223108001053,
+      "key": "t3:r3"
+    },
+    {
+      "type": "stale_discarded",
+      "t": 12.009072831016965,
+      "id": 3,
+      "job_key": "t3:r1",
+      "current_key": "t3:r3"
+    },
+    {
+      "type": "dispatched",
+      "t": 12.009072831016965,
+      "id": 4,
+      "key": "t3:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 12.239447630010545,
+      "key": "t3:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 12.377425426035188,
+      "key": "t3:r3"
+    },
+    {
+      "type": "target_changed",
+      "t": 12.555714549031109,
+      "old": "t3:r3",
+      "new": "t3:r4"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 12.60654957900988,
+      "key": "t3:r4"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 12.831327737018,
+      "key": "t3:r4"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 13.052127555012703,
+      "key": "t3:r4"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 13.286398101015948,
+      "key": "t3:r4"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 13.508803574019112,
+      "key": "t3:r4"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 13.732869895000476,
+      "key": "t3:r4"
+    },
+    {
+      "type": "target_changed",
+      "t": 14.070858085993677,
+      "old": "t3:r4",
+      "new": "t3:r5"
+    },
+    {
+      "type": "stale_discarded",
+      "t": 14.178126328042708,
+      "id": 4,
+      "job_key": "t3:r3",
+      "current_key": "t3:r5"
+    },
+    {
+      "type": "dispatched",
+      "t": 14.178126328042708,
+      "id": 5,
+      "key": "t3:r5"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 14.287574665038846,
+      "key": "t3:r5"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 14.504049191018566,
+      "key": "t3:r5"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 14.720448188018054,
+      "key": "t3:r5"
+    },
+    {
+      "type": "target_changed",
+      "t": 14.936923194036353,
+      "old": "t3:r5",
+      "new": null
+    },
+    {
+      "type": "stale_discarded",
+      "t": 15.369889097986743,
+      "id": 5,
+      "job_key": "t3:r5",
+      "current_key": null
+    },
+    {
+      "type": "target_changed",
+      "t": 17.967528766021132,
+      "old": null,
+      "new": "t4:r1"
+    },
+    {
+      "type": "dispatched",
+      "t": 18.069834338035434,
+      "id": 6,
+      "key": "t4:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 18.300941382010933,
+      "key": "t4:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 18.435588199004997,
+      "key": "t4:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 18.675355146988295,
+      "key": "t4:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 18.8335352850263,
+      "old": "t4:r1",
+      "new": "t4:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 18.892737440008204,
+      "key": "t4:r2"
+    },
+    {
+      "type": "target_changed",
+      "t": 19.049897215038072,
+      "old": "t4:r2",
+      "new": "t4:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 19.12324050400639,
+      "key": "t4:r3"
+    },
+    {
+      "type": "target_changed",
+      "t": 19.266359887027647,
+      "old": "t4:r3",
+      "new": "t4:r4"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 19.342986267001834,
+      "key": "t4:r4"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 19.564903641992714,
+      "key": "t4:r4"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 19.801927275024354,
+      "key": "t4:r4"
+    },
+    {
+      "type": "target_changed",
+      "t": 19.91577679401962,
+      "old": "t4:r4",
+      "new": "t4:r5"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 20.011057067022193,
+      "key": "t4:r5"
+    },
+    {
+      "type": "target_changed",
+      "t": 20.1322196740075,
+      "old": "t4:r5",
+      "new": "t4:r6"
+    },
+    {
+      "type": "stale_discarded",
+      "t": 20.235113674018066,
+      "id": 6,
+      "job_key": "t4:r1",
+      "current_key": "t4:r6"
+    },
+    {
+      "type": "dispatched",
+      "t": 20.235113674018066,
+      "id": 7,
+      "key": "t4:r6"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 20.387398415012285,
+      "key": "t4:r6"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 20.616065759037156,
+      "key": "t4:r6"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 20.84153353702277,
+      "key": "t4:r6"
+    },
+    {
+      "type": "target_changed",
+      "t": 20.99810496700229,
+      "old": "t4:r6",
+      "new": "t5:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 21.061104246997274,
+      "key": "t5:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 21.214848885021638,
+      "key": "t5:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 21.431422304012813,
+      "key": "t5:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 21.647939109010622,
+      "key": "t5:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 21.86430418503005,
+      "old": "t5:r1",
+      "new": null
+    },
+    {
+      "type": "stale_discarded",
+      "t": 22.513522476016078,
+      "id": 7,
+      "job_key": "t4:r6",
+      "current_key": null
+    },
+    {
+      "type": "target_changed",
+      "t": 27.492588451015763,
+      "old": null,
+      "new": "t6:r1"
+    },
+    {
+      "type": "dispatched",
+      "t": 27.579954717017245,
+      "id": 8,
+      "key": "t6:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 27.806114469014574,
+      "key": "t6:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 28.039723063004203,
+      "key": "t6:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 28.246102637029253,
+      "key": "t6:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 28.39378270303132,
+      "key": "t6:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 28.625688892032485,
+      "key": "t6:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 28.85089239804074,
+      "key": "t6:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 29.00761849503033,
+      "old": "t6:r1",
+      "new": "t6:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 29.073952417005785,
+      "key": "t6:r2"
+    },
+    {
+      "type": "target_changed",
+      "t": 29.224092387012206,
+      "old": "t6:r2",
+      "new": "t6:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 29.29900754900882,
+      "key": "t6:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 29.527516790025402,
+      "key": "t6:r3"
+    },
+    {
+      "type": "stale_discarded",
+      "t": 29.744117558002472,
+      "id": 8,
+      "job_key": "t6:r1",
+      "current_key": "t6:r3"
+    },
+    {
+      "type": "dispatched",
+      "t": 29.744117558002472,
+      "id": 9,
+      "key": "t6:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 29.97521519602742,
+      "key": "t6:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 30.19223015103489,
+      "key": "t6:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 30.33343323302688,
+      "key": "t6:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 30.561300723988097,
+      "key": "t6:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 30.789025544014294,
+      "key": "t6:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 31.013691133994143,
+      "key": "t6:r3"
+    },
+    {
+      "type": "target_changed",
+      "t": 31.172613625007216,
+      "old": "t6:r3",
+      "new": "t6:r4"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 31.239509353996255,
+      "key": "t6:r4"
+    },
+    {
+      "type": "target_changed",
+      "t": 31.38881707302062,
+      "old": "t6:r4",
+      "new": "t6:r5"
+    },
+    {
+      "type": "stale_discarded",
+      "t": 31.465648423007224,
+      "id": 9,
+      "job_key": "t6:r3",
+      "current_key": "t6:r5"
+    },
+    {
+      "type": "dispatched",
+      "t": 31.465648423007224,
+      "id": 10,
+      "key": "t6:r5"
+    },
+    {
+      "type": "target_changed",
+      "t": 31.605286272009835,
+      "old": "t6:r5",
+      "new": "t6:r6"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 31.696124199021142,
+      "key": "t6:r6"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 31.91840027400758,
+      "key": "t6:r6"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 32.13617754500592,
+      "key": "t6:r6"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 32.28563692298485,
+      "key": "t6:r6"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 32.51104959403165,
+      "key": "t6:r6"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 32.73719517298741,
+      "key": "t6:r6"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 32.96650373801822,
+      "key": "t6:r6"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 33.19816000200808,
+      "key": "t6:r6"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 33.411307286995,
+      "key": "t6:r6"
+    },
+    {
+      "type": "target_changed",
+      "t": 33.553552905039396,
+      "old": "t6:r6",
+      "new": "t6:r7"
+    },
+    {
+      "type": "stale_discarded",
+      "t": 33.638861473998986,
+      "id": 10,
+      "job_key": "t6:r5",
+      "current_key": "t6:r7"
+    },
+    {
+      "type": "dispatched",
+      "t": 33.638861473998986,
+      "id": 11,
+      "key": "t6:r7"
+    },
+    {
+      "type": "target_changed",
+      "t": 33.77001243602717,
+      "old": "t6:r7",
+      "new": "t6:r8"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 33.86721353698522,
+      "key": "t6:r8"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 34.08948791201692,
+      "key": "t6:r8"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 34.3087489749887,
+      "key": "t6:r8"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 34.45824797399109,
+      "key": "t6:r8"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 34.691391203028616,
+      "key": "t6:r8"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 34.91130253201118,
+      "key": "t6:r8"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 35.135285097989254,
+      "key": "t6:r8"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 35.35561485902872,
+      "key": "t6:r8"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 35.57959001499694,
+      "key": "t6:r8"
+    },
+    {
+      "type": "stale_discarded",
+      "t": 35.809342154010665,
+      "id": 11,
+      "job_key": "t6:r7",
+      "current_key": "t6:r8"
+    },
+    {
+      "type": "dispatched",
+      "t": 35.809342154010665,
+      "id": 12,
+      "key": "t6:r8"
+    },
+    {
+      "type": "target_changed",
+      "t": 35.93473429000005,
+      "old": "t6:r8",
+      "new": "t6:r9"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 36.03955277201021,
+      "key": "t6:r9"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 36.15119807503652,
+      "key": "t6:r9"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 36.36809795803856,
+      "key": "t6:r9"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 36.58447026001522,
+      "key": "t6:r9"
+    },
+    {
+      "type": "target_changed",
+      "t": 36.80095658998471,
+      "old": "t6:r9",
+      "new": null
+    },
+    {
+      "type": "target_changed",
+      "t": 37.883317110012285,
+      "old": null,
+      "new": "t7:r1"
+    },
+    {
+      "type": "stale_discarded",
+      "t": 37.98812946298858,
+      "id": 12,
+      "job_key": "t6:r8",
+      "current_key": "t7:r1"
+    },
+    {
+      "type": "dispatched",
+      "t": 37.98812946298858,
+      "id": 13,
+      "key": "t7:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 38.213384556001984,
+      "key": "t7:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 38.31591717799893,
+      "old": "t7:r1",
+      "new": "t7:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 38.355604226992,
+      "key": "t7:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 38.58138626802247,
+      "key": "t7:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 38.805576177022886,
+      "key": "t7:r2"
+    },
+    {
+      "type": "target_changed",
+      "t": 38.965643453004304,
+      "old": "t7:r2",
+      "new": "t7:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 39.03275983501226,
+      "key": "t7:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 39.25238347699633,
+      "key": "t7:r3"
+    },
+    {
+      "type": "target_changed",
+      "t": 39.39832227298757,
+      "old": "t7:r3",
+      "new": "t7:r4"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 39.47926971100969,
+      "key": "t7:r4"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 39.715396740008146,
+      "key": "t7:r4"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 39.923469892994035,
+      "key": "t7:r4"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 40.15735182503704,
+      "key": "t7:r4"
+    },
+    {
+      "type": "stale_discarded",
+      "t": 40.29907152202213,
+      "id": 13,
+      "job_key": "t7:r1",
+      "current_key": "t7:r4"
+    },
+    {
+      "type": "dispatched",
+      "t": 40.29907152202213,
+      "id": 14,
+      "key": "t7:r4"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 40.5332670690259,
+      "key": "t7:r4"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 40.751107198011596,
+      "key": "t7:r4"
+    },
+    {
+      "type": "target_changed",
+      "t": 40.913678515993524,
+      "old": "t7:r4",
+      "new": "t7:r5"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 40.97754095098935,
+      "key": "t7:r5"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 41.130181643005926,
+      "key": "t7:r5"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 41.34667883999646,
+      "key": "t7:r5"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 41.563162812031806,
+      "key": "t7:r5"
+    },
+    {
+      "type": "target_changed",
+      "t": 41.77960185101256,
+      "old": "t7:r5",
+      "new": null
+    },
+    {
+      "type": "stale_discarded",
+      "t": 42.86201753298519,
+      "id": 14,
+      "job_key": "t7:r4",
+      "current_key": null
+    },
+    {
+      "type": "target_changed",
+      "t": 43.294827405014075,
+      "old": null,
+      "new": "t8:r1"
+    },
+    {
+      "type": "dispatched",
+      "t": 43.37125179101713,
+      "id": 15,
+      "key": "t8:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 43.51132923300611,
+      "old": "t8:r1",
+      "new": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 43.596013573987875,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 43.828125939005986,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 44.04057739704149,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 44.267096508992836,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 44.41229824302718,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 44.64418432599632,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 44.86505516199395,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 45.095542892988306,
+      "key": "t9:r1"
+    },
+    {
+      "type": "stale_discarded",
+      "t": 45.31189815304242,
+      "id": 15,
+      "job_key": "t8:r1",
+      "current_key": "t9:r1"
+    },
+    {
+      "type": "dispatched",
+      "t": 45.31189815304242,
+      "id": 16,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 45.5446563080186,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 45.775378444988746,
+      "key": "t9:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 45.982240910991095,
+      "key": "t9:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 46.109048293030355,
+      "old": "t9:r1",
+      "new": "t9:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 46.36477113398723,
+      "key": "t9:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 46.60120865603676,
+      "key": "t9:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 47.04208332300186,
+      "key": "t9:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 47.26348816102836,
+      "key": "t9:r2"
+    },
+    {
+      "type": "target_changed",
+      "t": 47.40783690899843,
+      "old": "t9:r2",
+      "new": "t9:r3"
+    },
+    {
+      "type": "stale_discarded",
+      "t": 47.484249814006034,
+      "id": 16,
+      "job_key": "t9:r1",
+      "current_key": "t9:r3"
+    },
+    {
+      "type": "dispatched",
+      "t": 47.484249814006034,
+      "id": 17,
+      "key": "t9:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 47.71208064199891,
+      "key": "t9:r3"
+    },
+    {
+      "type": "target_changed",
+      "t": 47.84076570102479,
+      "old": "t9:r3",
+      "new": "t9:r4"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 47.94140995899215,
+      "key": "t9:r4"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 48.16457938001258,
+      "key": "t9:r4"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 48.30524719902314,
+      "key": "t9:r4"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 48.53185289102839,
+      "key": "t9:r4"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 48.755613779998384,
+      "key": "t9:r4"
+    },
+    {
+      "type": "target_changed",
+      "t": 48.923210279026534,
+      "old": "t9:r4",
+      "new": "t9:r5"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 48.97420588100795,
+      "key": "t9:r5"
+    },
+    {
+      "type": "target_changed",
+      "t": 49.139880903007,
+      "old": "t9:r5",
+      "new": "t10:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 49.211744119995274,
+      "key": "t10:r1"
+    },
+    {
+      "type": "stale_discarded",
+      "t": 49.356112720037345,
+      "id": 17,
+      "job_key": "t9:r3",
+      "current_key": "t10:r1"
+    },
+    {
+      "type": "dispatched",
+      "t": 49.356112720037345,
+      "id": 18,
+      "key": "t10:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 49.57265291403746,
+      "key": "t10:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 49.78912199701881,
+      "key": "t10:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 50.00558243802516,
+      "old": "t10:r1",
+      "new": null
+    },
+    {
+      "type": "target_changed",
+      "t": 50.22204739303561,
+      "old": null,
+      "new": "t11:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 50.25310964800883,
+      "key": "t11:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 50.43839436600683,
+      "old": "t11:r1",
+      "new": "t12:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 50.4773872900405,
+      "key": "t12:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 50.65518810501089,
+      "old": "t12:r1",
+      "new": "t12:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 50.706746606039815,
+      "key": "t12:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 50.93170262099011,
+      "key": "t12:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 51.15818394499365,
+      "key": "t12:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 51.377002392022405,
+      "key": "t12:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 51.61221563303843,
+      "key": "t12:r2"
+    },
+    {
+      "type": "stale_discarded",
+      "t": 51.83360886602895,
+      "id": 18,
+      "job_key": "t10:r1",
+      "current_key": "t12:r2"
+    },
+    {
+      "type": "dispatched",
+      "t": 51.83360886602895,
+      "id": 19,
+      "key": "t12:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 52.05444268201245,
+      "key": "t12:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 52.27901825302979,
+      "key": "t12:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 52.42494141001953,
+      "key": "t12:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 52.657542077009566,
+      "key": "t12:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 52.88500794698484,
+      "key": "t12:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 53.1025056290091,
+      "key": "t12:r2"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 53.33347373601282,
+      "key": "t12:r2"
+    },
+    {
+      "type": "target_changed",
+      "t": 53.4693312770105,
+      "old": "t12:r2",
+      "new": "t12:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 53.54757623799378,
+      "key": "t12:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 53.68579526798567,
+      "key": "t12:r3"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 53.902356197009794,
+      "key": "t12:r3"
+    },
+    {
+      "type": "stale_discarded",
+      "t": 54.11861780000618,
+      "id": 19,
+      "job_key": "t12:r2",
+      "current_key": "t12:r3"
+    },
+    {
+      "type": "dispatched",
+      "t": 54.11861780000618,
+      "id": 20,
+      "key": "t12:r3"
+    },
+    {
+      "type": "target_changed",
+      "t": 54.33506325201597,
+      "old": "t12:r3",
+      "new": null
+    },
+    {
+      "type": "target_changed",
+      "t": 54.55152876203647,
+      "old": null,
+      "new": "t13:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 54.60090990399476,
+      "key": "t13:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 54.76796547003323,
+      "key": "t13:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 54.98451188503532,
+      "key": "t13:r1"
+    },
+    {
+      "type": "suppressed_pending",
+      "t": 55.2009980060393,
+      "key": "t13:r1"
+    },
+    {
+      "type": "target_changed",
+      "t": 55.41745108400937,
+      "old": "t13:r1",
+      "new": null
+    },
+    {
+      "type": "stale_discarded",
+      "t": 56.28335862699896,
+      "id": 20,
+      "job_key": "t12:r3",
+      "current_key": null
+    }
+  ],
+  "summary": {
+    "samples": 416,
+    "requests": 20,
+    "selected_unknown_frames": 146,
+    "accepted_captions": 0,
+    "events": {
+      "target_changed": 50,
+      "dispatched": 20,
+      "suppressed_pending": 150,
+      "stale_discarded": 20
+    },
+    "wall_seconds": 89.8378500220133,
+    "max_replay_lag_s": 0.13394474930020106
+  }
+}
