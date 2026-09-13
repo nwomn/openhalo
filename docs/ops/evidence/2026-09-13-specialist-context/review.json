@@ -1,0 +1,647 @@
+{
+  "method": "Manual review of exact repeated outputs against the pre-generation reference. Counts use 18 images per arm, not 36 independent runs. Ambiguous background equipment and gaze toward off-frame screens are not counted; other-error counts are conservative and not exhaustive scene accuracy.",
+  "target_error_ids": {
+    "image": [
+      4,
+      5,
+      9,
+      15,
+      16
+    ],
+    "specialists": [
+      3,
+      6,
+      8,
+      9,
+      17
+    ],
+    "cascade": [
+      6,
+      8,
+      9,
+      13,
+      15,
+      17
+    ]
+  },
+  "cache_subset_comparison": {
+    "ids": [
+      3,
+      5,
+      7,
+      9,
+      11,
+      13,
+      15
+    ],
+    "reduced_target_errors": [
+      3
+    ],
+    "introduced_target_errors": [
+      13,
+      15
+    ],
+    "no_binary_target_error_change": [
+      5,
+      7,
+      9,
+      11
+    ]
+  },
+  "rows": [
+    {
+      "id": 0,
+      "arm": "image",
+      "text": "The person is holding a cell phone in their hand.",
+      "object_correct": 1,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Phone correctly named in all arms."
+    },
+    {
+      "id": 0,
+      "arm": "specialists",
+      "text": "The person is holding a cell phone in their hand.",
+      "object_correct": 1,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Phone correctly named in all arms."
+    },
+    {
+      "id": 0,
+      "arm": "cascade",
+      "text": "The person is holding a cell phone in their hand.",
+      "object_correct": 1,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Phone correctly named in all arms."
+    },
+    {
+      "id": 1,
+      "arm": "image",
+      "text": "The person is holding a cell phone in their hands.",
+      "object_correct": 1,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Phone correctly named in all arms."
+    },
+    {
+      "id": 1,
+      "arm": "specialists",
+      "text": "The person is holding a cell phone in their hands.",
+      "object_correct": 1,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Phone correctly named in all arms."
+    },
+    {
+      "id": 1,
+      "arm": "cascade",
+      "text": "The person is holding a cell phone in their hands.",
+      "object_correct": 1,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Phone correctly named in all arms."
+    },
+    {
+      "id": 2,
+      "arm": "image",
+      "text": "The person is holding a small, red object in their hand.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "All arms give generic red object; no screwdriver identification."
+    },
+    {
+      "id": 2,
+      "arm": "specialists",
+      "text": "The person is holding a small, red object in their hand.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "All arms give generic red object; no screwdriver identification."
+    },
+    {
+      "id": 2,
+      "arm": "cascade",
+      "text": "The person is holding a small, red object in their hand.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "All arms give generic red object; no screwdriver identification."
+    },
+    {
+      "id": 3,
+      "arm": "image",
+      "text": "The person is holding a small, red object in their hand.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Specialists invents pen/writing; cascade reverts to generic pink object, still not screwdriver."
+    },
+    {
+      "id": 3,
+      "arm": "specialists",
+      "text": "The person is holding a pen and appears to be in the process of writing.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 1,
+      "other_error": 1,
+      "note": "Specialists invents pen/writing; cascade reverts to generic pink object, still not screwdriver."
+    },
+    {
+      "id": 3,
+      "arm": "cascade",
+      "text": "The person is holding a pink object in their hand.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Specialists invents pen/writing; cascade reverts to generic pink object, still not screwdriver."
+    },
+    {
+      "id": 4,
+      "arm": "image",
+      "text": "The person is visibly holding a hand, and there is a hand held object in the image.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 1,
+      "other_error": 0,
+      "note": "Image invents a held object on clear palm; context arms only describe raised hand, no explicit palm or empty-hand confirmation."
+    },
+    {
+      "id": 4,
+      "arm": "specialists",
+      "text": "The person is holding their hand up in the air.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Image invents a held object on clear palm; context arms only describe raised hand, no explicit palm or empty-hand confirmation."
+    },
+    {
+      "id": 4,
+      "arm": "cascade",
+      "text": "The person is holding their hand up in the air.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Image invents a held object on clear palm; context arms only describe raised hand, no explicit palm or empty-hand confirmation."
+    },
+    {
+      "id": 5,
+      "arm": "image",
+      "text": "The person is visibly holding a cell phone in one hand and waving with the other.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 1,
+      "other_error": 0,
+      "note": "Image invents held phone and waving; context arms describe raised hand, not confirmed empty hand."
+    },
+    {
+      "id": 5,
+      "arm": "specialists",
+      "text": "The person is holding their hand up in the air.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Image invents held phone and waving; context arms describe raised hand, not confirmed empty hand."
+    },
+    {
+      "id": 5,
+      "arm": "cascade",
+      "text": "The person is holding their hand up, and there is a table in the background.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Image invents held phone and waving; context arms describe raised hand, not confirmed empty hand."
+    },
+    {
+      "id": 6,
+      "arm": "image",
+      "text": "The person is holding a hand in the air, and there is a laptop in the background.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Context arms repeat detector donut false positive despite Closed_Fist candidate; image gives generic raised hand."
+    },
+    {
+      "id": 6,
+      "arm": "specialists",
+      "text": "The person is holding a donut in their hand.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 1,
+      "other_error": 0,
+      "note": "Context arms repeat detector donut false positive despite Closed_Fist candidate; image gives generic raised hand."
+    },
+    {
+      "id": 6,
+      "arm": "cascade",
+      "text": "The person is holding a donut in their hand.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 1,
+      "other_error": 0,
+      "note": "Context arms repeat detector donut false positive despite Closed_Fist candidate; image gives generic raised hand."
+    },
+    {
+      "id": 7,
+      "arm": "image",
+      "text": "The person is giving a thumbs up, and there is a projector screen in the background.",
+      "object_correct": 0,
+      "gesture_correct": 1,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "All arms correctly name thumbs-up."
+    },
+    {
+      "id": 7,
+      "arm": "specialists",
+      "text": "The person is giving a thumbs up gesture.",
+      "object_correct": 0,
+      "gesture_correct": 1,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "All arms correctly name thumbs-up."
+    },
+    {
+      "id": 7,
+      "arm": "cascade",
+      "text": "The person is giving a thumbs up gesture.",
+      "object_correct": 0,
+      "gesture_correct": 1,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "All arms correctly name thumbs-up."
+    },
+    {
+      "id": 8,
+      "arm": "image",
+      "text": "The person is holding a peace sign in their hand, and there is a laptop in the background.",
+      "object_correct": 0,
+      "gesture_correct": 1,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Image names peace sign; context arms name thumbs-up despite current Victory observation and historical Thumb_Up-to-Victory transition."
+    },
+    {
+      "id": 8,
+      "arm": "specialists",
+      "text": "The person is holding a thumbs-up sign in their hand.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 1,
+      "other_error": 0,
+      "note": "Image names peace sign; context arms name thumbs-up despite current Victory observation and historical Thumb_Up-to-Victory transition."
+    },
+    {
+      "id": 8,
+      "arm": "cascade",
+      "text": "The person is holding a thumbs-up sign in their hand.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 1,
+      "other_error": 0,
+      "note": "Image names peace sign; context arms name thumbs-up despite current Victory observation and historical Thumb_Up-to-Victory transition."
+    },
+    {
+      "id": 9,
+      "arm": "image",
+      "text": "The person is sitting in front of a computer screen, holding a mouse.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 1,
+      "other_error": 0,
+      "note": "Hands are not visible. Image invents mouse, specialists remote, cascade current thumbs-up; none supported by current frame."
+    },
+    {
+      "id": 9,
+      "arm": "specialists",
+      "text": "The person is sitting in front of a computer screen, holding a remote control.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 1,
+      "other_error": 0,
+      "note": "Hands are not visible. Image invents mouse, specialists remote, cascade current thumbs-up; none supported by current frame."
+    },
+    {
+      "id": 9,
+      "arm": "cascade",
+      "text": "The person is holding a Thumb Up sign.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 1,
+      "other_error": 0,
+      "note": "Hands are not visible. Image invents mouse, specialists remote, cascade current thumbs-up; none supported by current frame."
+    },
+    {
+      "id": 10,
+      "arm": "image",
+      "text": "The person is holding a cell phone in their hand and taking a picture of themselves.",
+      "object_correct": 1,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 1,
+      "note": "Phone correctly named; image adds unverified selfie-taking activity."
+    },
+    {
+      "id": 10,
+      "arm": "specialists",
+      "text": "The person is holding a cell phone in their hand.",
+      "object_correct": 1,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Phone correctly named; image adds unverified selfie-taking activity."
+    },
+    {
+      "id": 10,
+      "arm": "cascade",
+      "text": "The person is holding a cell phone in their hand.",
+      "object_correct": 1,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Phone correctly named; image adds unverified selfie-taking activity."
+    },
+    {
+      "id": 11,
+      "arm": "image",
+      "text": "The person is holding a cell phone in their hand.",
+      "object_correct": 1,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Phone correctly named in all arms; cascade adds projector context."
+    },
+    {
+      "id": 11,
+      "arm": "specialists",
+      "text": "The person is holding a cell phone in their hand.",
+      "object_correct": 1,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Phone correctly named in all arms; cascade adds projector context."
+    },
+    {
+      "id": 11,
+      "arm": "cascade",
+      "text": "The person is holding a cell phone in front of a projector.",
+      "object_correct": 1,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Phone correctly named in all arms; cascade adds projector context."
+    },
+    {
+      "id": 12,
+      "arm": "image",
+      "text": "The person is holding a small, red object in their hand.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "All arms give generic red object; not screwdriver."
+    },
+    {
+      "id": 12,
+      "arm": "specialists",
+      "text": "The person is holding a small, red object in their hand.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "All arms give generic red object; not screwdriver."
+    },
+    {
+      "id": 12,
+      "arm": "cascade",
+      "text": "The person is holding a small, red object in their hand.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "All arms give generic red object; not screwdriver."
+    },
+    {
+      "id": 13,
+      "arm": "image",
+      "text": "The person is holding a small, red object in their hand.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Image/specialists generic object; cascade adopts wrong cached syringe-with-needle label."
+    },
+    {
+      "id": 13,
+      "arm": "specialists",
+      "text": "The person is holding a small object in their hand.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Image/specialists generic object; cascade adopts wrong cached syringe-with-needle label."
+    },
+    {
+      "id": 13,
+      "arm": "cascade",
+      "text": "The person is holding a syringe with a needle.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 1,
+      "other_error": 0,
+      "note": "Image/specialists generic object; cascade adopts wrong cached syringe-with-needle label."
+    },
+    {
+      "id": 14,
+      "arm": "image",
+      "text": "The person is holding up their hand in a hand gesture, and there is a bowl and a cup in the background.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "All arms give generic raised hand; no exact open-palm or confirmed empty-hand state."
+    },
+    {
+      "id": 14,
+      "arm": "specialists",
+      "text": "The person is holding their hand up in the air.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "All arms give generic raised hand; no exact open-palm or confirmed empty-hand state."
+    },
+    {
+      "id": 14,
+      "arm": "cascade",
+      "text": "The person is holding their hand up in the air.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "All arms give generic raised hand; no exact open-palm or confirmed empty-hand state."
+    },
+    {
+      "id": 15,
+      "arm": "image",
+      "text": "The person is sitting in a chair and holding a remote control.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 1,
+      "other_error": 0,
+      "note": "Hands not visible. Image invents held remote; specialists makes no current hand claim; cascade repeats stale raised-hands caption."
+    },
+    {
+      "id": 15,
+      "arm": "specialists",
+      "text": "The person is sitting in a chair and looking at a television.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Hands not visible. Image invents held remote; specialists makes no current hand claim; cascade repeats stale raised-hands caption."
+    },
+    {
+      "id": 15,
+      "arm": "cascade",
+      "text": "The person is sitting in front of a television, holding their hands up in front of their face.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 1,
+      "other_error": 0,
+      "note": "Hands not visible. Image invents held remote; specialists makes no current hand claim; cascade repeats stale raised-hands caption."
+    },
+    {
+      "id": 16,
+      "arm": "image",
+      "text": "The person is sitting in a chair and holding a remote control.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 1,
+      "other_error": 0,
+      "note": "Hands not visible. Image invents held remote; context arms make no current hand claim. Screen-attention/background equipment not independently scored."
+    },
+    {
+      "id": 16,
+      "arm": "specialists",
+      "text": "The person is sitting in a chair and looking at a computer screen. There is a computer monitor in the background.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Hands not visible. Image invents held remote; context arms make no current hand claim. Screen-attention/background equipment not independently scored."
+    },
+    {
+      "id": 16,
+      "arm": "cascade",
+      "text": "The person is sitting in a chair and looking at a computer screen. There is a computer monitor in the background.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Hands not visible. Image invents held remote; context arms make no current hand claim. Screen-attention/background equipment not independently scored."
+    },
+    {
+      "id": 17,
+      "arm": "image",
+      "text": "The person is sitting in front of a projector screen, and there is a remote control in front of him.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 0,
+      "other_error": 0,
+      "note": "Image says remote in front, not held; ambiguous background object is excluded from target metric. Context arms invent hand-held remote and say looking at camera despite profile-facing pose."
+    },
+    {
+      "id": 17,
+      "arm": "specialists",
+      "text": "The person is sitting in a chair and looking at the camera. There is a TV in the background, and a hand is holding a remote.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 1,
+      "other_error": 1,
+      "note": "Image says remote in front, not held; ambiguous background object is excluded from target metric. Context arms invent hand-held remote and say looking at camera despite profile-facing pose."
+    },
+    {
+      "id": 17,
+      "arm": "cascade",
+      "text": "The person is sitting in a chair and looking at the camera. There is a TV in the background, and a hand is holding a remote.",
+      "object_correct": 0,
+      "gesture_correct": 0,
+      "empty_confirmed": 0,
+      "target_error": 1,
+      "other_error": 1,
+      "note": "Image says remote in front, not held; ambiguous background object is excluded from target metric. Context arms invent hand-held remote and say looking at camera despite profile-facing pose."
+    }
+  ]
+}

@@ -1,0 +1,159 @@
+{
+  "formal_runs": 39,
+  "distinct_clips": 13,
+  "stopped_runs": 36,
+  "truncated_runs": 3,
+  "all_elapsed_range_s": [
+    1.2779747070162557,
+    4.0374945709481835
+  ],
+  "all_elapsed_median_s": 2.5695885099703446,
+  "completed_elapsed_median_s": 2.516608503035968,
+  "completed_within_8s": 36,
+  "caution": "Completion/speed is not semantic acceptance; repeats are not independent samples.",
+  "cases": [
+    {
+      "id": "c01",
+      "reference": "phone front held in hand",
+      "review": "Phone noun correct; repetitive text hits length limit, not a complete usable reply.",
+      "min_s": 3.6113198149832897,
+      "max_s": 3.706945782992989,
+      "median_s": 3.6663723060046323,
+      "text": "The person holds a smartphone in their right hand, displaying a circular icon on the screen. The left hand is not visible. The right hand remains steady, holding the phone steadily. The left hand is not visible. The right hand does not move significantly during the video. The left hand is not visible. The right hand does not move significantly during the video. The left hand is not visible. The right hand does not move significantly during the video. The left hand is not visible",
+      "finish_reason": "length",
+      "distinct_answers": 1
+    },
+    {
+      "id": "c02",
+      "reference": "screwdriver held and rotated, then hand lowered",
+      "review": "Screwdriver correct; falsely says hand stays in position, missing lowering at end.",
+      "min_s": 3.688933380006347,
+      "max_s": 4.0374945709481835,
+      "median_s": 3.7350297499797307,
+      "text": "The person holds a screwdriver in their right hand, which is raised slightly above the chest level. The screwdriver has a red handle and a metallic shaft. The hand is clenched around the screwdriver, with fingers curled slightly. The thumb and index finger are visible, gripping the tool firmly. The hand remains in this position throughout the sequence.",
+      "finish_reason": "stop",
+      "distinct_answers": 1
+    },
+    {
+      "id": "c03",
+      "reference": "visibly empty open palm, then lowered; waving not established",
+      "review": "Open palm and no held object correct; lowering at end not reported.",
+      "min_s": 2.174153155006934,
+      "max_s": 2.1796797729912214,
+      "median_s": 2.175382962974254,
+      "text": "The person raises their left hand, palm facing outward, fingers extended, displaying five distinct fingers. The hand is positioned in front of the person's chest, with the thumb and index finger slightly apart. The hand is clearly visible, and the fingers are spread apart. The hand is not holding any object.",
+      "finish_reason": "stop",
+      "distinct_answers": 1
+    },
+    {
+      "id": "c04",
+      "reference": "empty closed fist",
+      "review": "Fist recognized. No visible-object hallucination.",
+      "min_s": 2.564220648026094,
+      "max_s": 2.9298008829937316,
+      "median_s": 2.5695885099703446,
+      "text": "The person holds his right hand clenched into a fist, with the thumb extended outward. The left hand is not visible. The right hand remains clenched throughout the video.",
+      "finish_reason": "stop",
+      "distinct_answers": 1
+    },
+    {
+      "id": "c05",
+      "reference": "thumbs-up, no held object",
+      "review": "Thumbs-up recognized.",
+      "min_s": 1.2779747070162557,
+      "max_s": 1.3545870780362748,
+      "median_s": 1.2841723510064185,
+      "text": "The person gives a thumbs-up with their right hand.",
+      "finish_reason": "stop",
+      "distinct_answers": 1
+    },
+    {
+      "id": "c06",
+      "reference": "V gesture, no held object",
+      "review": "V/peace sign and no held object recognized.",
+      "min_s": 1.7666644809651189,
+      "max_s": 1.7974136829725467,
+      "median_s": 1.7918696270207874,
+      "text": "The person holds up two fingers, forming a peace sign with their right hand. The hand is clearly visible, showing the index and middle fingers extended. The hand is not holding any objects.",
+      "finish_reason": "stop",
+      "distinct_answers": 1
+    },
+    {
+      "id": "c07",
+      "reference": "phone back held in hand",
+      "review": "Phone back recognized as smartphone.",
+      "min_s": 1.9717449499876238,
+      "max_s": 1.9944684649817646,
+      "median_s": 1.986117231019307,
+      "text": "The person holds the smartphone with their right hand, displaying it prominently toward the camera. The thumb and index finger of the right hand are visible, with the thumb slightly curled around the phone's edge. The left hand is not visible in the frame.",
+      "finish_reason": "stop",
+      "distinct_answers": 1
+    },
+    {
+      "id": "c08",
+      "reference": "screwdriver held in hand",
+      "review": "Screwdriver recognized but same answer falsely says the hand is empty.",
+      "min_s": 3.4229022820363753,
+      "max_s": 3.6132421719958074,
+      "median_s": 3.4752511469996534,
+      "text": "The person holds a screwdriver in their right hand, gripping it with thumb and index finger. The screwdriver has a red handle and a metallic shaft. The hand is positioned in front of the person's chest, with the thumb and index finger curled around the shaft. The hand is visibly empty.",
+      "finish_reason": "stop",
+      "distinct_answers": 1
+    },
+    {
+      "id": "c09",
+      "reference": "visibly empty open palm after object put down",
+      "review": "Open palm recognized; explicit empty-hand state not returned.",
+      "min_s": 2.181481903011445,
+      "max_s": 2.188927770999726,
+      "median_s": 2.186458590964321,
+      "text": "The person holds their left hand extended in front of them, palm facing outward with fingers spread apart. The right hand is not visible. The left hand remains in this position throughout the video.",
+      "finish_reason": "stop",
+      "distinct_answers": 1
+    },
+    {
+      "id": "c10",
+      "reference": "hand initially down; open palm -> fist -> thumbs-up -> V, beginning to lower at end",
+      "review": "Palm -> fist -> thumbs-up -> V order correct; final beginning-to-lower motion omitted.",
+      "min_s": 2.834949895972386,
+      "max_s": 2.8623606479959562,
+      "median_s": 2.8472862109774724,
+      "text": "Shows five fingers, then clenches into a fist, then gives a thumbs-up, and finally makes a peace sign.",
+      "finish_reason": "stop",
+      "distinct_answers": 1
+    },
+    {
+      "id": "c11",
+      "reference": "raise phone, show front/back, lower out of view",
+      "review": "Phone recognized, but invented thumbs-up; front/back/lowering sequence not recovered.",
+      "min_s": 2.9212293500313535,
+      "max_s": 2.9914007269544527,
+      "median_s": 2.923076012986712,
+      "text": "Shows a thumbs-up gesture with the thumb extended outward and the index finger pointing upward. Holds a smartphone with a distinctive anime-style illustration on its back.",
+      "finish_reason": "stop",
+      "distinct_answers": 1
+    },
+    {
+      "id": "c12",
+      "reference": "show screwdriver, lower it, show empty palm, lower hand",
+      "review": "Mentions palm and red/silver object, but treats sequential states as coexisting hands; no correct object-to-empty-to-lowered sequence.",
+      "min_s": 3.1279608720215037,
+      "max_s": 3.1873508390272036,
+      "median_s": 3.1435568180168048,
+      "text": "The man raises his left hand, palm facing outward, fingers extended, displaying five digits clearly. He holds a small red and silver object in his right hand, which he raises slightly above his chest.",
+      "finish_reason": "stop",
+      "distinct_answers": 1
+    },
+    {
+      "id": "c13",
+      "reference": "hands not clearly visible; empty-hand state not established",
+      "review": "Correctly says hands are not visible; does not infer empty hands.",
+      "min_s": 2.4374928310280666,
+      "max_s": 2.4689963580458425,
+      "median_s": 2.446145373978652,
+      "text": "The hands are not visible.",
+      "finish_reason": "stop",
+      "distinct_answers": 1
+    }
+  ]
+}

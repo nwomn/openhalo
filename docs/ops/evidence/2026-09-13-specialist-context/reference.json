@@ -1,0 +1,30 @@
+{
+  "method": "Frozen before second-stage generation by visual review of the 18-frame contact sheet, with the owner's prior phone/screwdriver object labels. Single reviewer, reused setting; not independent benchmark accuracy.",
+  "rubric": {
+    "object_correct": "Names phone/smartphone/cell phone for phone, screwdriver for screwdriver. Generic object/tool is not a specific identification. Empty-hand positives require explicit empty/no held object; omission is not confirmation.",
+    "gesture_correct": "Names the displayed open palm, fist, thumbs-up, or V/peace gesture. Merely raising a hand is insufficient. A still image cannot confirm waving motion.",
+    "target_error": "Wrong held-object category, invented held object on clearly empty-hand frames, wrong current hand gesture, or asserted raised hand/held object on no-visible-hand control frames. Hidden objects cannot be ruled out physically; such claims lack visible support.",
+    "other_error": "Unsupported specific activity or scene claim, e.g. playing a game or operating a computer; assessed separately from the target labels. Clothing color excluded because of changing projector illumination.",
+    "denominator": "18 images per arm; repeats check reproducibility and are not independent samples. Count objects over 8 object frames and gestures over 6 clear gesture frames. Four no-visible-hand controls are not confirmed-empty-hand positives."
+  },
+  "frames": [
+    {"id": 0, "object": "phone", "gesture": null},
+    {"id": 1, "object": "phone", "gesture": null},
+    {"id": 2, "object": "screwdriver", "gesture": null},
+    {"id": 3, "object": "screwdriver", "gesture": null},
+    {"id": 4, "object": "empty_hand", "gesture": "open_palm"},
+    {"id": 5, "object": "empty_hand", "gesture": "open_palm"},
+    {"id": 6, "object": "empty_hand", "gesture": "fist"},
+    {"id": 7, "object": "empty_hand", "gesture": "thumb_up"},
+    {"id": 8, "object": "empty_hand", "gesture": "v_sign"},
+    {"id": 9, "object": "not_visible", "gesture": "not_visible"},
+    {"id": 10, "object": "phone", "gesture": null},
+    {"id": 11, "object": "phone", "gesture": null},
+    {"id": 12, "object": "screwdriver", "gesture": null},
+    {"id": 13, "object": "screwdriver", "gesture": null},
+    {"id": 14, "object": "empty_hand", "gesture": "open_palm"},
+    {"id": 15, "object": "not_visible", "gesture": "not_visible"},
+    {"id": 16, "object": "not_visible", "gesture": "not_visible"},
+    {"id": 17, "object": "not_visible", "gesture": "not_visible"}
+  ]
+}

@@ -1,0 +1,780 @@
+{
+  "selection": "18 predeclared timestamps; no generation-output selection; reused development video",
+  "times": [
+    4,
+    5,
+    11,
+    13,
+    19,
+    21,
+    30,
+    32.5,
+    35,
+    36.5,
+    39,
+    40.5,
+    46,
+    48,
+    52.5,
+    54,
+    65,
+    80
+  ],
+  "source_hashes": {
+    "/home/jetson/openhalo-specialist-expanded/run-fresh-v1/report.json": "8bd10fa6b39c23ec5c8151c29fa60d6b8f0c7b15178ed1932049c951d5c67813",
+    "/home/jetson/openhalo-roi-singleflight/run-v2/report.json": "9b425a40cddfd61b824d55d3cf4f5795531cb95eb09957e66b22146c2d670622"
+  },
+  "video_sha256": "c5b1e31ee2cad15472fc20996adc3f2ff898ff018eb1b2b5c0af063195d97728",
+  "prepare_sha256": "8e488723447d1df8468f01e9bbe67b7923ea3d0baa39592cc4921a47cd1aa7a4",
+  "cases": [
+    {
+      "id": 0,
+      "requested_t": 4,
+      "source_t": 3.8965188888888886,
+      "available_at": 3.9871513660182245,
+      "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/00-full.png",
+      "frame_sha256": "359cc770443803ea6e79c337ae5a77783a5ee31e7cd95941a70fd11878814627",
+      "specialists": {
+        "gesture": "unknown",
+        "hands": [
+          {
+            "bbox": [
+              0.269,
+              0.4,
+              0.313,
+              0.642
+            ],
+            "object_candidate": "unknown",
+            "overlapping_objects": [
+              {
+                "label": "cell phone",
+                "score": 0.685
+              },
+              {
+                "label": "tv",
+                "score": 0.488
+              }
+            ]
+          },
+          {
+            "bbox": [
+              0.274,
+              0.395,
+              0.44,
+              0.789
+            ],
+            "object_candidate": "unknown",
+            "overlapping_objects": [
+              {
+                "label": "cell phone",
+                "score": 0.685
+              },
+              {
+                "label": "tv",
+                "score": 0.488
+              }
+            ]
+          }
+        ],
+        "detected_objects": [
+          {
+            "label": "person",
+            "score": 0.932
+          },
+          {
+            "label": "cell phone",
+            "score": 0.685
+          },
+          {
+            "label": "tv",
+            "score": 0.488
+          }
+        ],
+        "recent_gesture_changes": []
+      },
+      "roi_cache": null
+    },
+    {
+      "id": 1,
+      "requested_t": 5,
+      "source_t": 4.762411975308642,
+      "available_at": 4.822883881046437,
+      "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/01-full.png",
+      "frame_sha256": "b22139bcf37be46e6cbf4d84db558585a705ffcd2ad1e0bccc26992d619b4106",
+      "specialists": {
+        "gesture": "unknown",
+        "hands": [
+          {
+            "bbox": [
+              0.272,
+              0.4,
+              0.322,
+              0.636
+            ],
+            "object_candidate": "unknown",
+            "overlapping_objects": [
+              {
+                "label": "cell phone",
+                "score": 0.922
+              },
+              {
+                "label": "tv",
+                "score": 0.36
+              }
+            ]
+          },
+          {
+            "bbox": [
+              0.274,
+              0.397,
+              0.439,
+              0.765
+            ],
+            "object_candidate": "unknown",
+            "overlapping_objects": [
+              {
+                "label": "cell phone",
+                "score": 0.922
+              },
+              {
+                "label": "tv",
+                "score": 0.36
+              }
+            ]
+          }
+        ],
+        "detected_objects": [
+          {
+            "label": "cell phone",
+            "score": 0.922
+          },
+          {
+            "label": "person",
+            "score": 0.921
+          },
+          {
+            "label": "tv",
+            "score": 0.36
+          }
+        ],
+        "recent_gesture_changes": []
+      },
+      "roi_cache": null
+    },
+    {
+      "id": 2,
+      "requested_t": 11,
+      "source_t": 10.823663580246913,
+      "available_at": 10.889479255012702,
+      "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/02-full.png",
+      "frame_sha256": "7087cd6eac44eef6cd5b0c1c6ff30e78d9ba247d21c72725250e7fa5bb11d6d8",
+      "specialists": {
+        "gesture": "unknown",
+        "hands": [
+          {
+            "bbox": [
+              0.253,
+              0.412,
+              0.422,
+              0.78
+            ],
+            "object_candidate": "unknown",
+            "overlapping_objects": []
+          }
+        ],
+        "detected_objects": [
+          {
+            "label": "person",
+            "score": 0.907
+          }
+        ],
+        "recent_gesture_changes": []
+      },
+      "roi_cache": null
+    },
+    {
+      "id": 3,
+      "requested_t": 13,
+      "source_t": 12.771923024691358,
+      "available_at": 12.838270773005206,
+      "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/03-full.png",
+      "frame_sha256": "258ae65fc4e36dc525f18fb3443d7f8937b0f8b40df5cc7a134bccc32a80ddd8",
+      "specialists": {
+        "gesture": "unknown",
+        "hands": [
+          {
+            "bbox": [
+              0.248,
+              0.422,
+              0.412,
+              0.786
+            ],
+            "object_candidate": "unknown",
+            "overlapping_objects": []
+          }
+        ],
+        "detected_objects": [
+          {
+            "label": "person",
+            "score": 0.909
+          }
+        ],
+        "recent_gesture_changes": []
+      },
+      "roi_cache": {
+        "text": "A person holding a pink object in their hand.",
+        "status": "unverified_model_caption",
+        "image_age_s": 3.097,
+        "request_id": 3
+      }
+    },
+    {
+      "id": 4,
+      "requested_t": 19,
+      "source_t": 18.833174629629628,
+      "available_at": 18.899791570031084,
+      "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/04-full.png",
+      "frame_sha256": "6ad0e75929a98138ca00f85c5f0d878bf90aede604777c39a6aa83519379a9a3",
+      "specialists": {
+        "gesture": "unknown",
+        "hands": [
+          {
+            "bbox": [
+              0.245,
+              0.203,
+              0.477,
+              0.71
+            ],
+            "object_candidate": "unknown",
+            "overlapping_objects": []
+          }
+        ],
+        "detected_objects": [
+          {
+            "label": "person",
+            "score": 0.923
+          }
+        ],
+        "recent_gesture_changes": []
+      },
+      "roi_cache": null
+    },
+    {
+      "id": 5,
+      "requested_t": 21,
+      "source_t": 20.781434074074074,
+      "available_at": 20.836700646032114,
+      "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/05-full.png",
+      "frame_sha256": "462b228ecfb8ff7b494edfe1508bb8683cc5be84407d6bdcf41c4e9528feeed3",
+      "specialists": {
+        "gesture": "Open_Palm",
+        "hands": [
+          {
+            "bbox": [
+              0.289,
+              0.251,
+              0.5,
+              0.731
+            ],
+            "object_candidate": "unknown",
+            "overlapping_objects": []
+          }
+        ],
+        "detected_objects": [
+          {
+            "label": "person",
+            "score": 0.916
+          }
+        ],
+        "recent_gesture_changes": [
+          {
+            "age_s": 0.22,
+            "previous": "unknown",
+            "current": "Open_Palm"
+          }
+        ]
+      },
+      "roi_cache": {
+        "text": "A man in a white shirt holding his hand up.",
+        "status": "unverified_model_caption",
+        "image_age_s": 2.869,
+        "request_id": 5
+      }
+    },
+    {
+      "id": 6,
+      "requested_t": 30,
+      "source_t": 29.87331148148148,
+      "available_at": 29.968910130031873,
+      "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/06-full.png",
+      "frame_sha256": "3a318f9d0de09e3af2a0e296ca3d3f16a695fa77b7cf9a54e880c74266d198b7",
+      "specialists": {
+        "gesture": "Closed_Fist",
+        "hands": [
+          {
+            "bbox": [
+              0.308,
+              0.512,
+              0.457,
+              0.78
+            ],
+            "object_candidate": "unknown",
+            "overlapping_objects": [
+              {
+                "label": "donut",
+                "score": 0.432
+              }
+            ]
+          }
+        ],
+        "detected_objects": [
+          {
+            "label": "person",
+            "score": 0.923
+          },
+          {
+            "label": "tv",
+            "score": 0.472
+          },
+          {
+            "label": "donut",
+            "score": 0.432
+          }
+        ],
+        "recent_gesture_changes": [
+          {
+            "age_s": 0.43,
+            "previous": "unknown",
+            "current": "Closed_Fist"
+          }
+        ]
+      },
+      "roi_cache": null
+    },
+    {
+      "id": 7,
+      "requested_t": 32.5,
+      "source_t": 32.2545174691358,
+      "available_at": 32.288673161005136,
+      "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/07-full.png",
+      "frame_sha256": "3a8a2099cc3692fe96bf93fa430d1bbcdcedb75ba77e6bac8cda377dc6ddf61f",
+      "specialists": {
+        "gesture": "unknown",
+        "hands": [
+          {
+            "bbox": [
+              0.32,
+              0.395,
+              0.49,
+              0.833
+            ],
+            "object_candidate": "unknown",
+            "overlapping_objects": [
+              {
+                "label": "tv",
+                "score": 0.47
+              }
+            ]
+          }
+        ],
+        "detected_objects": [
+          {
+            "label": "person",
+            "score": 0.914
+          },
+          {
+            "label": "tv",
+            "score": 0.47
+          }
+        ],
+        "recent_gesture_changes": [
+          {
+            "age_s": 2.81,
+            "previous": "unknown",
+            "current": "Closed_Fist"
+          },
+          {
+            "age_s": 0.65,
+            "previous": "Closed_Fist",
+            "current": "unknown"
+          }
+        ]
+      },
+      "roi_cache": {
+        "text": "A person with their hands in the air.",
+        "status": "unverified_model_caption",
+        "image_age_s": 2.632,
+        "request_id": 8
+      }
+    },
+    {
+      "id": 8,
+      "requested_t": 35,
+      "source_t": 34.85219672839506,
+      "available_at": 34.91719384101452,
+      "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/08-full.png",
+      "frame_sha256": "7f9988e9d1dad71485fe9fb5a450b973737bb46dd1ed0780d743fb4b9e00551d",
+      "specialists": {
+        "gesture": "Victory",
+        "hands": [
+          {
+            "bbox": [
+              0.344,
+              0.371,
+              0.49,
+              0.937
+            ],
+            "object_candidate": "unknown",
+            "overlapping_objects": []
+          },
+          {
+            "bbox": [
+              0.386,
+              0.398,
+              0.487,
+              0.84
+            ],
+            "object_candidate": "unknown",
+            "overlapping_objects": []
+          }
+        ],
+        "detected_objects": [
+          {
+            "label": "person",
+            "score": 0.925
+          }
+        ],
+        "recent_gesture_changes": [
+          {
+            "age_s": 3.25,
+            "previous": "Closed_Fist",
+            "current": "unknown"
+          },
+          {
+            "age_s": 2.16,
+            "previous": "unknown",
+            "current": "Thumb_Up"
+          },
+          {
+            "age_s": 0.65,
+            "previous": "Thumb_Up",
+            "current": "Victory"
+          }
+        ]
+      },
+      "roi_cache": null
+    },
+    {
+      "id": 9,
+      "requested_t": 36.5,
+      "source_t": 36.36750962962963,
+      "available_at": 36.36775707703782,
+      "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/09-full.png",
+      "frame_sha256": "afb08fc3a89cad3b6207417e84aa53d246be4bdf83778fe8f147b01068f3fb58",
+      "specialists": {
+        "gesture": "unknown",
+        "hands": [],
+        "detected_objects": [
+          {
+            "label": "person",
+            "score": 0.943
+          },
+          {
+            "label": "tv",
+            "score": 0.487
+          }
+        ],
+        "recent_gesture_changes": [
+          {
+            "age_s": 3.68,
+            "previous": "unknown",
+            "current": "Thumb_Up"
+          },
+          {
+            "age_s": 2.16,
+            "previous": "Thumb_Up",
+            "current": "Victory"
+          },
+          {
+            "age_s": 0.0,
+            "previous": "Victory",
+            "current": "unknown"
+          }
+        ]
+      },
+      "roi_cache": {
+        "text": "A man in a purple shirt making a peace sign.",
+        "status": "unverified_model_caption",
+        "image_age_s": 2.598,
+        "request_id": 9
+      }
+    },
+    {
+      "id": 10,
+      "requested_t": 39,
+      "source_t": 38.74871561728395,
+      "available_at": 38.807093284034636,
+      "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/10-full.png",
+      "frame_sha256": "ec4958c0b8d4421e6935e58200c549b4d146bc62b18cf2006142895294d7eae1",
+      "specialists": {
+        "gesture": "unknown",
+        "hands": [
+          {
+            "bbox": [
+              0.393,
+              0.365,
+              0.561,
+              0.763
+            ],
+            "object_candidate": "unknown",
+            "overlapping_objects": []
+          }
+        ],
+        "detected_objects": [
+          {
+            "label": "person",
+            "score": 0.883
+          },
+          {
+            "label": "tv",
+            "score": 0.46
+          }
+        ],
+        "recent_gesture_changes": [
+          {
+            "age_s": 2.38,
+            "previous": "Victory",
+            "current": "unknown"
+          }
+        ]
+      },
+      "roi_cache": null
+    },
+    {
+      "id": 11,
+      "requested_t": 40.5,
+      "source_t": 40.264028518518515,
+      "available_at": 40.29243172501447,
+      "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/11-full.png",
+      "frame_sha256": "0bae821d752b54e505f62ddb47f9dd2f44817dfb2c1bcc2c38ef09a0d16c1c30",
+      "specialists": {
+        "gesture": "unknown",
+        "hands": [
+          {
+            "bbox": [
+              0.365,
+              0.326,
+              0.539,
+              0.802
+            ],
+            "object_candidate": "unknown",
+            "overlapping_objects": [
+              {
+                "label": "tv",
+                "score": 0.51
+              }
+            ]
+          }
+        ],
+        "detected_objects": [
+          {
+            "label": "person",
+            "score": 0.939
+          },
+          {
+            "label": "tv",
+            "score": 0.51
+          }
+        ],
+        "recent_gesture_changes": [
+          {
+            "age_s": 3.9,
+            "previous": "Victory",
+            "current": "unknown"
+          }
+        ]
+      },
+      "roi_cache": {
+        "text": "A man holding a cell phone in front of a projector.",
+        "status": "unverified_model_caption",
+        "image_age_s": 2.41,
+        "request_id": 10
+      }
+    },
+    {
+      "id": 12,
+      "requested_t": 46,
+      "source_t": 45.89233358024691,
+      "available_at": 45.986551678040996,
+      "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/12-full.png",
+      "frame_sha256": "b7e71b6747173c7c30ffd89a734f8d6b4b68cf5afa26cd168aac0cd39140bd60",
+      "specialists": {
+        "gesture": "unknown",
+        "hands": [
+          {
+            "bbox": [
+              0.263,
+              0.339,
+              0.419,
+              0.734
+            ],
+            "object_candidate": "unknown",
+            "overlapping_objects": []
+          }
+        ],
+        "detected_objects": [
+          {
+            "label": "person",
+            "score": 0.924
+          }
+        ],
+        "recent_gesture_changes": []
+      },
+      "roi_cache": null
+    },
+    {
+      "id": 13,
+      "requested_t": 48,
+      "source_t": 47.84059302469136,
+      "available_at": 47.9312909040018,
+      "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/13-full.png",
+      "frame_sha256": "83a2f501c19ac1a8c63259a64c4c7085a10b5ff16e8d33a79c30155f934b2e5d",
+      "specialists": {
+        "gesture": "unknown",
+        "hands": [
+          {
+            "bbox": [
+              0.295,
+              0.482,
+              0.448,
+              0.832
+            ],
+            "object_candidate": "unknown",
+            "overlapping_objects": []
+          }
+        ],
+        "detected_objects": [
+          {
+            "label": "person",
+            "score": 0.903
+          }
+        ],
+        "recent_gesture_changes": []
+      },
+      "roi_cache": {
+        "text": "A man holding a syringe with a needle.",
+        "status": "unverified_model_caption",
+        "image_age_s": 2.688,
+        "request_id": 12
+      }
+    },
+    {
+      "id": 14,
+      "requested_t": 52.5,
+      "source_t": 52.386531728395056,
+      "available_at": 52.43173210200621,
+      "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/14-full.png",
+      "frame_sha256": "c617d808c7711983fd405be7d89f295588948d690534c579b4bc7bfb049aa11a",
+      "specialists": {
+        "gesture": "unknown",
+        "hands": [
+          {
+            "bbox": [
+              0.276,
+              0.197,
+              0.54,
+              0.708
+            ],
+            "object_candidate": "unknown",
+            "overlapping_objects": []
+          }
+        ],
+        "detected_objects": [
+          {
+            "label": "person",
+            "score": 0.828
+          }
+        ],
+        "recent_gesture_changes": []
+      },
+      "roi_cache": null
+    },
+    {
+      "id": 15,
+      "requested_t": 54,
+      "source_t": 53.90184462962963,
+      "available_at": 53.90212059899932,
+      "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/15-full.png",
+      "frame_sha256": "7db30c8b80278f6b77369b7c05ed80b5b2aa9074719d3f207bf73f94a5051a88",
+      "specialists": {
+        "gesture": "unknown",
+        "hands": [],
+        "detected_objects": [
+          {
+            "label": "person",
+            "score": 0.939
+          },
+          {
+            "label": "tv",
+            "score": 0.513
+          },
+          {
+            "label": "tv",
+            "score": 0.389
+          }
+        ],
+        "recent_gesture_changes": []
+      },
+      "roi_cache": {
+        "text": "A man holding his hands up in front of his face.",
+        "status": "unverified_model_caption",
+        "image_age_s": 2.381,
+        "request_id": 14
+      }
+    },
+    {
+      "id": 16,
+      "requested_t": 65,
+      "source_t": 64.94198148148148,
+      "available_at": 64.9424940070021,
+      "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/16-full.png",
+      "frame_sha256": "ca9c8943aa006510e419c71d9b4ad1d8d2ad717c2afc0764b77cfa730f7047bc",
+      "specialists": {
+        "gesture": "unknown",
+        "hands": [],
+        "detected_objects": [
+          {
+            "label": "person",
+            "score": 0.942
+          }
+        ],
+        "recent_gesture_changes": []
+      },
+      "roi_cache": null
+    },
+    {
+      "id": 17,
+      "requested_t": 80,
+      "source_t": 79.87863722222222,
+      "available_at": 79.87889014399843,
+      "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/17-full.png",
+      "frame_sha256": "7cd330fde540eef088993709810bce7da70bc82c348ccec0b6ae61dba30c0e8d",
+      "specialists": {
+        "gesture": "unknown",
+        "hands": [],
+        "detected_objects": [
+          {
+            "label": "person",
+            "score": 0.938
+          },
+          {
+            "label": "tv",
+            "score": 0.45
+          }
+        ],
+        "recent_gesture_changes": []
+      },
+      "roi_cache": null
+    }
+  ]
+}

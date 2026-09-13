@@ -6,6 +6,102 @@ Personal Runtime until it passes the existing Observation and evidence gates.
 
 ## Owner-confirmed next validation order
 
+Latest scope, 2026-09-13 11:29: keep the immediate probe model-only and externally
+simple. One resident-model runner should consume existing chronological video
+frames with a neutral prompt and report action order, starting/ending states,
+hallucinations and complete-response latency against the 8–10 s screening budget.
+Do not make scheduling, caching, specialist fusion, audio integration or Runtime
+engineering prerequisites. The long-running audiovisual product context below
+remains valid, but its full system validation is deferred until model capability
+is established. No model execution is reported by this documentation update.
+
+Owner clarification, 2026-09-13 11:28: this is a continuously operating audiovisual
+Edge, not on-demand clip acquisition. Judge the 8–10 s local research budget by
+new observable change to correct understanding update during sustained input,
+including scheduling delay, coverage gaps, stale outputs, cross-window continuity
+and concurrent audio workload. Historical media is already buffered. Isolated
+clip benchmarks are preliminary component checks only; a six-second request may
+still produce approximately twelve-second update delay in a serialized loop.
+Use causal long-stream replay and sustained operation for later system validation;
+the 11:29 scope clarification above limits the immediate step to model capability.
+
+Latest research request, 2026-09-13 11:21: revisit local Orin Nano Super models
+with actual multi-frame context understanding and useful responses within 8–10 s.
+The [new model review](../research/2026-09-13-camera-edge-fast-multiframe-models.md)
+recommends first reproducing the provider-tested Cosmos-Reason2-2B W4A16 Edge2 /
+FlashHead video recipe, with Qwen3-VL-2B + TensorRT Edge-LLM as an independent
+comparison and SmolVLM2 / Qwen3.5 small models as alternatives. This is research
+and proposed validation order, not owner selection of a model or a device run.
+Provider mean video latency is not local semantic quality, P95 or a worst-case
+guarantee. Preserve full action coverage and measure time to completed usable
+perception. The original five-second v2 P95 gate and prior API option remain;
+no deployment, purchase, upload or acceptance change is implied.
+
+Latest direction, 2026-09-13 11:08: following the owner's 10:59 preference for
+usage-based API spending before buying inference hardware, assess a hosted API
+for fast audiovisual understanding. Direct audiovisual conversation and speech
+generation are not requirements. The API should return bounded perception and
+short-window temporal candidates tied to input evidence/time, preserving unknown;
+Personal Runtime owns global context, durable memory, cross-device integration
+and response/action decisions. Selected task context may accompany inference
+requests without transferring memory ownership. Provider/model, budget, transport,
+streaming versus request mode, and implementation placement remain open. Evaluate
+semantic quality, network-inclusive time to usable perception results and measured
+usage cost. Existing Observation/evidence admission gates still apply. No API
+implementation, paid call, media upload or deployment occurred; retain the local
+research below as comparisons.
+
+Latest selection preference, 2026-09-13 10:55: the owner leans toward prioritizing
+complex contextual understanding and useful response speed over minimum memory
+and hardware cost. The current Jetson capacity is no longer the sole basis for
+candidate selection. Budget and local/remote compute placement remain unspecified;
+this preference does not authorize purchases, paid services or deployment.
+Keep the small-model experiments below as evidence and comparison baselines,
+not a locked final route. Measure time to a valid semantic result, including the
+complete pipeline; a fast acknowledgement does not satisfy the latency goal.
+
+Immediate research focus, 2026-09-13: the owner requested investigating improvement
+through repeated feedback before advancing the temporal candidates below. The
+[feedback-learning review](../research/2026-09-13-camera-edge-feedback-learning.md)
+compares confirmed visual exemplar/prototype memory, VLM personalization and
+teacher-supervised continual specialist updates. These are research candidates;
+no learning loop, data collection or new device experiment has been authorized
+by this research request or implemented. The temporal gap remains open.
+
+Earlier owner preference, 2026-09-13: the multi-stage combination of specialist
+models, unknown-triggered MobileVLM V2 ROI supplementation, and whole-scene
+MobileVLM V2 understanding/natural-language expression is currently the most
+feasible Camera Edge candidate under the then-current constraints in the owner's
+assessment; reconsider selection under the updated priorities above. Preserve the measured
+failures of the tested prompt/context recipe without treating them as rejection
+of this direction. In addition to recognition quality, evaluate whether the final
+stage expresses supported information faithfully and concisely, preserves unknown
+and current/history distinctions, and keeps candidates unconfirmed. Live latency
+and Runtime acceptance remain pending. This update starts no new experiment.
+
+Temporal understanding is the next improvement priority (owner-confirmed
+2026-09-13). The [2026-09-13 literature review](../research/2026-09-13-camera-edge-temporal-understanding.md)
+identifies current-state/event-memory separation and an Online TSM action expert
+as proposed independent comparisons, with TeSTra and learned VLM memory bridges
+as further research options. These are literature-based recommendations, not
+implemented or approved model selections. Existing gesture-transition logs, bounded wave rules, ROI caching
+and asynchronous deduplication are partial temporal mechanisms; they do not
+establish reliable understanding of an action sequence. Follow-up evaluation
+must check same-person/object continuity, action onset/order/end, correct
+past-versus-current attribution, and invalidation of stale descriptions.
+Natural-language output must faithfully express supported transitions and retain
+unknown when observations are missing or ambiguous. In particular, hand loss
+must not automatically become a lowering/put-down event, and a historical gesture
+must not override the current one. Validate on new labeled sequences; retain
+live five-second event-label P95 and Runtime gates. No such improvement is
+implemented or accepted by this documentation update.
+
+Face specialist scope: the initial temporal probe used MediaPipe face detection
+and 468-point landmarks for geometric reference/local association. It did not
+implement biometric identity, validated head orientation or gaze targets. The
+later gesture/object expansion and whole-scene context experiment did not include
+that face module; its contribution to the preferred combined route is untested.
+
 The owner explicitly corrected the next-route order after the direct-JSON
 supplement. The earlier suggestion to advance the specialist-plus-MobileVLM
 combination first is superseded. Route 1 now has a completed bounded specialist/temporal probe: a new one-minute
@@ -40,6 +136,18 @@ that P95 or sustained live reliability. Model choices and scheduling budgets
 remain to be verified, not newly accepted by this order update.
 
 ### Route 2: later specialist-plus-image-VLM comparison
+
+2026-09-13 owner-requested whole-scene follow-up is complete as a bounded
+[specialist + ROI-cache + full-image MobileVLM comparison](../ops/jetson-specialist-context-validation.md).
+Eighteen preselected reused images, three arms and two repeats (108 generations)
+preserve causal cache availability. Phone naming remained 4/4 and screwdriver
+0/4 in every arm. Explicit gesture naming was 2/6 image-only versus 1/6 in both
+context arms; target-error frames were 5/18, 5/18 and 6/18. Across seven cached
+cases, adding ROI text removed one target error and introduced two. The concrete
+recipe has no demonstrated net semantic benefit; current/history confusion,
+wrong-cache propagation and short-gap stale captions remain unresolved.
+Earlier conditional ROI usefulness is retained. This is not integrated live
+scheduling or acceptance; second-stage median/P95 2.083/3.610 s excludes stage one.
 
 2026-09-12 scheduling follow-up: [single-flight ROI replay](../ops/jetson-roi-singleflight-validation.md)
 now implements one in-flight request, latest-only observations, stale-result

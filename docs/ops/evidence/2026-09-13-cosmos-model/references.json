@@ -1,0 +1,285 @@
+{
+  "source_sha256": "c5b1e31ee2cad15472fc20996adc3f2ff898ff018eb1b2b5c0af063195d97728",
+  "source": "/home/jetson/openhalo-specialist-expanded/fresh-2157/capture.mp4",
+  "limitations": [
+    "Reused recording, not independent holdout",
+    "No mouse observed in inspected samples",
+    "No confirmed greeting-wave reference"
+  ],
+  "cases": [
+    {
+      "id": "c01",
+      "source_start_s": 3.0,
+      "source_end_s": 5.5,
+      "reference": "phone front held in hand",
+      "sha256": "a676228435fa9c1a4ceb351350070fbd10dd8cbbfa2785fdfa6a708e4dacd550",
+      "probe": {
+        "programs": [],
+        "streams": [
+          {
+            "width": 1280,
+            "height": 720,
+            "r_frame_rate": "4/1",
+            "nb_frames": "10"
+          }
+        ],
+        "format": {
+          "duration": "2.500000"
+        }
+      }
+    },
+    {
+      "id": "c02",
+      "source_start_s": 10.0,
+      "source_end_s": 14.5,
+      "reference": "screwdriver held and rotated, then hand lowered",
+      "sha256": "0d37f6941950ad0342b1c3976392f2e1aa1b099fc4c42c2605dd9378f8574564",
+      "probe": {
+        "programs": [],
+        "streams": [
+          {
+            "width": 1280,
+            "height": 720,
+            "r_frame_rate": "4/1",
+            "nb_frames": "18"
+          }
+        ],
+        "format": {
+          "duration": "4.500000"
+        }
+      }
+    },
+    {
+      "id": "c03",
+      "source_start_s": 19.5,
+      "source_end_s": 21.0,
+      "reference": "visibly empty open palm, then lowered; waving not established",
+      "sha256": "f82e44c401a4a229d970931d9e61c5ee5f192657d68192cf3be26dcda79bed0a",
+      "probe": {
+        "programs": [],
+        "streams": [
+          {
+            "width": 1280,
+            "height": 720,
+            "r_frame_rate": "4/1",
+            "nb_frames": "6"
+          }
+        ],
+        "format": {
+          "duration": "1.500000"
+        }
+      }
+    },
+    {
+      "id": "c04",
+      "source_start_s": 29.0,
+      "source_end_s": 31.2,
+      "reference": "empty closed fist",
+      "sha256": "7816357acaeec635f81cdba3ccbcb8a52ca613e5d1ae51ce2baec8973447fc1d",
+      "probe": {
+        "programs": [],
+        "streams": [
+          {
+            "width": 1280,
+            "height": 720,
+            "r_frame_rate": "4/1",
+            "nb_frames": "9"
+          }
+        ],
+        "format": {
+          "duration": "2.250000"
+        }
+      }
+    },
+    {
+      "id": "c05",
+      "source_start_s": 32.0,
+      "source_end_s": 33.4,
+      "reference": "thumbs-up, no held object",
+      "sha256": "3514794ea5a6aeca5717a2e9b608665b78e881c38cd2b9c172fe2d68946eec00",
+      "probe": {
+        "programs": [],
+        "streams": [
+          {
+            "width": 1280,
+            "height": 720,
+            "r_frame_rate": "4/1",
+            "nb_frames": "6"
+          }
+        ],
+        "format": {
+          "duration": "1.500000"
+        }
+      }
+    },
+    {
+      "id": "c06",
+      "source_start_s": 34.0,
+      "source_end_s": 35.4,
+      "reference": "V gesture, no held object",
+      "sha256": "1d05176a7cdd9e2c3be239b0e3989957de1f4ddb271856776f676ffc1ac7bc82",
+      "probe": {
+        "programs": [],
+        "streams": [
+          {
+            "width": 1280,
+            "height": 720,
+            "r_frame_rate": "4/1",
+            "nb_frames": "6"
+          }
+        ],
+        "format": {
+          "duration": "1.500000"
+        }
+      }
+    },
+    {
+      "id": "c07",
+      "source_start_s": 39.0,
+      "source_end_s": 40.5,
+      "reference": "phone back held in hand",
+      "sha256": "118aa03e345036f14a06f46b5e77c0b76a926ea40b17da246f67079d65b7ff2f",
+      "probe": {
+        "programs": [],
+        "streams": [
+          {
+            "width": 1280,
+            "height": 720,
+            "r_frame_rate": "4/1",
+            "nb_frames": "6"
+          }
+        ],
+        "format": {
+          "duration": "1.500000"
+        }
+      }
+    },
+    {
+      "id": "c08",
+      "source_start_s": 44.0,
+      "source_end_s": 48.5,
+      "reference": "screwdriver held in hand",
+      "sha256": "6d1e3fe8538876c6505e6a0277d52768403256b90e2b5ccbf6f7188e64cc15de",
+      "probe": {
+        "programs": [],
+        "streams": [
+          {
+            "width": 1280,
+            "height": 720,
+            "r_frame_rate": "4/1",
+            "nb_frames": "18"
+          }
+        ],
+        "format": {
+          "duration": "4.500000"
+        }
+      }
+    },
+    {
+      "id": "c09",
+      "source_start_s": 51.0,
+      "source_end_s": 53.0,
+      "reference": "visibly empty open palm after object put down",
+      "sha256": "d7c6ec0d161c61b8b3d820304e5d6b15258e0bce1c84eb690fe561923e3b1739",
+      "probe": {
+        "programs": [],
+        "streams": [
+          {
+            "width": 1280,
+            "height": 720,
+            "r_frame_rate": "4/1",
+            "nb_frames": "8"
+          }
+        ],
+        "format": {
+          "duration": "2.000000"
+        }
+      }
+    },
+    {
+      "id": "c10",
+      "source_start_s": 26.5,
+      "source_end_s": 36.0,
+      "reference": "hand initially down; open palm -> fist -> thumbs-up -> V, beginning to lower at end",
+      "sha256": "d94ea7966509bf3f617667ec67fa5fce051b0f3d8107c51767d7147b931ff563",
+      "probe": {
+        "programs": [],
+        "streams": [
+          {
+            "width": 1280,
+            "height": 720,
+            "r_frame_rate": "4/1",
+            "nb_frames": "38"
+          }
+        ],
+        "format": {
+          "duration": "9.500000"
+        }
+      }
+    },
+    {
+      "id": "c11",
+      "source_start_s": 36.0,
+      "source_end_s": 43.0,
+      "reference": "raise phone, show front/back, lower out of view",
+      "sha256": "a822a301d10fee79ff61ae152b4a2deadec1e6521373238e1b583f07bbcb4eeb",
+      "probe": {
+        "programs": [],
+        "streams": [
+          {
+            "width": 1280,
+            "height": 720,
+            "r_frame_rate": "4/1",
+            "nb_frames": "28"
+          }
+        ],
+        "format": {
+          "duration": "7.000000"
+        }
+      }
+    },
+    {
+      "id": "c12",
+      "source_start_s": 43.0,
+      "source_end_s": 54.0,
+      "reference": "show screwdriver, lower it, show empty palm, lower hand",
+      "sha256": "1b9371e005da5efafcee18ffe1f67b2f3712b2830063c5e9f28707a15ddc38db",
+      "probe": {
+        "programs": [],
+        "streams": [
+          {
+            "width": 1280,
+            "height": 720,
+            "r_frame_rate": "4/1",
+            "nb_frames": "44"
+          }
+        ],
+        "format": {
+          "duration": "11.000000"
+        }
+      }
+    },
+    {
+      "id": "c13",
+      "source_start_s": 55.0,
+      "source_end_s": 58.0,
+      "reference": "hands not clearly visible; empty-hand state not established",
+      "sha256": "23c1792c9175701d6c8725783c43fc1003eb714fdea87b07a8cf60a7aae3619b",
+      "probe": {
+        "programs": [],
+        "streams": [
+          {
+            "width": 1280,
+            "height": 720,
+            "r_frame_rate": "4/1",
+            "nb_frames": "12"
+          }
+        ],
+        "format": {
+          "duration": "3.000000"
+        }
+      }
+    }
+  ],
+  "reference_review": "Before model inference: clip start/middle/end reviewed; lowered ending states clarified."
+}

@@ -1,0 +1,61 @@
+{
+  "images": 18,
+  "cache_present": 7,
+  "formal_generations": 108,
+  "arms": {
+    "image": {
+      "min_s": 1.774757186009083,
+      "median_s": 2.175698570004897,
+      "p95_s": 3.4111201144987717,
+      "max_s": 3.6373533249716274,
+      "token_limit": 0,
+      "repeat_matching_images": 18,
+      "review": {
+        "object_correct": 4,
+        "gesture_correct": 2,
+        "empty_confirmed": 0,
+        "target_error": 5,
+        "other_error": 1
+      }
+    },
+    "specialists": {
+      "min_s": 1.7955359269981273,
+      "median_s": 1.941275442019105,
+      "p95_s": 3.609799001729698,
+      "max_s": 4.241994432988577,
+      "token_limit": 0,
+      "repeat_matching_images": 18,
+      "review": {
+        "object_correct": 4,
+        "gesture_correct": 1,
+        "empty_confirmed": 0,
+        "target_error": 5,
+        "other_error": 2
+      }
+    },
+    "cascade": {
+      "min_s": 1.7896717739640735,
+      "median_s": 2.0827272065216675,
+      "p95_s": 3.61046545150748,
+      "max_s": 4.227405153971631,
+      "token_limit": 0,
+      "repeat_matching_images": 18,
+      "review": {
+        "object_correct": 4,
+        "gesture_correct": 1,
+        "empty_confirmed": 0,
+        "target_error": 6,
+        "other_error": 1
+      }
+    }
+  },
+  "hashes": {
+    "report": "3bfb04eaaef94925019722d2728d76d5fcbcb35a9eb5de7b40f6ff56219a2fea",
+    "reference": "f1ff7553d71173e0c4cebdb7a64491955e04648f52de6416302dfdd1bb09adf2"
+  },
+  "resources": {
+    "ram_peak_mb": 6970,
+    "swap_min_mb": 907,
+    "swap_max_mb": 919
+  }
+}

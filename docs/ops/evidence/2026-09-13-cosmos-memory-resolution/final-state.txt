@@ -1,0 +1,13 @@
+Sun Sep 13 01:10:28 PM CST 2026
+               total        used        free      shared  buff/cache   available
+Mem:            7619        2539        4692           7         387        4848
+Swap:           8191         597        7594
+NAME          TYPE       SIZE      USED PRIO
+/var/8GB.swap file 8589930496 626925568   -2
+inactive
+inactive
+inactive
+MemAvailable:    4965320 kB
+Slab:            1025256 kB
+SUnreclaim:       937888 kB
+kmalloc-256       3367134 3379808    256   16    1 : tunables    0    0    0 : slabdata 211238 211238      0

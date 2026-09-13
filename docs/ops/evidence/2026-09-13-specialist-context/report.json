@@ -1,0 +1,2001 @@
+{
+  "status": "completed",
+  "manifest_sha256": "da9a0a80f9ce34bbefb6a529b4a82b0a7746b5fc3f5df17749e372ba877cd0e9",
+  "manifest": {
+    "selection": "18 predeclared timestamps; no generation-output selection; reused development video",
+    "times": [
+      4,
+      5,
+      11,
+      13,
+      19,
+      21,
+      30,
+      32.5,
+      35,
+      36.5,
+      39,
+      40.5,
+      46,
+      48,
+      52.5,
+      54,
+      65,
+      80
+    ],
+    "source_hashes": {
+      "/home/jetson/openhalo-specialist-expanded/run-fresh-v1/report.json": "8bd10fa6b39c23ec5c8151c29fa60d6b8f0c7b15178ed1932049c951d5c67813",
+      "/home/jetson/openhalo-roi-singleflight/run-v2/report.json": "9b425a40cddfd61b824d55d3cf4f5795531cb95eb09957e66b22146c2d670622"
+    },
+    "video_sha256": "c5b1e31ee2cad15472fc20996adc3f2ff898ff018eb1b2b5c0af063195d97728",
+    "prepare_sha256": "8e488723447d1df8468f01e9bbe67b7923ea3d0baa39592cc4921a47cd1aa7a4",
+    "cases": [
+      {
+        "id": 0,
+        "requested_t": 4,
+        "source_t": 3.8965188888888886,
+        "available_at": 3.9871513660182245,
+        "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/00-full.png",
+        "frame_sha256": "359cc770443803ea6e79c337ae5a77783a5ee31e7cd95941a70fd11878814627",
+        "specialists": {
+          "gesture": "unknown",
+          "hands": [
+            {
+              "bbox": [
+                0.269,
+                0.4,
+                0.313,
+                0.642
+              ],
+              "object_candidate": "unknown",
+              "overlapping_objects": [
+                {
+                  "label": "cell phone",
+                  "score": 0.685
+                },
+                {
+                  "label": "tv",
+                  "score": 0.488
+                }
+              ]
+            },
+            {
+              "bbox": [
+                0.274,
+                0.395,
+                0.44,
+                0.789
+              ],
+              "object_candidate": "unknown",
+              "overlapping_objects": [
+                {
+                  "label": "cell phone",
+                  "score": 0.685
+                },
+                {
+                  "label": "tv",
+                  "score": 0.488
+                }
+              ]
+            }
+          ],
+          "detected_objects": [
+            {
+              "label": "person",
+              "score": 0.932
+            },
+            {
+              "label": "cell phone",
+              "score": 0.685
+            },
+            {
+              "label": "tv",
+              "score": 0.488
+            }
+          ],
+          "recent_gesture_changes": []
+        },
+        "roi_cache": null
+      },
+      {
+        "id": 1,
+        "requested_t": 5,
+        "source_t": 4.762411975308642,
+        "available_at": 4.822883881046437,
+        "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/01-full.png",
+        "frame_sha256": "b22139bcf37be46e6cbf4d84db558585a705ffcd2ad1e0bccc26992d619b4106",
+        "specialists": {
+          "gesture": "unknown",
+          "hands": [
+            {
+              "bbox": [
+                0.272,
+                0.4,
+                0.322,
+                0.636
+              ],
+              "object_candidate": "unknown",
+              "overlapping_objects": [
+                {
+                  "label": "cell phone",
+                  "score": 0.922
+                },
+                {
+                  "label": "tv",
+                  "score": 0.36
+                }
+              ]
+            },
+            {
+              "bbox": [
+                0.274,
+                0.397,
+                0.439,
+                0.765
+              ],
+              "object_candidate": "unknown",
+              "overlapping_objects": [
+                {
+                  "label": "cell phone",
+                  "score": 0.922
+                },
+                {
+                  "label": "tv",
+                  "score": 0.36
+                }
+              ]
+            }
+          ],
+          "detected_objects": [
+            {
+              "label": "cell phone",
+              "score": 0.922
+            },
+            {
+              "label": "person",
+              "score": 0.921
+            },
+            {
+              "label": "tv",
+              "score": 0.36
+            }
+          ],
+          "recent_gesture_changes": []
+        },
+        "roi_cache": null
+      },
+      {
+        "id": 2,
+        "requested_t": 11,
+        "source_t": 10.823663580246913,
+        "available_at": 10.889479255012702,
+        "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/02-full.png",
+        "frame_sha256": "7087cd6eac44eef6cd5b0c1c6ff30e78d9ba247d21c72725250e7fa5bb11d6d8",
+        "specialists": {
+          "gesture": "unknown",
+          "hands": [
+            {
+              "bbox": [
+                0.253,
+                0.412,
+                0.422,
+                0.78
+              ],
+              "object_candidate": "unknown",
+              "overlapping_objects": []
+            }
+          ],
+          "detected_objects": [
+            {
+              "label": "person",
+              "score": 0.907
+            }
+          ],
+          "recent_gesture_changes": []
+        },
+        "roi_cache": null
+      },
+      {
+        "id": 3,
+        "requested_t": 13,
+        "source_t": 12.771923024691358,
+        "available_at": 12.838270773005206,
+        "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/03-full.png",
+        "frame_sha256": "258ae65fc4e36dc525f18fb3443d7f8937b0f8b40df5cc7a134bccc32a80ddd8",
+        "specialists": {
+          "gesture": "unknown",
+          "hands": [
+            {
+              "bbox": [
+                0.248,
+                0.422,
+                0.412,
+                0.786
+              ],
+              "object_candidate": "unknown",
+              "overlapping_objects": []
+            }
+          ],
+          "detected_objects": [
+            {
+              "label": "person",
+              "score": 0.909
+            }
+          ],
+          "recent_gesture_changes": []
+        },
+        "roi_cache": {
+          "text": "A person holding a pink object in their hand.",
+          "status": "unverified_model_caption",
+          "image_age_s": 3.097,
+          "request_id": 3
+        }
+      },
+      {
+        "id": 4,
+        "requested_t": 19,
+        "source_t": 18.833174629629628,
+        "available_at": 18.899791570031084,
+        "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/04-full.png",
+        "frame_sha256": "6ad0e75929a98138ca00f85c5f0d878bf90aede604777c39a6aa83519379a9a3",
+        "specialists": {
+          "gesture": "unknown",
+          "hands": [
+            {
+              "bbox": [
+                0.245,
+                0.203,
+                0.477,
+                0.71
+              ],
+              "object_candidate": "unknown",
+              "overlapping_objects": []
+            }
+          ],
+          "detected_objects": [
+            {
+              "label": "person",
+              "score": 0.923
+            }
+          ],
+          "recent_gesture_changes": []
+        },
+        "roi_cache": null
+      },
+      {
+        "id": 5,
+        "requested_t": 21,
+        "source_t": 20.781434074074074,
+        "available_at": 20.836700646032114,
+        "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/05-full.png",
+        "frame_sha256": "462b228ecfb8ff7b494edfe1508bb8683cc5be84407d6bdcf41c4e9528feeed3",
+        "specialists": {
+          "gesture": "Open_Palm",
+          "hands": [
+            {
+              "bbox": [
+                0.289,
+                0.251,
+                0.5,
+                0.731
+              ],
+              "object_candidate": "unknown",
+              "overlapping_objects": []
+            }
+          ],
+          "detected_objects": [
+            {
+              "label": "person",
+              "score": 0.916
+            }
+          ],
+          "recent_gesture_changes": [
+            {
+              "age_s": 0.22,
+              "previous": "unknown",
+              "current": "Open_Palm"
+            }
+          ]
+        },
+        "roi_cache": {
+          "text": "A man in a white shirt holding his hand up.",
+          "status": "unverified_model_caption",
+          "image_age_s": 2.869,
+          "request_id": 5
+        }
+      },
+      {
+        "id": 6,
+        "requested_t": 30,
+        "source_t": 29.87331148148148,
+        "available_at": 29.968910130031873,
+        "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/06-full.png",
+        "frame_sha256": "3a318f9d0de09e3af2a0e296ca3d3f16a695fa77b7cf9a54e880c74266d198b7",
+        "specialists": {
+          "gesture": "Closed_Fist",
+          "hands": [
+            {
+              "bbox": [
+                0.308,
+                0.512,
+                0.457,
+                0.78
+              ],
+              "object_candidate": "unknown",
+              "overlapping_objects": [
+                {
+                  "label": "donut",
+                  "score": 0.432
+                }
+              ]
+            }
+          ],
+          "detected_objects": [
+            {
+              "label": "person",
+              "score": 0.923
+            },
+            {
+              "label": "tv",
+              "score": 0.472
+            },
+            {
+              "label": "donut",
+              "score": 0.432
+            }
+          ],
+          "recent_gesture_changes": [
+            {
+              "age_s": 0.43,
+              "previous": "unknown",
+              "current": "Closed_Fist"
+            }
+          ]
+        },
+        "roi_cache": null
+      },
+      {
+        "id": 7,
+        "requested_t": 32.5,
+        "source_t": 32.2545174691358,
+        "available_at": 32.288673161005136,
+        "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/07-full.png",
+        "frame_sha256": "3a8a2099cc3692fe96bf93fa430d1bbcdcedb75ba77e6bac8cda377dc6ddf61f",
+        "specialists": {
+          "gesture": "unknown",
+          "hands": [
+            {
+              "bbox": [
+                0.32,
+                0.395,
+                0.49,
+                0.833
+              ],
+              "object_candidate": "unknown",
+              "overlapping_objects": [
+                {
+                  "label": "tv",
+                  "score": 0.47
+                }
+              ]
+            }
+          ],
+          "detected_objects": [
+            {
+              "label": "person",
+              "score": 0.914
+            },
+            {
+              "label": "tv",
+              "score": 0.47
+            }
+          ],
+          "recent_gesture_changes": [
+            {
+              "age_s": 2.81,
+              "previous": "unknown",
+              "current": "Closed_Fist"
+            },
+            {
+              "age_s": 0.65,
+              "previous": "Closed_Fist",
+              "current": "unknown"
+            }
+          ]
+        },
+        "roi_cache": {
+          "text": "A person with their hands in the air.",
+          "status": "unverified_model_caption",
+          "image_age_s": 2.632,
+          "request_id": 8
+        }
+      },
+      {
+        "id": 8,
+        "requested_t": 35,
+        "source_t": 34.85219672839506,
+        "available_at": 34.91719384101452,
+        "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/08-full.png",
+        "frame_sha256": "7f9988e9d1dad71485fe9fb5a450b973737bb46dd1ed0780d743fb4b9e00551d",
+        "specialists": {
+          "gesture": "Victory",
+          "hands": [
+            {
+              "bbox": [
+                0.344,
+                0.371,
+                0.49,
+                0.937
+              ],
+              "object_candidate": "unknown",
+              "overlapping_objects": []
+            },
+            {
+              "bbox": [
+                0.386,
+                0.398,
+                0.487,
+                0.84
+              ],
+              "object_candidate": "unknown",
+              "overlapping_objects": []
+            }
+          ],
+          "detected_objects": [
+            {
+              "label": "person",
+              "score": 0.925
+            }
+          ],
+          "recent_gesture_changes": [
+            {
+              "age_s": 3.25,
+              "previous": "Closed_Fist",
+              "current": "unknown"
+            },
+            {
+              "age_s": 2.16,
+              "previous": "unknown",
+              "current": "Thumb_Up"
+            },
+            {
+              "age_s": 0.65,
+              "previous": "Thumb_Up",
+              "current": "Victory"
+            }
+          ]
+        },
+        "roi_cache": null
+      },
+      {
+        "id": 9,
+        "requested_t": 36.5,
+        "source_t": 36.36750962962963,
+        "available_at": 36.36775707703782,
+        "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/09-full.png",
+        "frame_sha256": "afb08fc3a89cad3b6207417e84aa53d246be4bdf83778fe8f147b01068f3fb58",
+        "specialists": {
+          "gesture": "unknown",
+          "hands": [],
+          "detected_objects": [
+            {
+              "label": "person",
+              "score": 0.943
+            },
+            {
+              "label": "tv",
+              "score": 0.487
+            }
+          ],
+          "recent_gesture_changes": [
+            {
+              "age_s": 3.68,
+              "previous": "unknown",
+              "current": "Thumb_Up"
+            },
+            {
+              "age_s": 2.16,
+              "previous": "Thumb_Up",
+              "current": "Victory"
+            },
+            {
+              "age_s": 0.0,
+              "previous": "Victory",
+              "current": "unknown"
+            }
+          ]
+        },
+        "roi_cache": {
+          "text": "A man in a purple shirt making a peace sign.",
+          "status": "unverified_model_caption",
+          "image_age_s": 2.598,
+          "request_id": 9
+        }
+      },
+      {
+        "id": 10,
+        "requested_t": 39,
+        "source_t": 38.74871561728395,
+        "available_at": 38.807093284034636,
+        "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/10-full.png",
+        "frame_sha256": "ec4958c0b8d4421e6935e58200c549b4d146bc62b18cf2006142895294d7eae1",
+        "specialists": {
+          "gesture": "unknown",
+          "hands": [
+            {
+              "bbox": [
+                0.393,
+                0.365,
+                0.561,
+                0.763
+              ],
+              "object_candidate": "unknown",
+              "overlapping_objects": []
+            }
+          ],
+          "detected_objects": [
+            {
+              "label": "person",
+              "score": 0.883
+            },
+            {
+              "label": "tv",
+              "score": 0.46
+            }
+          ],
+          "recent_gesture_changes": [
+            {
+              "age_s": 2.38,
+              "previous": "Victory",
+              "current": "unknown"
+            }
+          ]
+        },
+        "roi_cache": null
+      },
+      {
+        "id": 11,
+        "requested_t": 40.5,
+        "source_t": 40.264028518518515,
+        "available_at": 40.29243172501447,
+        "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/11-full.png",
+        "frame_sha256": "0bae821d752b54e505f62ddb47f9dd2f44817dfb2c1bcc2c38ef09a0d16c1c30",
+        "specialists": {
+          "gesture": "unknown",
+          "hands": [
+            {
+              "bbox": [
+                0.365,
+                0.326,
+                0.539,
+                0.802
+              ],
+              "object_candidate": "unknown",
+              "overlapping_objects": [
+                {
+                  "label": "tv",
+                  "score": 0.51
+                }
+              ]
+            }
+          ],
+          "detected_objects": [
+            {
+              "label": "person",
+              "score": 0.939
+            },
+            {
+              "label": "tv",
+              "score": 0.51
+            }
+          ],
+          "recent_gesture_changes": [
+            {
+              "age_s": 3.9,
+              "previous": "Victory",
+              "current": "unknown"
+            }
+          ]
+        },
+        "roi_cache": {
+          "text": "A man holding a cell phone in front of a projector.",
+          "status": "unverified_model_caption",
+          "image_age_s": 2.41,
+          "request_id": 10
+        }
+      },
+      {
+        "id": 12,
+        "requested_t": 46,
+        "source_t": 45.89233358024691,
+        "available_at": 45.986551678040996,
+        "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/12-full.png",
+        "frame_sha256": "b7e71b6747173c7c30ffd89a734f8d6b4b68cf5afa26cd168aac0cd39140bd60",
+        "specialists": {
+          "gesture": "unknown",
+          "hands": [
+            {
+              "bbox": [
+                0.263,
+                0.339,
+                0.419,
+                0.734
+              ],
+              "object_candidate": "unknown",
+              "overlapping_objects": []
+            }
+          ],
+          "detected_objects": [
+            {
+              "label": "person",
+              "score": 0.924
+            }
+          ],
+          "recent_gesture_changes": []
+        },
+        "roi_cache": null
+      },
+      {
+        "id": 13,
+        "requested_t": 48,
+        "source_t": 47.84059302469136,
+        "available_at": 47.9312909040018,
+        "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/13-full.png",
+        "frame_sha256": "83a2f501c19ac1a8c63259a64c4c7085a10b5ff16e8d33a79c30155f934b2e5d",
+        "specialists": {
+          "gesture": "unknown",
+          "hands": [
+            {
+              "bbox": [
+                0.295,
+                0.482,
+                0.448,
+                0.832
+              ],
+              "object_candidate": "unknown",
+              "overlapping_objects": []
+            }
+          ],
+          "detected_objects": [
+            {
+              "label": "person",
+              "score": 0.903
+            }
+          ],
+          "recent_gesture_changes": []
+        },
+        "roi_cache": {
+          "text": "A man holding a syringe with a needle.",
+          "status": "unverified_model_caption",
+          "image_age_s": 2.688,
+          "request_id": 12
+        }
+      },
+      {
+        "id": 14,
+        "requested_t": 52.5,
+        "source_t": 52.386531728395056,
+        "available_at": 52.43173210200621,
+        "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/14-full.png",
+        "frame_sha256": "c617d808c7711983fd405be7d89f295588948d690534c579b4bc7bfb049aa11a",
+        "specialists": {
+          "gesture": "unknown",
+          "hands": [
+            {
+              "bbox": [
+                0.276,
+                0.197,
+                0.54,
+                0.708
+              ],
+              "object_candidate": "unknown",
+              "overlapping_objects": []
+            }
+          ],
+          "detected_objects": [
+            {
+              "label": "person",
+              "score": 0.828
+            }
+          ],
+          "recent_gesture_changes": []
+        },
+        "roi_cache": null
+      },
+      {
+        "id": 15,
+        "requested_t": 54,
+        "source_t": 53.90184462962963,
+        "available_at": 53.90212059899932,
+        "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/15-full.png",
+        "frame_sha256": "7db30c8b80278f6b77369b7c05ed80b5b2aa9074719d3f207bf73f94a5051a88",
+        "specialists": {
+          "gesture": "unknown",
+          "hands": [],
+          "detected_objects": [
+            {
+              "label": "person",
+              "score": 0.939
+            },
+            {
+              "label": "tv",
+              "score": 0.513
+            },
+            {
+              "label": "tv",
+              "score": 0.389
+            }
+          ],
+          "recent_gesture_changes": []
+        },
+        "roi_cache": {
+          "text": "A man holding his hands up in front of his face.",
+          "status": "unverified_model_caption",
+          "image_age_s": 2.381,
+          "request_id": 14
+        }
+      },
+      {
+        "id": 16,
+        "requested_t": 65,
+        "source_t": 64.94198148148148,
+        "available_at": 64.9424940070021,
+        "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/16-full.png",
+        "frame_sha256": "ca9c8943aa006510e419c71d9b4ad1d8d2ad717c2afc0764b77cfa730f7047bc",
+        "specialists": {
+          "gesture": "unknown",
+          "hands": [],
+          "detected_objects": [
+            {
+              "label": "person",
+              "score": 0.942
+            }
+          ],
+          "recent_gesture_changes": []
+        },
+        "roi_cache": null
+      },
+      {
+        "id": 17,
+        "requested_t": 80,
+        "source_t": 79.87863722222222,
+        "available_at": 79.87889014399843,
+        "frame": "/home/jetson/openhalo-specialist-context/inputs-v1/media/17-full.png",
+        "frame_sha256": "7cd330fde540eef088993709810bce7da70bc82c348ccec0b6ae61dba30c0e8d",
+        "specialists": {
+          "gesture": "unknown",
+          "hands": [],
+          "detected_objects": [
+            {
+              "label": "person",
+              "score": 0.938
+            },
+            {
+              "label": "tv",
+              "score": 0.45
+            }
+          ],
+          "recent_gesture_changes": []
+        },
+        "roi_cache": null
+      }
+    ]
+  },
+  "question": "Describe what the person is visibly doing and any object visibly held, in one short sentence.",
+  "guidance": "The following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. ",
+  "source_hashes": {
+    "benchmark.py": "b1e048a15c214ebff6220a9688c63e09ff7eb4089095ce249aeb363d35c8f746",
+    "context_session.py": "ca4c71ba7b6ef6643bcfaf3142904160cdf9365616023550b2af4fc179569394",
+    "vlm_session.py": "750a6aaaf6af075c7ca3ed94fa6307d92717346eb8acf47d5236b806e0a16667"
+  },
+  "boundary": "real second-stage VLM; cached causal stage-one measurements and captions; not integrated scheduling or live latency",
+  "cases": [
+    {
+      "id": 0,
+      "source_t": 3.8965188888888886,
+      "runs": [
+        {
+          "arm": "image",
+          "repeat": 0,
+          "text": "The person is holding a cell phone in their hand.",
+          "seconds": 1.8245968200499192,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 0,
+          "text": "The person is holding a cell phone in their hand.",
+          "seconds": 2.056965019030031,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.269,0.4,0.313,0.642],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"cell phone\",\"score\":0.685},{\"label\":\"tv\",\"score\":0.488}]},{\"bbox\":[0.274,0.395,0.44,0.789],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"cell phone\",\"score\":0.685},{\"label\":\"tv\",\"score\":0.488}]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.932},{\"label\":\"cell phone\",\"score\":0.685},{\"label\":\"tv\",\"score\":0.488}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 299,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 0,
+          "text": "The person is holding a cell phone in their hand.",
+          "seconds": 1.9408658409956843,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.269,0.4,0.313,0.642],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"cell phone\",\"score\":0.685},{\"label\":\"tv\",\"score\":0.488}]},{\"bbox\":[0.274,0.395,0.44,0.789],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"cell phone\",\"score\":0.685},{\"label\":\"tv\",\"score\":0.488}]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.932},{\"label\":\"cell phone\",\"score\":0.685},{\"label\":\"tv\",\"score\":0.488}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 299,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 1,
+          "text": "The person is holding a cell phone in their hand.",
+          "seconds": 1.9167586550465785,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.269,0.4,0.313,0.642],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"cell phone\",\"score\":0.685},{\"label\":\"tv\",\"score\":0.488}]},{\"bbox\":[0.274,0.395,0.44,0.789],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"cell phone\",\"score\":0.685},{\"label\":\"tv\",\"score\":0.488}]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.932},{\"label\":\"cell phone\",\"score\":0.685},{\"label\":\"tv\",\"score\":0.488}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 299,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 1,
+          "text": "The person is holding a cell phone in their hand.",
+          "seconds": 1.9216001920285635,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.269,0.4,0.313,0.642],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"cell phone\",\"score\":0.685},{\"label\":\"tv\",\"score\":0.488}]},{\"bbox\":[0.274,0.395,0.44,0.789],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"cell phone\",\"score\":0.685},{\"label\":\"tv\",\"score\":0.488}]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.932},{\"label\":\"cell phone\",\"score\":0.685},{\"label\":\"tv\",\"score\":0.488}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 299,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 1,
+          "text": "The person is holding a cell phone in their hand.",
+          "seconds": 1.7799675159621984,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "source_t": 4.762411975308642,
+      "runs": [
+        {
+          "arm": "specialists",
+          "repeat": 0,
+          "text": "The person is holding a cell phone in their hands.",
+          "seconds": 1.9439987459918484,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.272,0.4,0.322,0.636],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"cell phone\",\"score\":0.922},{\"label\":\"tv\",\"score\":0.36}]},{\"bbox\":[0.274,0.397,0.439,0.765],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"cell phone\",\"score\":0.922},{\"label\":\"tv\",\"score\":0.36}]}],\"detected_objects\":[{\"label\":\"cell phone\",\"score\":0.922},{\"label\":\"person\",\"score\":0.921},{\"label\":\"tv\",\"score\":0.36}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 297,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 0,
+          "text": "The person is holding a cell phone in their hands.",
+          "seconds": 1.9252028199844062,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.272,0.4,0.322,0.636],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"cell phone\",\"score\":0.922},{\"label\":\"tv\",\"score\":0.36}]},{\"bbox\":[0.274,0.397,0.439,0.765],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"cell phone\",\"score\":0.922},{\"label\":\"tv\",\"score\":0.36}]}],\"detected_objects\":[{\"label\":\"cell phone\",\"score\":0.922},{\"label\":\"person\",\"score\":0.921},{\"label\":\"tv\",\"score\":0.36}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 297,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 0,
+          "text": "The person is holding a cell phone in their hands.",
+          "seconds": 1.7781401840038598,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 1,
+          "text": "The person is holding a cell phone in their hands.",
+          "seconds": 1.9438737719901837,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.272,0.4,0.322,0.636],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"cell phone\",\"score\":0.922},{\"label\":\"tv\",\"score\":0.36}]},{\"bbox\":[0.274,0.397,0.439,0.765],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"cell phone\",\"score\":0.922},{\"label\":\"tv\",\"score\":0.36}]}],\"detected_objects\":[{\"label\":\"cell phone\",\"score\":0.922},{\"label\":\"person\",\"score\":0.921},{\"label\":\"tv\",\"score\":0.36}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 297,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 1,
+          "text": "The person is holding a cell phone in their hands.",
+          "seconds": 1.774757186009083,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 1,
+          "text": "The person is holding a cell phone in their hands.",
+          "seconds": 1.9362743130186573,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.272,0.4,0.322,0.636],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"cell phone\",\"score\":0.922},{\"label\":\"tv\",\"score\":0.36}]},{\"bbox\":[0.274,0.397,0.439,0.765],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"cell phone\",\"score\":0.922},{\"label\":\"tv\",\"score\":0.36}]}],\"detected_objects\":[{\"label\":\"cell phone\",\"score\":0.922},{\"label\":\"person\",\"score\":0.921},{\"label\":\"tv\",\"score\":0.36}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 297,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "source_t": 10.823663580246913,
+      "runs": [
+        {
+          "arm": "cascade",
+          "repeat": 0,
+          "text": "The person is holding a small, red object in their hand.",
+          "seconds": 2.14801563200308,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.253,0.412,0.422,0.78],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.907}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 174,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 0,
+          "text": "The person is holding a small, red object in their hand.",
+          "seconds": 2.062293094000779,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 0,
+          "text": "The person is holding a small, red object in their hand.",
+          "seconds": 2.1589987030019984,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.253,0.412,0.422,0.78],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.907}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 174,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 1,
+          "text": "The person is holding a small, red object in their hand.",
+          "seconds": 2.0508054959937,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 1,
+          "text": "The person is holding a small, red object in their hand.",
+          "seconds": 2.1537959210108966,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.253,0.412,0.422,0.78],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.907}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 174,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 1,
+          "text": "The person is holding a small, red object in their hand.",
+          "seconds": 2.1606325889588334,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.253,0.412,0.422,0.78],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.907}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 174,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "source_t": 12.771923024691358,
+      "runs": [
+        {
+          "arm": "image",
+          "repeat": 0,
+          "text": "The person is holding a small, red object in their hand.",
+          "seconds": 2.0500768210040405,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 0,
+          "text": "The person is holding a pen and appears to be in the process of writing.",
+          "seconds": 2.537051040038932,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.248,0.422,0.412,0.786],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.909}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 175,
+          "output_tokens": 17,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 0,
+          "text": "The person is holding a pink object in their hand.",
+          "seconds": 2.0247656000428833,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.248,0.422,0.412,0.786],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.909}],\"recent_gesture_changes\":[],\"roi_cache\":{\"text\":\"A person holding a pink object in their hand.\",\"status\":\"unverified_model_caption\",\"image_age_s\":3.097,\"request_id\":3}}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 223,
+          "output_tokens": 13,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 1,
+          "text": "The person is holding a pen and appears to be in the process of writing.",
+          "seconds": 2.5232219759491272,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.248,0.422,0.412,0.786],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.909}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 175,
+          "output_tokens": 17,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 1,
+          "text": "The person is holding a pink object in their hand.",
+          "seconds": 2.0273225490236655,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.248,0.422,0.412,0.786],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.909}],\"recent_gesture_changes\":[],\"roi_cache\":{\"text\":\"A person holding a pink object in their hand.\",\"status\":\"unverified_model_caption\",\"image_age_s\":3.097,\"request_id\":3}}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 223,
+          "output_tokens": 13,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 1,
+          "text": "The person is holding a small, red object in their hand.",
+          "seconds": 2.047756433021277,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "source_t": 18.833174629629628,
+      "runs": [
+        {
+          "arm": "specialists",
+          "repeat": 0,
+          "text": "The person is holding their hand up in the air.",
+          "seconds": 1.9010716250049882,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.245,0.203,0.477,0.71],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.923}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 174,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 0,
+          "text": "The person is holding their hand up in the air.",
+          "seconds": 1.8898075180477463,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.245,0.203,0.477,0.71],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.923}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 174,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 0,
+          "text": "The person is visibly holding a hand, and there is a hand held object in the image.",
+          "seconds": 2.953264923009556,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 21,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 1,
+          "text": "The person is holding their hand up in the air.",
+          "seconds": 1.900002658017911,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.245,0.203,0.477,0.71],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.923}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 174,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 1,
+          "text": "The person is visibly holding a hand, and there is a hand held object in the image.",
+          "seconds": 2.977623960992787,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 21,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 1,
+          "text": "The person is holding their hand up in the air.",
+          "seconds": 1.8993720400030725,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.245,0.203,0.477,0.71],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.923}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 174,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "source_t": 20.781434074074074,
+      "runs": [
+        {
+          "arm": "cascade",
+          "repeat": 0,
+          "text": "The person is holding their hand up, and there is a table in the background.",
+          "seconds": 2.702358928974718,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"Open_Palm\",\"hands\":[{\"bbox\":[0.289,0.251,0.5,0.731],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.916}],\"recent_gesture_changes\":[{\"age_s\":0.22,\"previous\":\"unknown\",\"current\":\"Open_Palm\"}],\"roi_cache\":{\"text\":\"A man in a white shirt holding his hand up.\",\"status\":\"unverified_model_caption\",\"image_age_s\":2.869,\"request_id\":5}}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 246,
+          "output_tokens": 18,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 0,
+          "text": "The person is visibly holding a cell phone in one hand and waving with the other.",
+          "seconds": 2.839679362019524,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 20,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 0,
+          "text": "The person is holding their hand up in the air.",
+          "seconds": 1.866711126989685,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"Open_Palm\",\"hands\":[{\"bbox\":[0.289,0.251,0.5,0.731],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.916}],\"recent_gesture_changes\":[{\"age_s\":0.22,\"previous\":\"unknown\",\"current\":\"Open_Palm\"}]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 198,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 1,
+          "text": "The person is visibly holding a cell phone in one hand and waving with the other.",
+          "seconds": 2.8361185069661587,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 20,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 1,
+          "text": "The person is holding their hand up in the air.",
+          "seconds": 1.8760622570407577,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"Open_Palm\",\"hands\":[{\"bbox\":[0.289,0.251,0.5,0.731],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.916}],\"recent_gesture_changes\":[{\"age_s\":0.22,\"previous\":\"unknown\",\"current\":\"Open_Palm\"}]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 198,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 1,
+          "text": "The person is holding their hand up, and there is a table in the background.",
+          "seconds": 2.703466330014635,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"Open_Palm\",\"hands\":[{\"bbox\":[0.289,0.251,0.5,0.731],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.916}],\"recent_gesture_changes\":[{\"age_s\":0.22,\"previous\":\"unknown\",\"current\":\"Open_Palm\"}],\"roi_cache\":{\"text\":\"A man in a white shirt holding his hand up.\",\"status\":\"unverified_model_caption\",\"image_age_s\":2.869,\"request_id\":5}}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 246,
+          "output_tokens": 18,
+          "hit_token_limit": false
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "source_t": 29.87331148148148,
+      "runs": [
+        {
+          "arm": "image",
+          "repeat": 0,
+          "text": "The person is holding a hand in the air, and there is a laptop in the background.",
+          "seconds": 2.817825671983883,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 20,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 0,
+          "text": "The person is holding a donut in their hand.",
+          "seconds": 1.9385521380463615,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"Closed_Fist\",\"hands\":[{\"bbox\":[0.308,0.512,0.457,0.78],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"donut\",\"score\":0.432}]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.923},{\"label\":\"tv\",\"score\":0.472},{\"label\":\"donut\",\"score\":0.432}],\"recent_gesture_changes\":[{\"age_s\":0.43,\"previous\":\"unknown\",\"current\":\"Closed_Fist\"}]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 242,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 0,
+          "text": "The person is holding a donut in their hand.",
+          "seconds": 1.9256207920261659,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"Closed_Fist\",\"hands\":[{\"bbox\":[0.308,0.512,0.457,0.78],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"donut\",\"score\":0.432}]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.923},{\"label\":\"tv\",\"score\":0.472},{\"label\":\"donut\",\"score\":0.432}],\"recent_gesture_changes\":[{\"age_s\":0.43,\"previous\":\"unknown\",\"current\":\"Closed_Fist\"}]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 242,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 1,
+          "text": "The person is holding a donut in their hand.",
+          "seconds": 1.929421613982413,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"Closed_Fist\",\"hands\":[{\"bbox\":[0.308,0.512,0.457,0.78],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"donut\",\"score\":0.432}]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.923},{\"label\":\"tv\",\"score\":0.472},{\"label\":\"donut\",\"score\":0.432}],\"recent_gesture_changes\":[{\"age_s\":0.43,\"previous\":\"unknown\",\"current\":\"Closed_Fist\"}]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 242,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 1,
+          "text": "The person is holding a donut in their hand.",
+          "seconds": 1.9064521059626713,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"Closed_Fist\",\"hands\":[{\"bbox\":[0.308,0.512,0.457,0.78],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"donut\",\"score\":0.432}]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.923},{\"label\":\"tv\",\"score\":0.472},{\"label\":\"donut\",\"score\":0.432}],\"recent_gesture_changes\":[{\"age_s\":0.43,\"previous\":\"unknown\",\"current\":\"Closed_Fist\"}]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 242,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 1,
+          "text": "The person is holding a hand in the air, and there is a laptop in the background.",
+          "seconds": 2.8268548370106146,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 20,
+          "hit_token_limit": false
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "source_t": 32.2545174691358,
+      "runs": [
+        {
+          "arm": "specialists",
+          "repeat": 0,
+          "text": "The person is giving a thumbs up gesture.",
+          "seconds": 1.7955359269981273,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.32,0.395,0.49,0.833],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"tv\",\"score\":0.47}]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.914},{\"label\":\"tv\",\"score\":0.47}],\"recent_gesture_changes\":[{\"age_s\":2.81,\"previous\":\"unknown\",\"current\":\"Closed_Fist\"},{\"age_s\":0.65,\"previous\":\"Closed_Fist\",\"current\":\"unknown\"}]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 242,
+          "output_tokens": 11,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 0,
+          "text": "The person is giving a thumbs up gesture.",
+          "seconds": 1.7916428750031628,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.32,0.395,0.49,0.833],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"tv\",\"score\":0.47}]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.914},{\"label\":\"tv\",\"score\":0.47}],\"recent_gesture_changes\":[{\"age_s\":2.81,\"previous\":\"unknown\",\"current\":\"Closed_Fist\"},{\"age_s\":0.65,\"previous\":\"Closed_Fist\",\"current\":\"unknown\"}],\"roi_cache\":{\"text\":\"A person with their hands in the air.\",\"status\":\"unverified_model_caption\",\"image_age_s\":2.632,\"request_id\":8}}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 287,
+          "output_tokens": 11,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 0,
+          "text": "The person is giving a thumbs up, and there is a projector screen in the background.",
+          "seconds": 2.933124264003709,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 21,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 1,
+          "text": "The person is giving a thumbs up gesture.",
+          "seconds": 1.832616709987633,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.32,0.395,0.49,0.833],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"tv\",\"score\":0.47}]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.914},{\"label\":\"tv\",\"score\":0.47}],\"recent_gesture_changes\":[{\"age_s\":2.81,\"previous\":\"unknown\",\"current\":\"Closed_Fist\"},{\"age_s\":0.65,\"previous\":\"Closed_Fist\",\"current\":\"unknown\"}],\"roi_cache\":{\"text\":\"A person with their hands in the air.\",\"status\":\"unverified_model_caption\",\"image_age_s\":2.632,\"request_id\":8}}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 287,
+          "output_tokens": 11,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 1,
+          "text": "The person is giving a thumbs up, and there is a projector screen in the background.",
+          "seconds": 2.958059144031722,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 21,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 1,
+          "text": "The person is giving a thumbs up gesture.",
+          "seconds": 1.8058664170093834,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.32,0.395,0.49,0.833],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"tv\",\"score\":0.47}]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.914},{\"label\":\"tv\",\"score\":0.47}],\"recent_gesture_changes\":[{\"age_s\":2.81,\"previous\":\"unknown\",\"current\":\"Closed_Fist\"},{\"age_s\":0.65,\"previous\":\"Closed_Fist\",\"current\":\"unknown\"}]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 242,
+          "output_tokens": 11,
+          "hit_token_limit": false
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "source_t": 34.85219672839506,
+      "runs": [
+        {
+          "arm": "cascade",
+          "repeat": 0,
+          "text": "The person is holding a thumbs-up sign in their hand.",
+          "seconds": 2.3317903939750977,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"Victory\",\"hands\":[{\"bbox\":[0.344,0.371,0.49,0.937],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]},{\"bbox\":[0.386,0.398,0.487,0.84],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.925}],\"recent_gesture_changes\":[{\"age_s\":3.25,\"previous\":\"Closed_Fist\",\"current\":\"unknown\"},{\"age_s\":2.16,\"previous\":\"unknown\",\"current\":\"Thumb_Up\"},{\"age_s\":0.65,\"previous\":\"Thumb_Up\",\"current\":\"Victory\"}]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 288,
+          "output_tokens": 15,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 0,
+          "text": "The person is holding a peace sign in their hand, and there is a laptop in the background.",
+          "seconds": 2.9530326860258356,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 21,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 0,
+          "text": "The person is holding a thumbs-up sign in their hand.",
+          "seconds": 2.350464303046465,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"Victory\",\"hands\":[{\"bbox\":[0.344,0.371,0.49,0.937],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]},{\"bbox\":[0.386,0.398,0.487,0.84],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.925}],\"recent_gesture_changes\":[{\"age_s\":3.25,\"previous\":\"Closed_Fist\",\"current\":\"unknown\"},{\"age_s\":2.16,\"previous\":\"unknown\",\"current\":\"Thumb_Up\"},{\"age_s\":0.65,\"previous\":\"Thumb_Up\",\"current\":\"Victory\"}]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 288,
+          "output_tokens": 15,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 1,
+          "text": "The person is holding a peace sign in their hand, and there is a laptop in the background.",
+          "seconds": 2.9531342270202003,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 21,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 1,
+          "text": "The person is holding a thumbs-up sign in their hand.",
+          "seconds": 2.344893581001088,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"Victory\",\"hands\":[{\"bbox\":[0.344,0.371,0.49,0.937],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]},{\"bbox\":[0.386,0.398,0.487,0.84],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.925}],\"recent_gesture_changes\":[{\"age_s\":3.25,\"previous\":\"Closed_Fist\",\"current\":\"unknown\"},{\"age_s\":2.16,\"previous\":\"unknown\",\"current\":\"Thumb_Up\"},{\"age_s\":0.65,\"previous\":\"Thumb_Up\",\"current\":\"Victory\"}]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 288,
+          "output_tokens": 15,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 1,
+          "text": "The person is holding a thumbs-up sign in their hand.",
+          "seconds": 2.3287438880070113,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"Victory\",\"hands\":[{\"bbox\":[0.344,0.371,0.49,0.937],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]},{\"bbox\":[0.386,0.398,0.487,0.84],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.925}],\"recent_gesture_changes\":[{\"age_s\":3.25,\"previous\":\"Closed_Fist\",\"current\":\"unknown\"},{\"age_s\":2.16,\"previous\":\"unknown\",\"current\":\"Thumb_Up\"},{\"age_s\":0.65,\"previous\":\"Thumb_Up\",\"current\":\"Victory\"}]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 288,
+          "output_tokens": 15,
+          "hit_token_limit": false
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "source_t": 36.36750962962963,
+      "runs": [
+        {
+          "arm": "image",
+          "repeat": 0,
+          "text": "The person is sitting in front of a computer screen, holding a mouse.",
+          "seconds": 2.3055148380226456,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 16,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 0,
+          "text": "The person is sitting in front of a computer screen, holding a remote control.",
+          "seconds": 2.5190247370046563,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[],\"detected_objects\":[{\"label\":\"person\",\"score\":0.943},{\"label\":\"tv\",\"score\":0.487}],\"recent_gesture_changes\":[{\"age_s\":3.68,\"previous\":\"unknown\",\"current\":\"Thumb_Up\"},{\"age_s\":2.16,\"previous\":\"Thumb_Up\",\"current\":\"Victory\"},{\"age_s\":0.0,\"previous\":\"Victory\",\"current\":\"unknown\"}]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 206,
+          "output_tokens": 17,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 0,
+          "text": "The person is holding a Thumb Up sign.",
+          "seconds": 1.7896717739640735,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[],\"detected_objects\":[{\"label\":\"person\",\"score\":0.943},{\"label\":\"tv\",\"score\":0.487}],\"recent_gesture_changes\":[{\"age_s\":3.68,\"previous\":\"unknown\",\"current\":\"Thumb_Up\"},{\"age_s\":2.16,\"previous\":\"Thumb_Up\",\"current\":\"Victory\"},{\"age_s\":0.0,\"previous\":\"Victory\",\"current\":\"unknown\"}],\"roi_cache\":{\"text\":\"A man in a purple shirt making a peace sign.\",\"status\":\"unverified_model_caption\",\"image_age_s\":2.598,\"request_id\":9}}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 255,
+          "output_tokens": 11,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 1,
+          "text": "The person is sitting in front of a computer screen, holding a remote control.",
+          "seconds": 2.514103294990491,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[],\"detected_objects\":[{\"label\":\"person\",\"score\":0.943},{\"label\":\"tv\",\"score\":0.487}],\"recent_gesture_changes\":[{\"age_s\":3.68,\"previous\":\"unknown\",\"current\":\"Thumb_Up\"},{\"age_s\":2.16,\"previous\":\"Thumb_Up\",\"current\":\"Victory\"},{\"age_s\":0.0,\"previous\":\"Victory\",\"current\":\"unknown\"}]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 206,
+          "output_tokens": 17,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 1,
+          "text": "The person is holding a Thumb Up sign.",
+          "seconds": 1.7963917260058224,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[],\"detected_objects\":[{\"label\":\"person\",\"score\":0.943},{\"label\":\"tv\",\"score\":0.487}],\"recent_gesture_changes\":[{\"age_s\":3.68,\"previous\":\"unknown\",\"current\":\"Thumb_Up\"},{\"age_s\":2.16,\"previous\":\"Thumb_Up\",\"current\":\"Victory\"},{\"age_s\":0.0,\"previous\":\"Victory\",\"current\":\"unknown\"}],\"roi_cache\":{\"text\":\"A man in a purple shirt making a peace sign.\",\"status\":\"unverified_model_caption\",\"image_age_s\":2.598,\"request_id\":9}}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 255,
+          "output_tokens": 11,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 1,
+          "text": "The person is sitting in front of a computer screen, holding a mouse.",
+          "seconds": 2.2891040460090153,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 16,
+          "hit_token_limit": false
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "source_t": 38.74871561728395,
+      "runs": [
+        {
+          "arm": "specialists",
+          "repeat": 0,
+          "text": "The person is holding a cell phone in their hand.",
+          "seconds": 1.8646156550385058,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.393,0.365,0.561,0.763],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.883},{\"label\":\"tv\",\"score\":0.46}],\"recent_gesture_changes\":[{\"age_s\":2.38,\"previous\":\"Victory\",\"current\":\"unknown\"}]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 208,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 0,
+          "text": "The person is holding a cell phone in their hand.",
+          "seconds": 1.8784316920209676,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.393,0.365,0.561,0.763],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.883},{\"label\":\"tv\",\"score\":0.46}],\"recent_gesture_changes\":[{\"age_s\":2.38,\"previous\":\"Victory\",\"current\":\"unknown\"}]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 208,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 0,
+          "text": "The person is holding a cell phone in their hand and taking a picture of themselves.",
+          "seconds": 2.563230536004994,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 18,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 1,
+          "text": "The person is holding a cell phone in their hand.",
+          "seconds": 1.8965545209939592,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.393,0.365,0.561,0.763],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.883},{\"label\":\"tv\",\"score\":0.46}],\"recent_gesture_changes\":[{\"age_s\":2.38,\"previous\":\"Victory\",\"current\":\"unknown\"}]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 208,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 1,
+          "text": "The person is holding a cell phone in their hand and taking a picture of themselves.",
+          "seconds": 2.5777774290181696,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 18,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 1,
+          "text": "The person is holding a cell phone in their hand.",
+          "seconds": 1.8677288920152932,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.393,0.365,0.561,0.763],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.883},{\"label\":\"tv\",\"score\":0.46}],\"recent_gesture_changes\":[{\"age_s\":2.38,\"previous\":\"Victory\",\"current\":\"unknown\"}]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 208,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "source_t": 40.264028518518515,
+      "runs": [
+        {
+          "arm": "cascade",
+          "repeat": 0,
+          "text": "The person is holding a cell phone in front of a projector.",
+          "seconds": 2.3288730950444005,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.365,0.326,0.539,0.802],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"tv\",\"score\":0.51}]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.939},{\"label\":\"tv\",\"score\":0.51}],\"recent_gesture_changes\":[{\"age_s\":3.9,\"previous\":\"Victory\",\"current\":\"unknown\"}],\"roi_cache\":{\"text\":\"A man holding a cell phone in front of a projector.\",\"status\":\"unverified_model_caption\",\"image_age_s\":2.41,\"request_id\":10}}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 268,
+          "output_tokens": 15,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 0,
+          "text": "The person is holding a cell phone in their hand.",
+          "seconds": 1.8013811580021866,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 0,
+          "text": "The person is holding a cell phone in their hand.",
+          "seconds": 1.8764195049880072,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.365,0.326,0.539,0.802],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"tv\",\"score\":0.51}]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.939},{\"label\":\"tv\",\"score\":0.51}],\"recent_gesture_changes\":[{\"age_s\":3.9,\"previous\":\"Victory\",\"current\":\"unknown\"}]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 219,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 1,
+          "text": "The person is holding a cell phone in their hand.",
+          "seconds": 1.787115627026651,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 1,
+          "text": "The person is holding a cell phone in their hand.",
+          "seconds": 1.8714013459975831,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.365,0.326,0.539,0.802],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"tv\",\"score\":0.51}]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.939},{\"label\":\"tv\",\"score\":0.51}],\"recent_gesture_changes\":[{\"age_s\":3.9,\"previous\":\"Victory\",\"current\":\"unknown\"}]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 219,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 1,
+          "text": "The person is holding a cell phone in front of a projector.",
+          "seconds": 2.3350894459872507,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.365,0.326,0.539,0.802],\"object_candidate\":\"unknown\",\"overlapping_objects\":[{\"label\":\"tv\",\"score\":0.51}]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.939},{\"label\":\"tv\",\"score\":0.51}],\"recent_gesture_changes\":[{\"age_s\":3.9,\"previous\":\"Victory\",\"current\":\"unknown\"}],\"roi_cache\":{\"text\":\"A man holding a cell phone in front of a projector.\",\"status\":\"unverified_model_caption\",\"image_age_s\":2.41,\"request_id\":10}}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 268,
+          "output_tokens": 15,
+          "hit_token_limit": false
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "source_t": 45.89233358024691,
+      "runs": [
+        {
+          "arm": "image",
+          "repeat": 0,
+          "text": "The person is holding a small, red object in their hand.",
+          "seconds": 2.041592969035264,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 0,
+          "text": "The person is holding a small, red object in their hand.",
+          "seconds": 2.1460948060266674,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.263,0.339,0.419,0.734],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.924}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 175,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 0,
+          "text": "The person is holding a small, red object in their hand.",
+          "seconds": 2.1406475090188906,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.263,0.339,0.419,0.734],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.924}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 175,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 1,
+          "text": "The person is holding a small, red object in their hand.",
+          "seconds": 2.132903871999588,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.263,0.339,0.419,0.734],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.924}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 175,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 1,
+          "text": "The person is holding a small, red object in their hand.",
+          "seconds": 2.1381318640196696,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.263,0.339,0.419,0.734],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.924}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 175,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 1,
+          "text": "The person is holding a small, red object in their hand.",
+          "seconds": 2.0420537469908595,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "source_t": 47.84059302469136,
+      "runs": [
+        {
+          "arm": "specialists",
+          "repeat": 0,
+          "text": "The person is holding a small object in their hand.",
+          "seconds": 1.9059875889797695,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.295,0.482,0.448,0.832],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.903}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 175,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 0,
+          "text": "The person is holding a syringe with a needle.",
+          "seconds": 2.1600598900113255,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.295,0.482,0.448,0.832],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.903}],\"recent_gesture_changes\":[],\"roi_cache\":{\"text\":\"A man holding a syringe with a needle.\",\"status\":\"unverified_model_caption\",\"image_age_s\":2.688,\"request_id\":12}}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 225,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 0,
+          "text": "The person is holding a small, red object in their hand.",
+          "seconds": 2.0592063199728727,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 1,
+          "text": "The person is holding a syringe with a needle.",
+          "seconds": 2.1606801580055617,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.295,0.482,0.448,0.832],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.903}],\"recent_gesture_changes\":[],\"roi_cache\":{\"text\":\"A man holding a syringe with a needle.\",\"status\":\"unverified_model_caption\",\"image_age_s\":2.688,\"request_id\":12}}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 225,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 1,
+          "text": "The person is holding a small, red object in their hand.",
+          "seconds": 2.0479650300112553,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 1,
+          "text": "The person is holding a small object in their hand.",
+          "seconds": 1.8828257219865918,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.295,0.482,0.448,0.832],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.903}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 175,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "source_t": 52.386531728395056,
+      "runs": [
+        {
+          "arm": "cascade",
+          "repeat": 0,
+          "text": "The person is holding their hand up in the air.",
+          "seconds": 1.8859738020109944,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.276,0.197,0.54,0.708],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.828}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 174,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 0,
+          "text": "The person is holding up their hand in a hand gesture, and there is a bowl and a cup in the background.",
+          "seconds": 3.6373533249716274,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 26,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 0,
+          "text": "The person is holding their hand up in the air.",
+          "seconds": 1.9059126910287887,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.276,0.197,0.54,0.708],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.828}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 174,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 1,
+          "text": "The person is holding up their hand in a hand gesture, and there is a bowl and a cup in the background.",
+          "seconds": 3.596587963984348,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 26,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 1,
+          "text": "The person is holding their hand up in the air.",
+          "seconds": 1.8997206119820476,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.276,0.197,0.54,0.708],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.828}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 174,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 1,
+          "text": "The person is holding their hand up in the air.",
+          "seconds": 1.8943990080151707,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[{\"bbox\":[0.276,0.197,0.54,0.708],\"object_candidate\":\"unknown\",\"overlapping_objects\":[]}],\"detected_objects\":[{\"label\":\"person\",\"score\":0.828}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 174,
+          "output_tokens": 12,
+          "hit_token_limit": false
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "source_t": 53.90184462962963,
+      "runs": [
+        {
+          "arm": "image",
+          "repeat": 0,
+          "text": "The person is sitting in a chair and holding a remote control.",
+          "seconds": 2.039478730002884,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 0,
+          "text": "The person is sitting in a chair and looking at a television.",
+          "seconds": 2.137226982973516,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[],\"detected_objects\":[{\"label\":\"person\",\"score\":0.939},{\"label\":\"tv\",\"score\":0.513},{\"label\":\"tv\",\"score\":0.389}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 155,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 0,
+          "text": "The person is sitting in front of a television, holding their hands up in front of their face.",
+          "seconds": 3.0493639269843698,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[],\"detected_objects\":[{\"label\":\"person\",\"score\":0.939},{\"label\":\"tv\",\"score\":0.513},{\"label\":\"tv\",\"score\":0.389}],\"recent_gesture_changes\":[],\"roi_cache\":{\"text\":\"A man holding his hands up in front of his face.\",\"status\":\"unverified_model_caption\",\"image_age_s\":2.381,\"request_id\":14}}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 205,
+          "output_tokens": 21,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 1,
+          "text": "The person is sitting in a chair and looking at a television.",
+          "seconds": 2.134319384000264,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[],\"detected_objects\":[{\"label\":\"person\",\"score\":0.939},{\"label\":\"tv\",\"score\":0.513},{\"label\":\"tv\",\"score\":0.389}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 155,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 1,
+          "text": "The person is sitting in front of a television, holding their hands up in front of their face.",
+          "seconds": 3.032880653976463,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[],\"detected_objects\":[{\"label\":\"person\",\"score\":0.939},{\"label\":\"tv\",\"score\":0.513},{\"label\":\"tv\",\"score\":0.389}],\"recent_gesture_changes\":[],\"roi_cache\":{\"text\":\"A man holding his hands up in front of his face.\",\"status\":\"unverified_model_caption\",\"image_age_s\":2.381,\"request_id\":14}}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 205,
+          "output_tokens": 21,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 1,
+          "text": "The person is sitting in a chair and holding a remote control.",
+          "seconds": 2.049077456991654,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "source_t": 64.94198148148148,
+      "runs": [
+        {
+          "arm": "specialists",
+          "repeat": 0,
+          "text": "The person is sitting in a chair and looking at a computer screen. There is a computer monitor in the background.",
+          "seconds": 3.4085206519812346,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[],\"detected_objects\":[{\"label\":\"person\",\"score\":0.942}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 129,
+          "output_tokens": 24,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 0,
+          "text": "The person is sitting in a chair and looking at a computer screen. There is a computer monitor in the background.",
+          "seconds": 3.4038896710262634,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[],\"detected_objects\":[{\"label\":\"person\",\"score\":0.942}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 129,
+          "output_tokens": 24,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 0,
+          "text": "The person is sitting in a chair and holding a remote control.",
+          "seconds": 2.0470912169548683,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 1,
+          "text": "The person is sitting in a chair and looking at a computer screen. There is a computer monitor in the background.",
+          "seconds": 3.4099907060153782,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[],\"detected_objects\":[{\"label\":\"person\",\"score\":0.942}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 129,
+          "output_tokens": 24,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 1,
+          "text": "The person is sitting in a chair and holding a remote control.",
+          "seconds": 2.055647171975579,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 14,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 1,
+          "text": "The person is sitting in a chair and looking at a computer screen. There is a computer monitor in the background.",
+          "seconds": 3.4066074280417524,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[],\"detected_objects\":[{\"label\":\"person\",\"score\":0.942}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 129,
+          "output_tokens": 24,
+          "hit_token_limit": false
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "source_t": 79.87863722222222,
+      "runs": [
+        {
+          "arm": "cascade",
+          "repeat": 0,
+          "text": "The person is sitting in a chair and looking at the camera. There is a TV in the background, and a hand is holding a remote.",
+          "seconds": 4.227405153971631,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[],\"detected_objects\":[{\"label\":\"person\",\"score\":0.938},{\"label\":\"tv\",\"score\":0.45}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 141,
+          "output_tokens": 30,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 0,
+          "text": "The person is sitting in front of a projector screen, and there is a remote control in front of him.",
+          "seconds": 3.3492974980035797,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 24,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 0,
+          "text": "The person is sitting in a chair and looking at the camera. There is a TV in the background, and a hand is holding a remote.",
+          "seconds": 4.213634050975088,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[],\"detected_objects\":[{\"label\":\"person\",\"score\":0.938},{\"label\":\"tv\",\"score\":0.45}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 141,
+          "output_tokens": 30,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "image",
+          "repeat": 1,
+          "text": "The person is sitting in front of a projector screen, and there is a remote control in front of him.",
+          "seconds": 3.3351465329760686,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 64,
+          "output_tokens": 24,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "specialists",
+          "repeat": 1,
+          "text": "The person is sitting in a chair and looking at the camera. There is a TV in the background, and a hand is holding a remote.",
+          "seconds": 4.241994432988577,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[],\"detected_objects\":[{\"label\":\"person\",\"score\":0.938},{\"label\":\"tv\",\"score\":0.45}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 141,
+          "output_tokens": 30,
+          "hit_token_limit": false
+        },
+        {
+          "arm": "cascade",
+          "repeat": 1,
+          "text": "The person is sitting in a chair and looking at the camera. There is a TV in the background, and a hand is holding a remote.",
+          "seconds": 4.211889687983785,
+          "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nThe following observations are uncertain candidates. Check them against the image; do not treat them as confirmed facts. {\"gesture\":\"unknown\",\"hands\":[],\"detected_objects\":[{\"label\":\"person\",\"score\":0.938},{\"label\":\"tv\",\"score\":0.45}],\"recent_gesture_changes\":[]}\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+          "input_tokens": 141,
+          "output_tokens": 30,
+          "hit_token_limit": false
+        }
+      ]
+    }
+  ],
+  "model": {
+    "loading_info": {
+      "missing_keys": [],
+      "unexpected_keys": [],
+      "mismatched_keys": [],
+      "error_msgs": []
+    },
+    "nf4_linears": 168,
+    "torch": "2.5.0a0+872d972e41.nv24.08",
+    "transformers": "4.33.1"
+  },
+  "warmup": {
+    "text": "The person is holding a cell phone in their hand.",
+    "seconds": 2.569331520004198,
+    "full_prompt": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image>\nDescribe what the person is visibly doing and any object visibly held, in one short sentence. ASSISTANT:",
+    "input_tokens": 64,
+    "output_tokens": 12,
+    "hit_token_limit": false
+  }
+}

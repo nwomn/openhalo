@@ -1,0 +1,115 @@
+{
+  "model": "embedl/Cosmos-Reason2-2B-W4A16-Edge2-FlashHead",
+  "revision": "9e4e46b4accf298a34d6db02ba637e9ecc175b6c",
+  "files": [
+    {
+      "path": ".gitattributes",
+      "bytes": 1570,
+      "sha256": "34448b82c17d60fec9b65b1f093c115ddbaadc04beb1b0140b6bfed2e012a930",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "README.md",
+      "bytes": 13878,
+      "sha256": "aa0d8ff0a7c96644e0e1055da5f565d88b317d55c54237af081b78dc2d4628ce",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "added_tokens.json",
+      "bytes": 707,
+      "sha256": "c0284b582e14987fbd3d5a2cb2bd139084371ed9acbae488829a1c900833c680",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "chat_template.jinja",
+      "bytes": 5292,
+      "sha256": "3636d0f0bd6bef02654cdffdc447b79cb2cef8ab02cc75267345946291a489e4",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "chat_template.json",
+      "bytes": 5502,
+      "sha256": "6f8a6a55027e3da5160105556cda5dd69f6423f1c32645f6730d32de7773d0c4",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "config.json",
+      "bytes": 7444,
+      "sha256": "2e96a46ea2297fd6dbac2b0c58b224d7ddb29d2d8620edb2771dd1761fb8e243",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "flash_head_assets/clustering_cache.pt",
+      "bytes": 40113277,
+      "sha256": "721ec4b4469a790391bc7a66fde864401ebd0a97711303a6ff39c2fdd87114df",
+      "upstream_lfs_sha256": "721ec4b4469a790391bc7a66fde864401ebd0a97711303a6ff39c2fdd87114df"
+    },
+    {
+      "path": "flash_head_assets/clustering_cache.safetensors",
+      "bytes": 40111288,
+      "sha256": "7a0ec33ba8f0bcecc31426039611e2361375d6dc5bafcee154d74de96d5e214d",
+      "upstream_lfs_sha256": "7a0ec33ba8f0bcecc31426039611e2361375d6dc5bafcee154d74de96d5e214d"
+    },
+    {
+      "path": "flash_head_assets/clustering_config.json",
+      "bytes": 109,
+      "sha256": "a2af88769c630204a0fb4b506d37c8f71529fcfac01aba10ddecf18222def4e1",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "generation_config.json",
+      "bytes": 269,
+      "sha256": "1e241830b48b397cb0900101421df5450baddc7adf01e5fc86b5615865f3bae4",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "merges.txt",
+      "bytes": 1671839,
+      "sha256": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "model.safetensors",
+      "bytes": 2804290608,
+      "sha256": "6f7022d742aa0513cf862aeb03575f4c6cf990dd9939c2106d17d132647dafb6",
+      "upstream_lfs_sha256": "6f7022d742aa0513cf862aeb03575f4c6cf990dd9939c2106d17d132647dafb6"
+    },
+    {
+      "path": "preprocessor_config.json",
+      "bytes": 390,
+      "sha256": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "special_tokens_map.json",
+      "bytes": 613,
+      "sha256": "76862e765266b85aa9459767e33cbaf13970f327a0e88d1c65846c2ddd3a1ecd",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "tokenizer.json",
+      "bytes": 7032403,
+      "sha256": "a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7",
+      "upstream_lfs_sha256": "a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7"
+    },
+    {
+      "path": "tokenizer_config.json",
+      "bytes": 10868,
+      "sha256": "c2da771801886ad9ae98181793ffd3dfb7f1af30f6f7c6a4e15d7dbba52e2399",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "video_preprocessor_config.json",
+      "bytes": 385,
+      "sha256": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "vocab.json",
+      "bytes": 2776833,
+      "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+      "upstream_lfs_sha256": null
+    }
+  ],
+  "elapsed_seconds": 254.83047652244568
+}
