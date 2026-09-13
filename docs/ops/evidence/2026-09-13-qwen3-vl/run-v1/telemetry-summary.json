@@ -1,0 +1,9 @@
+{
+  "formal_samples": 229,
+  "max_ram_mb": 7401,
+  "swap_range_mb": [
+    1176,
+    2039
+  ],
+  "max_tj_c": 75.0
+}

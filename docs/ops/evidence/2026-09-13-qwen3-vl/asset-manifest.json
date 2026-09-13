@@ -1,0 +1,96 @@
+{
+  "model": "cyankiwi/Qwen3-VL-2B-Instruct-AWQ-4bit",
+  "revision": "db40a251bdba88fafabf8f3176e7488ed523ab51",
+  "files": [
+    {
+      "path": ".gitattributes",
+      "bytes": 1519,
+      "sha256": "11ad7efa24975ee4b0c3c3a38ed18737f0658a5f75a0a96787b576a78a023361",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "README.md",
+      "bytes": 7175,
+      "sha256": "4a23c888ff305852436731e4ae7d1c39f567be72dfb84cef37bc958a8c99ecdc",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "chat_template.jinja",
+      "bytes": 5292,
+      "sha256": "3636d0f0bd6bef02654cdffdc447b79cb2cef8ab02cc75267345946291a489e4",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "chat_template.json",
+      "bytes": 5502,
+      "sha256": "6f8a6a55027e3da5160105556cda5dd69f6423f1c32645f6730d32de7773d0c4",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "config.json",
+      "bytes": 7086,
+      "sha256": "78fe7417db3adb56af9bc05ba887516c612bae3dac4642044f37690ce7692061",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "generation_config.json",
+      "bytes": 269,
+      "sha256": "1e241830b48b397cb0900101421df5450baddc7adf01e5fc86b5615865f3bae4",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "merges.txt",
+      "bytes": 1671839,
+      "sha256": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "model.safetensors",
+      "bytes": 2229344344,
+      "sha256": "d93e72c830fddcfc872bbeb37b60c99815b6e3add8af4bf6dd6b75a41724e646",
+      "upstream_lfs_sha256": "d93e72c830fddcfc872bbeb37b60c99815b6e3add8af4bf6dd6b75a41724e646"
+    },
+    {
+      "path": "preprocessor_config.json",
+      "bytes": 390,
+      "sha256": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "processor_config.json",
+      "bytes": 1300,
+      "sha256": "14932921ca485d458a04dafd8069fbb0a4505622a48208d19ed247115801385b",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "recipe.yaml",
+      "bytes": 1099,
+      "sha256": "137d32b114e3fc28cfd7642dd926965da3dd29172d0e5f56584b997ffd5bbdd0",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "tokenizer.json",
+      "bytes": 7032403,
+      "sha256": "a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "tokenizer_config.json",
+      "bytes": 10868,
+      "sha256": "c2da771801886ad9ae98181793ffd3dfb7f1af30f6f7c6a4e15d7dbba52e2399",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "video_preprocessor_config.json",
+      "bytes": 385,
+      "sha256": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13",
+      "upstream_lfs_sha256": null
+    },
+    {
+      "path": "vocab.json",
+      "bytes": 2776833,
+      "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+      "upstream_lfs_sha256": null
+    }
+  ]
+}

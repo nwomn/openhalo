@@ -1,0 +1,143 @@
+[
+  {
+    "profile": "uniform12",
+    "input_sha256": "e675189332990a6256e42c8350745ce487d88e9bd82ac5da89bc56b1d6793d6e",
+    "input_shape": [
+      12,
+      720,
+      1280,
+      3
+    ],
+    "sampled_frame_indices": [
+      0,
+      2,
+      5,
+      7,
+      10,
+      12,
+      15,
+      17,
+      20,
+      22,
+      25,
+      27
+    ],
+    "sampled_times_s": [
+      0.0,
+      0.5,
+      1.25,
+      1.75,
+      2.5,
+      3.0,
+      3.75,
+      4.25,
+      5.0,
+      5.5,
+      6.25,
+      6.75
+    ],
+    "read_decode_resize_s": 0.20863023301353678,
+    "metadata": {
+      "total_num_frames": 28,
+      "fps": 4.0,
+      "duration": 7.0,
+      "video_backend": "opencv",
+      "frames_indices": [
+        0,
+        2,
+        5,
+        7,
+        10,
+        12,
+        15,
+        17,
+        20,
+        22,
+        25,
+        27
+      ],
+      "do_sample_frames": false
+    }
+  },
+  {
+    "profile": "fps1",
+    "input_sha256": "e675189332990a6256e42c8350745ce487d88e9bd82ac5da89bc56b1d6793d6e",
+    "input_shape": [
+      7,
+      720,
+      1280,
+      3
+    ],
+    "sampled_frame_indices": [
+      0,
+      4,
+      8,
+      12,
+      16,
+      20,
+      24
+    ],
+    "sampled_times_s": [
+      0.0,
+      1.0,
+      2.0,
+      3.0,
+      4.0,
+      5.0,
+      6.0
+    ],
+    "read_decode_resize_s": 0.18490320799173787,
+    "metadata": {
+      "total_num_frames": 28,
+      "fps": 4.0,
+      "duration": 7.0,
+      "video_backend": "opencv",
+      "frames_indices": [
+        0,
+        4,
+        8,
+        12,
+        16,
+        20,
+        24
+      ],
+      "do_sample_frames": false
+    }
+  },
+  {
+    "profile": "fps0.5",
+    "input_sha256": "e675189332990a6256e42c8350745ce487d88e9bd82ac5da89bc56b1d6793d6e",
+    "input_shape": [
+      4,
+      720,
+      1280,
+      3
+    ],
+    "sampled_frame_indices": [
+      0,
+      8,
+      16,
+      24
+    ],
+    "sampled_times_s": [
+      0.0,
+      2.0,
+      4.0,
+      6.0
+    ],
+    "read_decode_resize_s": 0.16911646904191002,
+    "metadata": {
+      "total_num_frames": 28,
+      "fps": 4.0,
+      "duration": 7.0,
+      "video_backend": "opencv",
+      "frames_indices": [
+        0,
+        8,
+        16,
+        24
+      ],
+      "do_sample_frames": false
+    }
+  }
+]

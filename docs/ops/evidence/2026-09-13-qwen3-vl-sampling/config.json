@@ -1,0 +1,63 @@
+{
+  "model": "cyankiwi/Qwen3-VL-2B-Instruct-AWQ-4bit",
+  "revision": "db40a251bdba88fafabf8f3176e7488ed523ab51",
+  "clip": "/work/private/sampling-cases-v1/c14.mp4",
+  "source_interval_s": [
+    28.5,
+    35.5
+  ],
+  "clip_seconds": 7,
+  "llm_args": {
+    "model": "/work/assets/runtime-model",
+    "dtype": "auto",
+    "max_model_len": 6144,
+    "max_num_seqs": 1,
+    "max_num_batched_tokens": 2048,
+    "kv_cache_memory_bytes": 805306368,
+    "gpu_memory_utilization": 0.4,
+    "enable_prefix_caching": false,
+    "mm_processor_cache_gb": 0,
+    "swap_space": 0,
+    "async_scheduling": false,
+    "enforce_eager": false,
+    "limit_mm_per_prompt": {
+      "video": {
+        "count": 1,
+        "num_frames": 12,
+        "width": 1280,
+        "height": 720
+      },
+      "image": 0,
+      "audio": 0
+    },
+    "mm_processor_kwargs": {
+      "truncation": false,
+      "do_sample_frames": false
+    },
+    "media_io_kwargs": {
+      "video": {
+        "num_frames": 12,
+        "fps": 4
+      }
+    }
+  },
+  "prompt": "Describe the visible hand gesture and any object visibly held in the hands. If they change, describe the changes in chronological order and the ending state. State when the hands are visibly empty. If the evidence is unclear, say so. Do not guess hidden objects or intentions. Answer concisely.",
+  "decoding": {
+    "temperature": 0.7,
+    "top_p": 0.8,
+    "top_k": 20,
+    "presence_penalty": 1.5,
+    "repetition_penalty": 1.0,
+    "seed": 0,
+    "max_tokens": 96
+  },
+  "profiles": [
+    "uniform12",
+    "fps1",
+    "fps0.5"
+  ],
+  "repeats": 3,
+  "timing": "read/hash/decode/resize clip plus model preprocessing to full returned answer",
+  "excluded": "model initialization, prior clip extraction, live capture, Runtime",
+  "order": "warm each profile, then rotate profile order over three repeats"
+}

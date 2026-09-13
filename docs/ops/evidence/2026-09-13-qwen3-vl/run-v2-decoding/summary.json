@@ -1,0 +1,55 @@
+{
+  "formal_rows": 7,
+  "groups": {
+    "1280": {
+      "requests": 7,
+      "stopped": 7,
+      "truncated": 0,
+      "stopped_within_8s": 7,
+      "stopped_within_10s": 7,
+      "stopped_min_s": 3.738868831016589,
+      "stopped_max_s": 7.880790773953777,
+      "stopped_median_s": 6.586262425000314
+    }
+  },
+  "cosmos_input_checks": [
+    {
+      "case_id": "c10",
+      "width": 1280,
+      "fields": [
+        "input_sha256",
+        "input_shape",
+        "metadata",
+        "visual_tokens",
+        "actual_timestamps"
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "c11",
+      "width": 1280,
+      "fields": [
+        "input_sha256",
+        "input_shape",
+        "metadata",
+        "visual_tokens",
+        "actual_timestamps"
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "c12",
+      "width": 1280,
+      "fields": [
+        "input_sha256",
+        "input_shape",
+        "metadata",
+        "visual_tokens",
+        "actual_timestamps"
+      ],
+      "passed": true
+    }
+  ],
+  "raw_sha256": "0c31122b81e83dd0fe0438e8dbe65b7c28b07c672c2794f399be519dad917d01",
+  "semantic_review": "Separate manual review required; stop and latency do not imply correctness"
+}

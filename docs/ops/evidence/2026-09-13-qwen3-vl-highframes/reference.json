@@ -1,0 +1,13 @@
+{
+  "case_id": "c14",
+  "source_interval_s": [28.5, 35.5],
+  "duration_s": 7,
+  "reference_frozen_before_inference": true,
+  "reference": "One visibly empty hand changes from open palm with five extended digits, to fist, to thumbs-up, to V; final sampled state is V. No held object or greeting wave is established.",
+  "visual_review": {
+    "uniform12": "All four gesture states present, including intermediate finger transitions; final sample at 6.75 s is V.",
+    "fps1": "All four gesture states present; samples at 0,1,2,3,4,5,6 s; final sample is V.",
+    "fps0.5": "Four samples at 0,2,4,6 s visibly capture palm, fist, thumbs-up, V respectively. This favorable phase does not establish coverage of faster or differently timed gestures."
+  },
+  "scope": "Reference labels are never loaded by the model runner. One reused selected clip, no object transitions, no fresh holdout, no audio or live scheduling."
+}

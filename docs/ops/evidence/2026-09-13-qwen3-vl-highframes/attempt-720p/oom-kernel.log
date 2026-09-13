@@ -1,0 +1,210 @@
+Sep 13 15:09:40 yahboom kernel: python3 invoked oom-killer: gfp_mask=0x2dc2(GFP_KERNEL|__GFP_HIGHMEM|__GFP_NOWARN|__GFP_ZERO), order=0, oom_score_adj=0
+Sep 13 15:09:40 yahboom kernel: CPU: 3 PID: 158316 Comm: python3 Tainted: G        W  OE     5.15.148-tegra #1
+Sep 13 15:09:40 yahboom kernel: Hardware name: NVIDIA NVIDIA Jetson Orin Nano Engineering Reference Developer Kit Super/Jetson, BIOS 36.4.3-gcid-38968081 01/08/2025
+Sep 13 15:09:40 yahboom kernel: Call trace:
+Sep 13 15:09:40 yahboom kernel:  dump_backtrace+0x0/0x1d0
+Sep 13 15:09:40 yahboom kernel:  show_stack+0x34/0x50
+Sep 13 15:09:40 yahboom kernel:  dump_stack_lvl+0x68/0x8c
+Sep 13 15:09:40 yahboom kernel:  dump_stack+0x18/0x3c
+Sep 13 15:09:40 yahboom kernel:  dump_header+0x50/0x208
+Sep 13 15:09:40 yahboom kernel:  oom_kill_process+0x248/0x260
+Sep 13 15:09:40 yahboom kernel:  out_of_memory+0x1f4/0x560
+Sep 13 15:09:40 yahboom kernel:  __alloc_pages+0xd3c/0xe10
+Sep 13 15:09:40 yahboom kernel:  __nvmap_free_sg_table+0x6d8/0x6e0 [nvmap]
+Sep 13 15:09:40 yahboom kernel:  nvmap_alloc_handle+0x900/0xf90 [nvmap]
+Sep 13 15:09:40 yahboom kernel:  nvmap_ioctl_alloc+0x154/0x2a0 [nvmap]
+Sep 13 15:09:40 yahboom kernel:  __traceiter_refcount_free_handle+0x2df0/0x69c0 [nvmap]
+Sep 13 15:09:40 yahboom kernel:  __arm64_sys_ioctl+0xbc/0x100
+Sep 13 15:09:40 yahboom kernel:  invoke_syscall+0x5c/0x150
+Sep 13 15:09:40 yahboom kernel:  el0_svc_common.constprop.0+0x100/0x120
+Sep 13 15:09:40 yahboom kernel:  do_el0_svc+0x74/0xb0
+Sep 13 15:09:40 yahboom kernel:  el0_svc+0x28/0x90
+Sep 13 15:09:40 yahboom kernel:  el0t_64_sync_handler+0xac/0x130
+Sep 13 15:09:40 yahboom kernel:  el0t_64_sync+0x1a4/0x1a8
+Sep 13 15:09:40 yahboom kernel: Mem-Info:
+Sep 13 15:09:40 yahboom kernel: active_anon:62 inactive_anon:4 isolated_anon:0
+                                 active_file:0 inactive_file:17 isolated_file:0
+                                 unevictable:8854 dirty:3 writeback:26
+                                 slab_reclaimable:22621 slab_unreclaimable:234855
+                                 mapped:75 shmem:10 pagetables:6281 bounce:0
+                                 kernel_misc_reclaimable:0
+                                 free:72147 free_pcp:0 free_cma:55435
+Sep 13 15:09:40 yahboom kernel: Node 0 active_anon:248kB inactive_anon:16kB active_file:0kB inactive_file:68kB unevictable:35416kB isolated(anon):0kB isolated(file):0kB mapped:300kB dirty:12kB writeback:104kB shmem:40kB shmem_thp: 0kB shmem_pmdmapped: 0kB anon_thp: 0kB writeback_tmp:0kB kernel_stack:6368kB pagetables:25124kB all_unreclaimable? no
+Sep 13 15:09:40 yahboom kernel: Node 0 DMA free:33536kB min:11384kB low:14228kB high:17072kB reserved_highatomic:0KB active_anon:348kB inactive_anon:48kB active_file:12kB inactive_file:104kB unevictable:16kB writepending:0kB present:2031616kB managed:1965952kB mlocked:16kB bounce:0kB free_pcp:0kB local_pcp:0kB free_cma:0kB
+Sep 13 15:09:40 yahboom kernel: lowmem_reserve[]: 0 0 5677 5677
+Sep 13 15:09:40 yahboom kernel: Node 0 Normal free:255052kB min:33668kB low:42084kB high:50500kB reserved_highatomic:0KB active_anon:212kB inactive_anon:476kB active_file:20kB inactive_file:296kB unevictable:35400kB writepending:0kB present:6101632kB managed:5836748kB mlocked:0kB bounce:0kB free_pcp:0kB local_pcp:0kB free_cma:221740kB
+Sep 13 15:09:40 yahboom kernel: lowmem_reserve[]: 0 0 0 0
+Sep 13 15:09:40 yahboom kernel: Node 0 DMA: 285*4kB (ME) 76*8kB (ME) 54*16kB (ME) 592*32kB (UM) 1*64kB (U) 0*128kB 0*256kB 0*512kB 0*1024kB 6*2048kB (M) 0*4096kB 0*8192kB 0*16384kB = 33908kB
+Sep 13 15:09:40 yahboom kernel: Node 0 Normal: 1877*4kB (UMEC) 1384*8kB (UMEC) 657*16kB (UMEC) 171*32kB (UMC) 23*64kB (C) 23*128kB (C) 20*256kB (C) 20*512kB (C) 8*1024kB (C) 12*2048kB (C) 3*4096kB (C) 3*8192kB (C) 8*16384kB (C) = 255044kB
+Sep 13 15:09:40 yahboom kernel: Node 0 hugepages_total=0 hugepages_free=0 hugepages_surp=0 hugepages_size=1048576kB
+Sep 13 15:09:40 yahboom kernel: Node 0 hugepages_total=0 hugepages_free=0 hugepages_surp=0 hugepages_size=32768kB
+Sep 13 15:09:40 yahboom kernel: Node 0 hugepages_total=0 hugepages_free=0 hugepages_surp=0 hugepages_size=2048kB
+Sep 13 15:09:40 yahboom kernel: Node 0 hugepages_total=0 hugepages_free=0 hugepages_surp=0 hugepages_size=64kB
+Sep 13 15:09:40 yahboom kernel: 8928 total pagecache pages
+Sep 13 15:09:40 yahboom kernel: 55 pages in swap cache
+Sep 13 15:09:40 yahboom kernel: Swap cache stats: add 23076019, delete 23108906, find 907604/9942909
+Sep 13 15:09:40 yahboom kernel: Free swap  = 5542516kB
+Sep 13 15:09:40 yahboom kernel: Total swap = 8388604kB
+Sep 13 15:09:40 yahboom kernel: 2033312 pages RAM
+Sep 13 15:09:40 yahboom kernel: 0 pages HighMem/MovableOnly
+Sep 13 15:09:40 yahboom kernel: 82637 pages reserved
+Sep 13 15:09:40 yahboom kernel: 65536 pages cma reserved
+Sep 13 15:09:40 yahboom kernel: 0 pages hwpoisoned
+Sep 13 15:09:40 yahboom kernel: Unreclaimable slab info:
+Sep 13 15:09:40 yahboom kernel: Name                      Used          Total
+Sep 13 15:09:40 yahboom kernel: nf_conntrack             164KB        176KB
+Sep 13 15:09:40 yahboom kernel: zs_handle                448KB        464KB
+Sep 13 15:09:40 yahboom kernel: fuse_request              19KB         19KB
+Sep 13 15:09:40 yahboom kernel: RAWv6                    277KB        277KB
+Sep 13 15:09:40 yahboom kernel: UDPv6                    189KB        189KB
+Sep 13 15:09:40 yahboom kernel: tw_sock_TCPv6             23KB         23KB
+Sep 13 15:09:40 yahboom kernel: request_sock_TCPv6         38KB         38KB
+Sep 13 15:09:40 yahboom kernel: TCPv6                    180KB        180KB
+Sep 13 15:09:40 yahboom kernel: mqueue_inode_cache        111KB        111KB
+Sep 13 15:09:40 yahboom kernel: nfs_commit_data           15KB         15KB
+Sep 13 15:09:40 yahboom kernel: nfs_read_data             31KB         31KB
+Sep 13 15:09:40 yahboom kernel: pid_namespace             15KB         15KB
+Sep 13 15:09:40 yahboom kernel: UNIX                     896KB        924KB
+Sep 13 15:09:40 yahboom kernel: ip_fib_trie               23KB         23KB
+Sep 13 15:09:40 yahboom kernel: ip_fib_alias              23KB         23KB
+Sep 13 15:09:40 yahboom kernel: RAW                      144KB        144KB
+Sep 13 15:09:40 yahboom kernel: UDP                      472KB        472KB
+Sep 13 15:09:40 yahboom kernel: tw_sock_TCP              111KB        119KB
+Sep 13 15:09:40 yahboom kernel: request_sock_TCP          46KB         46KB
+Sep 13 15:09:40 yahboom kernel: TCP                      183KB        183KB
+Sep 13 15:09:40 yahboom kernel: hugetlbfs_inode_cache         31KB         31KB
+Sep 13 15:09:40 yahboom kernel: ep_head                   24KB         24KB
+Sep 13 15:09:40 yahboom kernel: request_queue            182KB        182KB
+Sep 13 15:09:40 yahboom kernel: biovec-max               672KB        704KB
+Sep 13 15:09:40 yahboom kernel: biovec-128                64KB         64KB
+Sep 13 15:09:40 yahboom kernel: biovec-64                180KB        180KB
+Sep 13 15:09:40 yahboom kernel: khugepaged_mm_slot         23KB         23KB
+Sep 13 15:09:40 yahboom kernel: user_namespace            31KB         31KB
+Sep 13 15:09:40 yahboom kernel: dmaengine-unmap-256         30KB         30KB
+Sep 13 15:09:40 yahboom kernel: dmaengine-unmap-16         35KB         35KB
+Sep 13 15:09:40 yahboom kernel: skbuff_fclone_cache        320KB        320KB
+Sep 13 15:09:40 yahboom kernel: skbuff_head_cache        481KB        500KB
+Sep 13 15:09:40 yahboom kernel: file_lock_cache           30KB         30KB
+Sep 13 15:09:40 yahboom kernel: proc_dir_entry           515KB        515KB
+Sep 13 15:09:40 yahboom kernel: pde_opener                23KB         23KB
+Sep 13 15:09:40 yahboom kernel: seq_file                  23KB         23KB
+Sep 13 15:09:40 yahboom kernel: sigqueue                 175KB        175KB
+Sep 13 15:09:40 yahboom kernel: shmem_inode_cache       2691KB       2845KB
+Sep 13 15:09:40 yahboom kernel: kernfs_iattrs_cache        245KB        245KB
+Sep 13 15:09:40 yahboom kernel: kernfs_node_cache       8130KB       8264KB
+Sep 13 15:09:40 yahboom kernel: mnt_cache                862KB        898KB
+Sep 13 15:09:40 yahboom kernel: filp                     984KB       1408KB
+Sep 13 15:09:40 yahboom kernel: names_cache              512KB        608KB
+Sep 13 15:09:40 yahboom kernel: net_namespace            189KB        189KB
+Sep 13 15:09:40 yahboom kernel: avtab_extended_perms         11KB         11KB
+Sep 13 15:09:40 yahboom kernel: avc_xperms_data          320KB        320KB
+Sep 13 15:09:40 yahboom kernel: avc_node                  23KB         23KB
+Sep 13 15:09:40 yahboom kernel: lsm_inode_cache         2479KB       4842KB
+Sep 13 15:09:40 yahboom kernel: lsm_file_cache           230KB        260KB
+Sep 13 15:09:40 yahboom kernel: uts_namespace             37KB         37KB
+Sep 13 15:09:40 yahboom kernel: nsproxy                   23KB         23KB
+Sep 13 15:09:40 yahboom kernel: vm_area_struct          2576KB       2632KB
+Sep 13 15:09:40 yahboom kernel: files_cache              253KB        253KB
+Sep 13 15:09:40 yahboom kernel: signal_cache             382KB        496KB
+Sep 13 15:09:40 yahboom kernel: sighand_cache            779KB        866KB
+Sep 13 15:09:40 yahboom kernel: task_struct             1763KB       2170KB
+Sep 13 15:09:40 yahboom kernel: cred_jar                 287KB        287KB
+Sep 13 15:09:40 yahboom kernel: anon_vma_chain           631KB        928KB
+Sep 13 15:09:40 yahboom kernel: anon_vma                 623KB        875KB
+Sep 13 15:09:40 yahboom kernel: pid                      364KB        364KB
+Sep 13 15:09:40 yahboom kernel: numa_policy               23KB         23KB
+Sep 13 15:09:40 yahboom kernel: perf_event                31KB         31KB
+Sep 13 15:09:40 yahboom kernel: trace_event_file         177KB        177KB
+Sep 13 15:09:40 yahboom kernel: ftrace_event_field        610KB        645KB
+Sep 13 15:09:40 yahboom kernel: pool_workqueue           115KB        144KB
+Sep 13 15:09:40 yahboom kernel: task_group               110KB        110KB
+Sep 13 15:09:40 yahboom kernel: mm_struct                286KB        286KB
+Sep 13 15:09:40 yahboom kernel: vmap_area               1173KB       1896KB
+Sep 13 15:09:40 yahboom kernel: kmalloc-cg-8k             64KB         64KB
+Sep 13 15:09:40 yahboom kernel: kmalloc-cg-4k            348KB        576KB
+Sep 13 15:09:40 yahboom kernel: kmalloc-cg-2k            360KB        512KB
+Sep 13 15:09:40 yahboom kernel: kmalloc-cg-1k            515KB        560KB
+Sep 13 15:09:40 yahboom kernel: kmalloc-cg-512           320KB        320KB
+Sep 13 15:09:40 yahboom kernel: kmalloc-cg-256            92KB         92KB
+Sep 13 15:09:40 yahboom kernel: kmalloc-cg-128           466KB        488KB
+Sep 13 15:09:40 yahboom kernel: kmalloc-8k              1152KB       1152KB
+Sep 13 15:09:40 yahboom kernel: kmalloc-4k              7120KB       7392KB
+Sep 13 15:09:40 yahboom kernel: kmalloc-2k              9262KB       9632KB
+Sep 13 15:09:40 yahboom kernel: kmalloc-1k              2371KB       2608KB
+Sep 13 15:09:40 yahboom kernel: kmalloc-512             3044KB       3656KB
+Sep 13 15:09:40 yahboom kernel: kmalloc-256           842811KB     844800KB
+Sep 13 15:09:40 yahboom kernel: kmalloc-128            16496KB      17888KB
+Sep 13 15:09:40 yahboom kernel: kmem_cache_node           32KB         32KB
+Sep 13 15:09:40 yahboom kernel: kmem_cache                48KB         48KB
+Sep 13 15:09:40 yahboom kernel: Tasks state (memory values in pages):
+Sep 13 15:09:40 yahboom kernel: [  pid  ]   uid  tgid total_vm      rss pgtables_bytes swapents oom_score_adj name
+Sep 13 15:09:40 yahboom kernel: [    246]     0   246    16296        1   155648      432          -250 systemd-journal
+Sep 13 15:09:40 yahboom kernel: [    283]     0   283     3138        0    65536       69             0 nv-tee-supplica
+Sep 13 15:09:40 yahboom kernel: [    291]     0   291      693        0    45056       32             0 tee-supplicant
+Sep 13 15:09:40 yahboom kernel: [    299]     0   299     5970        0    77824      636         -1000 systemd-udevd
+Sep 13 15:09:40 yahboom kernel: [    523]   129   523     1974        0    57344      113             0 rpcbind
+Sep 13 15:09:40 yahboom kernel: [    524]   104   524     6434        0    90112     1179             0 systemd-resolve
+Sep 13 15:09:40 yahboom kernel: [    525]   106   525    22184        0    81920      221             0 systemd-timesyn
+Sep 13 15:09:40 yahboom kernel: [    575]   123   575     2012        0    57344      151             0 avahi-daemon
+Sep 13 15:09:40 yahboom kernel: [    576]     0   576     2462        0    65536      121             0 bluetoothd
+Sep 13 15:09:40 yahboom kernel: [    577]   105   577     2845        0    65536      625          -900 dbus-daemon
+Sep 13 15:09:40 yahboom kernel: [    578]     0   578   138272        0   188416     1084             0 NetworkManager
+Sep 13 15:09:40 yahboom kernel: [    593]     7   593      571        0    40960       31             0 lpd
+Sep 13 15:09:40 yahboom kernel: [    599]     0   599    60763        0   110592      236             0 power-profiles-
+Sep 13 15:09:40 yahboom kernel: [    602]   107   602    55532        0    77824      574             0 rsyslogd
+Sep 13 15:09:40 yahboom kernel: [    606]     0   606      554        0    40960       24             0 seatd
+Sep 13 15:09:40 yahboom kernel: [    615]     0   615    61086        0   110592      652             0 accounts-daemon
+Sep 13 15:09:40 yahboom kernel: [    617]     0   617    59883        0    86016      179             0 switcheroo-cont
+Sep 13 15:09:40 yahboom kernel: [    625]     0   625    12283        0    94208      411             0 systemd-logind
+Sep 13 15:09:40 yahboom kernel: [    632]     0   632     3873        0    73728      531             0 wpa_supplicant
+Sep 13 15:09:40 yahboom kernel: [    640]   123   640     1945        0    53248       89             0 avahi-daemon
+Sep 13 15:09:40 yahboom kernel: [    654]     0   654    61754        0   114688     1036             0 ModemManager
+Sep 13 15:09:40 yahboom kernel: [    868]     0   868     3138        1    57344       79             0 nvmemwarning.sh
+Sep 13 15:09:40 yahboom kernel: [    894]     0   894   226788        0   143360       90             0 nvs-service
+Sep 13 15:09:40 yahboom kernel: [    913]     0   913      584        1    40960       32             0 run-cupsd
+Sep 13 15:09:40 yahboom kernel: [    933]     0   933   520637        0   294912     4997          -999 containerd
+Sep 13 15:09:40 yahboom kernel: [    939]     0   939     3052        0    61440       61             0 cron
+Sep 13 15:09:40 yahboom kernel: [    957]   111   957     3190        0    69632      120             0 kerneloops
+Sep 13 15:09:40 yahboom kernel: [    993]     0   993     2726        0    53248       32             0 agetty
+Sep 13 15:09:40 yahboom kernel: [    999]   111   999     3190        0    69632      138             0 kerneloops
+Sep 13 15:09:40 yahboom kernel: [   1005]     0  1005     2726        0    53248       33             0 agetty
+Sep 13 15:09:40 yahboom kernel: [   1023]     0  1023     3784        1    65536      394         -1000 sshd
+Sep 13 15:09:40 yahboom kernel: [   1067]  1000  1067     4620        0    81920      719             0 systemd
+Sep 13 15:09:40 yahboom kernel: [   1079]  1000  1079    26630        0    98304     1092             0 (sd-pam)
+Sep 13 15:09:40 yahboom kernel: [   1179]     0  1179   594567        0   483328    11952          -500 dockerd
+Sep 13 15:09:40 yahboom kernel: [   1194]     0  1194      763        0    40960       32             0 nvphsd
+Sep 13 15:09:40 yahboom kernel: [   1199]     0  1199      796        0    40960       40             0 nvphsd
+Sep 13 15:09:40 yahboom kernel: [   1255]  1000  1255    10843        0    86016      344             0 pipewire
+Sep 13 15:09:40 yahboom kernel: [   1256]  1000  1256     6695        0    73728      305             0 pipewire-media-
+Sep 13 15:09:40 yahboom kernel: [   1267]   108  1267    38368        0    61440      110             0 rtkit-daemon
+Sep 13 15:09:40 yahboom kernel: [   1971]     0  1971    79739        0   118784      343             0 upowerd
+Sep 13 15:09:40 yahboom kernel: [   2379]   122  2379    62230        1   118784      982             0 colord
+Sep 13 15:09:40 yahboom kernel: [   2762]     0  2762    34192        0   118784      993             0 cupsd
+Sep 13 15:09:40 yahboom kernel: [  37801]     0 37801   555001        0   307200     5701          -900 snapd
+Sep 13 15:09:40 yahboom kernel: [  63759]     0 63759     2053        0    49152      960             0 haveged
+Sep 13 15:09:40 yahboom kernel: [  63760]     0 63760     7582        0    94208     1807             0 python3
+Sep 13 15:09:40 yahboom kernel: [  63775]     0 63775    59242        0    94208     1103             0 polkitd
+Sep 13 15:09:40 yahboom kernel: [  63791]  1000 63791     2213        0    57344      136             0 dbus-daemon
+Sep 13 15:09:40 yahboom kernel: [  63901]     0 63901      584        0    45056       30             0 run-cups-browse
+Sep 13 15:09:40 yahboom kernel: [  63942]     0 63942    65178        0   139264      629             0 cups-browsed
+Sep 13 15:09:40 yahboom kernel: [  64127]     0 64127    47909        0   286720    17465             0 jupyter-lab
+Sep 13 15:09:40 yahboom kernel: [  64136]     0 64136    27083        1   110592     2641             0 jtop
+Sep 13 15:09:40 yahboom kernel: [  64150]     0 64150    45531        0   102400     2653             0 jtop
+Sep 13 15:09:40 yahboom kernel: [  64158]     0 64158    27083        1    94208     2664             0 jtop
+Sep 13 15:09:40 yahboom kernel: [  64830]  1000 64830  3099641        0 13004800   129981             0 openclaw-gatewa
+Sep 13 15:09:40 yahboom kernel: [  78823]     0 78823    98504        0   126976      681             0 udisksd
+Sep 13 15:09:40 yahboom kernel: [  87663]   112 87663     3563        0    65536       65             0 uuidd
+Sep 13 15:09:40 yahboom kernel: [ 158023]     0 158023     2718        0    57344       23             0 sleep
+Sep 13 15:09:40 yahboom kernel: [ 158108]     0 158108   309463        0   110592     1989          -998 containerd-shim
+Sep 13 15:09:40 yahboom kernel: [ 158134]     0 158134     1383        0    49152       25             0 sleep
+Sep 13 15:09:40 yahboom kernel: [ 158260]     0 158260     4679        1    77824      487             0 sshd
+Sep 13 15:09:40 yahboom kernel: [ 158288]  1000 158288     4744        1    77824      553             0 sshd
+Sep 13 15:09:40 yahboom kernel: [ 158289]  1000 158289     3138        1    61440       64             0 bash
+Sep 13 15:09:40 yahboom kernel: [ 158290]  1000 158290   480031        0   241664     3665             0 docker
+Sep 13 15:09:40 yahboom kernel: [ 158316]     0 158316  4138816     5664  7151616   490584             0 python3
+Sep 13 15:09:40 yahboom kernel: [ 158338]     0 158338     4678        1    86016      487             0 sshd
+Sep 13 15:09:40 yahboom kernel: [ 158366]  1000 158366     4743        1    86016      554             0 sshd
+Sep 13 15:09:40 yahboom kernel: [ 158369]  1000 158369     3138        1    57344       63             0 bash
+Sep 13 15:09:40 yahboom kernel: [ 158370]  1000 158370      712        0    45056       35             0 tegrastats
+Sep 13 15:09:40 yahboom kernel: oom-kill:constraint=CONSTRAINT_NONE,nodemask=(null),cpuset=docker-a2d9f7acb2bbb5c51b1f1cebd4622b0a68a7933c8c3b64271eee57ed47c292c2.scope,mems_allowed=0,global_oom,task_memcg=/system.slice/docker-a2d9f7acb2bbb5c51b1f1cebd4622b0a68a7933c8c3b64271eee57ed47c292c2.scope,task=python3,pid=158316,uid=0
+Sep 13 15:09:40 yahboom kernel: Out of memory: Killed process 158316 (python3) total-vm:16555264kB, anon-rss:0kB, file-rss:22656kB, shmem-rss:0kB, UID:0 pgtables:6984kB oom_score_adj:0

@@ -1,0 +1,6 @@
+               total        used        free      shared  buff/cache   available
+Mem:            7619        2250        4908           2         460        5146
+Swap:           8191         772        7419
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p1  172G  155G  8.9G  95% /
+c5253a30e70913083db263c805c0941cc8410d09e1bf12bf595d89aaa3ab56d8  /home/jetson/openhalo-qwen3-vl-video/scripts/frame_ablation.py

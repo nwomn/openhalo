@@ -1,0 +1,149 @@
+{
+  "formal_rows": 26,
+  "groups": {
+    "832": {
+      "requests": 13,
+      "stopped": 13,
+      "truncated": 0,
+      "stopped_within_8s": 13,
+      "stopped_within_10s": 13,
+      "stopped_min_s": 1.5997263639583252,
+      "stopped_max_s": 3.787881510972511,
+      "stopped_median_s": 3.269605808018241
+    },
+    "1280": {
+      "requests": 13,
+      "stopped": 13,
+      "truncated": 0,
+      "stopped_within_8s": 12,
+      "stopped_within_10s": 13,
+      "stopped_min_s": 3.4212331760209054,
+      "stopped_max_s": 8.003285603015684,
+      "stopped_median_s": 6.7392224069917575
+    }
+  },
+  "cosmos_input_checks": [
+    {
+      "case_id": "c02",
+      "width": 832,
+      "fields": [
+        "input_sha256",
+        "input_shape",
+        "metadata",
+        "visual_tokens",
+        "actual_timestamps"
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "c02",
+      "width": 1280,
+      "fields": [
+        "input_sha256",
+        "input_shape",
+        "metadata",
+        "visual_tokens",
+        "actual_timestamps"
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "c08",
+      "width": 832,
+      "fields": [
+        "input_sha256",
+        "input_shape",
+        "metadata",
+        "visual_tokens",
+        "actual_timestamps"
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "c08",
+      "width": 1280,
+      "fields": [
+        "input_sha256",
+        "input_shape",
+        "metadata",
+        "visual_tokens",
+        "actual_timestamps"
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "c10",
+      "width": 832,
+      "fields": [
+        "input_sha256",
+        "input_shape",
+        "metadata",
+        "visual_tokens",
+        "actual_timestamps"
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "c10",
+      "width": 1280,
+      "fields": [
+        "input_sha256",
+        "input_shape",
+        "metadata",
+        "visual_tokens",
+        "actual_timestamps"
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "c11",
+      "width": 832,
+      "fields": [
+        "input_sha256",
+        "input_shape",
+        "metadata",
+        "visual_tokens",
+        "actual_timestamps"
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "c11",
+      "width": 1280,
+      "fields": [
+        "input_sha256",
+        "input_shape",
+        "metadata",
+        "visual_tokens",
+        "actual_timestamps"
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "c12",
+      "width": 832,
+      "fields": [
+        "input_sha256",
+        "input_shape",
+        "metadata",
+        "visual_tokens",
+        "actual_timestamps"
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "c12",
+      "width": 1280,
+      "fields": [
+        "input_sha256",
+        "input_shape",
+        "metadata",
+        "visual_tokens",
+        "actual_timestamps"
+      ],
+      "passed": true
+    }
+  ],
+  "raw_sha256": "4015dbc486a66d407c6206eec150b49d33bfe259e574bcba6c1e209ef68f43af",
+  "semantic_review": "Separate manual review required; stop and latency do not imply correctness"
+}

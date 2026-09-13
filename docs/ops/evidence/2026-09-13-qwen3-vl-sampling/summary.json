@@ -1,0 +1,111 @@
+{
+  "formal_requests": 9,
+  "source_sha256": "e675189332990a6256e42c8350745ce487d88e9bd82ac5da89bc56b1d6793d6e",
+  "all_same_source": true,
+  "profiles": {
+    "uniform12": {
+      "selected_frames": 12,
+      "visual_tokens": 5280,
+      "processor_frame_pairs": 6,
+      "sampled_times_s": [
+        0.0,
+        0.5,
+        1.25,
+        1.75,
+        2.5,
+        3.0,
+        3.75,
+        4.25,
+        5.0,
+        5.5,
+        6.25,
+        6.75
+      ],
+      "seconds": [
+        7.4715287199942395,
+        7.434056853002403,
+        7.568836900987662
+      ],
+      "median_s": 7.4715287199942395,
+      "min_s": 7.434056853002403,
+      "max_s": 7.568836900987662,
+      "natural_stops": 3,
+      "output_tokens": [
+        60,
+        60,
+        60
+      ],
+      "distinct_answers": 1,
+      "answers": [
+        "The man starts by showing five fingers, then closes his hand into a fist, then opens it again to show two fingers, and finally makes a peace sign with both hands. There are no objects visibly held in the hands throughout the video. The hands are empty at the end of the sequence."
+      ],
+      "median_read_decode_resize_s": 0.1680011170101352,
+      "median_latency_reduction_vs_12_pct": 0.0
+    },
+    "fps1": {
+      "selected_frames": 7,
+      "visual_tokens": 3520,
+      "processor_frame_pairs": 4,
+      "sampled_times_s": [
+        0.0,
+        1.0,
+        2.0,
+        3.0,
+        4.0,
+        5.0,
+        6.0
+      ],
+      "seconds": [
+        4.693947236984968,
+        4.718863743008114,
+        4.88689515797887
+      ],
+      "median_s": 4.718863743008114,
+      "min_s": 4.693947236984968,
+      "max_s": 4.88689515797887,
+      "natural_stops": 3,
+      "output_tokens": [
+        37,
+        37,
+        37
+      ],
+      "distinct_answers": 1,
+      "answers": [
+        "The man initially shows five fingers, then claps his hands to make a fist, and finally makes a peace sign. The hands are not visibly holding any object throughout the video."
+      ],
+      "median_read_decode_resize_s": 0.16975350299617276,
+      "median_latency_reduction_vs_12_pct": 36.84205843470608
+    },
+    "fps0.5": {
+      "selected_frames": 4,
+      "visual_tokens": 1760,
+      "processor_frame_pairs": 2,
+      "sampled_times_s": [
+        0.0,
+        2.0,
+        4.0,
+        6.0
+      ],
+      "seconds": [
+        3.0764835010049865,
+        3.048825622012373,
+        3.0834364369511604
+      ],
+      "median_s": 3.0764835010049865,
+      "min_s": 3.048825622012373,
+      "max_s": 3.0834364369511604,
+      "natural_stops": 3,
+      "output_tokens": [
+        50,
+        50,
+        50
+      ],
+      "distinct_answers": 1,
+      "answers": [
+        "The man starts by showing his right hand with all five fingers extended, then he changes to a thumbs-up gesture. He does not hold any object in his hands during the video sequence. The hands are visibly empty at the end of the sequence."
+      ],
+      "median_read_decode_resize_s": 0.15428854199126363,
+      "median_latency_reduction_vs_12_pct": 58.82390851590866
+    }
+  }
+}

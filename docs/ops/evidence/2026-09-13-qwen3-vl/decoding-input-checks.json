@@ -1,0 +1,86 @@
+[
+  {
+    "case_id": "c03",
+    "input_width": 1280,
+    "fields": [
+      "input_sha256",
+      "metadata",
+      "input_shape",
+      "actual_timestamps",
+      "visual_tokens"
+    ],
+    "passed": true
+  },
+  {
+    "case_id": "c06",
+    "input_width": 1280,
+    "fields": [
+      "input_sha256",
+      "metadata",
+      "input_shape",
+      "actual_timestamps",
+      "visual_tokens"
+    ],
+    "passed": true
+  },
+  {
+    "case_id": "c09",
+    "input_width": 1280,
+    "fields": [
+      "input_sha256",
+      "metadata",
+      "input_shape",
+      "actual_timestamps",
+      "visual_tokens"
+    ],
+    "passed": true
+  },
+  {
+    "case_id": "c10",
+    "input_width": 1280,
+    "fields": [
+      "input_sha256",
+      "metadata",
+      "input_shape",
+      "actual_timestamps",
+      "visual_tokens"
+    ],
+    "passed": true
+  },
+  {
+    "case_id": "c11",
+    "input_width": 1280,
+    "fields": [
+      "input_sha256",
+      "metadata",
+      "input_shape",
+      "actual_timestamps",
+      "visual_tokens"
+    ],
+    "passed": true
+  },
+  {
+    "case_id": "c12",
+    "input_width": 1280,
+    "fields": [
+      "input_sha256",
+      "metadata",
+      "input_shape",
+      "actual_timestamps",
+      "visual_tokens"
+    ],
+    "passed": true
+  },
+  {
+    "case_id": "c13",
+    "input_width": 1280,
+    "fields": [
+      "input_sha256",
+      "metadata",
+      "input_shape",
+      "actual_timestamps",
+      "visual_tokens"
+    ],
+    "passed": true
+  }
+]

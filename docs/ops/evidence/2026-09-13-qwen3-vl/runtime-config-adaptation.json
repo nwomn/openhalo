@@ -1,0 +1,15 @@
+{
+  "source_config_sha256": "78fe7417db3adb56af9bc05ba887516c612bae3dac4642044f37690ce7692061",
+  "runtime_config_sha256": "a0cbbfb33e8586b171b048f09eace4b22a2ca2a42699817caaeaa469d7d0523e",
+  "change": "RoPE schema only: rope_parameters -> rope_theta + rope_scaling; values preserved",
+  "rope_theta": 5000000,
+  "rope_scaling": {
+    "mrope_interleaved": true,
+    "mrope_section": [
+      24,
+      20,
+      20
+    ],
+    "rope_type": "default"
+  }
+}

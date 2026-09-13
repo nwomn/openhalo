@@ -1,0 +1,7 @@
+               total        used        free      shared  buff/cache   available
+Mem:            7619        2300        4812           2         506        5095
+Swap:           8191         703        7488
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p1  172G  155G  9.2G  95% /
+c5b1e31ee2cad15472fc20996adc3f2ff898ff018eb1b2b5c0af063195d97728  /home/jetson/openhalo-specialist-expanded/fresh-2157/capture.mp4
+c0debd64a54fe70bd239957d896cef648065682814faee5b8ae43f92c8482e64  /home/jetson/openhalo-qwen3-vl-video/scripts/frame_ablation.py
