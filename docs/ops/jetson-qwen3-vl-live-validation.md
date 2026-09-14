@@ -37,6 +37,43 @@ metadata, config, completion markers, the checked summary and SHA256 manifest.
 Private images remain outside Git. The existing Demo and model environment are
 retained; this save does not restart recording or change backend state.
 
+## Future direction: event-triggered faster feedback
+
+Owner confirmed this future direction at 2026-09-14 14:48 and asked to stop at
+discussion, save and push all work. The retained seamless combination remains the
+working baseline; no event-trigger implementation or new capture starts here.
+
+Continue ordinary processing-paced video understanding when no significant event
+occurs. On a significant change, form a chronological 16-frame candidate from the
+buffer around the event, including before/during/after evidence. A trigger at the
+first changed frame may contain too little post-event evidence, so any additional
+observation wait belongs in the measured event-response latency.
+
+Compare two scheduling choices in a future authorized experiment:
+
+- Prioritize the event window after the current request: may improve evidence
+  selection and recognition, but does not by itself remove the 0–T wait for the
+  current request or its resulting T–2T scheduling latency.
+- Interrupt an ordinary request for an important event: could approach one new
+  inference duration plus detection, evidence-gathering and interruption overhead.
+  This is a hypothesis, not a measured 4–5 second guarantee. The current synchronous
+  worker has no lightweight cancellation path; the Demo's container Stop is not
+  a usable low-latency preemption mechanism.
+
+Additional parallel VLM requests cannot be assumed to improve latency on the
+current resource-constrained Jetson. Trigger logic should flag potentially useful
+changes without supplying unverified semantic labels as facts. Pixel motion is
+not automatically a significant event. Merge/debounce repeated changes so that
+ongoing motion cannot continually cancel requests before any answer completes.
+
+Future evaluation must separately report event detection delay/false triggers,
+event-window evidence quality, missed events and incorrect answers, interruption
+cost and abandoned ordinary windows, resource usage and event-onset-to-first-correct
+answer P50/P95 relative to the retained continuous baseline. Success means an
+observed latency improvement with explicit semantic/coverage tradeoffs and bounded
+resources, not merely a faster trigger notification or shorter model request.
+Detailed detector and interruption choices remain open, as does backend validation.
+
 ## Original two-minute probe
 
 2026-09-14. Owner authorized the first real CSI-camera test after retaining
