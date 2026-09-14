@@ -1,5 +1,48 @@
 # Qwen3-VL-2B video model probe
 
+## Live camera demo
+
+Open `http://192.168.0.30:8766` on the same trusted LAN. The page starts idle.
+Click **开始摄像头分析** to load/warm Qwen (typically about one minute), then
+open the CSI camera. It shows live preview, original model answers, completion
+times, actual sampled 16-frame evidence and selectable answer history. The model
+uses the unchanged English prompt; the page does not translate or rewrite answers.
+An answer remains attached to its own input window, not to the current preview.
+
+Each user-started session is capped at ten minutes; **停止** ends camera capture,
+drains the tail when possible and releases the dedicated model container. The
+page and completed results remain available. A new session starts a new private
+run directory. Closing the browser alone does not stop capture; use Stop or wait
+for the session cap. All images stay in local private storage, roughly 270 MiB
+per ten-minute session with this scene; repeated sessions accumulate disk usage.
+There is no automatic boot start, no audio and no Personal Runtime connection.
+
+Host setup uses the existing container, CSI hardware and GStreamer OpenCV:
+
+```sh
+# Copy demo.py/demo.html/live_capture.py/live_benchmark.py/frame_ablation.py
+# into /home/jetson/openhalo-qwen3-vl-video/scripts/ first.
+sudo systemctl start nvargus-daemon
+/usr/bin/python3 /home/jetson/openhalo-qwen3-vl-video/scripts/demo.py
+```
+
+`demo.py` listens on port 8766 and defaults to LAN access, matching the prior
+VLM demo. It has no login and must not be exposed publicly. The page rejects
+cross-origin control POSTs and cannot start a second session while one is active.
+Use `--host 127.0.0.1` with an SSH tunnel for local-only access. An already running
+probe container is rejected rather than sharing model resources with another run.
+After finishing all demo use, the operator can stop the server and restore
+`nvargus-daemon` to inactive. Camera access itself is released at session stop.
+
+The first [live validation](../../docs/ops/jetson-qwen3-vl-live-validation.md)
+completed 25 replies at median 4.868 s, with no delivered-frame handoff gaps or
+buffer overflow; gesture/object transitions remain unverified. The demo adds
+interactive preview overhead and does not inherit those performance claims without
+measurement. Test with `python -m unittest discover -s experiments/qwen3_vl_video
+-p 'test_*.py'` from the repository root.
+
+## Offline model probe
+
 Owner selected Qwen3-VL-2B-Instruct on 2026-09-13. The initial deployment uses
 the community `cyankiwi/Qwen3-VL-2B-Instruct-AWQ-4bit` checkpoint, revision
 `db40a251bdba88fafabf8f3176e7488ed523ab51`, based on the Qwen original.

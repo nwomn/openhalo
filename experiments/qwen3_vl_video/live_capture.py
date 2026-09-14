@@ -8,6 +8,7 @@ from collections import deque
 import json
 from pathlib import Path
 import socketserver
+import signal
 import threading
 import time
 
@@ -55,6 +56,9 @@ def main():
     images = args.output / 'frames'
     images.mkdir(exist_ok=False)
     state = Buffer()
+    stopping = threading.Event()
+    signal.signal(signal.SIGTERM, lambda *_: stopping.set())
+    signal.signal(signal.SIGINT, lambda *_: stopping.set())
     pipeline = ('nvarguscamerasrc sensor-id=0 ! '
                 'video/x-raw(memory:NVMM),width=1280,height=720,framerate=30/1,format=NV12 ! '
                 'nvvidconv ! video/x-raw,width=832,height=468,format=BGRx ! '
@@ -75,7 +79,7 @@ def main():
             started = time.monotonic()
             with (args.output / 'capture.jsonl').open('w') as log:
                 seq = 0
-                while time.monotonic() - started < args.seconds:
+                while not stopping.is_set() and time.monotonic() - started < args.seconds:
                     ok, frame = cap.read()
                     arrived = time.monotonic()
                     if not ok:
