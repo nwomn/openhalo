@@ -1,0 +1,17 @@
+[
+  {
+    "file": "torch-2.10.0-cp310-cp310-linux_aarch64.whl",
+    "bytes": 233143716,
+    "sha256": "37d7e156cfb4a646c4d7347597727db1529d184108f703324dfff1842cec094e"
+  },
+  {
+    "file": "torchvision-0.25.0-cp310-cp310-linux_aarch64.whl",
+    "bytes": 1640289,
+    "sha256": "1b6357c5532db61e9bfe7ad69f73ba73e8214010de021da703d360d2cc16c3d7"
+  },
+  {
+    "file": "flash_head-0.1.10-py3-none-any.whl",
+    "bytes": 36950,
+    "sha256": "1963dbd9dff90b2a6faf99f35214f21cc29c0fe3aec5cda49929d4e911d0be6f"
+  }
+]

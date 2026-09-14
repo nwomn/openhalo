@@ -1,0 +1,11 @@
+{
+  "header_bytes": 76648,
+  "tensors": 632,
+  "dtypes": {
+    "F32": 36,
+    "BF16": 596
+  },
+  "visual_tensors": 297,
+  "checkpoint_bytes": 4548221488,
+  "total_assets_bytes": 4638752149
+}

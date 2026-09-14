@@ -1,0 +1,112 @@
+/opt/venv/lib/python3.10/site-packages/transformers/utils/hub.py:110: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+/work/qwen35_flashhead/benchmark.py:104: DeprecationWarning: The 'swap_space' parameter is deprecated and ignored. It will be removed in a future version.
+  llm = LLM(**llm_args)
+INFO 09-14 07:47:30 [utils.py:233] non-default args: {'dtype': 'bfloat16', 'max_model_len': 6144, 'enable_prefix_caching': False, 'gpu_memory_utilization': 0.45, 'kv_cache_memory_bytes': 805306368, 'max_num_batched_tokens': 2048, 'max_num_seqs': 1, 'disable_log_stats': True, 'enforce_eager': True, 'limit_mm_per_prompt': {'video': {'count': 1, 'num_frames': 16, 'width': 832, 'height': 468}, 'image': 0, 'audio': 0}, 'media_io_kwargs': {'video': {'num_frames': 16, 'fps': 4}}, 'mm_processor_kwargs': {'truncation': False, 'do_sample_frames': False}, 'mm_processor_cache_gb': 0, 'async_scheduling': False, 'model': '/work/assets/runtime-model'}
+WARNING 09-14 07:47:30 [arg_utils.py:1390] The global random seed is set to 0. Since VLLM_ENABLE_V1_MULTIPROCESSING is set to False, this may affect the random state of the Python process that launched vLLM.
+INFO 09-14 07:47:30 [model.py:549] Resolved architecture: FlashHeadQwen3_5ForConditionalGeneration
+INFO 09-14 07:47:30 [model.py:1678] Using max model len 6144
+INFO 09-14 07:47:30 [scheduler.py:238] Chunked prefill is enabled with max_num_batched_tokens=2048.
+INFO 09-14 07:47:30 [config.py:281] Setting attention block size to 288 tokens to ensure that attention page size is >= mamba page size.
+INFO 09-14 07:47:30 [config.py:312] Padding mamba page size by 5.11% to ensure that mamba page size and attention page size are exactly equal.
+INFO 09-14 07:47:30 [vllm.py:790] Asynchronous scheduling is disabled.
+WARNING 09-14 07:47:30 [vllm.py:848] Enforce eager set, disabling torch.compile and CUDAGraphs. This is equivalent to setting -cc.mode=none -cc.cudagraph_mode=none
+WARNING 09-14 07:47:30 [vllm.py:859] Inductor compilation was disabled by user settings, optimizations settings that are only active during inductor compilation will be ignored.
+INFO 09-14 07:47:30 [vllm.py:1025] Cudagraph is disabled under eager mode
+INFO 09-14 07:47:30 [compilation.py:290] Enabled custom fusions: norm_quant, act_quant
+INFO 09-14 07:47:46 [core.py:105] Initializing a V1 LLM engine (v0.19.0) with config: model='/work/assets/runtime-model', speculative_config=None, tokenizer='/work/assets/runtime-model', skip_tokenizer_init=False, tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.bfloat16, max_seq_len=6144, download_dir=None, load_format=auto, tensor_parallel_size=1, pipeline_parallel_size=1, data_parallel_size=1, decode_context_parallel_size=1, dcp_comm_backend=ag_rs, disable_custom_all_reduce=False, quantization=None, enforce_eager=True, enable_return_routed_experts=False, kv_cache_dtype=auto, device_config=cuda, structured_outputs_config=StructuredOutputsConfig(backend='auto', disable_any_whitespace=False, disable_additional_properties=False, reasoning_parser='', reasoning_parser_plugin='', enable_in_reasoning=False), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None, kv_cache_metrics=False, kv_cache_metrics_sample=0.01, cudagraph_metrics=False, enable_layerwise_nvtx_tracing=False, enable_mfu_metrics=False, enable_mm_processor_stats=False, enable_logging_iteration_details=False), seed=0, served_model_name=/work/assets/runtime-model, enable_prefix_caching=False, enable_chunked_prefill=True, pooler_config=None, compilation_config={'mode': <CompilationMode.NONE: 0>, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'inductor', 'custom_ops': ['all'], 'splitting_ops': [], 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_images_per_batch': 0, 'compile_sizes': [], 'compile_ranges_endpoints': [2048], 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'size_asserts': False, 'alignment_asserts': False, 'scalar_asserts': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.NONE: 0>, 'cudagraph_num_of_warmups': 0, 'cudagraph_capture_sizes': [], 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': False, 'pass_config': {'fuse_norm_quant': True, 'fuse_act_quant': True, 'fuse_attn_quant': False, 'enable_sp': False, 'fuse_gemm_comms': False, 'fuse_allreduce_rms': False}, 'max_cudagraph_capture_size': 0, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': True, 'static_all_moe_layers': []}
+INFO 09-14 07:47:47 [parallel_state.py:1400] world_size=1 rank=0 local_rank=0 distributed_init_method=tcp://192.168.0.30:46405 backend=nccl
+INFO 09-14 07:47:47 [parallel_state.py:1716] rank 0 in world size 1 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank N/A, EPLB rank N/A
+INFO 09-14 07:47:48 [gpu_model_runner.py:4735] Starting to load model /work/assets/runtime-model...
+INFO 09-14 07:47:48 [cuda.py:390] Using backend AttentionBackendEnum.FLASH_ATTN for vit attention
+INFO 09-14 07:47:48 [mm_encoder_attention.py:230] Using AttentionBackendEnum.FLASH_ATTN for MMEncoderAttention.
+INFO 09-14 07:47:49 [gdn_linear_attn.py:147] Using Triton/FLA GDN prefill kernel
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/work/qwen35_flashhead/benchmark.py", line 155, in <module>
+[rank0]:     main()
+[rank0]:   File "/work/qwen35_flashhead/benchmark.py", line 104, in main
+[rank0]:     llm = LLM(**llm_args)
+[rank0]:   File "/work/runtime-packages/vllm/entrypoints/llm.py", line 382, in __init__
+[rank0]:     self.llm_engine = LLMEngine.from_engine_args(
+[rank0]:   File "/work/runtime-packages/flash_head/patches/llm.py", line 39, in _patched_from_engine_args
+[rank0]:     return _original_from_engine_args.__func__(cls, engine_args, *args, **kwargs)
+[rank0]:   File "/work/runtime-packages/vllm/v1/engine/llm_engine.py", line 177, in from_engine_args
+[rank0]:     return cls(
+[rank0]:   File "/work/runtime-packages/vllm/v1/engine/llm_engine.py", line 111, in __init__
+[rank0]:     self.engine_core = EngineCoreClient.make_client(
+[rank0]:   File "/work/runtime-packages/vllm/v1/engine/core_client.py", line 103, in make_client
+[rank0]:     return InprocClient(vllm_config, executor_class, log_stats)
+[rank0]:   File "/work/runtime-packages/vllm/v1/engine/core_client.py", line 285, in __init__
+[rank0]:     self.engine_core = EngineCore(*args, **kwargs)
+[rank0]:   File "/work/runtime-packages/vllm/v1/engine/core.py", line 114, in __init__
+[rank0]:     self.model_executor = executor_class(vllm_config)
+[rank0]:   File "/work/runtime-packages/vllm/v1/executor/abstract.py", line 103, in __init__
+[rank0]:     self._init_executor()
+[rank0]:   File "/work/runtime-packages/vllm/v1/executor/uniproc_executor.py", line 52, in _init_executor
+[rank0]:     self.driver_worker.load_model()
+[rank0]:   File "/work/runtime-packages/vllm/v1/worker/gpu_worker.py", line 323, in load_model
+[rank0]:     self.model_runner.load_model(load_dummy_weights=load_dummy_weights)
+[rank0]:   File "/work/runtime-packages/vllm/v1/worker/gpu_model_runner.py", line 4751, in load_model
+[rank0]:     self.model = model_loader.load_model(
+[rank0]:   File "/work/runtime-packages/vllm/model_executor/model_loader/base_loader.py", line 55, in load_model
+[rank0]:     model = initialize_model(
+[rank0]:   File "/work/runtime-packages/vllm/model_executor/model_loader/utils.py", line 57, in initialize_model
+[rank0]:     model = model_class(vllm_config=vllm_config, prefix=prefix)
+[rank0]:   File "/work/runtime-packages/vllm/model_executor/models/qwen3_5.py", line 606, in __init__
+[rank0]:     self.language_model = Qwen3_5ForCausalLM(
+[rank0]:   File "/work/runtime-packages/vllm/model_executor/models/qwen3_5.py", line 481, in __init__
+[rank0]:     self.model = Qwen3_5Model(
+[rank0]:   File "/work/runtime-packages/vllm/compilation/decorators.py", line 364, in __init__
+[rank0]:     old_init(self, **kwargs)
+[rank0]:   File "/work/runtime-packages/vllm/model_executor/models/qwen3_5.py", line 236, in __init__
+[rank0]:     self.start_layer, self.end_layer, self.layers = make_layers(
+[rank0]:   File "/work/runtime-packages/vllm/model_executor/models/utils.py", line 652, in make_layers
+[rank0]:     + get_offloader().wrap_modules(
+[rank0]:   File "/work/runtime-packages/vllm/model_executor/offloader/base.py", line 90, in wrap_modules
+[rank0]:     return list(modules_generator)
+[rank0]:   File "/work/runtime-packages/vllm/model_executor/models/utils.py", line 653, in <genexpr>
+[rank0]:     layer_fn(prefix=f"{prefix}.{idx}") for idx in range(start_layer, end_layer)
+[rank0]:   File "/work/runtime-packages/vllm/model_executor/models/qwen3_5.py", line 230, in get_layer
+[rank0]:     return Qwen3_5DecoderLayer(
+[rank0]:   File "/work/runtime-packages/vllm/model_executor/models/qwen3_5.py", line 144, in __init__
+[rank0]:     self.self_attn = Qwen3NextAttention(
+[rank0]:   File "/work/runtime-packages/vllm/model_executor/models/qwen3_next.py", line 260, in __init__
+[rank0]:     self.attn = Attention(
+[rank0]:   File "/work/runtime-packages/vllm/model_executor/layers/attention/attention.py", line 296, in __init__
+[rank0]:     self.attn_backend = get_attn_backend(
+[rank0]:   File "/work/runtime-packages/vllm/v1/attention/selector.py", line 92, in get_attn_backend
+[rank0]:     return _cached_get_attn_backend(
+[rank0]:   File "/work/runtime-packages/vllm/v1/attention/selector.py", line 107, in _cached_get_attn_backend
+[rank0]:     attention_cls = current_platform.get_attn_backend_cls(
+[rank0]:   File "/work/runtime-packages/vllm/platforms/cuda.py", line 279, in get_attn_backend_cls
+[rank0]:     valid_backends_priorities, all_invalid_reasons = cls.get_valid_backends(
+[rank0]:   File "/work/runtime-packages/vllm/platforms/cuda.py", line 234, in get_valid_backends
+[rank0]:     backend_class = backend.get_class()
+[rank0]:   File "/work/runtime-packages/vllm/v1/attention/backends/registry.py", line 118, in get_class
+[rank0]:     return resolve_obj_by_qualname(self.get_path())
+[rank0]:   File "/work/runtime-packages/vllm/utils/import_utils.py", line 111, in resolve_obj_by_qualname
+[rank0]:     module = importlib.import_module(module_name)
+[rank0]:   File "/root/.local/share/uv/python/cpython-3.10.19-linux-aarch64-gnu/lib/python3.10/importlib/__init__.py", line 126, in import_module
+[rank0]:     return _bootstrap._gcd_import(name[level:], package, level)
+[rank0]:   File "<frozen importlib._bootstrap>", line 1050, in _gcd_import
+[rank0]:   File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
+[rank0]:   File "<frozen importlib._bootstrap>", line 1006, in _find_and_load_unlocked
+[rank0]:   File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
+[rank0]:   File "<frozen importlib._bootstrap_external>", line 883, in exec_module
+[rank0]:   File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+[rank0]:   File "/work/runtime-packages/vllm/v1/attention/backends/flashinfer.py", line 11, in <module>
+[rank0]:     from flashinfer import (
+[rank0]:   File "/work/runtime-packages/flashinfer/__init__.py", line 24, in <module>
+[rank0]:     from . import jit as jit
+[rank0]:   File "/work/runtime-packages/flashinfer/jit/__init__.py", line 22, in <module>
+[rank0]:     from . import cubin_loader
+[rank0]:   File "/work/runtime-packages/flashinfer/jit/cubin_loader.py", line 30, in <module>
+[rank0]:     from .core import logger
+[rank0]:   File "/work/runtime-packages/flashinfer/jit/core.py", line 14, in <module>
+[rank0]:     from . import env as jit_env
+[rank0]:   File "/work/runtime-packages/flashinfer/jit/env.py", line 127, in <module>
+[rank0]:     FLASHINFER_AOT_DIR: pathlib.Path = _get_aot_dir()
+[rank0]:   File "/work/runtime-packages/flashinfer/jit/env.py", line 114, in _get_aot_dir
+[rank0]:     raise RuntimeError(
+[rank0]: RuntimeError: flashinfer-jit-cache version (0.5.3) does not match flashinfer version (0.6.6). Please install the same version of both packages. Set FLASHINFER_DISABLE_VERSION_CHECK=1 to bypass this check.
+[rank0]:[W914 07:48:35.093250116 ProcessGroupNCCL.cpp:1553] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())

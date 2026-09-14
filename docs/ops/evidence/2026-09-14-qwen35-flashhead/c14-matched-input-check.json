@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "new_repeats": 3,
+  "old_repeats": 3,
+  "keys": [
+    "input_sha256",
+    "input_shape",
+    "sampled_frame_indices",
+    "sampled_times_s",
+    "visual_tokens",
+    "actual_timestamps",
+    "effective_frame_size"
+  ],
+  "old_source": "docs\\ops\\evidence\\2026-09-13-qwen3-vl-highframes\\run-480p\\raw.jsonl",
+  "limits": [
+    "Different architecture, weights, runtime and decoding; input match is not a controlled FlashHead speedup ablation.",
+    "New output 31 tokens; old output 48 tokens."
+  ],
+  "prompt_text_and_requested_sampling_fields_equal": true
+}

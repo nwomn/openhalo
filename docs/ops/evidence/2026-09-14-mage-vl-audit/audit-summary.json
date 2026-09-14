@@ -1,0 +1,66 @@
+{
+  "responses": 14,
+  "submitted": 15,
+  "gate_rows": 56,
+  "gate_probability_range": [
+    1.198274e-05,
+    0.01589111
+  ],
+  "rows_over_default_05": 0,
+  "answers": [
+    "the person on the left moves to the left",
+    "no change",
+    "None",
+    "no change",
+    "no change",
+    "no changes",
+    "no change",
+    "no changes",
+    "no change",
+    "the person is wearing a white shirt",
+    "no change",
+    "no change",
+    "the person is leaning forward",
+    "None"
+  ],
+  "live_delay_s": {
+    "min": 14.090065898984903,
+    "median": 15.035591427993495,
+    "max": 16.238028018007753
+  },
+  "submit_minus_source_end_s": {
+    "min": 8.34558781699161,
+    "median": 10.870604588009883,
+    "max": 12.191032394010108
+  },
+  "submit_to_response_s": {
+    "min": 4.0469956239976455,
+    "median": 4.126343562005786,
+    "max": 5.744478081993293
+  },
+  "generation_s": {
+    "min": 2.078919,
+    "median": 2.1419615,
+    "max": 3.220316
+  },
+  "vision_ms": {
+    "min": 1886.83,
+    "median": 1897.1954999999998,
+    "max": 2334.807
+  },
+  "epfe_ms": {
+    "min": 4.026,
+    "median": 6.2005,
+    "max": 71.05
+  },
+  "classifier_ms": {
+    "min": 22.167,
+    "median": 24.5285,
+    "max": 67.55
+  },
+  "native_total_ms": {
+    "min": 4046.031,
+    "median": 4125.3845,
+    "max": 5740.494
+  }
+}

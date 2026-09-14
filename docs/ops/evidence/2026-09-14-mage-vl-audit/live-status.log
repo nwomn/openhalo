@@ -1,0 +1,6 @@
+work=/home/jetson/mage-vl-live-genctx-20260911-113517
+started=2026-09-11T11:35:17+08:00
+camera_pid=65021
+camera_pipeline_alive
+streammind_exit=124
+finished=2026-09-11T11:36:46+08:00

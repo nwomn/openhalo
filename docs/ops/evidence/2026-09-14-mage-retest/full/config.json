@@ -1,0 +1,26 @@
+{
+  "command": [
+    "/home/jetson/openhalo-mage-retest/resident",
+    "/home/jetson/mage-models/mage-vl-backbone-Q4_K_M.gguf",
+    "/home/jetson/mage-models/mage-vit-mmproj-Q8_0.gguf",
+    "/home/jetson/openhalo-mage-retest/run-01/prompt.txt"
+  ],
+  "prompt": "Describe the visible hand gesture and any object visibly held in the hands. If they change, describe the changes in chronological order and the ending state. State when the hands are visibly empty. If the evidence is unclear, say so. Do not guess hidden objects or intentions. Answer concisely.",
+  "max_tokens": 96,
+  "cases": [
+    "c14",
+    "c11",
+    "c12"
+  ],
+  "repeats": 3,
+  "decoding": "greedy",
+  "n_ctx": 8192,
+  "n_batch": 1024,
+  "n_ubatch": 256,
+  "n_threads": 4,
+  "flash_attention": true,
+  "resident_context": true,
+  "request_memory_cleared": true,
+  "gate": false,
+  "timing": "clip read/hash/decode/resize/pack plus native preprocessing and generation; loading separate"
+}

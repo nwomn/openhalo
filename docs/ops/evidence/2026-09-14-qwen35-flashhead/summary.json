@@ -1,0 +1,113 @@
+{
+  "telemetry_boundary": "Samples within each request interval, padded by one second for tegrastats second-resolution timestamp; whole-device RAM and inherited swap, not exclusive model allocation.",
+  "results": [
+    {
+      "run": "c14-eager",
+      "profile": "uniform16",
+      "repeats": 3,
+      "median_s": 3.643277812981978,
+      "min_s": 3.6217506090179086,
+      "max_s": 3.770071593055036,
+      "output_tokens": [
+        31
+      ],
+      "finish_reasons": [
+        "stop",
+        "stop",
+        "stop"
+      ],
+      "ram_peak_mb": 7212,
+      "swap_min_mb": 1654,
+      "swap_max_mb": 1681,
+      "telemetry_samples": 26,
+      "warmup_s": [
+        27.41199625801528
+      ],
+      "load_s": 278.04533979902044,
+      "texts": [
+        "The hand gesture changes from a fist to a thumbs-up, then to a peace sign. The hands are visibly empty at the end of the video."
+      ]
+    },
+    {
+      "run": "phone-eager",
+      "profile": "uniform12",
+      "repeats": 3,
+      "median_s": 5.37425350403646,
+      "min_s": 5.3004592939978465,
+      "max_s": 5.5732435419922695,
+      "output_tokens": [
+        59
+      ],
+      "finish_reasons": [
+        "stop",
+        "stop",
+        "stop"
+      ],
+      "ram_peak_mb": 7351,
+      "swap_min_mb": 1253,
+      "swap_max_mb": 1402,
+      "telemetry_samples": 38,
+      "warmup_s": [
+        19.765853698016144
+      ],
+      "load_s": 41.76431840797886,
+      "texts": [
+        "The hand gesture is a holding motion, and the object visibly held in the hands is a phone. The hand moves from a holding position to a holding position, and the phone is then held up. The hand is then empty. The hand is visibly empty at the end of the video."
+      ]
+    },
+    {
+      "run": "phone-eager",
+      "profile": "uniform16",
+      "repeats": 3,
+      "median_s": 3.6659045619890094,
+      "min_s": 3.664955586020369,
+      "max_s": 3.669771076994948,
+      "output_tokens": [
+        32
+      ],
+      "finish_reasons": [
+        "stop",
+        "stop",
+        "stop"
+      ],
+      "ram_peak_mb": 7351,
+      "swap_min_mb": 1322,
+      "swap_max_mb": 1402,
+      "telemetry_samples": 32,
+      "warmup_s": [
+        4.246031749993563
+      ],
+      "load_s": 41.76431840797886,
+      "texts": [
+        "The hand gesture is a thumbs-up. The object visibly held in the hands is a phone. The hands are visibly empty at the end of the video."
+      ]
+    },
+    {
+      "run": "tool-eager",
+      "profile": "uniform16",
+      "repeats": 3,
+      "median_s": 8.345384609012399,
+      "min_s": 8.310495416051708,
+      "max_s": 8.564941205026116,
+      "output_tokens": [
+        96
+      ],
+      "finish_reasons": [
+        "length",
+        "length",
+        "length"
+      ],
+      "ram_peak_mb": 7296,
+      "swap_min_mb": 1158,
+      "swap_max_mb": 1268,
+      "telemetry_samples": 55,
+      "warmup_s": [
+        19.772417507017963
+      ],
+      "load_s": 43.062522644002456,
+      "texts": [
+        "The hand gesture is a waving motion, and the object held in the hands is a syringe. The hand gesture changes from a waving motion to a waving motion, and the object held in the hands is a syringe. The hand gesture is a waving motion, and the object held in the hands is a syringe. The hand gesture is a waving motion, and the object held in the hands is a syringe. The hand gesture is a waving motion, and the object"
+      ]
+    }
+  ]
+}

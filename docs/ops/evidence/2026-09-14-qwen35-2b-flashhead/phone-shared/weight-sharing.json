@@ -1,0 +1,10 @@
+{
+  "shared_storage": true,
+  "vocab_shape": [
+    248320,
+    2048
+  ],
+  "avoided_duplicate_gpu_bytes": 1017118720,
+  "centroid_preparation": "CPU FP32, identical to publisher loader",
+  "plugin_version": "0.1.10"
+}

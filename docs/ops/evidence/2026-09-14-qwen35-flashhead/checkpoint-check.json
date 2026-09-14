@@ -1,0 +1,16 @@
+{
+  "original_architecture": [
+    "FlashHeadQwen3_5ForCausalLM"
+  ],
+  "dtype_counts": {
+    "F32": 36,
+    "BF16": 452
+  },
+  "visual_tensor_count": 153,
+  "tensor_count": 488,
+  "original_config_sha256": "d780168ffc9e98c6759cb17d05da9a01130ecae8f14a148cb4e4da170643019f",
+  "runtime_config_sha256": "0dd3f56da880022067c0a2a1e0d0bbf9e04909df8bb1f923554b5e9ad80014fc",
+  "runtime_architecture": [
+    "FlashHeadQwen3_5ForConditionalGeneration"
+  ]
+}

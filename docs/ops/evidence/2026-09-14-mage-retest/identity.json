@@ -1,0 +1,35 @@
+{
+  "files": [
+    {
+      "path": "/home/jetson/mage-models/mage-vl-backbone-Q4_K_M.gguf",
+      "bytes": 2716065152,
+      "sha256": "e8959bb666872d10cd826e0f76542a89e39e81dec18b2563ec3d281abfdd9fb0"
+    },
+    {
+      "path": "/home/jetson/mage-models/mage-vit-mmproj-Q8_0.gguf",
+      "bytes": 352742464,
+      "sha256": "8a9d784e666f8178bc805b5a157ac56e52a66be9eef5a73035c746461df1d231"
+    },
+    {
+      "path": "/home/jetson/openhalo-mage-retest/resident",
+      "bytes": 41184,
+      "sha256": "6c93279f90c755fd586a99516835b6262d86d6b74565acd990d5c1c5a47314ce"
+    },
+    {
+      "path": "/home/jetson/openhalo-mage-retest/resident.cpp",
+      "bytes": 7251,
+      "sha256": "3bc6c86cdbb1f9e4a9acffff21a6f9f59925df3c394dd7b1142aac79c821c46f"
+    },
+    {
+      "path": "/home/jetson/mage-llama/build/bin/libmtmd.so.0.0.1",
+      "bytes": 1560240,
+      "sha256": "7630941d2ff7a8d884cfd47dccc56929e1581df1ada476ed74b6fe61842d4e9d"
+    },
+    {
+      "path": "/home/jetson/mage-llama/build/bin/libllama.so.0.0.1",
+      "bytes": 3862152,
+      "sha256": "e441a5bea0351b0b6fbecac441b2ecf26b7ea8f45f0429bbe45156201536eef6"
+    }
+  ],
+  "model_hashes_match_historical": true
+}

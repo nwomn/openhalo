@@ -1,0 +1,36 @@
+{
+  "c14-shared": {
+    "input_sha256": true,
+    "input_shape": true,
+    "sampled_frame_indices": true,
+    "sampled_times_s": true,
+    "visual_tokens": true,
+    "actual_timestamps": true,
+    "effective_frame_size": true,
+    "prompt": true,
+    "max_tokens": true
+  },
+  "phone-shared": {
+    "input_sha256": true,
+    "input_shape": true,
+    "sampled_frame_indices": true,
+    "sampled_times_s": true,
+    "visual_tokens": true,
+    "actual_timestamps": true,
+    "effective_frame_size": true,
+    "prompt": true,
+    "max_tokens": true
+  },
+  "tool-shared": {
+    "input_sha256": true,
+    "input_shape": true,
+    "sampled_frame_indices": true,
+    "sampled_times_s": true,
+    "visual_tokens": true,
+    "actual_timestamps": true,
+    "effective_frame_size": true,
+    "prompt": true,
+    "max_tokens": true
+  },
+  "qwen3_vl_c14_reference": "Transitive match through ../2026-09-14-qwen35-flashhead/c14-matched-input-check.json; runtime and decoding differ"
+}

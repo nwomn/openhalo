@@ -1,5 +1,18 @@
 # Jetson Mage-VL 4-bit validation
 
+The owner-authorized [2026-09-14 resident retest](jetson-mage-vl-retest-20260914.md)
+now supplies separate full-frame and real codec-bit-cost measurements on the
+retained gesture/phone/tool clips. Read it for the latest bounded Mage results.
+
+2026-09-14 audit clarification: the failed live implementation remains rejected,
+but its 14–16 s displayed delay is not pure model inference. Retained native
+group processing takes 4.05–5.74 s on only four samples with a 16-token cap;
+the zero-threshold/periodic launcher forces generation, and the decoder creates
+a fresh context per group. Early single-image timings include model loading.
+These results do not establish a matched comparison against the current
+resident Qwen3-VL 16-frame task or full official Mage-VL parity.
+See the [source/log audit](jetson-mage-vl-audit-20260914.md).
+
 Current disposition (2026-09-12): the owner classifies the tested
 Mage-VL/StreamMind implementation as a failed Camera Edge technology route
 against minimum usability. The later continuous CSI demo ran with roughly

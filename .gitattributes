@@ -20,3 +20,11 @@ docs/ops/evidence/2026-09-13-qwen3-vl-highframes/** -text whitespace=cr-at-eol
 experiments/qwen3_vl_video/*.py -text whitespace=cr-at-eol
 docs/ops/evidence/2026-09-14-qwen3-vl-live/** -text whitespace=cr-at-eol
 docs/ops/evidence/2026-09-14-qwen3-vl-demo/** -text whitespace=cr-at-eol
+
+docs/ops/evidence/2026-09-14-qwen35-flashhead/** -text whitespace=cr-at-eol
+docs/ops/evidence/2026-09-14-qwen35-2b-flashhead/** -text whitespace=cr-at-eol
+docs/ops/evidence/2026-09-14-mage-vl-audit/** -text whitespace=cr-at-eol
+docs/ops/evidence/2026-09-14-mage-retest/** -text whitespace=cr-at-eol
+experiments/mage_retest/*.py -text whitespace=cr-at-eol
+experiments/mage_retest/*.cpp -text whitespace=cr-at-eol
+experiments/qwen35_flashhead/*.py -text whitespace=cr-at-eol

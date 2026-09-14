@@ -1,0 +1,339 @@
+{
+  "telemetry_scope": "500 ms whole-device samples, 1 second boundary padding; inherited swap, not isolated model allocation",
+  "profiles": {
+    "full": {
+      "c14": {
+        "seconds": [
+          35.82397238898557,
+          35.53845109400572,
+          36.0923746850458
+        ],
+        "median_s": 35.82397238898557,
+        "output_tokens": [
+          38,
+          38,
+          38
+        ],
+        "finish_reasons": [
+          "stop",
+          "stop",
+          "stop"
+        ],
+        "texts": [
+          "the person holds up 5 fingers, then 1 finger, then 2 fingers, then 1 finger, then 2 fingers. the person's hands are empty at the end."
+        ],
+        "visual_tokens": 6240,
+        "represented_frames": [
+          0,
+          2,
+          4,
+          5,
+          7,
+          9,
+          11,
+          13,
+          14,
+          16,
+          18,
+          20,
+          22,
+          23,
+          25,
+          27
+        ],
+        "effective_frame_size": [
+          480,
+          832
+        ],
+        "ram_peak_mb": 6849,
+        "swap_min_mb": 782,
+        "swap_max_mb": 793,
+        "warmup_s": [
+          36.02007892401889
+        ],
+        "median_prepare_s": 2.6869536909507588,
+        "median_native_ms": 33131.7,
+        "median_vision_ms": 17386.1,
+        "median_prefill_ms": 12682.9,
+        "median_decode_ms": 2733.67
+      },
+      "c11": {
+        "seconds": [
+          35.378592734981794,
+          35.368600695976056,
+          35.204897157032974
+        ],
+        "median_s": 35.368600695976056,
+        "output_tokens": [
+          31,
+          31,
+          31
+        ],
+        "finish_reasons": [
+          "stop",
+          "stop",
+          "stop"
+        ],
+        "texts": [
+          "the man holds a phone in his right hand, he raises it up and shows the back of the phone to the camera, then lowers it back down."
+        ],
+        "visual_tokens": 6240,
+        "represented_frames": [
+          0,
+          2,
+          4,
+          5,
+          7,
+          9,
+          11,
+          13,
+          14,
+          16,
+          18,
+          20,
+          22,
+          23,
+          25,
+          27
+        ],
+        "effective_frame_size": [
+          480,
+          832
+        ],
+        "ram_peak_mb": 6891,
+        "swap_min_mb": 793,
+        "swap_max_mb": 794,
+        "warmup_s": [
+          35.0259616849944
+        ],
+        "median_prepare_s": 2.6212331999558955,
+        "median_native_ms": 32746.8,
+        "median_vision_ms": 17439.2,
+        "median_prefill_ms": 12715.4,
+        "median_decode_ms": 2265.5
+      },
+      "c12": {
+        "seconds": [
+          35.11477038997691,
+          34.53964183200151,
+          34.92656459502177
+        ],
+        "median_s": 34.92656459502177,
+        "output_tokens": [
+          24,
+          24,
+          24
+        ],
+        "finish_reasons": [
+          "stop",
+          "stop",
+          "stop"
+        ],
+        "texts": [
+          "the man holds a syringe in his right hand, then he raises his right hand with all five fingers spread out."
+        ],
+        "visual_tokens": 6240,
+        "represented_frames": [
+          0,
+          3,
+          6,
+          9,
+          11,
+          14,
+          17,
+          20,
+          23,
+          26,
+          29,
+          32,
+          34,
+          37,
+          40,
+          43
+        ],
+        "effective_frame_size": [
+          480,
+          832
+        ],
+        "ram_peak_mb": 6890,
+        "swap_min_mb": 781,
+        "swap_max_mb": 793,
+        "warmup_s": [
+          35.20750621595653
+        ],
+        "median_prepare_s": 2.770830981025938,
+        "median_native_ms": 32128.5,
+        "median_vision_ms": 17288.8,
+        "median_prefill_ms": 12716.1,
+        "median_decode_ms": 1794.04
+      }
+    },
+    "codec": {
+      "c14": {
+        "seconds": [
+          10.849149468995165,
+          10.899706373980734,
+          10.83919099799823
+        ],
+        "median_s": 10.849149468995165,
+        "output_tokens": [
+          28,
+          28,
+          28
+        ],
+        "finish_reasons": [
+          "stop",
+          "stop",
+          "stop"
+        ],
+        "texts": [
+          "the person is holding up 3 fingers, then 2 fingers, then 1 finger, then 2 fingers, then 3 fingers"
+        ],
+        "visual_tokens": 1456,
+        "represented_frames": [
+          0,
+          2,
+          4,
+          5,
+          7,
+          9,
+          11,
+          13,
+          14,
+          16,
+          18,
+          20,
+          22,
+          23,
+          25,
+          27
+        ],
+        "effective_frame_size": [
+          448,
+          832
+        ],
+        "ram_peak_mb": 6596,
+        "swap_min_mb": 802,
+        "swap_max_mb": 887,
+        "warmup_s": [
+          11.700764771027025
+        ],
+        "median_prepare_s": 1.2967979059903882,
+        "median_native_ms": 9541.59,
+        "median_vision_ms": 3988.3,
+        "median_prefill_ms": 3599.54,
+        "median_decode_ms": 1793.64
+      },
+      "c11": {
+        "seconds": [
+          11.156579144997522,
+          11.112637826998252,
+          11.135582616028842
+        ],
+        "median_s": 11.135582616028842,
+        "output_tokens": [
+          33,
+          33,
+          33
+        ],
+        "finish_reasons": [
+          "stop",
+          "stop",
+          "stop"
+        ],
+        "texts": [
+          "the person raises their right hand and holds a phone with a clear case and a drawing on the back, then lowers their hand and the phone is no longer visible."
+        ],
+        "visual_tokens": 1456,
+        "represented_frames": [
+          0,
+          2,
+          4,
+          5,
+          7,
+          9,
+          11,
+          13,
+          14,
+          16,
+          18,
+          20,
+          22,
+          23,
+          25,
+          27
+        ],
+        "effective_frame_size": [
+          448,
+          832
+        ],
+        "ram_peak_mb": 6612,
+        "swap_min_mb": 882,
+        "swap_max_mb": 883,
+        "warmup_s": [
+          10.939522067958023
+        ],
+        "median_prepare_s": 1.262918833992444,
+        "median_native_ms": 9875.29,
+        "median_vision_ms": 4037.82,
+        "median_prefill_ms": 3596.81,
+        "median_decode_ms": 2085.31
+      },
+      "c12": {
+        "seconds": [
+          10.640211133984849,
+          10.590076981985476,
+          10.62634065700695
+        ],
+        "median_s": 10.62634065700695,
+        "output_tokens": [
+          20,
+          20,
+          20
+        ],
+        "finish_reasons": [
+          "stop",
+          "stop",
+          "stop"
+        ],
+        "texts": [
+          "the person holds a syringe in their right hand, then raises their right hand with all fingers extended"
+        ],
+        "visual_tokens": 1456,
+        "represented_frames": [
+          0,
+          3,
+          6,
+          9,
+          11,
+          14,
+          17,
+          20,
+          23,
+          26,
+          29,
+          32,
+          34,
+          37,
+          40,
+          43
+        ],
+        "effective_frame_size": [
+          448,
+          832
+        ],
+        "ram_peak_mb": 6604,
+        "swap_min_mb": 804,
+        "swap_max_mb": 881,
+        "warmup_s": [
+          10.589525877032429
+        ],
+        "median_prepare_s": 1.5015226830146275,
+        "median_native_ms": 9124.21,
+        "median_vision_ms": 4053.78,
+        "median_prefill_ms": 3588.66,
+        "median_decode_ms": 1325.1
+      }
+    }
+  }
+}

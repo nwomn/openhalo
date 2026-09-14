@@ -1,0 +1,101 @@
+{
+  "scope": "Whole-device 500 ms telemetry, request intervals padded 1 second for timestamp precision; inherited swap, not isolated model allocation",
+  "runs": {
+    "c14-shared": {
+      "seconds": [
+        13.624456015997566,
+        12.485895569028798,
+        10.294113506039139
+      ],
+      "median_s": 12.485895569028798,
+      "min_s": 10.294113506039139,
+      "max_s": 13.624456015997566,
+      "engine_load_s": 44.745175963966176,
+      "warmup_s": [
+        32.72032568900613
+      ],
+      "output_tokens": [
+        84,
+        84,
+        84
+      ],
+      "finish_reasons": [
+        "stop",
+        "stop",
+        "stop"
+      ],
+      "unique_texts": [
+        "The visible hand gesture and any object visibly held in the hands change as follows:\n\n1. Initially, the person holds up four fingers.\n2. Then, the person changes the gesture to a fist.\n3. Next, the person gives a thumbs-up gesture.\n4. Finally, the person changes the gesture to a peace sign.\n\nThe hands are visibly empty at the beginning of the video."
+      ],
+      "ram_peak_mb": 7473,
+      "swap_min_mb": 2721,
+      "swap_max_mb": 2837,
+      "telemetry_samples": 75,
+      "input_checks_passed": true
+    },
+    "phone-shared": {
+      "seconds": [
+        11.671545697958209,
+        9.045294538023882,
+        9.513955365982838
+      ],
+      "median_s": 9.513955365982838,
+      "min_s": 9.045294538023882,
+      "max_s": 11.671545697958209,
+      "engine_load_s": 44.0843076800229,
+      "warmup_s": [
+        25.563155111973174
+      ],
+      "output_tokens": [
+        69,
+        69,
+        69
+      ],
+      "finish_reasons": [
+        "stop",
+        "stop",
+        "stop"
+      ],
+      "unique_texts": [
+        "The hand gesture involves the person holding a phone with a drawing on its back. Initially, the phone is held up to the camera, displaying the drawing. The hand then moves the phone closer to the camera, making the drawing more visible. After this, the hand moves the phone away from the camera, and the hands become visibly empty."
+      ],
+      "ram_peak_mb": 7498,
+      "swap_min_mb": 2670,
+      "swap_max_mb": 2775,
+      "telemetry_samples": 63,
+      "input_checks_passed": true
+    },
+    "tool-shared": {
+      "seconds": [
+        9.669675634009764,
+        9.11621666001156,
+        8.262185284984298
+      ],
+      "median_s": 9.11621666001156,
+      "min_s": 8.262185284984298,
+      "max_s": 9.669675634009764,
+      "engine_load_s": 42.368981132050976,
+      "warmup_s": [
+        23.868183414975647
+      ],
+      "output_tokens": [
+        45,
+        45,
+        45
+      ],
+      "finish_reasons": [
+        "stop",
+        "stop",
+        "stop"
+      ],
+      "unique_texts": [
+        "The visible hand gesture is a \"stop\" sign, with the hand held up and fingers spread. The object visibly held in the hands is a syringe. The hands are visibly empty at the end of the video."
+      ],
+      "ram_peak_mb": 7481,
+      "swap_min_mb": 2650,
+      "swap_max_mb": 2761,
+      "telemetry_samples": 58,
+      "input_checks_passed": true
+    }
+  }
+}

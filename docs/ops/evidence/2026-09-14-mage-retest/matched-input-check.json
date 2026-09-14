@@ -1,0 +1,57 @@
+{
+  "full-c14": {
+    "input_sha256": true,
+    "sampled_frame_indices": true,
+    "sampled_times_s": true,
+    "native_frames_match": true,
+    "native_timestamps_match": true,
+    "prompt_matches": true,
+    "cap_matches": true
+  },
+  "codec-c14": {
+    "input_sha256": true,
+    "sampled_frame_indices": true,
+    "sampled_times_s": true,
+    "native_frames_match": true,
+    "native_timestamps_match": true,
+    "prompt_matches": true,
+    "cap_matches": true
+  },
+  "full-c11": {
+    "input_sha256": true,
+    "sampled_frame_indices": true,
+    "sampled_times_s": true,
+    "native_frames_match": true,
+    "native_timestamps_match": true,
+    "prompt_matches": true,
+    "cap_matches": true
+  },
+  "codec-c11": {
+    "input_sha256": true,
+    "sampled_frame_indices": true,
+    "sampled_times_s": true,
+    "native_frames_match": true,
+    "native_timestamps_match": true,
+    "prompt_matches": true,
+    "cap_matches": true
+  },
+  "full-c12": {
+    "input_sha256": true,
+    "sampled_frame_indices": true,
+    "sampled_times_s": true,
+    "native_frames_match": true,
+    "native_timestamps_match": true,
+    "prompt_matches": true,
+    "cap_matches": true
+  },
+  "codec-c12": {
+    "input_sha256": true,
+    "sampled_frame_indices": true,
+    "sampled_times_s": true,
+    "native_frames_match": true,
+    "native_timestamps_match": true,
+    "prompt_matches": true,
+    "cap_matches": true
+  },
+  "limits": "Qwen and Mage native vision tokenization differ; codec geometry 832x448 and selected patches differ from the full-frame 832x480 control."
+}

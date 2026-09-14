@@ -1,0 +1,33 @@
+{
+  "label": "johntdi-q4-q8",
+  "exit_code": 0,
+  "wall_seconds": 9.997695922851562,
+  "command": [
+    "/home/jetson/mage-llama/build/bin/llama-mtmd-cli",
+    "-m",
+    "/home/jetson/mage-models/mage-vl-backbone-Q4_K_M.gguf",
+    "--mmproj",
+    "/home/jetson/mage-models/mage-vit-mmproj-Q8_0.gguf",
+    "--image",
+    "/home/jetson/mage-validation/shapes.png",
+    "-p",
+    "Describe the two colored shapes, their left/right positions, and the visible text. Be brief.",
+    "-ngl",
+    "99",
+    "-c",
+    "1024",
+    "-n",
+    "80",
+    "-b",
+    "128",
+    "-ub",
+    "128",
+    "-t",
+    "4",
+    "--temp",
+    "0",
+    "--no-warmup",
+    "--image-max-tokens",
+    "196"
+  ]
+}
