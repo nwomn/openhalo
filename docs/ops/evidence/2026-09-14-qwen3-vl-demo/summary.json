@@ -1,0 +1,16 @@
+{
+  "run": "demo-20260914-120829-229838",
+  "batches": 32,
+  "delivered_frames": 1140,
+  "capture_span_s": 141.64546091097873,
+  "natural_stops": 31,
+  "request_median_s": 4.434261083981255,
+  "request_min_s": 3.4139892060193233,
+  "request_max_s": 5.910812949005049,
+  "ongoing_newest_input_age_median_s": 4.491346926020924,
+  "ongoing_oldest_input_age_median_s": 8.94869909103727,
+  "handoff_gap_max_s": 0.01761626999359578,
+  "overflow": 0,
+  "contiguous_delivered_frame_handoffs": true,
+  "event_to_correct_answer_latency_measured": false
+}

@@ -1,5 +1,44 @@
 # Qwen live-camera processing-paced probe
 
+## Owner retention decision and Demo follow-up
+
+At 2026-09-14 14:14, the owner designated this as the first "stable seamless
+understanding" combination to retain: Orin Nano Super + IMX219 live capture +
+Qwen3-VL-2B community AWQ, approximately 480p, 16 chronological frames per request,
+with capture concurrent with inference and immediate handoff at completion.
+This positive owner assessment establishes the working comparison baseline for
+further live/backend experiments. It does not establish full Camera Edge, backend,
+long-duration audiovisual or general semantic acceptance.
+
+The later user-operated Demo run `demo-20260914-120829-229838` retained 1140
+delivered frames over 141.645 s and returned 32 batches. All delivered sequences
+were handed off exactly once, with contiguous windows and no overflow. Thirty-one
+replies stopped naturally; one reached the 96-token output cap. Request times were
+3.414–5.911 s, median 4.434 s. Maximum inter-request handoff gap was 17.62 ms.
+For ongoing capture, median newest/oldest selected input age at completion was
+4.491/8.949 s. These are new Demo evidence, separate from the original 25-request
+two-minute probe below. Original generated claims have not all been visually
+validated; no new semantic accuracy score is assigned.
+
+The owner observed that changed actions could take about two batches to appear
+in descriptions. The schedule explains why throughput differs from event latency:
+an action waits for the currently running request to finish (approximately 0–T),
+then its own batch needs approximately T to process. With roughly constant T and
+correct recognition in the first eligible batch, the response delay is therefore
+approximately T–2T, averaging 1.5T only if arrival phase is uniform. At T=4.434 s,
+this corresponds to roughly 4.4–8.9 s and a conditional mean of 6.7 s, before
+network/UI overhead (the page polls every 800 ms plus response time). Sparse
+sampling or incorrect recognition can delay a correct answer beyond 2T or miss it
+altogether. This is a scheduling derivation, not an annotated measurement of actual
+action onset to first correct answer. No zero-lag claim follows from seamless handoff.
+
+[Demo evidence](evidence/2026-09-14-qwen3-vl-demo/) preserves raw answers, capture
+metadata, config, completion markers, the checked summary and SHA256 manifest.
+Private images remain outside Git. The existing Demo and model environment are
+retained; this save does not restart recording or change backend state.
+
+## Original two-minute probe
+
 2026-09-14. Owner authorized the first real CSI-camera test after retaining
 the offline comparisons. This probe uses 16 chronological frames per request,
 approximately 480p, and one resident Qwen AWQ engine. Each completed request
