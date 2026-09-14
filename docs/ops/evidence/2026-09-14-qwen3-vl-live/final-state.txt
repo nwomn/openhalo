@@ -1,0 +1,9 @@
+2026-09-14T11:53:07+08:00
+               total        used        free      shared  buff/cache   available
+Mem:            7619        2437        4546           6         636        4953
+Swap:           8191         602        7589
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p1  172G  156G  8.8G  95% /
+inactive
+inactive
+inactive
